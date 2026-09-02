@@ -36,7 +36,7 @@ app.get('/health', (req, res) => {
 });
 
 // Ruta catch-all para soportar SPA de React (debe ir al final)
-app.get('*', (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
