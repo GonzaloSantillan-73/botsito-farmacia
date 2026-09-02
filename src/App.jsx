@@ -188,7 +188,7 @@ function App() {
 
     if (!error) {
       // Dispatch to WhatsApp Node Server
-      fetch('http://localhost:3000/api/messages/send', {
+      fetch('/api/messages/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -265,7 +265,7 @@ function App() {
        }]);
 
        // Dispatch bot message to WhatsApp Node Server
-       fetch('http://localhost:3000/api/messages/send', {
+       fetch('/api/messages/send', {
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({
