@@ -139,7 +139,7 @@ function App() {
       .select('*')
       .eq('conversation_id', convId)
       .limit(1)
-      .single();
+      .maybeSingle();
     if (!error && data) {
       setActivePrescription(data);
       setPrescriptionNotes(data.notes || '');
