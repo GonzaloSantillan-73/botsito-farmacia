@@ -3,9 +3,12 @@ import { supabase } from '../supabase.js';
 import { downloadWhatsAppMedia } from '../services/whatsapp.js';
 import dotenv from 'dotenv';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-dotenv.config({ path: path.resolve('..', '.env') });
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 const router = express.Router();
 const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
@@ -60,11 +63,20 @@ router.post('/', async (req, res) => {
         // A. Buscar o crear la conversación
         let conversationId;
 
-        const { data: existingConv } = await supabase
+        // Extraer los últimos 10 dígitos para una búsqueda flexible (ignora código de país y formato)
+        const last10 = clientPhone.slice(-10);
+        const { data: candidates } = await supabase
           .from('conversations')
-          .select('id, status')
-          .eq('client_phone', clientPhone)
-          .single();
+          .select('id, status, client_phone')
+          .ilike('client_phone', `%${last10}%`);
+
+        let existingConv = null;
+        if (candidates && candidates.length > 0) {
+           existingConv = candidates.find(c => {
+             const clean = c.client_phone.replace(/[\s\+\-]/g, '');
+             return clean.includes(last10) || clientPhone.includes(clean);
+           }) || candidates[0]; // fallback al primero si coincide algo
+        }
 
         if (existingConv) {
           conversationId = existingConv.id;
