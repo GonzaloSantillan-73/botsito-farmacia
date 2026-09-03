@@ -78,7 +78,7 @@ router.post('/messages/send', async (req, res) => {
     res.status(200).json({ success: true, message: 'Enviado a WhatsApp y guardado en DB' });
   } catch (error) {
     console.error('Error en /messages/send:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    res.status(500).json({ error: error.message || 'Error interno del servidor' });
   }
 });
 
