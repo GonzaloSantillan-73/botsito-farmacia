@@ -15,19 +15,28 @@ const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
 
 // 1. Verificación del Webhook (GET) - Requerido por Meta
 router.get('/', (req, res) => {
+  console.log(`\n======================================================`);
+  console.log(`[WEBHOOK - GET /] ==> INICIO VERIFICACIÓN META`);
+  console.log(`[WEBHOOK - GET /] ==> Query params:`, JSON.stringify(req.query));
+  
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
   if (mode && token) {
+    console.log(`[WEBHOOK - GET /] -> Condición: Mode y token presentes. Mode: ${mode}`);
     if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-      console.log('WEBHOOK_VERIFIED');
+      console.log(`[WEBHOOK - GET /] ==> ✅ WEBHOOK VERIFICADO CORRECTAMENTE`);
+      console.log(`======================================================\n`);
       res.status(200).send(challenge);
     } else {
-      console.warn('Fallo en la verificación del Webhook');
+      console.warn(`[WEBHOOK - GET /] ==> ❌ FALLO DE VERIFICACIÓN: Token no coincide o mode inválido`);
+      console.log(`======================================================\n`);
       res.sendStatus(403);
     }
   } else {
+    console.warn(`[WEBHOOK - GET /] ==> ❌ FALTAN PARÁMETROS: mode o token no enviados`);
+    console.log(`======================================================\n`);
     res.sendStatus(400);
   }
 });
@@ -35,15 +44,19 @@ router.get('/', (req, res) => {
 // 2. Recepción de eventos de Meta (POST)
 router.post('/', async (req, res) => {
   const body = req.body;
+  
+  console.log(`\n======================================================`);
+  console.log(`[WEBHOOK - POST /] ==> INICIO RECEPCIÓN DE EVENTO META`);
+  console.log(`[WEBHOOK - POST /] ==> Payload crudo completo:`);
+  console.dir(body, { depth: null, colors: true });
 
   // Responder INMEDIATAMENTE a Meta para confirmar recepción y evitar reintentos
+  console.log(`[WEBHOOK - POST /] -> Enviando status 200 INMEDIATO a Meta`);
   res.sendStatus(200);
 
-  console.log(`\n[WEBHOOK] --- INICIO DE POST WEBHOOK ---`);
-  // Descomenta la siguiente línea si quieres ver el JSON completo de Meta en los logs:
-  // console.log(JSON.stringify(body, null, 2));
-
   if (body.object) {
+    console.log(`[WEBHOOK - POST /] -> Condición: body.object existe (${body.object})`);
+    
     if (
       body.entry &&
       body.entry[0].changes &&
@@ -51,72 +64,111 @@ router.post('/', async (req, res) => {
       body.entry[0].changes[0].value.messages &&
       body.entry[0].changes[0].value.messages[0]
     ) {
+      console.log(`[WEBHOOK - POST /] -> Condición: Estructura de mensaje de Meta VÁLIDA`);
+      
       const waMessage = body.entry[0].changes[0].value.messages[0];
       const contactInfo = body.entry[0].changes[0].value.contacts?.[0];
       
-      const clientPhone = waMessage.from; // Número (ej: '54911...')
+      const clientPhone = waMessage.from;
       const clientName = contactInfo?.profile?.name || 'Cliente de WhatsApp';
       const messageType = waMessage.type;
       const messageId = waMessage.id;
       
-      console.log(`[WEBHOOK] 📥 Nuevo mensaje de ${clientName} (${clientPhone}), Tipo: ${messageType}`);
+      console.log(`[WEBHOOK - POST /] ==> DATOS EXTRAÍDOS:`);
+      console.log(`   - Teléfono: ${clientPhone}`);
+      console.log(`   - Nombre: ${clientName}`);
+      console.log(`   - Tipo de mensaje: ${messageType}`);
+      console.log(`   - ID Mensaje: ${messageId}`);
 
       try {
-        // A. Buscar o crear la conversación
+        console.log(`\n------------------------------------------------------`);
+        console.log(`[WEBHOOK] ==> A. BÚSQUEDA DE CONVERSACIÓN`);
         let conversationId;
-
-        // Extraer los últimos 10 dígitos para una búsqueda flexible (ignora código de país y formato)
         const last10 = clientPhone.slice(-10);
-        const { data: candidates } = await supabase
+        
+        console.log(`[WEBHOOK] -> Consultando Supabase 'conversations' con ilike '%${last10}%'`);
+        const { data: candidates, error: searchError } = await supabase
           .from('conversations')
           .select('id, status, client_phone')
           .ilike('client_phone', `%${last10}%`);
 
+        if (searchError) {
+          console.error(`[WEBHOOK] ❌ ERROR EN SUPABASE AL BUSCAR CONVERSACIÓN:`, searchError);
+          throw searchError;
+        }
+        
+        console.log(`[WEBHOOK] -> Resultado búsqueda candidatos:`, candidates);
+
         let existingConv = null;
         if (candidates && candidates.length > 0) {
+           console.log(`[WEBHOOK] -> Candidatos encontrados, refinando búsqueda...`);
            existingConv = candidates.find(c => {
              const clean = c.client_phone.replace(/[\s\+\-]/g, '');
              return clean.includes(last10) || clientPhone.includes(clean);
-           }) || candidates[0]; // fallback al primero si coincide algo
+           }) || candidates[0];
+           console.log(`[WEBHOOK] -> Conversación coincidente encontrada:`, existingConv);
+        } else {
+           console.log(`[WEBHOOK] -> No se encontraron candidatos.`);
         }
 
         if (existingConv) {
+          console.log(`[WEBHOOK] -> Condición: Usando conversación existente ID: ${existingConv.id}`);
           conversationId = existingConv.id;
           if (existingConv.status === 'resolved') {
-             await supabase.from('conversations').update({ status: 'open' }).eq('id', conversationId);
+             console.log(`[WEBHOOK] -> Estado era 'resolved', reabriendo conversación...`);
+             const { data: updateData, error: resolveUpdateError } = await supabase.from('conversations').update({ status: 'open' }).eq('id', conversationId).select();
+             if (resolveUpdateError) {
+                 console.error(`[WEBHOOK] ❌ ERROR REABRIENDO CONVERSACIÓN:`, resolveUpdateError);
+             } else {
+                 console.log(`[WEBHOOK] ✅ Conversación reabierta en Supabase:`, updateData);
+             }
           }
         } else {
+          console.log(`[WEBHOOK] -> Condición: Creando NUEVA conversación...`);
+          console.log(`[WEBHOOK] -> Payload insert 'conversations':`, { client_phone: clientPhone, client_name: clientName, status: 'open' });
+          
           const { data: newConv, error: convError } = await supabase
             .from('conversations')
             .insert([{ client_phone: clientPhone, client_name: clientName, status: 'open' }])
             .select()
             .single();
             
-          if (convError) throw convError;
+          if (convError) {
+              console.error(`[WEBHOOK] ❌ ERROR CREANDO CONVERSACIÓN:`, convError);
+              throw convError;
+          }
+          console.log(`[WEBHOOK] ✅ NUEVA Conversación creada, ID: ${newConv.id}`);
           conversationId = newConv.id;
         }
 
-        // B. Extraer el contenido
+        console.log(`\n------------------------------------------------------`);
+        console.log(`[WEBHOOK] ==> B. EXTRACCIÓN DE CONTENIDO (${messageType})`);
+        
         let messageText = '';
         let mediaUrl = null;
         let mediaTypeDB = null;
         let previewText = '';
         
         if (messageType === 'text') {
+          console.log(`[WEBHOOK] -> Entró al bloque de texto`);
           messageText = waMessage.text.body;
           previewText = messageText;
           mediaTypeDB = 'text';
+          console.log(`[WEBHOOK] -> Texto extraído: "${messageText}"`);
         } else if (messageType === 'image' || messageType === 'document' || messageType === 'audio') {
+          console.log(`[WEBHOOK] -> Entró al bloque de multimedia/documento`);
           const mediaId = waMessage[messageType].id;
           mediaTypeDB = messageType === 'image' ? 'image' : (messageType === 'document' ? 'document' : 'text');
+          console.log(`[WEBHOOK] -> Media ID: ${mediaId}, DB Type: ${mediaTypeDB}`);
           
-          // Obtener el buffer desde Meta
+          console.log(`[WEBHOOK] -> Solicitando descarga de media a whatsapp.js...`);
           const mediaData = await downloadWhatsAppMedia(mediaId);
           
           if (mediaData && mediaData.arrayBuffer) {
+              console.log(`[WEBHOOK] -> Media descargada exitosamente. Mime: ${mediaData.mimeType}`);
               const fileName = `${conversationId}_${Date.now()}.${mediaData.extension}`;
+              console.log(`[WEBHOOK] -> Subiendo a Supabase Storage bucket 'media' como: ${fileName}`);
               
-              // Subir a Supabase Storage (asegúrate de crear el bucket 'media' público)
               const { data: uploadData, error: uploadError } = await supabase.storage
                   .from('media')
                   .upload(fileName, mediaData.arrayBuffer, {
@@ -125,46 +177,75 @@ router.post('/', async (req, res) => {
                   });
               
               if (!uploadError) {
+                  console.log(`[WEBHOOK] ✅ Subida exitosa a Storage:`, uploadData);
                   const { data: publicUrlData } = supabase.storage.from('media').getPublicUrl(fileName);
                   mediaUrl = publicUrlData.publicUrl;
+                  console.log(`[WEBHOOK] -> URL Pública obtenida: ${mediaUrl}`);
               } else {
-                  console.error('Error subiendo archivo a Supabase:', uploadError);
+                  console.error('[WEBHOOK] ❌ Error subiendo archivo a Supabase Storage:', uploadError);
               }
+          } else {
+              console.warn(`[WEBHOOK] ⚠️ Falló la descarga de media o arrayBuffer está vacío.`);
           }
 
           const caption = waMessage[messageType].caption || '';
           messageText = caption || `[Archivo recibido: ${messageType}]`;
           previewText = `📷 ${messageType === 'image' ? 'Imagen' : 'Archivo'}` + (caption ? ` - ${caption}` : '');
+          console.log(`[WEBHOOK] -> Caption/Text final: "${messageText}"`);
+        } else {
+            console.log(`[WEBHOOK] -> Tipo de mensaje no soportado/procesado explícitamente: ${messageType}`);
         }
 
-        // C. Insertar el mensaje entrante
-        const { error: insertError } = await supabase.from('messages').insert([{
+        console.log(`\n------------------------------------------------------`);
+        console.log(`[WEBHOOK] ==> C. INSERCIÓN DEL MENSAJE EN DB`);
+        const messagePayload = {
           conversation_id: conversationId,
           sender_type: 'client',
           message_text: messageText,
           media_type: mediaTypeDB,
           media_url: mediaUrl
-        }]);
+        };
+        console.log(`[WEBHOOK] -> Payload insert 'messages':`, messagePayload);
+        
+        const { data: insertData, error: insertError } = await supabase.from('messages').insert([messagePayload]).select();
 
         if (insertError) {
-           console.error('[WEBHOOK] ❌ Error insertando mensaje en Supabase:', insertError);
+           console.error('[WEBHOOK] ❌ ERROR FATAL INSERTANDO MENSAJE EN SUPABASE:', insertError);
         } else {
-           console.log(`[WEBHOOK] ✅ Mensaje insertado en conversación ${conversationId}`);
+           console.log(`[WEBHOOK] ✅ Mensaje insertado correctamente:`, insertData);
         }
 
-        // D. Actualizar el último mensaje en la conversación
-        const { error: updateError } = await supabase.from('conversations')
+        console.log(`\n------------------------------------------------------`);
+        console.log(`[WEBHOOK] ==> D. ACTUALIZACIÓN DE ÚLTIMO MENSAJE EN CONVERSACIÓN`);
+        console.log(`[WEBHOOK] -> Payload update 'conversations': { last_message: "${previewText}" } para ID: ${conversationId}`);
+        
+        const { data: updateData, error: updateError } = await supabase.from('conversations')
           .update({ last_message: previewText })
-          .eq('id', conversationId);
+          .eq('id', conversationId)
+          .select();
           
         if (updateError) {
-           console.error('[WEBHOOK] ❌ Error actualizando last_message en Supabase:', updateError);
+           console.error('[WEBHOOK] ❌ ERROR ACTUALIZANDO LAST_MESSAGE EN SUPABASE:', updateError);
+        } else {
+           console.log(`[WEBHOOK] ✅ last_message actualizado correctamente:`, updateData);
         }
+        
+        console.log(`[WEBHOOK - POST /] ==> ✅ FIN PROCESAMIENTO EXITOSO DEL EVENTO`);
+        console.log(`======================================================\n`);
 
       } catch (error) {
-        console.error('[WEBHOOK] ❌ Error fatal procesando el webhook:', error);
+        console.error(`\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!`);
+        console.error(`[WEBHOOK] ❌ ERROR FATAL CAPTURADO EN EL CATCH PRINCIPAL:`);
+        console.error(error.stack || error);
+        console.error(`!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n`);
       }
+    } else {
+      console.log(`[WEBHOOK - POST /] -> Estructura del evento no contiene mensajes válidos de WhatsApp (puede ser status, u otro tipo).`);
+      console.log(`======================================================\n`);
     }
+  } else {
+    console.log(`[WEBHOOK - POST /] -> Evento recibido no tiene propiedad 'object'.`);
+    console.log(`======================================================\n`);
   }
 });
 
