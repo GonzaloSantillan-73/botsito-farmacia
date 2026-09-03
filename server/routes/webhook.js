@@ -39,7 +39,9 @@ router.post('/', async (req, res) => {
   // Responder INMEDIATAMENTE a Meta para confirmar recepción y evitar reintentos
   res.sendStatus(200);
 
-  console.log('📥 Recibido evento POST en /webhook');
+  console.log(`\n[WEBHOOK] --- INICIO DE POST WEBHOOK ---`);
+  // Descomenta la siguiente línea si quieres ver el JSON completo de Meta en los logs:
+  // console.log(JSON.stringify(body, null, 2));
 
   if (body.object) {
     if (
@@ -57,7 +59,7 @@ router.post('/', async (req, res) => {
       const messageType = waMessage.type;
       const messageId = waMessage.id;
       
-      console.log(`Nuevo mensaje de ${clientName} (${clientPhone}), Tipo: ${messageType}`);
+      console.log(`[WEBHOOK] 📥 Nuevo mensaje de ${clientName} (${clientPhone}), Tipo: ${messageType}`);
 
       try {
         // A. Buscar o crear la conversación
@@ -136,7 +138,7 @@ router.post('/', async (req, res) => {
         }
 
         // C. Insertar el mensaje entrante
-        await supabase.from('messages').insert([{
+        const { error: insertError } = await supabase.from('messages').insert([{
           conversation_id: conversationId,
           sender_type: 'client',
           message_text: messageText,
@@ -144,13 +146,23 @@ router.post('/', async (req, res) => {
           media_url: mediaUrl
         }]);
 
+        if (insertError) {
+           console.error('[WEBHOOK] ❌ Error insertando mensaje en Supabase:', insertError);
+        } else {
+           console.log(`[WEBHOOK] ✅ Mensaje insertado en conversación ${conversationId}`);
+        }
+
         // D. Actualizar el último mensaje en la conversación
-        await supabase.from('conversations')
+        const { error: updateError } = await supabase.from('conversations')
           .update({ last_message: previewText })
           .eq('id', conversationId);
+          
+        if (updateError) {
+           console.error('[WEBHOOK] ❌ Error actualizando last_message en Supabase:', updateError);
+        }
 
       } catch (error) {
-        console.error('Error procesando el webhook:', error);
+        console.error('[WEBHOOK] ❌ Error fatal procesando el webhook:', error);
       }
     }
   }
