@@ -14,8 +14,10 @@ const STATUS_BADGES = {
 
 // Estados "cerrados": la consulta ya terminó (por el operador o por inactividad).
 const ESTADOS_HISTORIAL = ['finalizada', 'resolved', 'rejected'];
-// Todo lo que no está cerrado ni esperando a un humano se considera en gestión activa.
-const esAtendiendo = (status) => status !== 'esperando' && !ESTADOS_HISTORIAL.includes(status);
+// El bot está respondiendo solo (menú, precios, etc.) y todavía no se pidió un humano.
+const esBotAutomatico = (status) => status !== 'esperando' && !ESTADOS_HISTORIAL.includes(status);
+// El cliente pidió hablar con un humano: pasa a "Atendiendo" de forma automática e inmediata.
+const necesitaHumano = (status) => status === 'esperando';
 
 const TABS = [
   { id: 'entrantes', label: 'Entrantes', icon: Inbox },
@@ -40,8 +42,8 @@ export default function Sidebar({
   const filteredConversations = conversations.filter(c => {
     // 1. Filtro por tab
     let matchesTab = true;
-    if (activeTab === 'entrantes') matchesTab = c.status === 'esperando';
-    else if (activeTab === 'atendiendo') matchesTab = esAtendiendo(c.status);
+    if (activeTab === 'entrantes') matchesTab = esBotAutomatico(c.status);
+    else if (activeTab === 'atendiendo') matchesTab = necesitaHumano(c.status);
     else if (activeTab === 'historial') matchesTab = ESTADOS_HISTORIAL.includes(c.status);
 
     // 2. Filtro por texto (búsqueda)
@@ -54,8 +56,8 @@ export default function Sidebar({
     return matchesTab && matchesSearch;
   });
 
-  const enEsperaCount = conversations.filter(c => c.status === 'esperando').length;
-  const misChatsCount = conversations.filter(c => esAtendiendo(c.status)).length;
+  const enEsperaCount = conversations.filter(c => esBotAutomatico(c.status)).length;
+  const misChatsCount = conversations.filter(c => necesitaHumano(c.status)).length;
   const tabCounts = {
     entrantes: enEsperaCount,
     atendiendo: misChatsCount,
