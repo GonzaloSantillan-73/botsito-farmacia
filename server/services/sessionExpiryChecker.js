@@ -1,6 +1,7 @@
 import { supabase } from '../supabase.js';
 import { enviarMensajeBot } from './bot.js';
-import { SESSION_TIMEOUT_MS, TERMINAL_STATUSES } from './sessionManager.js';
+import { TERMINAL_STATUSES } from './sessionManager.js';
+import { getSessionTimeoutMs } from './appConfig.js';
 
 const MENSAJE_FINALIZACION = 'Tu consulta ha finalizado por inactividad. Si necesitas algo más, vuelve a escribirnos.';
 
@@ -14,10 +15,13 @@ const MIN_WAIT_MS = 1000;
 // ms hay que volver a chequear (exactamente cuando venza la próxima más cercana),
 // en vez de depender de un intervalo fijo que puede llegar tarde.
 export const checkExpiredSessions = async () => {
-  const { data: activeConvs, error } = await supabase
-    .from('conversations')
-    .select('id, client_phone, status, created_at')
-    .not('status', 'in', `(${TERMINAL_STATUSES.join(',')})`);
+  const [{ data: activeConvs, error }, sessionTimeoutMs] = await Promise.all([
+    supabase
+      .from('conversations')
+      .select('id, client_phone, status, created_at')
+      .not('status', 'in', `(${TERMINAL_STATUSES.join(',')})`),
+    getSessionTimeoutMs()
+  ]);
 
   if (error) {
     console.error('[SESSION EXPIRY] Error consultando consultas activas:', error);
@@ -38,7 +42,7 @@ export const checkExpiredSessions = async () => {
 
       const lastActivity = lastMsg?.created_at || conv.created_at;
       const elapsedMs = Date.now() - new Date(lastActivity).getTime();
-      const restanteMs = SESSION_TIMEOUT_MS - elapsedMs;
+      const restanteMs = sessionTimeoutMs - elapsedMs;
 
       if (restanteMs <= 0) {
         console.log(`[SESSION EXPIRY] Finalizando consulta ${conv.id} por inactividad (${Math.round(elapsedMs / 60000)} min sin actividad).`);

@@ -26,24 +26,15 @@ export default function ChatArea({
   setMessageInput,
   handleSendMessage,
   handleDeleteConversation,
-  setModalImage
+  setModalImage,
+  sessionTimeoutMs
 }) {
   const [showQuickResponses, setShowQuickResponses] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [sessionTimeoutMs, setSessionTimeoutMs] = useState(null);
   const [now, setNow] = useState(Date.now());
   const fileInputRef = useRef(null);
-
-  // Trae el límite real de expiración desde el backend, para que el contador
-  // nunca se desincronice si ese valor cambia (ej. de prueba a producción).
-  useEffect(() => {
-    fetch('/api/session-config')
-      .then(res => res.json())
-      .then(data => setSessionTimeoutMs(data.sessionTimeoutMs))
-      .catch(err => console.error('Error obteniendo config de sesión:', err));
-  }, []);
 
   // Corre el contador en vivo, segundo a segundo.
   useEffect(() => {

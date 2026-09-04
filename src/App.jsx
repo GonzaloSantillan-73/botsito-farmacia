@@ -25,8 +25,18 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [isSeeding, setIsSeeding] = useState(false);
   const [modalImage, setModalImage] = useState(null);
-  
+
+  // Límite de expiración de sesiones (configurable desde el panel de ajustes).
+  const [sessionTimeoutMs, setSessionTimeoutMs] = useState(null);
+
   const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    fetch('/api/session-config')
+      .then(res => res.json())
+      .then(data => setSessionTimeoutMs(data.sessionTimeoutMs))
+      .catch(err => console.error('Error obteniendo config de sesión:', err));
+  }, []);
 
   // Ref con la conversación activa "al día", para poder leerla desde dentro del
   // canal de Realtime sin tener que recrear la suscripción cada vez que cambia.
@@ -367,9 +377,11 @@ function App() {
         setSearchQuery={setSearchQuery}
         handleSeedData={handleSeedData}
         isSeeding={isSeeding}
+        sessionTimeoutMs={sessionTimeoutMs}
+        onSessionTimeoutChange={setSessionTimeoutMs}
       />
 
-      <ChatArea 
+      <ChatArea
         activeConversation={activeConversation}
         messages={messages}
         messagesEndRef={messagesEndRef}
@@ -378,6 +390,7 @@ function App() {
         handleSendMessage={handleSendMessage}
         handleDeleteConversation={handleDeleteConversation}
         setModalImage={setModalImage}
+        sessionTimeoutMs={sessionTimeoutMs}
       />
 
       <ValidationPanel 

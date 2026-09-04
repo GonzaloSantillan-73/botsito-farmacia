@@ -1,5 +1,6 @@
-import React from 'react';
-import { Search, FileText, Database, Loader2, Clock, MessagesSquare, Inbox, Headset, Archive } from 'lucide-react';
+import React, { useState } from 'react';
+import { Search, FileText, Database, Loader2, Clock, MessagesSquare, Inbox, Headset, Archive, Settings } from 'lucide-react';
+import SettingsModal from './SettingsModal';
 
 const STATUS_BADGES = {
   pending_validation: { label: 'Receta Pendiente', className: 'bg-amber-100 text-amber-800' },
@@ -35,8 +36,11 @@ export default function Sidebar({
   handleSeedData,
   isSeeding,
   searchQuery,
-  setSearchQuery
+  setSearchQuery,
+  sessionTimeoutMs,
+  onSessionTimeoutChange
 }) {
+  const [showSettings, setShowSettings] = useState(false);
 
   // Descarta cualquier entrada malformada (sin id o sin fecha de creación) antes de
   // aplicar cualquier filtro o contador, para no arrastrar filas fantasma a ningún lado.
@@ -71,9 +75,18 @@ export default function Sidebar({
   return (
     <div className="w-1/4 border-r border-gray-200 bg-white flex flex-col shadow-sm z-10">
       <div className="p-4 border-b border-gray-200 space-y-4">
-        <h1 className="text-xl font-bold text-teal-700 flex items-center gap-2">
-          <span className="p-2 bg-teal-100 rounded-lg"><FileText size={20} className="text-teal-600"/></span>
-          FarmaPanel CRM
+        <h1 className="text-xl font-bold text-teal-700 flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2">
+            <span className="p-2 bg-teal-100 rounded-lg"><FileText size={20} className="text-teal-600"/></span>
+            FarmaPanel CRM
+          </span>
+          <button
+            onClick={() => setShowSettings(true)}
+            title="Configuración"
+            className="p-2 text-gray-400 hover:text-teal-600 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <Settings size={20} />
+          </button>
         </h1>
 
         {/* Tarjetas de contadores */}
@@ -198,6 +211,14 @@ export default function Sidebar({
           )})
         )}
       </div>
+
+      {showSettings && (
+        <SettingsModal
+          sessionTimeoutMs={sessionTimeoutMs}
+          onSave={(newMs) => onSessionTimeoutChange && onSessionTimeoutChange(newMs)}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </div>
   );
 }

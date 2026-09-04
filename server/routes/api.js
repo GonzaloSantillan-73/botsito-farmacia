@@ -1,14 +1,28 @@
 import express from 'express';
 import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
-import { SESSION_TIMEOUT_MS } from '../services/sessionManager.js';
+import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS } from '../services/appConfig.js';
 
 const router = express.Router();
 
 // Config expuesta al frontend para que el contador de expiración del CRM
 // siempre calcule contra el mismo límite real que usa el backend.
-router.get('/session-config', (req, res) => {
-  res.status(200).json({ sessionTimeoutMs: SESSION_TIMEOUT_MS });
+router.get('/session-config', async (req, res) => {
+  const sessionTimeoutMs = await getSessionTimeoutMs();
+  res.status(200).json({ sessionTimeoutMs, minSessionTimeoutMs: MIN_SESSION_TIMEOUT_MS, maxSessionTimeoutMs: MAX_SESSION_TIMEOUT_MS });
+});
+
+router.put('/session-config', async (req, res) => {
+  const { sessionTimeoutMs } = req.body;
+
+  try {
+    await setSessionTimeoutMs(Number(sessionTimeoutMs));
+    console.log(`[API] -> Límite de expiración de sesión actualizado a ${sessionTimeoutMs} ms.`);
+    res.status(200).json({ success: true, sessionTimeoutMs: Number(sessionTimeoutMs) });
+  } catch (error) {
+    console.error('[API] ❌ Error actualizando session-config:', error.message);
+    res.status(400).json({ error: error.message });
+  }
 });
 
 router.post('/messages/send', async (req, res) => {

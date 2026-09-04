@@ -1,8 +1,5 @@
 import { supabase } from '../supabase.js';
-
-// TEMPORAL (modo prueba): 3 minutos en vez de 1 hora, para poder probar la
-// expiración por inactividad rápido. Volver a 60 * 60 * 1000 para producción.
-export const SESSION_TIMEOUT_MS = 3 * 60 * 1000;
+import { getSessionTimeoutMs } from './appConfig.js';
 
 // Estados que representan una consulta ya cerrada (por inactividad, por el agente, o rechazada)
 export const TERMINAL_STATUSES = ['finalizada', 'resolved', 'rejected'];
@@ -20,8 +17,11 @@ export const getLastActivityTime = async (conversation) => {
 };
 
 export const isSessionExpired = async (conversation) => {
-  const lastActivity = await getLastActivityTime(conversation);
-  return (Date.now() - new Date(lastActivity).getTime()) > SESSION_TIMEOUT_MS;
+  const [lastActivity, sessionTimeoutMs] = await Promise.all([
+    getLastActivityTime(conversation),
+    getSessionTimeoutMs()
+  ]);
+  return (Date.now() - new Date(lastActivity).getTime()) > sessionTimeoutMs;
 };
 
 // Busca la última consulta del cliente. Si sigue activa, la reutiliza; si expiró o
