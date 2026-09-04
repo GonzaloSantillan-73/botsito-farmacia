@@ -3,7 +3,7 @@ CREATE TABLE public.conversations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     client_phone TEXT,
     client_name TEXT,
-    status TEXT DEFAULT 'pending_validation' CHECK (status IN ('open', 'pending_validation', 'resolved')),
+    status TEXT DEFAULT 'pending_validation' CHECK (status IN ('open', 'pending_validation', 'preparation', 'ready', 'resolved', 'rejected', 'esperando', 'finalizada')),
     assigned_to TEXT,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()

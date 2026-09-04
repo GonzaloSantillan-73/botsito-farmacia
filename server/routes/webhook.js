@@ -2,6 +2,7 @@ import express from 'express';
 import { supabase } from '../supabase.js';
 import { downloadWhatsAppMedia, normalizarTelefono } from '../services/whatsapp.js';
 import { procesarMensajeBot } from '../services/bot.js';
+import { findOrCreateSession } from '../services/sessionManager.js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -102,64 +103,12 @@ router.post('/', async (req, res) => {
 
       try {
         console.log(`\n------------------------------------------------------`);
-        console.log(`[WEBHOOK] ==> A. BÚSQUEDA DE CONVERSACIÓN`);
-        let conversationId;
-        const last10 = clientPhone.slice(-10);
-        
-        console.log(`[WEBHOOK] -> Consultando Supabase 'conversations' con ilike '%${last10}%'`);
-        const { data: candidates, error: searchError } = await supabase
-          .from('conversations')
-          .select('id, status, client_phone')
-          .ilike('client_phone', `%${last10}%`);
+        console.log(`[WEBHOOK] ==> A. RESOLUCIÓN DE SESIÓN/CONSULTA (activa, expirada o nueva)`);
 
-        if (searchError) {
-          console.error(`[WEBHOOK] ❌ ERROR EN SUPABASE AL BUSCAR CONVERSACIÓN:`, searchError);
-          throw searchError;
-        }
-        
-        console.log(`[WEBHOOK] -> Resultado búsqueda candidatos:`, candidates);
+        const { conversation, isNewSession } = await findOrCreateSession(clientPhone, clientName);
+        const conversationId = conversation.id;
 
-        let existingConv = null;
-        if (candidates && candidates.length > 0) {
-           console.log(`[WEBHOOK] -> Candidatos encontrados, refinando búsqueda...`);
-           existingConv = candidates.find(c => {
-             const clean = c.client_phone.replace(/[\s\+\-]/g, '');
-             return clean.includes(last10) || clientPhone.includes(clean);
-           }) || candidates[0];
-           console.log(`[WEBHOOK] -> Conversación coincidente encontrada:`, existingConv);
-        } else {
-           console.log(`[WEBHOOK] -> No se encontraron candidatos.`);
-        }
-
-        if (existingConv) {
-          console.log(`[WEBHOOK] -> Condición: Usando conversación existente ID: ${existingConv.id}`);
-          conversationId = existingConv.id;
-          if (existingConv.status === 'resolved') {
-             console.log(`[WEBHOOK] -> Estado era 'resolved', reabriendo conversación...`);
-             const { data: updateData, error: resolveUpdateError } = await supabase.from('conversations').update({ status: 'open' }).eq('id', conversationId).select();
-             if (resolveUpdateError) {
-                 console.error(`[WEBHOOK] ❌ ERROR REABRIENDO CONVERSACIÓN:`, resolveUpdateError);
-             } else {
-                 console.log(`[WEBHOOK] ✅ Conversación reabierta en Supabase:`, updateData);
-             }
-          }
-        } else {
-          console.log(`[WEBHOOK] -> Condición: Creando NUEVA conversación...`);
-          console.log(`[WEBHOOK] -> Payload insert 'conversations':`, { client_phone: clientPhone, client_name: clientName, status: 'open' });
-          
-          const { data: newConv, error: convError } = await supabase
-            .from('conversations')
-            .insert([{ client_phone: clientPhone, client_name: clientName, status: 'open' }])
-            .select()
-            .single();
-            
-          if (convError) {
-              console.error(`[WEBHOOK] ❌ ERROR CREANDO CONVERSACIÓN:`, convError);
-              throw convError;
-          }
-          console.log(`[WEBHOOK] ✅ NUEVA Conversación creada, ID: ${newConv.id}`);
-          conversationId = newConv.id;
-        }
+        console.log(`[WEBHOOK] -> Consulta resuelta ID: ${conversationId} | ¿Es sesión nueva?: ${isNewSession}`);
 
         console.log(`\n------------------------------------------------------`);
         console.log(`[WEBHOOK] ==> B. EXTRACCIÓN DE CONTENIDO (${messageType})`);
@@ -255,10 +204,11 @@ router.post('/', async (req, res) => {
         console.log(`[WEBHOOK - POST /] ==> ✅ FIN PROCESAMIENTO EXITOSO DEL EVENTO`);
         console.log(`======================================================\n`);
         
-        // Ejecutar lógica del bot para mensajes de texto del cliente
-        if (messageType === 'text') {
+        // Ejecutar lógica del bot: si es sesión nueva, se manda la bienvenida sin importar
+        // el tipo de mensaje; si la sesión ya estaba activa, sólo se procesan mensajes de texto (menú 1/2).
+        if (isNewSession || messageType === 'text') {
            console.log(`[WEBHOOK] -> Derivando mensaje a la lógica del bot...`);
-           await procesarMensajeBot(messageText, conversationId, clientPhone);
+           await procesarMensajeBot(messageText, conversationId, clientPhone, isNewSession);
         }
 
       } catch (error) {

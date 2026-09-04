@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import webhookRoutes from './routes/webhook.js';
 import apiRoutes from './routes/api.js';
+import { startSessionExpiryChecker } from './services/sessionExpiryChecker.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -43,4 +44,5 @@ app.listen(PORT, () => {
   console.log(`🚀 Servidor backend escuchando en el puerto ${PORT}`);
   console.log(`   - Webhook URL: http://localhost:${PORT}/webhook`);
   console.log(`   - API Send: http://localhost:${PORT}/api/send-message`);
+  startSessionExpiryChecker();
 });

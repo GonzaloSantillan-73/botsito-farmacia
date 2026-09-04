@@ -3,7 +3,7 @@ CREATE TABLE public.conversations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     client_phone VARCHAR(20) NOT NULL,
     client_name VARCHAR(100),
-    status VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'pending_validation', 'resolved')),
+    status VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'pending_validation', 'preparation', 'ready', 'resolved', 'rejected', 'esperando', 'finalizada')),
     assigned_to UUID, -- Optional: references auth.users(id) for agent assignment
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now()),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now())
