@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Search, Filter, MessageSquare, Image as ImageIcon, Send, Zap, ChevronRight, Check, FileText, X, Loader2, Paperclip, History, Trash2 } from 'lucide-react';
+import { MessageSquare, Image as ImageIcon, Send, Zap, ChevronRight, Check, FileText, X, Loader2, Paperclip, History, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import HistoryPanel from './HistoryPanel';
 
@@ -106,8 +106,6 @@ export default function ChatArea({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                 <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"><Search size={20} /></button>
-                 <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"><Filter size={20} /></button>
                  <button
                    onClick={() => setShowHistory(true)}
                    title="Historial de consultas del cliente"
