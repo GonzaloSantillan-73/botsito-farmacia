@@ -23,12 +23,7 @@ export const normalizarTelefono = (phone) => {
 
 export const formatearNumeroArg = (phone) => {
   if (!phone) return phone;
-  let clean = phone.toString().replace(/[\s\+\-]/g, '');
-  // Asegurar formato de API para Argentina
-  if (clean.startsWith('54') && clean.length === 12 && !clean.startsWith('549')) {
-    clean = '549' + clean.substring(2);
-  }
-  return clean;
+  return phone.toString().replace(/[\s\+\-]/g, '');
 };
 
 export const sendWhatsAppMessage = async (to, text, mediaUrl = null, mediaType = null) => {
