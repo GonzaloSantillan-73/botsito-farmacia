@@ -1,7 +1,8 @@
 import { supabase } from '../supabase.js';
 
-// Una consulta se considera activa por 1 hora desde su último mensaje o creación
-export const SESSION_TIMEOUT_MS = 60 * 60 * 1000;
+// TEMPORAL (modo prueba): 3 minutos en vez de 1 hora, para poder probar la
+// expiración por inactividad rápido. Volver a 60 * 60 * 1000 para producción.
+export const SESSION_TIMEOUT_MS = 3 * 60 * 1000;
 
 // Estados que representan una consulta ya cerrada (por inactividad, por el agente, o rechazada)
 export const TERMINAL_STATUSES = ['finalizada', 'resolved', 'rejected'];

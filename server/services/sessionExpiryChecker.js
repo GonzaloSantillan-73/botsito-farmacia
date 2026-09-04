@@ -2,7 +2,9 @@ import { supabase } from '../supabase.js';
 import { enviarMensajeBot } from './bot.js';
 import { SESSION_TIMEOUT_MS, TERMINAL_STATUSES } from './sessionManager.js';
 
-const CHECK_INTERVAL_MS = 5 * 60 * 1000; // revisa cada 5 minutos
+// TEMPORAL (modo prueba): 1 minuto en vez de 5, para que el cierre automático se note
+// rápido con el SESSION_TIMEOUT_MS de prueba (3 min). Volver a 5 * 60 * 1000 para producción.
+const CHECK_INTERVAL_MS = 1 * 60 * 1000;
 const MENSAJE_FINALIZACION = 'Tu consulta ha finalizado por inactividad. Si necesitas algo más, vuelve a escribirnos.';
 
 export const checkExpiredSessions = async () => {
