@@ -1,11 +1,12 @@
 import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from './whatsapp.js';
 import { buscarProductos } from './productos.js';
+import { getBotKeyword } from './appConfig.js';
 
 export const MENSAJE_BIENVENIDA = '¡Hola! Soy el bot de la Farmacia. Elige una opción:\n1. Consultar precios e info\n2. Hablar con un humano';
 
-const MENSAJE_DERIVACION_HUMANO = 'Entendido, te estamos derivando con un asesor humano. En breve se pondrán en contacto contigo. Si en cualquier momento deseas volver a hablar con el bot, simplemente escribí la palabra BOT.';
-const COMANDO_REACTIVAR_BOT = 'bot';
+const mensajeDerivacionHumano = (keyword) =>
+  `Entendido, te estamos derivando con un asesor humano. En breve se pondrán en contacto contigo. Si en cualquier momento deseas volver a hablar con el bot, simplemente escribí la palabra ${keyword}.`;
 
 const MENSAJE_PEDIR_PRODUCTO = '¿Qué producto o medicamento estás buscando? Escribí el nombre (por ejemplo: "Ibuprofeno").';
 const MENSAJE_ERROR_BUSQUEDA = 'Tuvimos un problema buscando en nuestro sistema. Por favor, intentá de nuevo escribiendo el nombre del producto.';
@@ -46,10 +47,11 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
     const t = texto.trim();
 
     // Modo humano: el bot se silencia por completo mientras un asesor atiende la
-    // conversación. La única entrada que procesa es el comando "BOT" para reactivarse.
+    // conversación. La única entrada que procesa es la palabra clave configurada para reactivarse.
     if (conv?.status === 'esperando') {
-      if (t.toLowerCase() === COMANDO_REACTIVAR_BOT) {
-        console.log(`[BOT] Comando "BOT" recibido en ${conversationId}. Reactivando bot y volviendo al menú principal.`);
+      const botKeyword = await getBotKeyword();
+      if (t.toLowerCase() === botKeyword.toLowerCase()) {
+        console.log(`[BOT] Comando "${botKeyword}" recibido en ${conversationId}. Reactivando bot y volviendo al menú principal.`);
         await volverAlMenuPrincipal(conversationId, telefono);
       } else {
         console.log(`[BOT] Conversación ${conversationId} en modo humano ('esperando'). Bot silenciado, no se responde.`);
@@ -85,7 +87,8 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
       await supabase.from('conversations').update({ bot_state: 'awaiting_product_search' }).eq('id', conversationId);
       await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_PRODUCTO);
     } else if (t === '2') {
-      await enviarMensajeBot(conversationId, telefono, MENSAJE_DERIVACION_HUMANO);
+      const botKeyword = await getBotKeyword();
+      await enviarMensajeBot(conversationId, telefono, mensajeDerivacionHumano(botKeyword));
 
       console.log(`[BOT] Actualizando estado de la conversación a 'esperando' para ID: ${conversationId}`);
       await supabase

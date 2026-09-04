@@ -33,3 +33,36 @@ export const setSessionTimeoutMs = async (ms) => {
 
   if (error) throw error;
 };
+
+const BOT_KEYWORD_KEY = 'bot_reactivation_keyword';
+const DEFAULT_BOT_KEYWORD = 'BOT';
+
+export const getBotKeyword = async () => {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', BOT_KEYWORD_KEY)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[APP CONFIG] Error leyendo bot_reactivation_keyword, se usa el default:', error);
+    return DEFAULT_BOT_KEYWORD;
+  }
+
+  const keyword = typeof data?.value === 'string' ? data.value.trim() : '';
+  return keyword || DEFAULT_BOT_KEYWORD;
+};
+
+export const setBotKeyword = async (keyword) => {
+  const clean = (keyword ?? '').toString().trim();
+
+  if (!clean) throw new Error('La palabra clave no puede estar vacía.');
+  if (clean.length > 30) throw new Error('La palabra clave no puede tener más de 30 caracteres.');
+  if (/\s/.test(clean)) throw new Error('La palabra clave no puede tener espacios.');
+
+  const { error } = await supabase
+    .from('app_settings')
+    .upsert({ key: BOT_KEYWORD_KEY, value: clean, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+
+  if (error) throw error;
+};

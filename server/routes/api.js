@@ -1,10 +1,29 @@
 import express from 'express';
 import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
-import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS } from '../services/appConfig.js';
+import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getBotKeyword, setBotKeyword } from '../services/appConfig.js';
 import { finalizarConversacion } from '../services/ratingSurvey.js';
 
 const router = express.Router();
+
+// Palabra clave con la que un cliente reactiva al bot en modo humano.
+router.get('/bot-config', async (req, res) => {
+  const botKeyword = await getBotKeyword();
+  res.status(200).json({ botKeyword });
+});
+
+router.put('/bot-config', async (req, res) => {
+  const { botKeyword } = req.body;
+
+  try {
+    await setBotKeyword(botKeyword);
+    console.log(`[API] -> Palabra clave del bot actualizada a "${botKeyword}".`);
+    res.status(200).json({ success: true, botKeyword: botKeyword.toString().trim() });
+  } catch (error) {
+    console.error('[API] ❌ Error actualizando bot-config:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
 
 // Cierre manual de una consulta desde el CRM: mismo cierre + encuesta que el
 // checker automático por inactividad, pero disparado por el operador.
