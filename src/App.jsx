@@ -67,7 +67,12 @@ function App() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'conversations' },
         (payload) => {
-          if (payload.eventType === 'UPDATE') {
+          if (payload.eventType === 'DELETE') {
+            setConversations(prev => prev.filter(c => c.id !== payload.old.id));
+            if (activeConversation?.id === payload.old.id) {
+              setActiveConversation(null);
+            }
+          } else if (payload.eventType === 'UPDATE') {
             setConversations(prev => {
               const exists = prev.find(c => c.id === payload.new.id);
               if (exists) {
@@ -75,7 +80,7 @@ function App() {
               }
               return [payload.new, ...prev].sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
             });
-            
+
             if (activeConversation?.id === payload.new.id) {
               setActiveConversation(payload.new);
             }
@@ -155,7 +160,9 @@ function App() {
 
     const messageId = crypto.randomUUID();
     const inputToSave = textToSend.trim();
-    if (typeof customText !== 'string' && !mediaUrl) {
+    // Sólo limpiamos el input cuando el mensaje sale del cuadro de texto (customText no provisto
+    // explícitamente); las respuestas rápidas/cotizaciones pasan su propio texto y no lo tocan.
+    if (typeof customText !== 'string') {
       setMessageInput('');
     }
 
@@ -169,46 +176,67 @@ function App() {
       media_url: mediaUrl,
       created_at: new Date().toISOString()
     };
-    
+
     setMessages(prev => [...prev, tempMessage]);
     scrollToBottom();
 
-    const { error } = await supabase
-      .from('messages')
-      .insert([
-        { 
-          id: messageId,
-          conversation_id: activeConversation.id, 
-          sender_type: 'agent', 
-          message_text: inputToSave,
-          media_type: mediaUrl ? (mediaType || 'image') : 'text',
-          media_url: mediaUrl
-        }
-      ]);
-
-    if (!error) {
-      // Dispatch to WhatsApp Node Server
-      fetch('/api/messages/send', {
+    try {
+      // El backend es quien inserta la fila real en 'messages' (necesita hacerlo para
+      // guardar el wamid/estado de la entrega). Le pasamos el mismo id del mensaje
+      // optimista para que, cuando llegue por Realtime, el dedup por id lo reconozca
+      // como la misma fila en vez de duplicarla.
+      const res = await fetch('/api/messages/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          id: messageId,
           conversation_id: activeConversation.id,
           message_text: inputToSave,
           media_url: mediaUrl,
           media_type: mediaType
         })
-      }).catch(err => console.error("Error contactando backend:", err));
+      });
+
+      if (!res.ok) throw new Error('El servidor no pudo enviar el mensaje');
 
       // Update conversation timestamp & last_message
       const previewText = mediaUrl ? `📎 Archivo enviado${inputToSave ? ' - ' + inputToSave : ''}` : inputToSave;
-      
+
       await supabase
         .from('conversations')
-        .update({ 
+        .update({
            updated_at: new Date().toISOString(),
-           last_message: previewText 
+           last_message: previewText
         })
         .eq('id', activeConversation.id);
+    } catch (err) {
+      console.error('Error contactando backend:', err);
+      // El envío falló de verdad: sacamos el mensaje optimista para no mostrar algo que nunca se mandó.
+      setMessages(prev => prev.filter(m => m.id !== messageId));
+      alert('No se pudo enviar el mensaje. Intentá de nuevo.');
+    }
+  };
+
+  const handleDeleteConversation = async (conversationId) => {
+    if (!conversationId) return;
+    if (!window.confirm('¿Seguro que querés eliminar esta conversación? Esta acción no se puede deshacer.')) return;
+
+    try {
+      // Borramos primero los datos dependientes para asegurar una baja limpia,
+      // sin depender de que el ON DELETE CASCADE esté configurado en la DB.
+      await supabase.from('messages').delete().eq('conversation_id', conversationId);
+      await supabase.from('prescriptions').delete().eq('conversation_id', conversationId);
+
+      const { error } = await supabase.from('conversations').delete().eq('id', conversationId);
+      if (error) throw error;
+
+      setConversations(prev => prev.filter(c => c.id !== conversationId));
+      if (activeConversation?.id === conversationId) {
+        setActiveConversation(null);
+      }
+    } catch (err) {
+      console.error('Error eliminando la conversación:', err);
+      alert('No se pudo eliminar la conversación.');
     }
   };
 
@@ -257,20 +285,15 @@ function App() {
          botMessage = `❌ Receta no aprobada: ${rejectReason}. Por favor envíanos una nueva foto clara.`;
        }
 
-       await supabase.from('messages').insert([{
-         conversation_id: activeConversation.id,
-         sender_type: 'bot',
-         message_text: botMessage,
-         media_type: 'text'
-       }]);
-
-       // Dispatch bot message to WhatsApp Node Server
+       // El backend inserta la fila real en 'messages' (así el wamid/estado se guarda ahí también,
+       // sin duplicar la fila que antes insertábamos acá).
        fetch('/api/messages/send', {
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({
            conversation_id: activeConversation.id,
-           message_text: botMessage
+           message_text: botMessage,
+           sender_type: 'bot'
          })
        }).catch(err => console.error("Error contactando backend:", err));
     }
@@ -349,6 +372,7 @@ function App() {
         setMessageInput={setMessageInput}
         handleSendMessage={handleSendMessage}
         handleUpdateConversationStatus={handleUpdateConversationStatus}
+        handleDeleteConversation={handleDeleteConversation}
         setModalImage={setModalImage}
       />
 

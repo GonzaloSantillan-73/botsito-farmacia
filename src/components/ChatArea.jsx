@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Search, Filter, MessageSquare, Image as ImageIcon, Send, Zap, ChevronRight, Check, FileText, X, Loader2, Paperclip, History } from 'lucide-react';
+import { Search, Filter, MessageSquare, Image as ImageIcon, Send, Zap, ChevronRight, Check, FileText, X, Loader2, Paperclip, History, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import HistoryPanel from './HistoryPanel';
 
@@ -11,6 +11,7 @@ export default function ChatArea({
   setMessageInput,
   handleSendMessage,
   handleUpdateConversationStatus,
+  handleDeleteConversation,
   setModalImage
 }) {
   const [showQuickResponses, setShowQuickResponses] = useState(false);
@@ -80,11 +81,11 @@ export default function ChatArea({
 
       const { data: publicUrlData } = supabase.storage.from('media').getPublicUrl(fileName);
       const mediaType = selectedFile.type.startsWith('image/') ? 'image' : 'document';
-      
-      handleSendMessage(messageInput, publicUrlData.publicUrl, mediaType);
+
+      handleSendMessage(null, publicUrlData.publicUrl, mediaType);
       setSelectedFile(null);
     } else {
-      handleSendMessage(messageInput, null, 'text');
+      handleSendMessage();
     }
   };
 
@@ -113,6 +114,13 @@ export default function ChatArea({
                    className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
                  >
                    <History size={20} />
+                 </button>
+                 <button
+                   onClick={() => handleDeleteConversation && handleDeleteConversation(activeConversation.id)}
+                   title="Eliminar esta conversación"
+                   className="p-2 text-gray-500 hover:bg-rose-50 hover:text-rose-600 rounded-full transition-colors"
+                 >
+                   <Trash2 size={20} />
                  </button>
               </div>
             </div>

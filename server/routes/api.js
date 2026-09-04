@@ -9,7 +9,7 @@ router.post('/messages/send', async (req, res) => {
   console.log(`[API - POST /messages/send] ==> INICIO DE ENVÍO DE MENSAJE (OUTBOUND)`);
   console.log(`[API - POST /messages/send] ==> Body recibido:`, JSON.stringify(req.body, null, 2));
 
-  const { conversation_id, message_text, phone, message, media_url, media_type } = req.body;
+  const { conversation_id, message_text, phone, message, media_url, media_type, id, sender_type } = req.body;
 
   const finalMessage = message || message_text || '';
   console.log(`[API] -> Mensaje resuelto final: "${finalMessage}"`);
@@ -78,8 +78,11 @@ router.post('/messages/send', async (req, res) => {
     if (finalConversationId) {
         const typeDB = media_url ? (media_type || 'image') : 'text';
         const messagePayload = {
+            // Si el frontend ya generó un id (mensaje optimista), lo reusamos para que sea
+            // la MISMA fila que Realtime le devuelve al cliente, en vez de una duplicada.
+            ...(id ? { id } : {}),
             conversation_id: finalConversationId,
-            sender_type: 'agent',
+            sender_type: sender_type || 'agent',
             message_text: finalMessage,
             media_type: typeDB,
             media_url: media_url,
