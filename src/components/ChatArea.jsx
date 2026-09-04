@@ -1,7 +1,22 @@
-import React, { useState, useRef } from 'react';
-import { MessageSquare, Image as ImageIcon, Send, Zap, Check, FileText, X, Loader2, Paperclip, History, Trash2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { MessageSquare, Image as ImageIcon, Send, Zap, Check, FileText, X, Loader2, Paperclip, History, Trash2, Timer } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import HistoryPanel from './HistoryPanel';
+
+// Estados en los que la conversación ya está cerrada y no aplica el conteo de expiración.
+const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
+
+const formatCountdown = (ms) => {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+};
+
+const getLastActivityTime = (conversation, messages) => {
+  if (!messages || messages.length === 0) return conversation.created_at;
+  return messages.reduce((latest, m) => (new Date(m.created_at) > new Date(latest) ? m.created_at : latest), messages[0].created_at);
+};
 
 export default function ChatArea({
   activeConversation,
@@ -17,7 +32,31 @@ export default function ChatArea({
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [sessionTimeoutMs, setSessionTimeoutMs] = useState(null);
+  const [now, setNow] = useState(Date.now());
   const fileInputRef = useRef(null);
+
+  // Trae el límite real de expiración desde el backend, para que el contador
+  // nunca se desincronice si ese valor cambia (ej. de prueba a producción).
+  useEffect(() => {
+    fetch('/api/session-config')
+      .then(res => res.json())
+      .then(data => setSessionTimeoutMs(data.sessionTimeoutMs))
+      .catch(err => console.error('Error obteniendo config de sesión:', err));
+  }, []);
+
+  // Corre el contador en vivo, segundo a segundo.
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const isConversacionCerrada = activeConversation && ESTADOS_CERRADOS.includes(activeConversation.status);
+  let remainingMs = null;
+  if (activeConversation && !isConversacionCerrada && sessionTimeoutMs != null) {
+    const lastActivity = getLastActivityTime(activeConversation, messages);
+    remainingMs = sessionTimeoutMs - (now - new Date(lastActivity).getTime());
+  }
 
   const quickResponses = [
     { title: "Requisitos de Receta", text: "Por favor, recuerda que la foto de la receta debe incluir fecha, firma y diagnóstico legible." },
@@ -96,6 +135,23 @@ export default function ChatArea({
                 <p className="text-xs text-gray-500">{activeConversation.client_phone}</p>
               </div>
             </div>
+
+            {remainingMs !== null && (
+              <div
+                title="Tiempo restante antes de que la consulta se cierre por inactividad"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold tabular-nums transition-colors ${
+                  remainingMs <= 0
+                    ? 'bg-gray-100 text-gray-500'
+                    : remainingMs <= 30000
+                      ? 'bg-rose-50 text-rose-600'
+                      : 'bg-amber-50 text-amber-700'
+                }`}
+              >
+                <Timer size={14} />
+                {remainingMs <= 0 ? 'Expirado' : `Expira en ${formatCountdown(remainingMs)}`}
+              </div>
+            )}
+
             <div className="flex items-center gap-2">
                <button
                  onClick={() => setShowHistory(true)}

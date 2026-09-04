@@ -1,8 +1,15 @@
 import express from 'express';
 import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
+import { SESSION_TIMEOUT_MS } from '../services/sessionManager.js';
 
 const router = express.Router();
+
+// Config expuesta al frontend para que el contador de expiración del CRM
+// siempre calcule contra el mismo límite real que usa el backend.
+router.get('/session-config', (req, res) => {
+  res.status(200).json({ sessionTimeoutMs: SESSION_TIMEOUT_MS });
+});
 
 router.post('/messages/send', async (req, res) => {
   console.log(`\n======================================================`);
