@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Image as ImageIcon, Send, Zap, Check, FileText, X, Loader2, Paperclip, History, Trash2, Timer } from 'lucide-react';
+import { MessageSquare, Image as ImageIcon, Send, Zap, Check, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import HistoryPanel from './HistoryPanel';
@@ -83,6 +83,24 @@ export default function ChatArea({
     }
   };
 
+  const [closingChat, setClosingChat] = useState(false);
+
+  const handleCloseChat = async () => {
+    if (!activeConversation) return;
+    if (!window.confirm('¿Finalizar esta consulta? Se le va a pedir al cliente que califique la atención recibida.')) return;
+
+    setClosingChat(true);
+    try {
+      const res = await fetch(`/api/conversations/${activeConversation.id}/close`, { method: 'POST' });
+      if (!res.ok) throw new Error('No se pudo finalizar la consulta.');
+    } catch (err) {
+      console.error('Error finalizando la consulta:', err);
+      alert('No se pudo finalizar la consulta.');
+    } finally {
+      setClosingChat(false);
+    }
+  };
+
   const handleSendClick = async () => {
     if (!messageInput.trim() && !selectedFile) return;
 
@@ -145,6 +163,16 @@ export default function ChatArea({
             )}
 
             <div className="flex items-center gap-2">
+               {!isConversacionCerrada && (
+                 <button
+                   onClick={handleCloseChat}
+                   disabled={closingChat}
+                   title="Finalizar esta consulta y pedirle al cliente que la califique"
+                   className="p-2 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 rounded-full transition-colors disabled:opacity-50"
+                 >
+                   {closingChat ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle size={20} />}
+                 </button>
+               )}
                <button
                  onClick={() => setShowHistory(true)}
                  title="Historial de consultas del cliente"

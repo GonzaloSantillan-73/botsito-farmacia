@@ -2,8 +2,34 @@ import express from 'express';
 import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
 import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS } from '../services/appConfig.js';
+import { finalizarConversacion } from '../services/ratingSurvey.js';
 
 const router = express.Router();
+
+// Cierre manual de una consulta desde el CRM: mismo cierre + encuesta que el
+// checker automático por inactividad, pero disparado por el operador.
+router.post('/conversations/:id/close', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { data: conv, error } = await supabase
+      .from('conversations')
+      .select('id, client_phone, status')
+      .eq('id', id)
+      .single();
+
+    if (error || !conv) {
+      return res.status(404).json({ error: 'Conversación no encontrada' });
+    }
+
+    await finalizarConversacion(conv.id, conv.client_phone, '');
+    console.log(`[API] -> Consulta ${id} cerrada manualmente desde el CRM.`);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('[API] ❌ Error cerrando conversación manualmente:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Config expuesta al frontend para que el contador de expiración del CRM
 // siempre calcule contra el mismo límite real que usa el backend.

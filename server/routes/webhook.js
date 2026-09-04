@@ -3,6 +3,7 @@ import { supabase } from '../supabase.js';
 import { downloadWhatsAppMedia, normalizarTelefono } from '../services/whatsapp.js';
 import { procesarMensajeBot } from '../services/bot.js';
 import { findOrCreateSession } from '../services/sessionManager.js';
+import { getConversationAwaitingRating, isValidRatingReply, guardarCalificacion, descartarEncuestaPendiente } from '../services/ratingSurvey.js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -105,10 +106,28 @@ router.post('/', async (req, res) => {
         console.log(`\n------------------------------------------------------`);
         console.log(`[WEBHOOK] ==> A. RESOLUCIÓN DE SESIÓN/CONSULTA (activa, expirada o nueva)`);
 
-        const { conversation, isNewSession } = await findOrCreateSession(clientPhone, clientName);
-        const conversationId = conversation.id;
+        let conversationId, isNewSession;
+        let isRatingReply = false;
 
-        console.log(`[WEBHOOK] -> Consulta resuelta ID: ${conversationId} | ¿Es sesión nueva?: ${isNewSession}`);
+        const rawTextForRating = messageType === 'text' ? waMessage.text.body : null;
+        const pendingRatingConv = await getConversationAwaitingRating(clientPhone);
+
+        if (pendingRatingConv && rawTextForRating && isValidRatingReply(rawTextForRating)) {
+          console.log(`[WEBHOOK] -> Respuesta a la encuesta de satisfacción detectada para la consulta ${pendingRatingConv.id}.`);
+          conversationId = pendingRatingConv.id;
+          isNewSession = false;
+          isRatingReply = true;
+        } else {
+          if (pendingRatingConv) {
+            console.log(`[WEBHOOK] -> Había una encuesta pendiente en ${pendingRatingConv.id} pero no se respondió con un número válido (1-5); se descarta.`);
+            await descartarEncuestaPendiente(pendingRatingConv.id);
+          }
+          const { conversation, isNewSession: isNew } = await findOrCreateSession(clientPhone, clientName);
+          conversationId = conversation.id;
+          isNewSession = isNew;
+        }
+
+        console.log(`[WEBHOOK] -> Consulta resuelta ID: ${conversationId} | ¿Es sesión nueva?: ${isNewSession} | ¿Es respuesta de calificación?: ${isRatingReply}`);
 
         console.log(`\n------------------------------------------------------`);
         console.log(`[WEBHOOK] ==> B. EXTRACCIÓN DE CONTENIDO (${messageType})`);
@@ -204,9 +223,12 @@ router.post('/', async (req, res) => {
         console.log(`[WEBHOOK - POST /] ==> ✅ FIN PROCESAMIENTO EXITOSO DEL EVENTO`);
         console.log(`======================================================\n`);
         
-        // Ejecutar lógica del bot: si es sesión nueva, se manda la bienvenida sin importar
-        // el tipo de mensaje; si la sesión ya estaba activa, sólo se procesan mensajes de texto (menú 1/2).
-        if (isNewSession || messageType === 'text') {
+        if (isRatingReply) {
+           console.log(`[WEBHOOK] -> Guardando calificación: ${messageText}`);
+           await guardarCalificacion(conversationId, clientPhone, Number(messageText.trim()));
+        } else if (isNewSession || messageType === 'text') {
+           // Si es sesión nueva, se manda la bienvenida sin importar el tipo de mensaje;
+           // si la sesión ya estaba activa, sólo se procesan mensajes de texto (menú 1/2).
            console.log(`[WEBHOOK] -> Derivando mensaje a la lógica del bot...`);
            await procesarMensajeBot(messageText, conversationId, clientPhone, isNewSession);
         }

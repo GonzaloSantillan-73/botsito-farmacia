@@ -1,5 +1,6 @@
 import { supabase } from '../supabase.js';
 import { getSessionTimeoutMs } from './appConfig.js';
+import { finalizarConversacion } from './ratingSurvey.js';
 
 // Estados que representan una consulta ya cerrada (por inactividad, por el agente, o rechazada)
 export const TERMINAL_STATUSES = ['finalizada', 'resolved', 'rejected'];
@@ -55,7 +56,7 @@ export const findOrCreateSession = async (clientPhone, clientName) => {
         return { conversation: latest, isNewSession: false };
       }
       console.log(`[SESSION] La consulta ${latest.id} expiró por inactividad. Marcando como 'finalizada'.`);
-      await supabase.from('conversations').update({ status: 'finalizada' }).eq('id', latest.id);
+      await finalizarConversacion(latest.id, latest.client_phone, 'por inactividad');
     }
   }
 

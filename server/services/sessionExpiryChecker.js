@@ -1,9 +1,7 @@
 import { supabase } from '../supabase.js';
-import { enviarMensajeBot } from './bot.js';
 import { TERMINAL_STATUSES } from './sessionManager.js';
 import { getSessionTimeoutMs } from './appConfig.js';
-
-const MENSAJE_FINALIZACION = 'Tu consulta ha finalizado por inactividad. Si necesitas algo más, vuelve a escribirnos.';
+import { finalizarConversacion } from './ratingSurvey.js';
 
 // Cota máxima entre chequeos cuando no hay nada por vencer todavía (para detectar
 // conversaciones nuevas creadas después del último chequeo).
@@ -46,12 +44,7 @@ export const checkExpiredSessions = async () => {
 
       if (restanteMs <= 0) {
         console.log(`[SESSION EXPIRY] Finalizando consulta ${conv.id} por inactividad (${Math.round(elapsedMs / 60000)} min sin actividad).`);
-
-        await supabase.from('conversations').update({ status: 'finalizada' }).eq('id', conv.id);
-
-        if (conv.client_phone) {
-          await enviarMensajeBot(conv.id, conv.client_phone, MENSAJE_FINALIZACION);
-        }
+        await finalizarConversacion(conv.id, conv.client_phone, 'por inactividad');
       } else {
         proximoChequeoMs = Math.min(proximoChequeoMs, restanteMs);
       }
