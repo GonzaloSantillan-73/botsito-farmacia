@@ -8,7 +8,7 @@ import ValidationPanel from './components/ValidationPanel';
 import ImageModal from './components/ImageModal';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('atendiendo');
   const [searchQuery, setSearchQuery] = useState('');
   
   const [conversations, setConversations] = useState([]);

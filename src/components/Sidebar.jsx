@@ -1,12 +1,34 @@
 import React from 'react';
-import { Search, FileText, Database, Loader2 } from 'lucide-react';
+import { Search, FileText, Database, Loader2, Clock, MessagesSquare, Inbox, Headset, Archive } from 'lucide-react';
 
-export default function Sidebar({ 
-  conversations, 
-  loading, 
-  activeConversation, 
-  setActiveConversation, 
-  activeTab, 
+const STATUS_BADGES = {
+  pending_validation: { label: 'Receta Pendiente', className: 'bg-amber-100 text-amber-800' },
+  open: { label: 'Abierto', className: 'bg-blue-100 text-blue-800' },
+  preparation: { label: 'En Preparación', className: 'bg-indigo-100 text-indigo-800' },
+  ready: { label: 'Listo / En Envío', className: 'bg-cyan-100 text-cyan-800' },
+  esperando: { label: 'Esperando Humano', className: 'bg-orange-100 text-orange-800' },
+  rejected: { label: 'Rechazado', className: 'bg-rose-100 text-rose-800' },
+  resolved: { label: 'Resuelto', className: 'bg-emerald-100 text-emerald-800' },
+  finalizada: { label: 'Finalizada', className: 'bg-gray-200 text-gray-600' }
+};
+
+// Estados "cerrados": la consulta ya terminó (por el operador o por inactividad).
+const ESTADOS_HISTORIAL = ['finalizada', 'resolved', 'rejected'];
+// Todo lo que no está cerrado ni esperando a un humano se considera en gestión activa.
+const esAtendiendo = (status) => status !== 'esperando' && !ESTADOS_HISTORIAL.includes(status);
+
+const TABS = [
+  { id: 'entrantes', label: 'Entrantes', icon: Inbox },
+  { id: 'atendiendo', label: 'Atendiendo', icon: Headset },
+  { id: 'historial', label: 'Historial', icon: Archive }
+];
+
+export default function Sidebar({
+  conversations,
+  loading,
+  activeConversation,
+  setActiveConversation,
+  activeTab,
   setActiveTab,
   handleSeedData,
   isSeeding,
@@ -18,10 +40,9 @@ export default function Sidebar({
   const filteredConversations = conversations.filter(c => {
     // 1. Filtro por tab
     let matchesTab = true;
-    if (activeTab === 'pending') matchesTab = c.status === 'pending_validation';
-    else if (activeTab === 'open') matchesTab = c.status === 'open';
-    else if (activeTab === 'rejected') matchesTab = c.status === 'rejected';
-    else if (activeTab === 'resolved') matchesTab = c.status === 'resolved';
+    if (activeTab === 'entrantes') matchesTab = c.status === 'esperando';
+    else if (activeTab === 'atendiendo') matchesTab = esAtendiendo(c.status);
+    else if (activeTab === 'historial') matchesTab = ESTADOS_HISTORIAL.includes(c.status);
 
     // 2. Filtro por texto (búsqueda)
     let matchesSearch = true;
@@ -33,64 +54,83 @@ export default function Sidebar({
     return matchesTab && matchesSearch;
   });
 
-  const pendingCount = conversations.filter(c => c.status === 'pending_validation').length;
+  const enEsperaCount = conversations.filter(c => c.status === 'esperando').length;
+  const misChatsCount = conversations.filter(c => esAtendiendo(c.status)).length;
+  const tabCounts = {
+    entrantes: enEsperaCount,
+    atendiendo: misChatsCount,
+    historial: conversations.filter(c => ESTADOS_HISTORIAL.includes(c.status)).length
+  };
 
   return (
     <div className="w-1/4 border-r border-gray-200 bg-white flex flex-col shadow-sm z-10">
-      <div className="p-4 border-b border-gray-200">
-        <h1 className="text-xl font-bold text-teal-700 flex items-center gap-2 mb-4">
+      <div className="p-4 border-b border-gray-200 space-y-4">
+        <h1 className="text-xl font-bold text-teal-700 flex items-center gap-2">
           <span className="p-2 bg-teal-100 rounded-lg"><FileText size={20} className="text-teal-600"/></span>
           FarmaPanel CRM
         </h1>
-        <div className="relative mb-4">
-          <input 
-            type="text" 
-            placeholder="Buscar por nombre o teléfono..." 
+
+        {/* Tarjetas de contadores */}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setActiveTab('entrantes')}
+            className={`text-left p-3 rounded-xl border transition-colors ${activeTab === 'entrantes' ? 'bg-amber-50 border-amber-300' : 'bg-white border-gray-200 hover:border-amber-200 hover:bg-amber-50/50'}`}
+          >
+            <div className="flex items-center gap-1.5 text-amber-600 mb-1">
+              <Clock size={14} />
+              <span className="text-[11px] font-bold uppercase tracking-wide">En espera</span>
+            </div>
+            <span className="text-2xl font-bold text-gray-900">{enEsperaCount}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('atendiendo')}
+            className={`text-left p-3 rounded-xl border transition-colors ${activeTab === 'atendiendo' ? 'bg-teal-50 border-teal-300' : 'bg-white border-gray-200 hover:border-teal-200 hover:bg-teal-50/50'}`}
+          >
+            <div className="flex items-center gap-1.5 text-teal-600 mb-1">
+              <MessagesSquare size={14} />
+              <span className="text-[11px] font-bold uppercase tracking-wide">Mis chats</span>
+            </div>
+            <span className="text-2xl font-bold text-gray-900">{misChatsCount}</span>
+          </button>
+        </div>
+
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Buscar por nombre o teléfono..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
           />
           <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <button 
-            onClick={() => setActiveTab('all')}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${activeTab === 'all' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-          >
-            Todos
-          </button>
-          <button 
-            onClick={() => setActiveTab('pending')}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${activeTab === 'pending' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`}
-          >
-            Pendientes
-            {pendingCount > 0 && (
-              <span className={`ml-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${activeTab === 'pending' ? 'bg-white text-amber-600' : 'bg-amber-500 text-white'}`}>
-                {pendingCount}
-              </span>
-            )}
-          </button>
-          <button 
-            onClick={() => setActiveTab('open')}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${activeTab === 'open' ? 'bg-blue-500 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
-          >
-            Abiertos
-          </button>
-          <button 
-            onClick={() => setActiveTab('rejected')}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${activeTab === 'rejected' ? 'bg-rose-500 text-white' : 'bg-rose-50 text-rose-600 hover:bg-rose-100'}`}
-          >
-            Rechazados
-          </button>
-          <button 
-            onClick={() => setActiveTab('resolved')}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${activeTab === 'resolved' ? 'bg-emerald-500 text-white' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'}`}
-          >
-            Resueltos
-          </button>
+
+        {/* Pestañas de filtrado */}
+        <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
+          {TABS.map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            const count = tabCounts[tab.id];
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-semibold transition-colors ${isActive ? 'bg-white text-teal-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                <Icon size={14} />
+                {tab.label}
+                {count > 0 && (
+                  <span className={`flex h-4 min-w-4 px-1 items-center justify-center rounded-full text-[10px] ${isActive ? 'bg-teal-600 text-white' : 'bg-gray-300 text-gray-700'}`}>
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
-      
+
       <div className="flex-1 overflow-y-auto scrollbar-hide">
         {loading ? (
            <div className="p-6 space-y-4">
@@ -109,7 +149,7 @@ export default function Sidebar({
              <Database className="w-12 h-12 text-gray-300 mb-4" />
              <h3 className="text-gray-900 font-semibold mb-2">No hay conversaciones</h3>
              <p className="text-gray-500 text-sm mb-6">Tu base de datos está vacía. Carga los datos de prueba para comenzar.</p>
-             <button 
+             <button
                onClick={handleSeedData}
                disabled={isSeeding}
                className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
@@ -123,9 +163,11 @@ export default function Sidebar({
               No hay coincidencias con tu búsqueda o filtros.
            </div>
         ) : (
-           filteredConversations.map(conv => (
-            <div 
-              key={conv.id} 
+           filteredConversations.map(conv => {
+            const badge = STATUS_BADGES[conv.status];
+            return (
+            <div
+              key={conv.id}
               onClick={() => setActiveConversation(conv)}
               className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${activeConversation?.id === conv.id ? 'bg-teal-50/50 border-l-4 border-l-teal-500' : 'border-l-4 border-l-transparent'}`}
             >
@@ -141,14 +183,13 @@ export default function Sidebar({
               <div className="text-sm text-gray-600 truncate mb-2">
                 {conv.last_message || <span className="italic text-gray-400">Nueva conversación</span>}
               </div>
-              <div className="flex items-center gap-1">
-                {conv.status === 'pending_validation' && <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800">Receta Pendiente</span>}
-                {conv.status === 'open' && <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800">Abierto</span>}
-                {conv.status === 'rejected' && <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-rose-100 text-rose-800">Rechazado</span>}
-                {conv.status === 'resolved' && <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-800">Resuelto</span>}
-              </div>
+              {badge && (
+                <div className="flex items-center gap-1">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${badge.className}`}>{badge.label}</span>
+                </div>
+              )}
             </div>
-          ))
+          )})
         )}
       </div>
     </div>
