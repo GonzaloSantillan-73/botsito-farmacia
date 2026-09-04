@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Image as ImageIcon, Send, Zap, Check, FileText, X, Loader2, Paperclip, History, Trash2, Timer } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { formatPhone } from '../lib/formatPhone';
 import HistoryPanel from './HistoryPanel';
 
 // Estados en los que la conversación ya está cerrada y no aplica el conteo de expiración.
@@ -123,7 +124,7 @@ export default function ChatArea({
               </div>
               <div>
                 <h2 className="font-bold text-gray-900">{activeConversation.client_name}</h2>
-                <p className="text-xs text-gray-500">{activeConversation.client_phone}</p>
+                <p className="text-xs text-gray-500">{formatPhone(activeConversation.client_phone)}</p>
               </div>
             </div>
 
@@ -200,7 +201,12 @@ export default function ChatArea({
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input Area */}
+          {/* Input Area (oculta en conversaciones cerradas/Historial: no se puede escribir ahí) */}
+          {isConversacionCerrada ? (
+            <div className="p-4 bg-gray-50 border-t border-gray-200 text-center text-sm text-gray-500">
+              Esta consulta está cerrada. No se pueden enviar mensajes desde el Historial.
+            </div>
+          ) : (
           <div className="p-4 bg-white border-t border-gray-200 relative flex flex-col gap-2">
             {showQuickResponses && (
               <div className="absolute bottom-[100%] mb-2 left-4 bg-white border border-gray-200 shadow-xl rounded-xl w-[350px] overflow-hidden z-20">
@@ -288,6 +294,7 @@ export default function ChatArea({
               </button>
             </div>
           </div>
+          )}
 
           {showHistory && (
             <HistoryPanel

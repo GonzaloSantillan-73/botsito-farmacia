@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
 import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator, Trash2, Plus, Send, ChevronDown, ChevronUp } from 'lucide-react';
+import { formatPhone } from '../lib/formatPhone';
+
+// Estados en los que la conversación ya está cerrada (mismo criterio que en ChatArea/Sidebar).
+const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
 
 export default function ValidationPanel({
   activeConversation,
@@ -190,7 +194,7 @@ export default function ValidationPanel({
                         {(activeConversation.client_name || '?').charAt(0)}
                      </div>
                      <h4 className="font-bold text-lg">{activeConversation.client_name}</h4>
-                     <span className="text-sm text-gray-500 flex items-center gap-1"><Phone size={14}/> {activeConversation.client_phone}</span>
+                     <span className="text-sm text-gray-500 flex items-center gap-1"><Phone size={14}/> {formatPhone(activeConversation.client_phone)}</span>
                   </div>
                   
                   {activePrescription && activePrescription.status !== 'pending' && (
@@ -220,8 +224,8 @@ export default function ValidationPanel({
           </div>
         )}
 
-        {/* Cotizador / Preparación (Siempre visible si hay conversacion activa) */}
-        {activeConversation && (
+        {/* Cotizador / Preparación (oculto en conversaciones cerradas/Historial) */}
+        {activeConversation && !ESTADOS_CERRADOS.includes(activeConversation.status) && (
           <div className="p-6 border-t border-gray-200 bg-[#f8f9fa]">
             <button 
               onClick={() => setIsQuoteOpen(!isQuoteOpen)}

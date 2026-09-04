@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, FileText, Database, Loader2, Clock, MessagesSquare, Inbox, Headset, Archive, Settings } from 'lucide-react';
 import SettingsModal from './SettingsModal';
+import { formatPhone } from '../lib/formatPhone';
 
 const STATUS_BADGES = {
   pending_validation: { label: 'Receta Pendiente', className: 'bg-amber-100 text-amber-800' },
@@ -192,11 +193,13 @@ export default function Sidebar({
             >
               <div className="flex justify-between items-start mb-1">
                 <h3 className="font-semibold text-gray-900 truncate pr-2">
-                   {conv.client_name || conv.client_phone}
-                   {conv.client_name && <span className="text-xs font-normal text-gray-400 ml-1">({conv.client_phone})</span>}
+                   {conv.client_name || formatPhone(conv.client_phone)}
+                   {conv.client_name && <span className="text-xs font-normal text-gray-400 ml-1">({formatPhone(conv.client_phone)})</span>}
                 </h3>
                 <span className="text-xs text-gray-500 whitespace-nowrap">
-                  {new Date(conv.updated_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  {activeTab === 'historial'
+                    ? new Date(conv.updated_at).toLocaleString([], { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+                    : new Date(conv.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
               <div className="text-sm text-gray-600 truncate mb-2">
