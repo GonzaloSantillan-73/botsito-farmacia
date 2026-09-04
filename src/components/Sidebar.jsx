@@ -38,8 +38,12 @@ export default function Sidebar({
   setSearchQuery
 }) {
 
+  // Descarta cualquier entrada malformada (sin id o sin fecha de creación) antes de
+  // aplicar cualquier filtro o contador, para no arrastrar filas fantasma a ningún lado.
+  const validConversations = conversations.filter(c => c?.id && c.created_at);
+
   // Lógica de filtrado doble: por tab y por búsqueda
-  const filteredConversations = conversations.filter(c => {
+  const filteredConversations = validConversations.filter(c => {
     // 1. Filtro por tab
     let matchesTab = true;
     if (activeTab === 'entrantes') matchesTab = esBotAutomatico(c.status);
@@ -56,12 +60,12 @@ export default function Sidebar({
     return matchesTab && matchesSearch;
   });
 
-  const enEsperaCount = conversations.filter(c => esBotAutomatico(c.status)).length;
-  const misChatsCount = conversations.filter(c => necesitaHumano(c.status)).length;
+  const enEsperaCount = validConversations.filter(c => esBotAutomatico(c.status)).length;
+  const misChatsCount = validConversations.filter(c => necesitaHumano(c.status)).length;
   const tabCounts = {
     entrantes: enEsperaCount,
     atendiendo: misChatsCount,
-    historial: conversations.filter(c => ESTADOS_HISTORIAL.includes(c.status)).length
+    historial: validConversations.filter(c => ESTADOS_HISTORIAL.includes(c.status)).length
   };
 
   return (
@@ -146,7 +150,7 @@ export default function Sidebar({
                </div>
              ))}
            </div>
-        ) : conversations.length === 0 ? (
+        ) : validConversations.length === 0 ? (
            <div className="p-8 text-center flex flex-col items-center justify-center h-full">
              <Database className="w-12 h-12 text-gray-300 mb-4" />
              <h3 className="text-gray-900 font-semibold mb-2">No hay conversaciones</h3>

@@ -28,6 +28,13 @@ function App() {
   
   const messagesEndRef = useRef(null);
 
+  // Ref con la conversación activa "al día", para poder leerla desde dentro del
+  // canal de Realtime sin tener que recrear la suscripción cada vez que cambia.
+  const activeConversationRef = useRef(null);
+  useEffect(() => {
+    activeConversationRef.current = activeConversation;
+  }, [activeConversation]);
+
   // 1. Fetch Initial Data
   useEffect(() => {
     fetchConversations();
@@ -44,14 +51,18 @@ function App() {
     }
   }, [activeConversation]);
 
-  // 3. Realtime Subscriptions
+  // 3. Realtime Subscriptions. Se suscribe UNA sola vez (nunca en base a
+  // activeConversation): recrear el canal en cada cambio de conversación activa
+  // abría una ventana de desuscripción/resuscripción donde se podían perder o
+  // duplicar eventos, dejando filas fantasma en el sidebar.
   useEffect(() => {
     const channel = supabase.channel('schema-db-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'messages' },
         (payload) => {
-          if (activeConversation && payload.new.conversation_id === activeConversation.id) {
+          const active = activeConversationRef.current;
+          if (active && payload.new?.conversation_id === active.id) {
             if (payload.eventType === 'INSERT') {
               setMessages(prev => {
                 // Prevent duplicate if we just sent it
@@ -68,24 +79,34 @@ function App() {
         { event: '*', schema: 'public', table: 'conversations' },
         (payload) => {
           if (payload.eventType === 'DELETE') {
-            setConversations(prev => prev.filter(c => c.id !== payload.old.id));
-            if (activeConversation?.id === payload.old.id) {
+            setConversations(prev => prev.filter(c => c.id !== payload.old?.id));
+            if (activeConversationRef.current?.id === payload.old?.id) {
               setActiveConversation(null);
             }
-          } else if (payload.eventType === 'UPDATE') {
+            return;
+          }
+
+          // Guarda contra un payload malformado (sin id no hay nada que hacer con él).
+          if (!payload.new?.id) return;
+
+          if (payload.eventType === 'UPDATE') {
             setConversations(prev => {
-              const exists = prev.find(c => c.id === payload.new.id);
-              if (exists) {
-                return prev.map(c => c.id === payload.new.id ? payload.new : c).sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
-              }
-              return [payload.new, ...prev].sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
+              const exists = prev.some(c => c.id === payload.new.id);
+              const next = exists
+                ? prev.map(c => c.id === payload.new.id ? payload.new : c)
+                : [payload.new, ...prev];
+              return next.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
             });
 
-            if (activeConversation?.id === payload.new.id) {
+            if (activeConversationRef.current?.id === payload.new.id) {
               setActiveConversation(payload.new);
             }
           } else if (payload.eventType === 'INSERT') {
-            setConversations(prev => [payload.new, ...prev].sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at)));
+            setConversations(prev => {
+              // Evita duplicar si ese id ya está en la lista (ej. un evento repetido).
+              if (prev.some(c => c.id === payload.new.id)) return prev;
+              return [payload.new, ...prev].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+            });
           }
         }
       )
@@ -93,7 +114,8 @@ function App() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'prescriptions' },
         (payload) => {
-          if (activeConversation && payload.new.conversation_id === activeConversation.id) {
+          const active = activeConversationRef.current;
+          if (active && payload.new?.conversation_id === active.id) {
              setActivePrescription(payload.new);
              setPrescriptionNotes(payload.new.notes || '');
              setPrescriptionObraSocial(payload.new.obra_social || '');
@@ -105,7 +127,7 @@ function App() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [activeConversation]);
+  }, []);
 
   const scrollToBottom = () => {
     setTimeout(() => {
