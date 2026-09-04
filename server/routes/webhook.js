@@ -1,6 +1,7 @@
 import express from 'express';
 import { supabase } from '../supabase.js';
-import { downloadWhatsAppMedia } from '../services/whatsapp.js';
+import { downloadWhatsAppMedia, normalizarTelefono } from '../services/whatsapp.js';
+import { procesarMensajeBot } from '../services/bot.js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -57,19 +58,38 @@ router.post('/', async (req, res) => {
   if (body.object) {
     console.log(`[WEBHOOK - POST /] -> Condición: body.object existe (${body.object})`);
     
-    if (
-      body.entry &&
-      body.entry[0].changes &&
-      body.entry[0].changes[0] &&
-      body.entry[0].changes[0].value.messages &&
-      body.entry[0].changes[0].value.messages[0]
+    const changes = body.entry?.[0]?.changes?.[0];
+    if (changes?.value?.statuses && changes.value.statuses[0]) {
+      console.log(`[WEBHOOK - POST /] -> Condición: Se recibió una actualización de ESTADO (status)`);
+      const statusObj = changes.value.statuses[0];
+      const wamid = statusObj.id;
+      const metaStatus = statusObj.status; // 'sent', 'delivered', 'read', 'failed'
+      
+      let estadoDB = 'enviado';
+      if (metaStatus === 'delivered') estadoDB = 'entregado';
+      else if (metaStatus === 'read') estadoDB = 'leido';
+      else if (metaStatus === 'failed') estadoDB = 'error';
+      else if (metaStatus === 'sent') estadoDB = 'enviado';
+
+      console.log(`[WEBHOOK - POST /] -> Actualizando mensaje con wamid: ${wamid} al estado: ${estadoDB}`);
+      try {
+        await supabase.from('messages').update({ estado: estadoDB }).eq('wamid', wamid);
+        console.log(`[WEBHOOK - POST /] ==> ✅ ESTADO ACTUALIZADO CON ÉXITO`);
+      } catch (error) {
+        console.error(`[WEBHOOK - POST /] ❌ ERROR ACTUALIZANDO ESTADO:`, error);
+      }
+      
+    } else if (
+      changes?.value?.messages &&
+      changes.value.messages[0]
     ) {
       console.log(`[WEBHOOK - POST /] -> Condición: Estructura de mensaje de Meta VÁLIDA`);
       
-      const waMessage = body.entry[0].changes[0].value.messages[0];
-      const contactInfo = body.entry[0].changes[0].value.contacts?.[0];
+      const waMessage = changes.value.messages[0];
+      const contactInfo = changes.value.contacts?.[0];
       
-      const clientPhone = waMessage.from;
+      const rawPhone = waMessage.from;
+      const clientPhone = normalizarTelefono(rawPhone);
       const clientName = contactInfo?.profile?.name || 'Cliente de WhatsApp';
       const messageType = waMessage.type;
       const messageId = waMessage.id;
@@ -203,7 +223,9 @@ router.post('/', async (req, res) => {
           sender_type: 'client',
           message_text: messageText,
           media_type: mediaTypeDB,
-          media_url: mediaUrl
+          media_url: mediaUrl,
+          wamid: messageId,
+          estado: 'recibido'
         };
         console.log(`[WEBHOOK] -> Payload insert 'messages':`, messagePayload);
         
@@ -232,6 +254,12 @@ router.post('/', async (req, res) => {
         
         console.log(`[WEBHOOK - POST /] ==> ✅ FIN PROCESAMIENTO EXITOSO DEL EVENTO`);
         console.log(`======================================================\n`);
+        
+        // Ejecutar lógica del bot para mensajes de texto del cliente
+        if (messageType === 'text') {
+           console.log(`[WEBHOOK] -> Derivando mensaje a la lógica del bot...`);
+           await procesarMensajeBot(messageText, conversationId, clientPhone);
+        }
 
       } catch (error) {
         console.error(`\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!`);

@@ -72,15 +72,9 @@ router.post('/messages/send', async (req, res) => {
     console.log(`[API] -> Teléfono limpio para Meta: ${cleanPhone}`);
     
     console.log(`\n------------------------------------------------------`);
-    console.log(`[API] ==> B. LLAMADA AL SERVICIO DE META (whatsapp.js)`);
-    console.log(`[API] -> Enviando a sendWhatsAppMessage. Destino: ${cleanPhone}, Texto: "${finalMessage}", MediaUrl: ${media_url}, MediaType: ${media_type}`);
+    console.log(`[API] ==> B. PERSISTENCIA INICIAL EN SUPABASE (estado: pendiente)`);
     
-    const metaResponse = await sendWhatsAppMessage(cleanPhone, finalMessage, media_url, media_type);
-    console.log(`[API] ✅ Respuesta exitosa de Meta recibida en el endpoint:`, metaResponse);
-
-    console.log(`\n------------------------------------------------------`);
-    console.log(`[API] ==> C. PERSISTENCIA EN SUPABASE`);
-    
+    let dbMessageId = null;
     if (finalConversationId) {
         const typeDB = media_url ? (media_type || 'image') : 'text';
         const messagePayload = {
@@ -88,34 +82,45 @@ router.post('/messages/send', async (req, res) => {
             sender_type: 'agent',
             message_text: finalMessage,
             media_type: typeDB,
-            media_url: media_url
+            media_url: media_url,
+            estado: 'pendiente'
         };
-        console.log(`[API] -> Condición: Guardando mensaje en DB para ID: ${finalConversationId}`);
-        console.log(`[API] -> Payload insert 'messages':`, messagePayload);
-        
-        const { data: insertData, error: insertError } = await supabase.from('messages').insert([messagePayload]).select();
-
+        console.log(`[API] -> Insertando mensaje como pendiente en DB...`);
+        const { data: insertData, error: insertError } = await supabase.from('messages').insert([messagePayload]).select().single();
         if (insertError) {
-            console.error('[API] ❌ ERROR FATAL GUARDANDO MENSAJE EN SUPABASE:', insertError);
-        } else {
-            console.log(`[API] ✅ Mensaje guardado correctamente en 'messages':`, insertData);
+            console.error('[API] ❌ ERROR GUARDANDO MENSAJE PENDIENTE:', insertError);
+        } else if (insertData) {
+            dbMessageId = insertData.id;
+            console.log(`[API] ✅ Mensaje pendiente guardado con ID:`, dbMessageId);
         }
+    }
 
+    console.log(`\n------------------------------------------------------`);
+    console.log(`[API] ==> C. LLAMADA AL SERVICIO DE META (whatsapp.js)`);
+    console.log(`[API] -> Enviando a sendWhatsAppMessage. Destino: ${cleanPhone}, Texto: "${finalMessage}", MediaUrl: ${media_url}, MediaType: ${media_type}`);
+    
+    const metaResponse = await sendWhatsAppMessage(cleanPhone, finalMessage, media_url, media_type);
+    console.log(`[API] ✅ Respuesta exitosa de Meta recibida en el endpoint:`, metaResponse);
+    
+    const wamid = metaResponse?.messages?.[0]?.id;
+
+    console.log(`\n------------------------------------------------------`);
+    console.log(`[API] ==> D. ACTUALIZACIÓN POST-ENVÍO EN SUPABASE`);
+    
+    if (dbMessageId && wamid) {
+        console.log(`[API] -> Actualizando mensaje ${dbMessageId} a estado 'enviado' con wamid: ${wamid}`);
+        await supabase.from('messages')
+            .update({ estado: 'enviado', wamid: wamid })
+            .eq('id', dbMessageId);
+    }
+    
+    if (finalConversationId) {
         const previewText = media_url ? `📎 Archivo enviado${finalMessage ? ' - ' + finalMessage : ''}` : finalMessage;
         console.log(`[API] -> Actualizando last_message en 'conversations' a: "${previewText}"`);
         
-        const { data: updateData, error: updateError } = await supabase.from('conversations')
+        await supabase.from('conversations')
             .update({ last_message: previewText })
-            .eq('id', finalConversationId)
-            .select();
-            
-        if (updateError) {
-            console.error('[API] ❌ ERROR ACTUALIZANDO CONVERSACIÓN EN SUPABASE:', updateError);
-        } else {
-            console.log(`[API] ✅ Conversación actualizada correctamente:`, updateData);
-        }
-    } else {
-        console.log(`[API] -> Condición: No hay finalConversationId. Se omitió la persistencia en DB.`);
+            .eq('id', finalConversationId);
     }
 
     console.log(`[API - POST /messages/send] ==> ✅ FIN CICLO DE VIDA (SUCCESS 200)`);

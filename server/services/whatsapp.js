@@ -11,13 +11,33 @@ const TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_ID = process.env.PHONE_NUMBER_ID; 
 const API_URL = `https://graph.facebook.com/v22.0/${PHONE_ID}/messages`;
 
+export const normalizarTelefono = (phone) => {
+  if (!phone) return phone;
+  let clean = phone.toString().replace(/[\s\+\-]/g, '');
+  // Si es de Argentina (empieza con 54) y no tiene el 9 (tiene 12 caracteres), se lo agregamos
+  if (clean.startsWith('54') && clean.length === 12 && !clean.startsWith('549')) {
+    return '549' + clean.substring(2);
+  }
+  return clean;
+};
+
+export const formatearNumeroArg = (phone) => {
+  if (!phone) return phone;
+  let clean = phone.toString().replace(/[\s\+\-]/g, '');
+  // Asegurar formato de API para Argentina
+  if (clean.startsWith('54') && clean.length === 12 && !clean.startsWith('549')) {
+    clean = '549' + clean.substring(2);
+  }
+  return clean;
+};
+
 export const sendWhatsAppMessage = async (to, text, mediaUrl = null, mediaType = null) => {
   console.log(`\n======================================================`);
   console.log(`[SERVICES/WHATSAPP - sendWhatsAppMessage] ==> INICIO DE FUNCIÓN`);
   console.log(`[SERVICES/WHATSAPP] ==> Parámetros recibidos: to="${to}", text="${text}", mediaUrl="${mediaUrl}", mediaType="${mediaType}"`);
   
   try {
-    let cleanTo = to.replace(/[\s\+\-]/g, '');
+    let cleanTo = formatearNumeroArg(to);
     console.log(`[SERVICES/WHATSAPP] -> Teléfono limpio para enviar: ${cleanTo}`);
 
     if (!TOKEN || !PHONE_ID) {
