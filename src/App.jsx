@@ -240,23 +240,6 @@ function App() {
     }
   };
 
-  const handleUpdateConversationStatus = async (newStatus) => {
-    if (!activeConversation) return;
-    
-    // Optimistic UI update
-    setActiveConversation(prev => ({ ...prev, status: newStatus }));
-    setConversations(prev => prev.map(c => c.id === activeConversation.id ? { ...c, status: newStatus } : c));
-
-    const { error } = await supabase
-      .from('conversations')
-      .update({ status: newStatus, updated_at: new Date().toISOString() })
-      .eq('id', activeConversation.id);
-      
-    if (error) {
-      console.error("Error updating status:", error);
-    }
-  };
-
   const handleUpdatePrescription = async (newStatus, rejectReason = '') => {
     if (!activePrescription) return;
 
@@ -371,7 +354,6 @@ function App() {
         messageInput={messageInput}
         setMessageInput={setMessageInput}
         handleSendMessage={handleSendMessage}
-        handleUpdateConversationStatus={handleUpdateConversationStatus}
         handleDeleteConversation={handleDeleteConversation}
         setModalImage={setModalImage}
       />

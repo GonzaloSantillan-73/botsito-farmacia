@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { MessageSquare, Image as ImageIcon, Send, Zap, ChevronRight, Check, FileText, X, Loader2, Paperclip, History, Trash2 } from 'lucide-react';
+import { MessageSquare, Image as ImageIcon, Send, Zap, Check, FileText, X, Loader2, Paperclip, History, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import HistoryPanel from './HistoryPanel';
 
@@ -10,7 +10,6 @@ export default function ChatArea({
   messageInput,
   setMessageInput,
   handleSendMessage,
-  handleUpdateConversationStatus,
   handleDeleteConversation,
   setModalImage
 }) {
@@ -25,13 +24,6 @@ export default function ChatArea({
     { title: "Datos de Pago / Transferencia", text: "Puedes transferir a nuestro CBU: 0000000000000000000000, Alias: FARMACIA.PAGO. Recuerda enviarnos el comprobante." },
     { title: "Retiro por Sucursal", text: "Nuestra sucursal se encuentra en Av. Principal 123. Los horarios de atención son de Lunes a Viernes de 9 a 20hs. Recuerda traer tu DNI o el de la persona que retira." },
     { title: "Consulta Obra Social", text: "Para consultar cobertura, por favor envíanos una foto de tu credencial de obra social y el número de DNI del afiliado." }
-  ];
-
-  const orderStatuses = [
-    { id: 'pending_validation', label: '1. Validación' },
-    { id: 'preparation', label: '2. En Preparación' },
-    { id: 'ready', label: '3. Listo / En Envío' },
-    { id: 'resolved', label: '4. Finalizado' }
   ];
 
   const handleInputChange = (e) => {
@@ -94,63 +86,31 @@ export default function ChatArea({
       {activeConversation ? (
         <>
           {/* Header */}
-          <div className="px-6 py-4 bg-white border-b border-gray-200 flex flex-col shadow-sm z-10 gap-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold uppercase">
-                  {(activeConversation.client_name || '?').charAt(0)}
-                </div>
-                <div>
-                  <h2 className="font-bold text-gray-900">{activeConversation.client_name}</h2>
-                  <p className="text-xs text-gray-500">{activeConversation.client_phone}</p>
-                </div>
+          <div className="px-6 py-3 bg-white border-b border-gray-200 flex items-center justify-between shadow-sm z-10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold uppercase">
+                {(activeConversation.client_name || '?').charAt(0)}
               </div>
-              <div className="flex items-center gap-2">
-                 <button
-                   onClick={() => setShowHistory(true)}
-                   title="Historial de consultas del cliente"
-                   className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
-                 >
-                   <History size={20} />
-                 </button>
-                 <button
-                   onClick={() => handleDeleteConversation && handleDeleteConversation(activeConversation.id)}
-                   title="Eliminar esta conversación"
-                   className="p-2 text-gray-500 hover:bg-rose-50 hover:text-rose-600 rounded-full transition-colors"
-                 >
-                   <Trash2 size={20} />
-                 </button>
+              <div>
+                <h2 className="font-bold text-gray-900">{activeConversation.client_name}</h2>
+                <p className="text-xs text-gray-500">{activeConversation.client_phone}</p>
               </div>
             </div>
-            
-            {/* Stepper */}
-            <div className="flex items-center justify-between bg-gray-50 p-2 rounded-lg border border-gray-100">
-              {orderStatuses.map((status, index) => {
-                const isActive = activeConversation.status === status.id;
-                const currentIndex = orderStatuses.findIndex(s => s.id === activeConversation.status);
-                const isCompleted = currentIndex > index;
-                
-                return (
-                  <React.Fragment key={status.id}>
-                    <button 
-                      onClick={() => handleUpdateConversationStatus && handleUpdateConversationStatus(status.id)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                        isActive 
-                          ? 'bg-teal-500 text-white shadow-sm' 
-                          : isCompleted 
-                            ? 'bg-teal-50 text-teal-700' 
-                            : 'bg-transparent text-gray-500 hover:bg-gray-200 hover:text-gray-700'
-                      }`}
-                    >
-                      {isCompleted && <Check size={14} />}
-                      {status.label}
-                    </button>
-                    {index < orderStatuses.length - 1 && (
-                      <ChevronRight size={14} className="text-gray-300" />
-                    )}
-                  </React.Fragment>
-                );
-              })}
+            <div className="flex items-center gap-2">
+               <button
+                 onClick={() => setShowHistory(true)}
+                 title="Historial de consultas del cliente"
+                 className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+               >
+                 <History size={20} />
+               </button>
+               <button
+                 onClick={() => handleDeleteConversation && handleDeleteConversation(activeConversation.id)}
+                 title="Eliminar esta conversación"
+                 className="p-2 text-gray-500 hover:bg-rose-50 hover:text-rose-600 rounded-full transition-colors"
+               >
+                 <Trash2 size={20} />
+               </button>
             </div>
           </div>
           
