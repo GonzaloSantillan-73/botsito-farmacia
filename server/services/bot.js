@@ -1,7 +1,23 @@
 import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from './whatsapp.js';
+import { buscarProductos } from './productos.js';
 
 export const MENSAJE_BIENVENIDA = '¡Hola! Soy el bot de la Farmacia. Elige una opción:\n1. Consultar precios e info\n2. Hablar con un humano';
+
+const MENSAJE_PEDIR_PRODUCTO = '¿Qué producto o medicamento estás buscando? Escribí el nombre (por ejemplo: "Ibuprofeno").';
+const MENSAJE_ERROR_BUSQUEDA = 'Tuvimos un problema buscando en nuestro sistema. Por favor, intentá de nuevo escribiendo el nombre del producto.';
+const MENSAJE_TEXTO_VACIO = 'Por favor escribí el nombre del producto que buscás.';
+
+const OPCIONES_NO_ENCONTRADO = '1. Volver a ingresar el nombre del producto\n2. Volver al menú principal';
+const mensajeNoEncontrado = (texto) => `No encontramos "${texto}" en nuestro catálogo. ¿Qué querés hacer?\n${OPCIONES_NO_ENCONTRADO}`;
+const MENSAJE_OPCION_INVALIDA_NO_ENCONTRADO = `No entendí tu respuesta. Por favor elegí una opción válida:\n${OPCIONES_NO_ENCONTRADO}`;
+
+const mensajeEncontrado = (texto, productos) => {
+  const lista = productos
+    .map(p => `• ${p.nombre} — $${Number(p.precio).toLocaleString('es-AR')} — Stock: ${p.stock} unidades`)
+    .join('\n');
+  return `Esto encontramos para "${texto}":\n\n${lista}\n\nEscribí 1 para buscar otro producto, o 2 para hablar con un humano.`;
+};
 
 export const procesarMensajeBot = async (texto, conversationId, telefono, isNewSession = false) => {
   console.log(`[BOT] Procesando mensaje: "${texto}" para conversación ${conversationId} (nueva sesión: ${isNewSession})`);
@@ -10,15 +26,48 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
     // Si la consulta es nueva (no existía, o la anterior expiró/finalizó), siempre se
     // reinicia el ciclo con el menú de bienvenida, sin importar qué haya escrito el cliente.
     if (isNewSession) {
-      await enviarMensajeBot(conversationId, telefono, MENSAJE_BIENVENIDA);
+      await volverAlMenuPrincipal(conversationId, telefono);
       return;
     }
 
-    const t = texto.trim().toLowerCase();
+    const { data: conv, error: convError } = await supabase
+      .from('conversations')
+      .select('bot_state')
+      .eq('id', conversationId)
+      .single();
 
+    if (convError) {
+      console.error('[BOT] Error obteniendo bot_state de la conversación:', convError);
+    }
+
+    const estado = conv?.bot_state || null;
+    const t = texto.trim();
+
+    if (estado === 'awaiting_product_search') {
+      if (!t) {
+        await enviarMensajeBot(conversationId, telefono, MENSAJE_TEXTO_VACIO);
+        return;
+      }
+      await manejarBusquedaProducto(conversationId, telefono, t);
+      return;
+    }
+
+    if (estado === 'product_not_found') {
+      if (t === '1') {
+        await supabase.from('conversations').update({ bot_state: 'awaiting_product_search' }).eq('id', conversationId);
+        await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_PRODUCTO);
+      } else if (t === '2') {
+        await volverAlMenuPrincipal(conversationId, telefono);
+      } else {
+        await enviarMensajeBot(conversationId, telefono, MENSAJE_OPCION_INVALIDA_NO_ENCONTRADO);
+      }
+      return;
+    }
+
+    // Estado normal: menú principal
     if (t === '1') {
-      const msg = '¡Hola! Nuestros precios varían según el producto. ¿Qué producto buscas? (Puedes escribir el nombre y luego elegir la opción 2 para que te atienda un humano).';
-      await enviarMensajeBot(conversationId, telefono, msg);
+      await supabase.from('conversations').update({ bot_state: 'awaiting_product_search' }).eq('id', conversationId);
+      await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_PRODUCTO);
     } else if (t === '2') {
       const msg = 'Entendido, te estamos derivando a un asesor humano. En breve se pondrán en contacto contigo.';
       await enviarMensajeBot(conversationId, telefono, msg);
@@ -34,6 +83,31 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
   } catch (error) {
     console.error(`[BOT] Error procesando mensaje del bot:`, error);
   }
+};
+
+const manejarBusquedaProducto = async (conversationId, telefono, texto) => {
+  const { data: productos, error } = await buscarProductos(texto);
+
+  if (error) {
+    console.error('[BOT] Error buscando productos en Supabase:', error);
+    // No cambiamos el bot_state: el cliente se queda en "awaiting_product_search" y puede reintentar.
+    await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_BUSQUEDA);
+    return;
+  }
+
+  if (!productos || productos.length === 0) {
+    await supabase.from('conversations').update({ bot_state: 'product_not_found' }).eq('id', conversationId);
+    await enviarMensajeBot(conversationId, telefono, mensajeNoEncontrado(texto));
+    return;
+  }
+
+  await supabase.from('conversations').update({ bot_state: null }).eq('id', conversationId);
+  await enviarMensajeBot(conversationId, telefono, mensajeEncontrado(texto, productos));
+};
+
+const volverAlMenuPrincipal = async (conversationId, telefono) => {
+  await supabase.from('conversations').update({ bot_state: null }).eq('id', conversationId);
+  await enviarMensajeBot(conversationId, telefono, MENSAJE_BIENVENIDA);
 };
 
 export const enviarMensajeBot = async (conversationId, telefono, mensaje) => {
