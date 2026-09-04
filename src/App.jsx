@@ -393,17 +393,19 @@ function App() {
         sessionTimeoutMs={sessionTimeoutMs}
       />
 
-      <ValidationPanel 
-        activeConversation={activeConversation}
-        activePrescription={activePrescription}
-        prescriptionObraSocial={prescriptionObraSocial}
-        setPrescriptionObraSocial={setPrescriptionObraSocial}
-        prescriptionNotes={prescriptionNotes}
-        setPrescriptionNotes={setPrescriptionNotes}
-        handleUpdatePrescription={handleUpdatePrescription}
-        setModalImage={setModalImage}
-        handleSendMessage={handleSendMessage}
-      />
+      {activeConversation && (
+        <ValidationPanel
+          activeConversation={activeConversation}
+          activePrescription={activePrescription}
+          prescriptionObraSocial={prescriptionObraSocial}
+          setPrescriptionObraSocial={setPrescriptionObraSocial}
+          prescriptionNotes={prescriptionNotes}
+          setPrescriptionNotes={setPrescriptionNotes}
+          handleUpdatePrescription={handleUpdatePrescription}
+          setModalImage={setModalImage}
+          handleSendMessage={handleSendMessage}
+        />
+      )}
 
       {/* Fullscreen Image Modal */}
       {modalImage && (

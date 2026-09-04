@@ -131,7 +131,7 @@ export default function ChatArea({
   };
 
   return (
-    <div className="w-2/4 flex flex-col bg-[#f0f2f5] relative">
+    <div className="flex-1 flex flex-col bg-[#f0f2f5] relative">
       {activeConversation ? (
         <>
           {/* Header */}
