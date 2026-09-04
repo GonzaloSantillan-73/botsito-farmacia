@@ -13,7 +13,14 @@ const API_URL = `https://graph.facebook.com/v22.0/${PHONE_ID}/messages`;
 
 const limpiarTelefono = (phone) => {
   if (!phone) return phone;
-  return phone.toString().replace(/[\s\+\-]/g, '');
+  let clean = phone.toString().replace(/[\s\+\-]/g, '');
+  // Meta entrega el "from" de los mensajes entrantes en formato wa_id ("549" + 10 dígitos),
+  // pero tanto el envío como la lista de autorizados usan el formato nacional sin el 9
+  // ("54" + 10 dígitos). Normalizamos siempre a este último para que ambos coincidan.
+  if (clean.startsWith('549') && clean.length === 13) {
+    return '54' + clean.substring(3);
+  }
+  return clean;
 };
 
 export const normalizarTelefono = limpiarTelefono;
