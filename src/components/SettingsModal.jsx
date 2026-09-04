@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Settings, Loader2, Check, BarChart3, Star, Sliders, Hash } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -138,7 +139,7 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose }) {
       });
   }, []);
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-[80%] h-[90%] flex flex-col overflow-hidden">
         {/* Header */}
@@ -278,6 +279,7 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

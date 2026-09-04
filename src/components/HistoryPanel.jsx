@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, History, Clock, ArrowLeft, FileText } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -51,7 +52,7 @@ export default function HistoryPanel({ clientPhone, currentConversationId, onClo
     setLoadingMessages(false);
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 shrink-0">
@@ -132,6 +133,7 @@ export default function HistoryPanel({ clientPhone, currentConversationId, onClo
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
