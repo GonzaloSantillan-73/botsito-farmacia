@@ -136,13 +136,35 @@ router.post('/', async (req, res) => {
         let mediaUrl = null;
         let mediaTypeDB = null;
         let previewText = '';
-        
+        // Texto que se le pasa a la lógica del bot: normalmente es igual a messageText,
+        // salvo en respuestas interactivas, donde el bot necesita el ID de la opción
+        // presionada (ej. "1", "carrito") y no el título visible del botón/fila.
+        let botInputText = '';
+
         if (messageType === 'text') {
           console.log(`[WEBHOOK] -> Entró al bloque de texto`);
           messageText = waMessage.text.body;
           previewText = messageText;
+          botInputText = messageText;
           mediaTypeDB = 'text';
           console.log(`[WEBHOOK] -> Texto extraído: "${messageText}"`);
+        } else if (messageType === 'interactive') {
+          console.log(`[WEBHOOK] -> Entró al bloque interactivo (botón o lista)`);
+          const buttonReply = waMessage.interactive?.button_reply;
+          const listReply = waMessage.interactive?.list_reply;
+          const reply = buttonReply || listReply;
+
+          if (reply) {
+            // Se guarda el título legible en el historial del CRM, pero se procesa
+            // como si el cliente hubiera escrito el ID de la opción (ej. "1", "carrito").
+            messageText = reply.title || reply.id;
+            previewText = messageText;
+            botInputText = reply.id;
+            mediaTypeDB = 'text';
+            console.log(`[WEBHOOK] -> Opción interactiva seleccionada: id="${reply.id}", title="${reply.title}"`);
+          } else {
+            console.warn('[WEBHOOK] ⚠️ Mensaje interactivo sin button_reply ni list_reply reconocible.');
+          }
         } else if (messageType === 'image' || messageType === 'document' || messageType === 'audio') {
           console.log(`[WEBHOOK] -> Entró al bloque de multimedia/documento`);
           const mediaId = waMessage[messageType].id;
@@ -226,11 +248,12 @@ router.post('/', async (req, res) => {
         if (isRatingReply) {
            console.log(`[WEBHOOK] -> Guardando calificación: ${messageText}`);
            await guardarCalificacion(conversationId, clientPhone, Number(messageText.trim()));
-        } else if (isNewSession || messageType === 'text') {
+        } else if (isNewSession || messageType === 'text' || messageType === 'interactive') {
            // Si es sesión nueva, se manda la bienvenida sin importar el tipo de mensaje;
-           // si la sesión ya estaba activa, sólo se procesan mensajes de texto (menú 1/2).
-           console.log(`[WEBHOOK] -> Derivando mensaje a la lógica del bot...`);
-           await procesarMensajeBot(messageText, conversationId, clientPhone, isNewSession);
+           // si la sesión ya estaba activa, se procesan mensajes de texto (menú 1/2) y
+           // respuestas interactivas (botón/lista presionado, usando su ID como comando).
+           console.log(`[WEBHOOK] -> Derivando mensaje a la lógica del bot (input: "${botInputText}")...`);
+           await procesarMensajeBot(botInputText, conversationId, clientPhone, isNewSession);
         }
 
       } catch (error) {

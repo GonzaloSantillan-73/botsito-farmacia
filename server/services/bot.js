@@ -1,11 +1,17 @@
 import { supabase } from '../supabase.js';
-import { sendWhatsAppMessage } from './whatsapp.js';
+import { sendWhatsAppMessage, sendInteractiveButtons, sendInteractiveList } from './whatsapp.js';
 import { buscarProductos } from './productos.js';
 import { getBotKeyword } from './appConfig.js';
 import { getBotSchedule, getHumanSchedule, isWithinSchedule, renderScheduleMessage } from './scheduleConfig.js';
 import { agregarAlCarrito, obtenerCarrito, eliminarItemCarrito, vaciarCarrito, formatearCarrito } from './cart.js';
 
 export const MENSAJE_BIENVENIDA = '¡Hola! Soy el bot de la Farmacia. Elige una opción:\n1. Consultar precios e info\n2. Hablar con un humano\n3. Ver mi carrito';
+const CUERPO_BIENVENIDA = '¡Hola! Soy el bot de la Farmacia 💊. Elegí una opción:';
+const BOTONES_MENU_PRINCIPAL = [
+  { id: '1', title: 'Consultar precios' },
+  { id: '2', title: 'Hablar con humano' },
+  { id: '3', title: 'Ver mi carrito' }
+];
 
 const mensajeDerivacionHumano = (keyword) =>
   `Entendido, te estamos derivando con un asesor humano. En breve se pondrán en contacto contigo. Si en cualquier momento deseas volver a hablar con el bot, simplemente escribí la palabra ${keyword}.`;
@@ -17,7 +23,10 @@ const MENSAJE_ERROR_CARRITO = 'Tuvimos un problema con tu carrito. Por favor, in
 
 const OPCIONES_NO_ENCONTRADO = '1. Volver a ingresar el nombre del producto\n2. Volver al menú principal';
 const mensajeNoEncontrado = (texto) => `No encontramos "${texto}" en nuestro catálogo. ¿Qué querés hacer?\n${OPCIONES_NO_ENCONTRADO}`;
-const MENSAJE_OPCION_INVALIDA_NO_ENCONTRADO = `No entendí tu respuesta. Por favor elegí una opción válida:\n${OPCIONES_NO_ENCONTRADO}`;
+const BOTONES_NO_ENCONTRADO = [
+  { id: '1', title: 'Buscar de nuevo' },
+  { id: '2', title: 'Volver al menú' }
+];
 
 const mensajeResultadoBusqueda = (texto, productos) => {
   const lista = productos
@@ -26,21 +35,66 @@ const mensajeResultadoBusqueda = (texto, productos) => {
   return `Esto encontramos para "${texto}":\n\n${lista}\n\nEscribí el número del producto para agregarlo a tu carrito, "carrito" para ver tu carrito, o "menu" para volver al inicio.`;
 };
 
-const MENSAJE_OPCION_INVALIDA_RESULTADO = 'No entendí tu respuesta. Escribí el número del producto para agregarlo al carrito, "carrito" para verlo, o "menu" para volver al inicio.';
+const seccionesResultadoBusqueda = (productos) => [
+  {
+    title: 'Productos encontrados',
+    rows: productos.map((p, idx) => ({
+      id: String(idx + 1),
+      title: p.nombre,
+      description: `$${Number(p.precio).toLocaleString('es-AR')} · Stock: ${p.stock}`
+    }))
+  },
+  {
+    title: 'Otras opciones',
+    rows: [
+      { id: 'carrito', title: 'Ver mi carrito' },
+      { id: 'menu', title: 'Volver al menú' }
+    ]
+  }
+];
 
 const OPCIONES_CARRITO = '1. Agregar otro producto\n2. Eliminar un producto\n3. Vaciar el carrito\n4. Confirmar pedido\n5. Volver al menú principal';
-const MENSAJE_OPCION_INVALIDA_CARRITO = `No entendí tu respuesta. Por favor elegí una opción válida:\n${OPCIONES_CARRITO}`;
 const MENSAJE_CARRITO_VACIO = 'Tu carrito está vacío. Escribí 1 para buscar productos.';
 
-const mensajeCarrito = (items, prefijo = '') => {
+const SECCIONES_MENU_CARRITO = [
+  {
+    title: 'Opciones',
+    rows: [
+      { id: '1', title: 'Agregar otro producto' },
+      { id: '2', title: 'Eliminar un producto' },
+      { id: '3', title: 'Vaciar el carrito' },
+      { id: '4', title: 'Confirmar pedido' },
+      { id: '5', title: 'Volver al menú' }
+    ]
+  }
+];
+
+const cuerpoCarrito = (items, prefijo = '') => {
   const { texto, total, envioGratisTexto } = formatearCarrito(items);
-  return `${prefijo}🛒 Tu carrito:\n${texto}\n\nTotal: $${total.toLocaleString('es-AR')}\n\n${envioGratisTexto}\n\n¿Qué querés hacer?\n${OPCIONES_CARRITO}`;
+  return `${prefijo}🛒 Tu carrito:\n${texto}\n\nTotal: $${total.toLocaleString('es-AR')}\n\n${envioGratisTexto}\n\n¿Qué querés hacer?`;
 };
+
+const mensajeCarrito = (items, prefijo = '') => `${cuerpoCarrito(items, prefijo)}\n${OPCIONES_CARRITO}`;
 
 const mensajePedirEliminacion = (items) => {
   const { texto } = formatearCarrito(items);
   return `¿Qué producto querés eliminar?\n${texto}\n\nEscribí el número, o "cancelar" para volver al carrito.`;
 };
+
+const seccionesEliminarItem = (items) => [
+  {
+    title: 'Tu carrito',
+    rows: items.map((item, idx) => ({
+      id: String(idx + 1),
+      title: item.productos?.nombre || 'Producto',
+      description: `x${item.quantity} — $${((Number(item.productos?.precio) || 0) * item.quantity).toLocaleString('es-AR')}`
+    }))
+  },
+  {
+    title: 'Otras opciones',
+    rows: [{ id: 'cancelar', title: 'Cancelar' }]
+  }
+];
 
 export const procesarMensajeBot = async (texto, conversationId, telefono, isNewSession = false) => {
   console.log(`[BOT] Procesando mensaje: "${texto}" para conversación ${conversationId} (nueva sesión: ${isNewSession})`);
@@ -110,7 +164,7 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
       } else if (t === '2') {
         await volverAlMenuPrincipal(conversationId, telefono);
       } else {
-        await enviarMensajeBot(conversationId, telefono, MENSAJE_OPCION_INVALIDA_NO_ENCONTRADO);
+        await enviarNoEncontrado(conversationId, telefono, texto, 'No entendí tu respuesta. Por favor elegí una opción válida.\n\n');
       }
       return;
     }
@@ -153,7 +207,7 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
     } else if (t === '3') {
       await mostrarCarrito(conversationId, telefono);
     } else {
-      await enviarMensajeBot(conversationId, telefono, MENSAJE_BIENVENIDA);
+      await enviarMenuPrincipal(conversationId, telefono);
     }
   } catch (error) {
     console.error(`[BOT] Error procesando mensaje del bot:`, error);
@@ -172,7 +226,7 @@ const manejarBusquedaProducto = async (conversationId, telefono, texto) => {
 
   if (!productos || productos.length === 0) {
     await supabase.from('conversations').update({ bot_state: 'product_not_found', bot_context: null }).eq('id', conversationId);
-    await enviarMensajeBot(conversationId, telefono, mensajeNoEncontrado(texto));
+    await enviarNoEncontrado(conversationId, telefono, texto);
     return;
   }
 
@@ -182,7 +236,7 @@ const manejarBusquedaProducto = async (conversationId, telefono, texto) => {
     .from('conversations')
     .update({ bot_state: 'product_found_menu', bot_context: { productIds: productos.map(p => p.id) } })
     .eq('id', conversationId);
-  await enviarMensajeBot(conversationId, telefono, mensajeResultadoBusqueda(texto, productos));
+  await enviarResultadoBusqueda(conversationId, telefono, texto, productos);
 };
 
 const manejarSeleccionResultado = async (conversationId, telefono, t, botContext) => {
@@ -200,7 +254,11 @@ const manejarSeleccionResultado = async (conversationId, telefono, t, botContext
 
   const indice = Number(t) - 1;
   if (!Number.isInteger(indice) || indice < 0 || indice >= productIds.length) {
-    await enviarMensajeBot(conversationId, telefono, MENSAJE_OPCION_INVALIDA_RESULTADO);
+    await enviarMensajeBot(
+      conversationId,
+      telefono,
+      'No entendí tu respuesta. Escribí el número del producto para agregarlo al carrito, "carrito" para verlo, o "menu" para volver al inicio.'
+    );
     return;
   }
 
@@ -232,7 +290,7 @@ const mostrarCarrito = async (conversationId, telefono, prefijo = '') => {
   }
 
   await supabase.from('conversations').update({ bot_state: 'cart_menu', bot_context: null }).eq('id', conversationId);
-  await enviarMensajeBot(conversationId, telefono, mensajeCarrito(items, prefijo));
+  await enviarCarrito(conversationId, telefono, items, prefijo);
 };
 
 const manejarMenuCarrito = async (conversationId, telefono, t) => {
@@ -259,7 +317,7 @@ const manejarMenuCarrito = async (conversationId, telefono, t) => {
       .from('conversations')
       .update({ bot_state: 'awaiting_remove_item', bot_context: { cartItemIds: items.map(i => i.id) } })
       .eq('id', conversationId);
-    await enviarMensajeBot(conversationId, telefono, mensajePedirEliminacion(items));
+    await enviarPedirEliminacion(conversationId, telefono, items);
     return;
   }
 
@@ -286,7 +344,19 @@ const manejarMenuCarrito = async (conversationId, telefono, t) => {
     return;
   }
 
-  await enviarMensajeBot(conversationId, telefono, MENSAJE_OPCION_INVALIDA_CARRITO);
+  let items;
+  try {
+    items = await obtenerCarrito(telefono);
+  } catch (err) {
+    console.error('[BOT] Error obteniendo el carrito:', err);
+    await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_CARRITO);
+    return;
+  }
+  if (items.length === 0) {
+    await mostrarCarrito(conversationId, telefono);
+    return;
+  }
+  await enviarCarrito(conversationId, telefono, items, 'No entendí tu respuesta. Por favor elegí una opción válida.\n\n');
 };
 
 const manejarEliminarItem = async (conversationId, telefono, t) => {
@@ -306,7 +376,7 @@ const manejarEliminarItem = async (conversationId, telefono, t) => {
 
   const indice = Number(t) - 1;
   if (!Number.isInteger(indice) || indice < 0 || indice >= items.length) {
-    await enviarMensajeBot(conversationId, telefono, `No entendí tu respuesta.\n\n${mensajePedirEliminacion(items)}`);
+    await enviarPedirEliminacion(conversationId, telefono, items, 'No entendí tu respuesta.\n\n');
     return;
   }
 
@@ -367,16 +437,17 @@ const volverAlMenuPrincipal = async (conversationId, telefono) => {
   // 'open' saca a la conversación del modo humano ('esperando') y la vuelve a
   // dejar en la cola de "Entrantes" (bot respondiendo automáticamente).
   await supabase.from('conversations').update({ status: 'open', bot_state: null, bot_context: null }).eq('id', conversationId);
-  await enviarMensajeBot(conversationId, telefono, MENSAJE_BIENVENIDA);
+  await enviarMenuPrincipal(conversationId, telefono);
 };
 
-export const enviarMensajeBot = async (conversationId, telefono, mensaje) => {
+// Registra el mensaje del bot en la base (para el historial del CRM) e intenta
+// enviarlo mediante la función de Meta que le pasemos (texto plano, botones o lista).
+const registrarYEnviar = async (conversationId, telefono, textoDB, enviarFn) => {
   console.log(`[BOT] Enviando respuesta a ${telefono}...`);
-  // Guardar mensaje en base de datos como pendiente
   const { data: insertData, error: insertError } = await supabase.from('messages').insert([{
     conversation_id: conversationId,
     sender_type: 'bot', // Usamos 'bot' para distinguirlo de 'agent'
-    message_text: mensaje,
+    message_text: textoDB,
     estado: 'pendiente'
   }]).select().single();
 
@@ -385,19 +456,44 @@ export const enviarMensajeBot = async (conversationId, telefono, mensaje) => {
     return;
   }
 
-  // Enviar a Meta
-  const metaResponse = await sendWhatsAppMessage(telefono, mensaje);
+  const metaResponse = await enviarFn();
   const wamid = metaResponse?.messages?.[0]?.id;
 
-  // Actualizar wamid y estado
   if (wamid) {
     await supabase.from('messages')
       .update({ estado: 'enviado', wamid: wamid })
       .eq('id', insertData.id);
   }
 
-  // Actualizar last_message de la conversación
   await supabase.from('conversations')
-    .update({ last_message: mensaje })
+    .update({ last_message: textoDB })
     .eq('id', conversationId);
 };
+
+export const enviarMensajeBot = async (conversationId, telefono, mensaje) =>
+  registrarYEnviar(conversationId, telefono, mensaje, () => sendWhatsAppMessage(telefono, mensaje));
+
+const enviarMenuPrincipal = async (conversationId, telefono) =>
+  registrarYEnviar(conversationId, telefono, MENSAJE_BIENVENIDA, () =>
+    sendInteractiveButtons(telefono, CUERPO_BIENVENIDA, BOTONES_MENU_PRINCIPAL));
+
+const enviarNoEncontrado = async (conversationId, telefono, texto, prefijo = '') =>
+  registrarYEnviar(conversationId, telefono, `${prefijo}${mensajeNoEncontrado(texto)}`, () =>
+    sendInteractiveButtons(telefono, `${prefijo}No encontramos "${texto}" en nuestro catálogo. ¿Qué querés hacer?`, BOTONES_NO_ENCONTRADO));
+
+const enviarResultadoBusqueda = async (conversationId, telefono, texto, productos) =>
+  registrarYEnviar(conversationId, telefono, mensajeResultadoBusqueda(texto, productos), () =>
+    sendInteractiveList(
+      telefono,
+      `Esto encontramos para "${texto}". Elegí un producto para agregarlo a tu carrito, o elegí otra opción:`,
+      'Ver opciones',
+      seccionesResultadoBusqueda(productos)
+    ));
+
+const enviarCarrito = async (conversationId, telefono, items, prefijo = '') =>
+  registrarYEnviar(conversationId, telefono, mensajeCarrito(items, prefijo), () =>
+    sendInteractiveList(telefono, cuerpoCarrito(items, prefijo), 'Elegir opción', SECCIONES_MENU_CARRITO));
+
+const enviarPedirEliminacion = async (conversationId, telefono, items, prefijo = '') =>
+  registrarYEnviar(conversationId, telefono, `${prefijo}${mensajePedirEliminacion(items)}`, () =>
+    sendInteractiveList(telefono, `${prefijo}¿Qué producto querés eliminar?`, 'Elegir producto', seccionesEliminarItem(items)));
