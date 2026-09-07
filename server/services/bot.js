@@ -240,7 +240,17 @@ const mostrarSucursales = async (conversationId, telefono) => {
     return;
   }
 
-  await enviarMensajeBot(conversationId, telefono, formatearMensajeSucursales(sucursales));
+  try {
+    await enviarMensajeBot(conversationId, telefono, formatearMensajeSucursales(sucursales));
+  } catch (err) {
+    // Un fallo transitorio al enviar el listado de sucursales no debe impedir
+    // que igual le reenviemos el menú principal a continuación.
+    console.error('[BOT] Error enviando el mensaje de sucursales:', err);
+  }
+
+  // Es una consulta informativa (no cambia el bot_state), pero igual reenviamos
+  // el menú principal para que el cliente no quede sin saber cómo seguir.
+  await enviarMensajeBot(conversationId, telefono, MENSAJE_BIENVENIDA);
 };
 
 const mostrarCarrito = async (conversationId, telefono, prefijo = '') => {
