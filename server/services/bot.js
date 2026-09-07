@@ -30,7 +30,7 @@ const MENSAJE_OPCION_INVALIDA_NO_ENCONTRADO = `No entendí tu respuesta.\n\nPor 
 const mensajeResultadoBusqueda = (texto, productos) => {
   const lista = productos
     .map((p, idx) => `${idx + 1}. ${p.nombre} — $${Number(p.precio).toLocaleString('es-AR')} — Stock: ${p.stock} unidades`)
-    .join('\n');
+    .join('\n\n');
   return `Esto encontramos para "${texto}":\n\n${lista}\n\nPara agregar un producto a tu carrito, escribí el número correspondiente (por ejemplo: 1).\n\nOtras opciones:\nc. Ver carrito\nm. Menú de inicio`;
 };
 
