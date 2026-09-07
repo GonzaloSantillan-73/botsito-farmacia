@@ -177,10 +177,10 @@ router.post('/', async (req, res) => {
           });
           previewText = '📍 Ubicación compartida';
           console.log(`[WEBHOOK] -> Coordenadas extraídas: lat=${loc.latitude}, lng=${loc.longitude}`);
-        } else if (messageType === 'image' || messageType === 'document' || messageType === 'audio') {
+        } else if (messageType === 'image' || messageType === 'document' || messageType === 'audio' || messageType === 'video') {
           console.log(`[WEBHOOK] -> Entró al bloque de multimedia/documento`);
           const mediaId = waMessage[messageType].id;
-          mediaTypeDB = messageType === 'image' ? 'image' : (messageType === 'document' ? 'document' : 'text');
+          mediaTypeDB = messageType === 'image' ? 'image' : (messageType === 'document' ? 'document' : (messageType === 'video' ? 'video' : 'text'));
           console.log(`[WEBHOOK] -> Media ID: ${mediaId}, DB Type: ${mediaTypeDB}`);
           
           console.log(`[WEBHOOK] -> Solicitando descarga de media a whatsapp.js...`);
@@ -212,7 +212,8 @@ router.post('/', async (req, res) => {
 
           const caption = waMessage[messageType].caption || '';
           messageText = caption || `[Archivo recibido: ${messageType}]`;
-          previewText = `📷 ${messageType === 'image' ? 'Imagen' : 'Archivo'}` + (caption ? ` - ${caption}` : '');
+          const etiquetaPreview = messageType === 'image' ? '📷 Imagen' : messageType === 'video' ? '🎥 Video' : '📎 Archivo';
+          previewText = etiquetaPreview + (caption ? ` - ${caption}` : '');
           console.log(`[WEBHOOK] -> Caption/Text final: "${messageText}"`);
         } else {
             console.log(`[WEBHOOK] -> Tipo de mensaje no soportado/procesado explícitamente: ${messageType}`);

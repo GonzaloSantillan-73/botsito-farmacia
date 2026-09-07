@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Image as ImageIcon, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MapPin } from 'lucide-react';
+import { MessageSquare, Image as ImageIcon, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MapPin, Download } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
+import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
 import HistoryPanel from './HistoryPanel';
 
 // Estados en los que la conversación ya está cerrada y no aplica el conteo de expiración.
@@ -67,7 +68,14 @@ export default function ChatArea({
   const [isUploading, setIsUploading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [downloadingId, setDownloadingId] = useState(null);
   const fileInputRef = useRef(null);
+
+  const handleDownloadMedia = async (msg) => {
+    setDownloadingId(msg.id);
+    await downloadFile(msg.media_url, filenameFromUrl(msg.media_url));
+    setDownloadingId(null);
+  };
 
   // Corre el contador en vivo, segundo a segundo.
   useEffect(() => {
@@ -267,7 +275,7 @@ export default function ChatArea({
                     </div>
                   )}
                   {msg.media_url && msg.media_type === 'image' && (
-                    <div 
+                    <div
                       className="mb-2 rounded overflow-hidden relative cursor-pointer group"
                       onClick={() => setModalImage(msg.media_url)}
                     >
@@ -277,13 +285,39 @@ export default function ChatArea({
                           <ImageIcon size={14}/> Ampliar
                         </span>
                       </div>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDownloadMedia(msg); }}
+                        disabled={downloadingId === msg.id}
+                        title="Descargar imagen"
+                        className="absolute top-1.5 right-1.5 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors disabled:opacity-50"
+                      >
+                        {downloadingId === msg.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                      </button>
+                    </div>
+                  )}
+                  {msg.media_url && msg.media_type === 'video' && (
+                    <div className="mb-2 rounded overflow-hidden relative">
+                      <video src={msg.media_url} controls className="max-w-full max-h-64 rounded bg-black" />
+                      <button
+                        onClick={() => handleDownloadMedia(msg)}
+                        disabled={downloadingId === msg.id}
+                        title="Descargar video"
+                        className="absolute top-1.5 right-1.5 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors disabled:opacity-50"
+                      >
+                        {downloadingId === msg.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                      </button>
                     </div>
                   )}
                   {msg.media_url && msg.media_type === 'document' && (
-                     <a href={msg.media_url} target="_blank" rel="noopener noreferrer" className={`mb-2 flex items-center gap-2 p-2 rounded-lg text-sm hover:underline ${msg.sender_type === 'client' ? 'bg-gray-100 text-teal-700' : 'bg-teal-600 text-white'}`}>
-                        <FileText size={18} />
-                        Ver documento adjunto
-                     </a>
+                     <button
+                        onClick={() => handleDownloadMedia(msg)}
+                        disabled={downloadingId === msg.id}
+                        className={`mb-2 w-full flex items-center gap-2 p-2 rounded-lg text-sm transition-colors disabled:opacity-50 ${msg.sender_type === 'client' ? 'bg-gray-100 text-teal-700 hover:bg-gray-200' : 'bg-teal-600 text-white hover:bg-teal-700'}`}
+                     >
+                        {downloadingId === msg.id ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
+                        Descargar documento adjunto
+                        <Download size={14} className="ml-auto shrink-0" />
+                     </button>
                   )}
                   {!location && <p className="text-sm whitespace-pre-wrap">{msg.message_text}</p>}
                   <div className="flex items-center justify-end gap-1 mt-1">
