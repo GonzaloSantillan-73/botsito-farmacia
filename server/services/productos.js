@@ -7,7 +7,7 @@ export const buscarProductos = async (texto) => {
 
   const { data, error } = await supabase
     .from('productos')
-    .select('nombre, precio, stock')
+    .select('id, nombre, precio, stock')
     .ilike('nombre', `%${query}%`)
     .order('nombre')
     .limit(5);
