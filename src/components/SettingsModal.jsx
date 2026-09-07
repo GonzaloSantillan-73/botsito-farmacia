@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Settings, BarChart3, Sliders, Hash, Zap, CalendarClock, Download, Bell, Clock } from 'lucide-react';
+import { X, Settings, BarChart3, Sliders, Hash, Zap, CalendarClock, Download, Bell, Clock, Store } from 'lucide-react';
 import Accordion from './Accordion';
 import SessionTimeoutPanel from './SessionTimeoutPanel';
 import BotKeywordPanel from './BotKeywordPanel';
 import QuickRepliesPanel from './QuickRepliesPanel';
 import SchedulePanel from './SchedulePanel';
+import SucursalesPanel from './SucursalesPanel';
 import NotificationsPanel from './NotificationsPanel';
 import MetricsPanel from './MetricsPanel';
 import ExportPanel from './ExportPanel';
@@ -72,6 +73,10 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose }) {
 
                 <Accordion title="Horarios de Atención" icon={CalendarClock}>
                   <SchedulePanel />
+                </Accordion>
+
+                <Accordion title="Sucursales" icon={Store}>
+                  <SucursalesPanel />
                 </Accordion>
 
                 <Accordion title="Notificaciones" icon={Bell}>

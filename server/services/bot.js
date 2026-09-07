@@ -4,6 +4,7 @@ import { buscarProductos } from './productos.js';
 import { getBotKeyword } from './appConfig.js';
 import { getBotSchedule, getHumanSchedule, isWithinSchedule, renderScheduleMessage } from './scheduleConfig.js';
 import { agregarAlCarrito, obtenerCarrito, eliminarItemCarrito, vaciarCarrito, formatearCarrito } from './cart.js';
+import { getSucursalesActivas, formatearMensajeSucursales } from './sucursales.js';
 
 // Todas las opciones del bot se muestran como texto plano dentro del propio chat
 // (nada de botones/listas nativas de Meta). Cada mensaje separa con saltos de línea
@@ -11,7 +12,9 @@ import { agregarAlCarrito, obtenerCarrito, eliminarItemCarrito, vaciarCarrito, f
 // navegación, para que nunca quede todo amontonado en una sola oración. Las opciones
 // de navegación secundarias (ver carrito / volver al menú) usan siempre el mismo
 // formato de letra: "c." para carrito, "m." para menú de inicio.
-export const MENSAJE_BIENVENIDA = '¡Hola! Soy el bot de la Farmacia. 💊\n\n¿Qué querés hacer?\n1. Consultar precios e info\n2. Hablar con un humano\n3. Ver mi carrito';
+export const MENSAJE_BIENVENIDA = '¡Hola! Soy el bot de la Farmacia. 💊\n\n¿Qué querés hacer?\n1. Consultar precios e info\n2. Hablar con un humano\n3. Ver mi carrito\n4. Horarios y sucursales';
+
+const MENSAJE_ERROR_SUCURSALES = 'Tuvimos un problema consultando las sucursales.\n\nPor favor, intentá de nuevo en un momento.';
 
 const mensajeDerivacionHumano = (keyword) =>
   `Entendido, te estamos derivando con un asesor humano.\n\nEn breve se pondrán en contacto contigo. Si en cualquier momento querés volver a hablar con el bot, escribí la palabra "${keyword}".`;
@@ -160,6 +163,8 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
         .eq('id', conversationId);
     } else if (t === '3') {
       await mostrarCarrito(conversationId, telefono);
+    } else if (t === '4') {
+      await mostrarSucursales(conversationId, telefono);
     } else {
       await enviarMensajeBot(conversationId, telefono, MENSAJE_BIENVENIDA);
     }
@@ -221,6 +226,21 @@ const manejarSeleccionResultado = async (conversationId, telefono, t, botContext
   }
 
   await mostrarCarrito(conversationId, telefono, '✅ Agregado a tu carrito.\n\n');
+};
+
+// Consulta informativa: no cambia el bot_state, el cliente se queda en el
+// menú principal y puede seguir eligiendo cualquier otra opción normalmente.
+const mostrarSucursales = async (conversationId, telefono) => {
+  let sucursales;
+  try {
+    sucursales = await getSucursalesActivas();
+  } catch (err) {
+    console.error('[BOT] Error obteniendo las sucursales:', err);
+    await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_SUCURSALES);
+    return;
+  }
+
+  await enviarMensajeBot(conversationId, telefono, formatearMensajeSucursales(sucursales));
 };
 
 const mostrarCarrito = async (conversationId, telefono, prefijo = '') => {
