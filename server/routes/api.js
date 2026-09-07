@@ -4,8 +4,102 @@ import { sendWhatsAppMessage } from '../services/whatsapp.js';
 import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getBotKeyword, setBotKeyword } from '../services/appConfig.js';
 import { finalizarConversacion } from '../services/ratingSurvey.js';
 import { getBotSchedule, getHumanSchedule, setBotSchedule, setHumanSchedule } from '../services/scheduleConfig.js';
+import { rowsToCsv, sendCsv } from '../services/csvExport.js';
 
 const router = express.Router();
+
+const parseDateRange = (query) => {
+  const { startDate, endDate } = query;
+  if (!startDate || !endDate) {
+    throw new Error('Debés indicar startDate y endDate (formato YYYY-MM-DD).');
+  }
+  return {
+    from: `${startDate}T00:00:00.000Z`,
+    to: `${endDate}T23:59:59.999Z`
+  };
+};
+
+// Exporta el historial de mensajes (con datos del cliente y la consulta) en el rango de fechas dado.
+router.get('/export/chats', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const { from, to } = parseDateRange(req.query);
+
+    const { data, error } = await supabase
+      .from('messages')
+      .select('created_at, sender_type, message_text, media_type, conversation_id, conversations(client_name, client_phone, status)')
+      .gte('created_at', from)
+      .lte('created_at', to)
+      .order('created_at');
+
+    if (error) throw error;
+
+    const columns = [
+      { label: 'Fecha y hora', value: r => new Date(r.created_at).toLocaleString('es-AR') },
+      { label: 'Cliente', value: r => r.conversations?.client_name || '' },
+      { label: 'Teléfono', value: r => r.conversations?.client_phone || '' },
+      { label: 'Estado de la consulta', value: r => r.conversations?.status || '' },
+      { label: 'Remitente', value: r => r.sender_type || '' },
+      { label: 'Tipo de mensaje', value: r => r.media_type || 'text' },
+      { label: 'Mensaje', value: r => r.message_text || '' }
+    ];
+
+    const csv = rowsToCsv(columns, data || []);
+    console.log(`[API] -> Exportando historial de chats (${(data || []).length} mensajes, ${startDate} a ${endDate}).`);
+    sendCsv(res, `historial-chats_${startDate}_a_${endDate}.csv`, csv);
+  } catch (error) {
+    console.error('[API] ❌ Error exportando historial de chats:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Exporta las consultas del rango de fechas con su calificación (1-5) y un resumen.
+router.get('/export/metrics', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const { from, to } = parseDateRange(req.query);
+
+    const { data, error } = await supabase
+      .from('conversations')
+      .select('created_at, client_name, client_phone, status, rating')
+      .gte('created_at', from)
+      .lte('created_at', to)
+      .order('created_at');
+
+    if (error) throw error;
+
+    const conversations = data || [];
+    const calificadas = conversations.filter(c => c.rating != null);
+    const promedio = calificadas.length > 0
+      ? (calificadas.reduce((acc, c) => acc + c.rating, 0) / calificadas.length).toFixed(2)
+      : 'Sin datos';
+
+    const detailColumns = [
+      { label: 'Fecha de creación', value: r => new Date(r.created_at).toLocaleString('es-AR') },
+      { label: 'Cliente', value: r => r.client_name || '' },
+      { label: 'Teléfono', value: r => r.client_phone || '' },
+      { label: 'Estado', value: r => r.status || '' },
+      { label: 'Calificación (1-5)', value: r => (r.rating != null ? r.rating : '') }
+    ];
+
+    const summaryColumns = [
+      { label: 'Resumen', value: r => r.label },
+      { label: 'Valor', value: r => r.value }
+    ];
+    const summaryRows = [
+      { label: 'Total de consultas', value: conversations.length },
+      { label: 'Consultas calificadas', value: calificadas.length },
+      { label: 'Promedio de calificación', value: promedio }
+    ];
+
+    const csv = rowsToCsv(detailColumns, conversations) + '\r\n\r\n' + rowsToCsv(summaryColumns, summaryRows);
+    console.log(`[API] -> Exportando métricas (${conversations.length} consultas, ${startDate} a ${endDate}).`);
+    sendCsv(res, `metricas_${startDate}_a_${endDate}.csv`, csv);
+  } catch (error) {
+    console.error('[API] ❌ Error exportando métricas:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
 
 // Horarios de atención del bot y de los asesores humanos.
 router.get('/schedules', async (req, res) => {
