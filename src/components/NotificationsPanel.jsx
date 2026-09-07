@@ -42,12 +42,9 @@ export default function NotificationsPanel() {
 
   return (
     <div className="space-y-5 max-w-lg">
-      <div>
-        <h3 className="text-sm font-semibold text-gray-800 mb-1">Notificaciones</h3>
-        <p className="text-xs text-gray-500">
-          Elegí cómo querés enterarte cuando entra un chat nuevo o un cliente pide hablar con un humano.
-        </p>
-      </div>
+      <p className="text-xs text-gray-500">
+        Elegí cómo querés enterarte cuando entra un chat nuevo o un cliente pide hablar con un humano.
+      </p>
 
       <div className="flex items-center justify-between gap-3 p-4 border border-gray-200 rounded-lg">
         <div className="flex items-start gap-3">

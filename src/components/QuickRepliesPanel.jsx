@@ -84,20 +84,19 @@ export default function QuickRepliesPanel() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
-        <h3 className="text-sm font-semibold text-gray-800">Plantillas de respuestas rápidas</h3>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs text-gray-500">
+          El operador las usa escribiendo "/" o tocando el ícono de rayo en el chat.
+        </p>
         {editingId === null && (
           <button
             onClick={startNew}
-            className="flex items-center gap-1.5 text-sm font-medium text-teal-700 hover:text-teal-800 transition-colors"
+            className="flex items-center gap-1.5 text-sm font-medium text-teal-700 hover:text-teal-800 transition-colors shrink-0 ml-3"
           >
             <Plus size={16} /> Nueva plantilla
           </button>
         )}
       </div>
-      <p className="text-xs text-gray-500 mb-4">
-        El operador las usa escribiendo "/" o tocando el ícono de rayo en el chat.
-      </p>
 
       {(editingId === 'new' || replies.some(r => r.id === editingId)) && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 space-y-3">

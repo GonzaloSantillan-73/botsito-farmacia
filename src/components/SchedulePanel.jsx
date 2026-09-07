@@ -141,12 +141,9 @@ export default function SchedulePanel() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h3 className="text-sm font-semibold text-gray-800 mb-1">Horarios de atención</h3>
-        <p className="text-xs text-gray-500">
-          Configurá cuándo responde el bot automáticamente y cuándo están disponibles los asesores humanos.
-        </p>
-      </div>
+      <p className="text-xs text-gray-500">
+        Configurá cuándo responde el bot automáticamente y cuándo están disponibles los asesores humanos.
+      </p>
 
       <ScheduleEditor
         title="Bot"
