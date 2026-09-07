@@ -535,6 +535,26 @@ const confirmarPedido = async (conversationId, telefono) => {
     })
     .eq('id', conversationId);
 
+  // Registro histórico permanente para las métricas de ventas (ticket promedio,
+  // volumen de ítems, ranking de productos): a diferencia de cart_items y
+  // pending_order, esta tabla nunca se vacía ni se limpia.
+  try {
+    await supabase.from('pedidos_confirmados').insert([{
+      conversation_id: conversationId,
+      client_phone: telefono,
+      items: items.map(item => ({
+        product_id: item.productos?.id || null,
+        nombre: item.productos?.nombre || 'Producto',
+        cantidad: item.quantity,
+        precio_unitario: Number(item.productos?.precio) || 0,
+        subtotal: (Number(item.productos?.precio) || 0) * item.quantity
+      })),
+      total
+    }]);
+  } catch (err) {
+    console.error('[BOT] Error registrando el pedido en el histórico de métricas:', err);
+  }
+
   try {
     await vaciarCarrito(telefono);
   } catch (err) {

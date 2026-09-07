@@ -3,6 +3,7 @@ import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
 import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getBotKeyword, setBotKeyword } from '../services/appConfig.js';
 import { finalizarConversacion } from '../services/ratingSurvey.js';
+import { TERMINAL_STATUSES } from '../services/sessionManager.js';
 import { getBotSchedule, getHumanSchedule, setBotSchedule, setHumanSchedule } from '../services/scheduleConfig.js';
 import { rowsToCsv, sendCsv } from '../services/csvExport.js';
 
@@ -98,6 +99,81 @@ router.get('/export/metrics', async (req, res) => {
   } catch (error) {
     console.error('[API] ❌ Error exportando métricas:', error.message);
     res.status(400).json({ error: error.message });
+  }
+});
+
+// Métricas de negocio para el panel de "Métricas y Estadísticas" del CRM:
+// ventas (a partir del histórico de pedidos_confirmados, ya que cart_items y
+// pending_order se vacían apenas se usan), resolución autónoma del bot vs
+// derivación a humanos, y efectividad del filtro de seguridad de PDFs.
+router.get('/metrics/negocio', async (req, res) => {
+  try {
+    const { data: pedidos, error: pedidosError } = await supabase
+      .from('pedidos_confirmados')
+      .select('items, total');
+    if (pedidosError) throw pedidosError;
+
+    const totalPedidos = pedidos.length;
+    const ticketPromedio = totalPedidos > 0
+      ? pedidos.reduce((acc, p) => acc + Number(p.total), 0) / totalPedidos
+      : 0;
+
+    const productosMap = new Map();
+    let volumenTotalItems = 0;
+    for (const pedido of pedidos) {
+      for (const item of (pedido.items || [])) {
+        const cantidad = Number(item.cantidad) || 0;
+        volumenTotalItems += cantidad;
+        const nombre = item.nombre || 'Producto';
+        productosMap.set(nombre, (productosMap.get(nombre) || 0) + cantidad);
+      }
+    }
+    const rankingProductos = [...productosMap.entries()]
+      .map(([nombre, cantidad]) => ({ nombre, cantidad }))
+      .sort((a, b) => b.cantidad - a.cantidad)
+      .slice(0, 8);
+
+    const { data: cerradas, error: cerradasError } = await supabase
+      .from('conversations')
+      .select('id')
+      .in('status', TERMINAL_STATUSES);
+    if (cerradasError) throw cerradasError;
+
+    const idsCerradas = cerradas.map(c => c.id);
+    let derivadas = 0;
+    if (idsCerradas.length > 0) {
+      const { data: conAgente, error: agenteError } = await supabase
+        .from('messages')
+        .select('conversation_id')
+        .eq('sender_type', 'agent')
+        .in('conversation_id', idsCerradas);
+      if (agenteError) throw agenteError;
+      derivadas = new Set(conAgente.map(m => m.conversation_id)).size;
+    }
+    const totalCerradas = idsCerradas.length;
+    const autonomas = totalCerradas - derivadas;
+    const pctAutonoma = totalCerradas > 0 ? (autonomas / totalCerradas) * 100 : 0;
+
+    const { count: pdfBloqueados, error: bloqError } = await supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('media_type', 'blocked_pdf');
+    if (bloqError) throw bloqError;
+
+    const { count: pdfAceptados, error: acepError } = await supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('media_type', 'pdf');
+    if (acepError) throw acepError;
+
+    res.status(200).json({
+      ventas: { totalPedidos, ticketPromedio, volumenTotalItems, rankingProductos },
+      operacion: { totalCerradas, autonomas, derivadas, pctAutonoma },
+      seguridad: { pdfBloqueados: pdfBloqueados || 0, pdfAceptados: pdfAceptados || 0 }
+    });
+  } catch (error) {
+    console.error('[API] ❌ Error calculando métricas de negocio:', error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 
