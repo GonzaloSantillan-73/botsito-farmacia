@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Loader2, Check, X, EyeOff } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, Check, X, EyeOff, MapPin, MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const DIAS = [
@@ -18,7 +18,20 @@ const FORM_VACIO = {
   dias: [1, 2, 3, 4, 5, 6],
   hora_apertura: '09:00',
   hora_cierre: '18:00',
+  google_maps_url: '',
+  whatsapp_url: '',
   activo: true
+};
+
+// El campo de WhatsApp admite tanto un número suelto ("5493834123456") como
+// una URL ya armada; esto arma el link final que abre el botón del CRM.
+const normalizarWhatsappUrl = (valor) => {
+  if (!valor) return null;
+  const limpio = valor.trim();
+  if (!limpio) return null;
+  if (/^https?:\/\//i.test(limpio)) return limpio;
+  const soloDigitos = limpio.replace(/\D/g, '');
+  return soloDigitos ? `https://wa.me/${soloDigitos}` : null;
 };
 
 export default function SucursalesPanel() {
@@ -59,6 +72,8 @@ export default function SucursalesPanel() {
       dias: s.dias,
       hora_apertura: s.hora_apertura,
       hora_cierre: s.hora_cierre,
+      google_maps_url: s.google_maps_url || '',
+      whatsapp_url: s.whatsapp_url || '',
       activo: s.activo
     });
     setError('');
@@ -97,6 +112,8 @@ export default function SucursalesPanel() {
       dias: form.dias,
       hora_apertura: form.hora_apertura,
       hora_cierre: form.hora_cierre,
+      google_maps_url: form.google_maps_url.trim() || null,
+      whatsapp_url: form.whatsapp_url.trim() || null,
       activo: form.activo
     };
 
@@ -157,7 +174,29 @@ export default function SucursalesPanel() {
               type="text"
               value={form.direccion}
               onChange={(e) => setForm({ ...form, direccion: e.target.value })}
-              placeholder="Av. Principal 123"
+              placeholder="Calle Zurita y Prado"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Enlace de Google Maps</label>
+            <input
+              type="url"
+              value={form.google_maps_url}
+              onChange={(e) => setForm({ ...form, google_maps_url: e.target.value })}
+              placeholder="https://maps.app.goo.gl/..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">WhatsApp de la sucursal</label>
+            <input
+              type="text"
+              value={form.whatsapp_url}
+              onChange={(e) => setForm({ ...form, whatsapp_url: e.target.value })}
+              placeholder="5493834123456 o https://wa.me/..."
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
             />
           </div>
@@ -251,6 +290,30 @@ export default function SucursalesPanel() {
                 <div className="text-xs text-gray-400 mt-0.5">
                   {DIAS.filter(d => s.dias.includes(d.value)).map(d => d.label).join(' ')} · {s.hora_apertura} a {s.hora_cierre}hs
                 </div>
+                {(s.google_maps_url || s.whatsapp_url) && (
+                  <div className="flex items-center gap-3 mt-1.5">
+                    {s.google_maps_url && (
+                      <a
+                        href={s.google_maps_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs font-medium text-sky-600 hover:text-sky-800 hover:underline"
+                      >
+                        <MapPin size={13} /> Ver en Maps
+                      </a>
+                    )}
+                    {normalizarWhatsappUrl(s.whatsapp_url) && (
+                      <a
+                        href={normalizarWhatsappUrl(s.whatsapp_url)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-800 hover:underline"
+                      >
+                        <MessageCircle size={13} /> WhatsApp
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 <button

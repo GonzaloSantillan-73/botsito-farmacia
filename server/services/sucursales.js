@@ -42,7 +42,15 @@ export const formatearMensajeSucursales = (sucursales) => {
   }
 
   const lista = sucursales
-    .map(s => `📍 *${s.nombre}*\n${s.direccion}\n🕒 ${formatearDias(s.dias)} de ${s.hora_apertura} a ${s.hora_cierre}hs`)
+    .map(s => {
+      const lineas = [
+        `📍 *${s.nombre}*`,
+        s.direccion,
+        `🕒 ${formatearDias(s.dias)} de ${s.hora_apertura} a ${s.hora_cierre}hs`
+      ];
+      if (s.google_maps_url) lineas.push(`🗺️ Ver en Google Maps: ${s.google_maps_url}`);
+      return lineas.join('\n');
+    })
     .join('\n\n');
 
   return `Estas son nuestras sucursales:\n\n${lista}`;
