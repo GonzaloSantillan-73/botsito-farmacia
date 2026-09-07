@@ -165,6 +165,18 @@ router.post('/', async (req, res) => {
           } else {
             console.warn('[WEBHOOK] ⚠️ Mensaje interactivo sin button_reply ni list_reply reconocible.');
           }
+        } else if (messageType === 'location') {
+          console.log(`[WEBHOOK] -> Entró al bloque de ubicación`);
+          const loc = waMessage.location || {};
+          mediaTypeDB = 'location';
+          messageText = JSON.stringify({
+            lat: loc.latitude,
+            lng: loc.longitude,
+            name: loc.name || null,
+            address: loc.address || null
+          });
+          previewText = '📍 Ubicación compartida';
+          console.log(`[WEBHOOK] -> Coordenadas extraídas: lat=${loc.latitude}, lng=${loc.longitude}`);
         } else if (messageType === 'image' || messageType === 'document' || messageType === 'audio') {
           console.log(`[WEBHOOK] -> Entró al bloque de multimedia/documento`);
           const mediaId = waMessage[messageType].id;

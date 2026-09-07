@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Image as ImageIcon, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle } from 'lucide-react';
+import { MessageSquare, Image as ImageIcon, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MapPin } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import HistoryPanel from './HistoryPanel';
@@ -12,6 +12,20 @@ const formatCountdown = (ms) => {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+};
+
+// El webhook guarda las ubicaciones de WhatsApp como JSON en message_text
+// ({lat, lng, name?, address?}) con media_type 'location'. Acá lo parseamos
+// de vuelta para poder mostrar la tarjeta de mapa en vez del JSON crudo.
+const parseLocationMessage = (msg) => {
+  if (msg.media_type !== 'location') return null;
+  try {
+    const data = JSON.parse(msg.message_text);
+    if (typeof data?.lat !== 'number' || typeof data?.lng !== 'number') return null;
+    return data;
+  } catch {
+    return null;
+  }
 };
 
 const getLastActivityTime = (conversation, messages) => {
@@ -220,10 +234,32 @@ export default function ChatArea({
                <div className="flex items-center justify-center h-full text-gray-400">
                   No hay mensajes aún.
                </div>
-            ) : messages.map(msg => (
+            ) : messages.map(msg => {
+              const location = parseLocationMessage(msg);
+              return (
               <div key={msg.id} className={`flex ${msg.sender_type === 'client' ? 'justify-start' : 'justify-end'}`}>
                 <div className={`max-w-[75%] rounded-lg p-3 shadow-sm ${msg.sender_type === 'client' ? 'bg-white text-gray-800 rounded-tl-none' : 'bg-teal-500 text-white rounded-tr-none'}`}>
                   {msg.sender_type === 'bot' && <div className="text-[10px] font-bold uppercase opacity-70 mb-1">BOT</div>}
+                  {location && (
+                    <div
+                      onClick={() => window.open(`https://www.google.com/maps?q=${location.lat},${location.lng}`, '_blank', 'noopener,noreferrer')}
+                      className="mb-2 rounded-lg overflow-hidden border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity w-64 max-w-full"
+                      title="Abrir ubicación en Google Maps"
+                    >
+                      <div className="h-32 w-full pointer-events-none bg-gray-100">
+                        <iframe
+                          src={`https://www.openstreetmap.org/export/embed.html?bbox=${location.lng - 0.01}%2C${location.lat - 0.01}%2C${location.lng + 0.01}%2C${location.lat + 0.01}&marker=${location.lat}%2C${location.lng}`}
+                          className="w-full h-full border-0"
+                          loading="lazy"
+                          title="Vista previa de ubicación"
+                        />
+                      </div>
+                      <div className={`flex items-center gap-2 p-2 text-xs font-medium ${msg.sender_type === 'client' ? 'bg-gray-100 text-teal-700' : 'bg-teal-600 text-white'}`}>
+                        <MapPin size={14} className="shrink-0" />
+                        <span className="truncate">{location.name || location.address || 'Ver ubicación en Google Maps'}</span>
+                      </div>
+                    </div>
+                  )}
                   {msg.media_url && msg.media_type === 'image' && (
                     <div 
                       className="mb-2 rounded overflow-hidden relative cursor-pointer group"
@@ -243,7 +279,7 @@ export default function ChatArea({
                         Ver documento adjunto
                      </a>
                   )}
-                  <p className="text-sm whitespace-pre-wrap">{msg.message_text}</p>
+                  {!location && <p className="text-sm whitespace-pre-wrap">{msg.message_text}</p>}
                   <div className="flex items-center justify-end gap-1 mt-1">
                     <span className={`text-[10px] ${msg.sender_type === 'client' ? 'text-gray-400' : 'text-teal-100'}`}>
                       {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
@@ -252,7 +288,8 @@ export default function ChatArea({
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
             <div ref={messagesEndRef} />
           </div>
 
