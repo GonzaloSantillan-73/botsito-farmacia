@@ -93,6 +93,11 @@ function App() {
                 return [...prev, payload.new];
               });
               scrollToBottom();
+            } else if (payload.eventType === 'UPDATE') {
+              // Actualiza el estado del mensaje (enviado/entregado/leído/error) que
+              // llega vía el webhook de "statuses" de Meta, para que los checks del
+              // chat cambien en vivo sin recargar la página.
+              setMessages(prev => prev.map(m => (m.id === payload.new.id ? payload.new : m)));
             }
           }
         }

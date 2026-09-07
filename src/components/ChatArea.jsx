@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Image as ImageIcon, Send, Zap, Check, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle } from 'lucide-react';
+import { MessageSquare, Image as ImageIcon, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import HistoryPanel from './HistoryPanel';
@@ -17,6 +17,23 @@ const formatCountdown = (ms) => {
 const getLastActivityTime = (conversation, messages) => {
   if (!messages || messages.length === 0) return conversation.created_at;
   return messages.reduce((latest, m) => (new Date(m.created_at) > new Date(latest) ? m.created_at : latest), messages[0].created_at);
+};
+
+// Checks de estado (estilo WhatsApp) para mensajes salientes del operador o el bot.
+const MessageStatusIcon = ({ estado }) => {
+  switch (estado) {
+    case 'leido':
+      return <CheckCheck size={14} className="text-sky-300" title="Leído" />;
+    case 'entregado':
+      return <CheckCheck size={14} className="text-teal-100/80" title="Entregado" />;
+    case 'enviado':
+      return <Check size={14} className="text-teal-100/80" title="Enviado" />;
+    case 'error':
+      return <AlertCircle size={14} className="text-rose-200" title="No se pudo entregar" />;
+    case 'pendiente':
+    default:
+      return <Clock size={12} className="text-teal-100/60" title="Enviando..." />;
+  }
 };
 
 export default function ChatArea({
@@ -227,9 +244,12 @@ export default function ChatArea({
                      </a>
                   )}
                   <p className="text-sm whitespace-pre-wrap">{msg.message_text}</p>
-                  <span className={`text-[10px] block mt-1 text-right ${msg.sender_type === 'client' ? 'text-gray-400' : 'text-teal-100'}`}>
-                    {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                  </span>
+                  <div className="flex items-center justify-end gap-1 mt-1">
+                    <span className={`text-[10px] ${msg.sender_type === 'client' ? 'text-gray-400' : 'text-teal-100'}`}>
+                      {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    </span>
+                    {msg.sender_type !== 'client' && <MessageStatusIcon estado={msg.estado} />}
+                  </div>
                 </div>
               </div>
             ))}
