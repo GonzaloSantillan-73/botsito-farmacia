@@ -33,8 +33,8 @@ const MENSAJE_OPCION_INVALIDA_CARRITO = `No entendí tu respuesta. Por favor ele
 const MENSAJE_CARRITO_VACIO = 'Tu carrito está vacío. Escribí 1 para buscar productos.';
 
 const mensajeCarrito = (items, prefijo = '') => {
-  const { texto, total } = formatearCarrito(items);
-  return `${prefijo}🛒 Tu carrito:\n${texto}\n\nTotal: $${total.toLocaleString('es-AR')}\n\n¿Qué querés hacer?\n${OPCIONES_CARRITO}`;
+  const { texto, total, envioGratisTexto } = formatearCarrito(items);
+  return `${prefijo}🛒 Tu carrito:\n${texto}\n\nTotal: $${total.toLocaleString('es-AR')}\n\n${envioGratisTexto}\n\n¿Qué querés hacer?\n${OPCIONES_CARRITO}`;
 };
 
 const mensajePedirEliminacion = (items) => {
@@ -338,10 +338,10 @@ const confirmarPedido = async (conversationId, telefono) => {
     return;
   }
 
-  const { texto, total } = formatearCarrito(items);
+  const { texto, total, envioGratisTexto } = formatearCarrito(items);
   const botKeyword = await getBotKeyword();
   const mensaje =
-    `✅ ¡Gracias por tu pedido! Este es el resumen:\n\n${texto}\n\nTotal: $${total.toLocaleString('es-AR')}\n\n` +
+    `✅ ¡Gracias por tu pedido! Este es el resumen:\n\n${texto}\n\nTotal: $${total.toLocaleString('es-AR')}\n\n${envioGratisTexto}\n\n` +
     `Te estamos derivando con un asesor humano para coordinar el pago y la entrega. En breve se pondrán en contacto contigo. ` +
     `Si en cualquier momento deseas volver a hablar con el bot, simplemente escribí la palabra ${botKeyword}.`;
 

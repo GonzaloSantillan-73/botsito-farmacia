@@ -45,6 +45,18 @@ export const vaciarCarrito = async (clientPhone) => {
 export const calcularTotal = (items) =>
   items.reduce((sum, item) => sum + (Number(item.productos?.precio) || 0) * item.quantity, 0);
 
+export const FREE_SHIPPING_THRESHOLD = 20000;
+
+// Mensaje de envío según qué tan cerca esté el total del umbral de envío gratis,
+// para reutilizar en cualquier punto del flujo que muestre el carrito o el resumen.
+export const mensajeEnvioGratis = (total) => {
+  if (total >= FREE_SHIPPING_THRESHOLD) {
+    return `🎉 ¡Felicitaciones! Tu pedido supera los $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')} y tenés envío gratis.`;
+  }
+  const faltante = FREE_SHIPPING_THRESHOLD - total;
+  return `🚚 Te faltan $${faltante.toLocaleString('es-AR')} para obtener envío gratis (a partir de $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')}).`;
+};
+
 // Devuelve tanto el texto formateado como los datos crudos, para no tener que
 // recalcular el total dos veces en distintos mensajes.
 export const formatearCarrito = (items) => {
@@ -52,5 +64,5 @@ export const formatearCarrito = (items) => {
     `${idx + 1}. ${item.productos?.nombre || 'Producto'} x${item.quantity} — $${((Number(item.productos?.precio) || 0) * item.quantity).toLocaleString('es-AR')}`
   );
   const total = calcularTotal(items);
-  return { lineas, texto: lineas.join('\n'), total };
+  return { lineas, texto: lineas.join('\n'), total, envioGratisTexto: mensajeEnvioGratis(total) };
 };
