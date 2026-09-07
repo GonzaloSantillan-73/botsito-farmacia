@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Image as ImageIcon, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MapPin, Download } from 'lucide-react';
+import { MessageSquare, Image as ImageIcon, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MapPin, Download, Eye, ShieldAlert } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
@@ -60,6 +60,7 @@ export default function ChatArea({
   handleSendMessage,
   handleDeleteConversation,
   setModalImage,
+  setModalPdf,
   sessionTimeoutMs
 }) {
   const [showQuickResponses, setShowQuickResponses] = useState(false);
@@ -319,7 +320,42 @@ export default function ChatArea({
                         <Download size={14} className="ml-auto shrink-0" />
                      </button>
                   )}
-                  {!location && <p className="text-sm whitespace-pre-wrap">{msg.message_text}</p>}
+                  {msg.media_url && msg.media_type === 'pdf' && (
+                    <div className={`mb-2 rounded-lg border overflow-hidden ${msg.sender_type === 'client' ? 'border-gray-200 bg-gray-50' : 'border-teal-400 bg-teal-600/20'}`}>
+                      <div className="flex items-center gap-2 p-2.5">
+                        <div className={`p-2 rounded-lg shrink-0 ${msg.sender_type === 'client' ? 'bg-rose-100 text-rose-600' : 'bg-white/20 text-white'}`}>
+                          <FileText size={18} />
+                        </div>
+                        <span className="text-sm font-medium truncate">{msg.message_text || 'Documento PDF'}</span>
+                      </div>
+                      <div className={`flex border-t ${msg.sender_type === 'client' ? 'border-gray-200' : 'border-teal-400/50'}`}>
+                        <button
+                          onClick={() => setModalPdf(msg.media_url)}
+                          className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${msg.sender_type === 'client' ? 'text-teal-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
+                        >
+                          <Eye size={14} /> Visualizar
+                        </button>
+                        <div className={`w-px ${msg.sender_type === 'client' ? 'bg-gray-200' : 'bg-teal-400/50'}`} />
+                        <button
+                          onClick={() => handleDownloadMedia(msg)}
+                          disabled={downloadingId === msg.id}
+                          className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors disabled:opacity-50 ${msg.sender_type === 'client' ? 'text-teal-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
+                        >
+                          {downloadingId === msg.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Descargar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {msg.media_type === 'blocked_pdf' && (
+                    <div className="mb-2 flex items-start gap-2 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700">
+                      <ShieldAlert size={18} className="shrink-0 mt-0.5" />
+                      <div className="text-xs">
+                        <span className="font-semibold block mb-0.5">PDF bloqueado por seguridad</span>
+                        No se guardó el archivo: el análisis detectó contenido potencialmente malicioso.
+                      </div>
+                    </div>
+                  )}
+                  {!location && msg.media_type !== 'pdf' && <p className="text-sm whitespace-pre-wrap">{msg.message_text}</p>}
                   <div className="flex items-center justify-end gap-1 mt-1">
                     <span className={`text-[10px] ${msg.sender_type === 'client' ? 'text-gray-400' : 'text-teal-100'}`}>
                       {new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}

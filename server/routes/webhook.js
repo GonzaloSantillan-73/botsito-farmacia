@@ -4,6 +4,7 @@ import { downloadWhatsAppMedia, normalizarTelefono } from '../services/whatsapp.
 import { procesarMensajeBot } from '../services/bot.js';
 import { findOrCreateSession } from '../services/sessionManager.js';
 import { getConversationAwaitingRating, isValidRatingReply, guardarCalificacion, descartarEncuestaPendiente } from '../services/ratingSurvey.js';
+import { analizarPdf, esDocumentoPdf } from '../services/pdfSecurity.js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -180,40 +181,69 @@ router.post('/', async (req, res) => {
         } else if (messageType === 'image' || messageType === 'document' || messageType === 'audio' || messageType === 'video') {
           console.log(`[WEBHOOK] -> Entró al bloque de multimedia/documento`);
           const mediaId = waMessage[messageType].id;
+          const nombreOriginal = messageType === 'document' ? (waMessage.document.filename || '') : '';
           mediaTypeDB = messageType === 'image' ? 'image' : (messageType === 'document' ? 'document' : (messageType === 'video' ? 'video' : 'text'));
           console.log(`[WEBHOOK] -> Media ID: ${mediaId}, DB Type: ${mediaTypeDB}`);
-          
+
           console.log(`[WEBHOOK] -> Solicitando descarga de media a whatsapp.js...`);
           const mediaData = await downloadWhatsAppMedia(mediaId);
-          
+
+          let bloqueadoPorSeguridad = false;
+          let motivoBloqueo = '';
+
           if (mediaData && mediaData.arrayBuffer) {
               console.log(`[WEBHOOK] -> Media descargada exitosamente. Mime: ${mediaData.mimeType}`);
-              const fileName = `${conversationId}_${Date.now()}.${mediaData.extension}`;
-              console.log(`[WEBHOOK] -> Subiendo a Supabase Storage bucket 'media' como: ${fileName}`);
-              
-              const { data: uploadData, error: uploadError } = await supabase.storage
-                  .from('media')
-                  .upload(fileName, mediaData.arrayBuffer, {
-                      contentType: mediaData.mimeType,
-                      upsert: false
-                  });
-              
-              if (!uploadError) {
-                  console.log(`[WEBHOOK] ✅ Subida exitosa a Storage:`, uploadData);
-                  const { data: publicUrlData } = supabase.storage.from('media').getPublicUrl(fileName);
-                  mediaUrl = publicUrlData.publicUrl;
-                  console.log(`[WEBHOOK] -> URL Pública obtenida: ${mediaUrl}`);
-              } else {
-                  console.error('[WEBHOOK] ❌ Error subiendo archivo a Supabase Storage:', uploadError);
+              const buffer = Buffer.from(mediaData.arrayBuffer);
+              const esPdf = messageType === 'document' && esDocumentoPdf(mediaData.mimeType, nombreOriginal);
+
+              if (esPdf) {
+                console.log(`[WEBHOOK] -> Documento detectado como PDF. Corriendo análisis de seguridad previo...`);
+                const { seguro, motivos } = analizarPdf(buffer);
+                if (!seguro) {
+                  bloqueadoPorSeguridad = true;
+                  motivoBloqueo = motivos.join('; ');
+                  console.warn(`[WEBHOOK] 🚫 PDF BLOQUEADO por seguridad (no se sube a Storage). Motivo: ${motivoBloqueo}`);
+                } else {
+                  mediaTypeDB = 'pdf';
+                  console.log(`[WEBHOOK] ✅ El PDF pasó el análisis de seguridad.`);
+                }
+              }
+
+              if (!bloqueadoPorSeguridad) {
+                const fileName = `${conversationId}_${Date.now()}.${mediaData.extension}`;
+                console.log(`[WEBHOOK] -> Subiendo a Supabase Storage bucket 'media' como: ${fileName}`);
+
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from('media')
+                    .upload(fileName, mediaData.arrayBuffer, {
+                        contentType: mediaData.mimeType,
+                        upsert: false
+                    });
+
+                if (!uploadError) {
+                    console.log(`[WEBHOOK] ✅ Subida exitosa a Storage:`, uploadData);
+                    const { data: publicUrlData } = supabase.storage.from('media').getPublicUrl(fileName);
+                    mediaUrl = publicUrlData.publicUrl;
+                    console.log(`[WEBHOOK] -> URL Pública obtenida: ${mediaUrl}`);
+                } else {
+                    console.error('[WEBHOOK] ❌ Error subiendo archivo a Supabase Storage:', uploadError);
+                }
               }
           } else {
               console.warn(`[WEBHOOK] ⚠️ Falló la descarga de media o arrayBuffer está vacío.`);
           }
 
-          const caption = waMessage[messageType].caption || '';
-          messageText = caption || `[Archivo recibido: ${messageType}]`;
-          const etiquetaPreview = messageType === 'image' ? '📷 Imagen' : messageType === 'video' ? '🎥 Video' : '📎 Archivo';
-          previewText = etiquetaPreview + (caption ? ` - ${caption}` : '');
+          if (bloqueadoPorSeguridad) {
+              mediaTypeDB = 'blocked_pdf';
+              mediaUrl = null;
+              messageText = `⚠️ Se bloqueó un archivo PDF por motivos de seguridad: ${motivoBloqueo}.`;
+              previewText = '🚫 Archivo PDF bloqueado por seguridad';
+          } else {
+              const caption = waMessage[messageType].caption || '';
+              messageText = caption || nombreOriginal || `[Archivo recibido: ${messageType}]`;
+              const etiquetaPreview = messageType === 'image' ? '📷 Imagen' : messageType === 'video' ? '🎥 Video' : (mediaTypeDB === 'pdf' ? '📄 PDF' : '📎 Archivo');
+              previewText = etiquetaPreview + (caption ? ` - ${caption}` : '');
+          }
           console.log(`[WEBHOOK] -> Caption/Text final: "${messageText}"`);
         } else {
             console.log(`[WEBHOOK] -> Tipo de mensaje no soportado/procesado explícitamente: ${messageType}`);
