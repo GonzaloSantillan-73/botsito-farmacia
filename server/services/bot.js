@@ -6,43 +6,48 @@ import { getBotSchedule, getHumanSchedule, isWithinSchedule, renderScheduleMessa
 import { agregarAlCarrito, obtenerCarrito, eliminarItemCarrito, vaciarCarrito, formatearCarrito } from './cart.js';
 
 // Todas las opciones del bot se muestran como texto plano dentro del propio chat
-// (nada de botones/listas nativas de Meta): cada mensaje detalla explícitamente
-// qué número o palabra escribir para elegir cada opción.
-export const MENSAJE_BIENVENIDA = '¡Hola! Soy el bot de la Farmacia. Elige una opción:\n1. Consultar precios e info\n2. Hablar con un humano\n3. Ver mi carrito';
+// (nada de botones/listas nativas de Meta). Cada mensaje separa con saltos de línea
+// el contenido (catálogo, resumen, etc.) de las instrucciones y de las opciones de
+// navegación, para que nunca quede todo amontonado en una sola oración. Las opciones
+// de navegación secundarias (ver carrito / volver al menú) usan siempre el mismo
+// formato de letra: "c." para carrito, "m." para menú de inicio.
+export const MENSAJE_BIENVENIDA = '¡Hola! Soy el bot de la Farmacia. 💊\n\n¿Qué querés hacer?\n1. Consultar precios e info\n2. Hablar con un humano\n3. Ver mi carrito';
 
 const mensajeDerivacionHumano = (keyword) =>
-  `Entendido, te estamos derivando con un asesor humano. En breve se pondrán en contacto contigo. Si en cualquier momento deseas volver a hablar con el bot, simplemente escribí la palabra ${keyword}.`;
+  `Entendido, te estamos derivando con un asesor humano.\n\nEn breve se pondrán en contacto contigo. Si en cualquier momento querés volver a hablar con el bot, escribí la palabra "${keyword}".`;
 
-const MENSAJE_PEDIR_PRODUCTO = '¿Qué producto o medicamento estás buscando? Escribí el nombre bien completo y sin errores de tipeo, para que encontremos una coincidencia exacta en nuestro catálogo (por ejemplo: "Ibuprofeno").';
-const MENSAJE_ERROR_BUSQUEDA = 'Tuvimos un problema buscando en nuestro sistema. Por favor, intentá de nuevo escribiendo el nombre del producto.';
+const MENSAJE_PEDIR_PRODUCTO = '¿Qué producto o medicamento estás buscando?\n\nEscribí el nombre bien completo y sin errores de tipeo, para encontrar una coincidencia exacta en nuestro catálogo (por ejemplo: "Ibuprofeno").';
+const MENSAJE_ERROR_BUSQUEDA = 'Tuvimos un problema buscando en nuestro sistema.\n\nPor favor, intentá de nuevo escribiendo el nombre del producto.';
 const MENSAJE_TEXTO_VACIO = 'Por favor escribí el nombre del producto que buscás.';
-const MENSAJE_ERROR_CARRITO = 'Tuvimos un problema con tu carrito. Por favor, intentá de nuevo en un momento.';
+const MENSAJE_ERROR_CARRITO = 'Tuvimos un problema con tu carrito.\n\nPor favor, intentá de nuevo en un momento.';
 
 const OPCIONES_NO_ENCONTRADO = '1. Volver a ingresar el nombre del producto\n2. Volver al menú principal';
-const mensajeNoEncontrado = (texto) => `No encontramos "${texto}" en nuestro catálogo. ¿Qué querés hacer? Escribí el número de la opción deseada:\n${OPCIONES_NO_ENCONTRADO}`;
-const MENSAJE_OPCION_INVALIDA_NO_ENCONTRADO = `No entendí tu respuesta. Por favor escribí el número de una opción válida:\n${OPCIONES_NO_ENCONTRADO}`;
+const mensajeNoEncontrado = (texto) => `No encontramos "${texto}" en nuestro catálogo.\n\n¿Qué querés hacer?\n${OPCIONES_NO_ENCONTRADO}`;
+const MENSAJE_OPCION_INVALIDA_NO_ENCONTRADO = `No entendí tu respuesta.\n\nPor favor, elegí una opción válida:\n${OPCIONES_NO_ENCONTRADO}`;
 
+// Formato exacto pedido para catálogo + opciones: resultados numerados, instrucción
+// principal, y un bloque separado de "Otras opciones" con los atajos de letra.
 const mensajeResultadoBusqueda = (texto, productos) => {
   const lista = productos
     .map((p, idx) => `${idx + 1}. ${p.nombre} — $${Number(p.precio).toLocaleString('es-AR')} — Stock: ${p.stock} unidades`)
     .join('\n');
-  return `Esto encontramos para "${texto}":\n\n${lista}\n\nPara agregar un producto a tu carrito, escribí el número correspondiente (por ejemplo: 1). También podés escribir "carrito" para ver tu carrito, o "menu" para volver al inicio.`;
+  return `Esto encontramos para "${texto}":\n\n${lista}\n\nPara agregar un producto a tu carrito, escribí el número correspondiente (por ejemplo: 1).\n\nOtras opciones:\nc. Ver carrito\nm. Menú de inicio`;
 };
 
-const MENSAJE_OPCION_INVALIDA_RESULTADO = 'No entendí tu respuesta. Ingresá el número del producto que querés agregar al carrito, "carrito" para verlo, o "menu" para volver al inicio.';
+const MENSAJE_OPCION_INVALIDA_RESULTADO = 'No entendí tu respuesta.\n\nPara agregar un producto a tu carrito, escribí el número correspondiente.\n\nOtras opciones:\nc. Ver carrito\nm. Menú de inicio';
 
 const OPCIONES_CARRITO = '1. Agregar otro producto\n2. Eliminar un producto\n3. Vaciar el carrito\n4. Confirmar pedido\n5. Volver al menú principal';
-const MENSAJE_OPCION_INVALIDA_CARRITO = `No entendí tu respuesta. Por favor escribí el número de una opción válida:\n${OPCIONES_CARRITO}`;
+const MENSAJE_OPCION_INVALIDA_CARRITO = `No entendí tu respuesta.\n\nPor favor, elegí una opción válida:\n${OPCIONES_CARRITO}`;
 const MENSAJE_CARRITO_VACIO = 'Tu carrito está vacío.';
 
 const mensajeCarrito = (items, prefijo = '') => {
   const { texto, total, envioGratisTexto } = formatearCarrito(items);
-  return `${prefijo}🛒 Tu carrito:\n${texto}\n\nTotal: $${total.toLocaleString('es-AR')}\n\n${envioGratisTexto}\n\n¿Qué querés hacer? Escribí el número de la opción deseada:\n${OPCIONES_CARRITO}`;
+  return `${prefijo}🛒 Tu carrito:\n\n${texto}\n\nTotal: $${total.toLocaleString('es-AR')}\n\n${envioGratisTexto}\n\n¿Qué querés hacer?\n${OPCIONES_CARRITO}`;
 };
 
 const mensajePedirEliminacion = (items) => {
   const { texto } = formatearCarrito(items);
-  return `¿Qué producto querés eliminar? Ingresá el número correspondiente:\n${texto}\n\nO escribí "cancelar" para volver al carrito.`;
+  return `¿Qué producto querés eliminar?\n\n${texto}\n\nIngresá el número correspondiente, o escribí "cancelar" para volver al carrito.`;
 };
 
 export const procesarMensajeBot = async (texto, conversationId, telefono, isNewSession = false) => {
@@ -192,11 +197,11 @@ const manejarSeleccionResultado = async (conversationId, telefono, t, botContext
   const productIds = botContext?.productIds || [];
   const tLower = t.toLowerCase();
 
-  if (tLower === 'carrito') {
+  if (tLower === 'c' || tLower === 'carrito') {
     await mostrarCarrito(conversationId, telefono);
     return;
   }
-  if (tLower === 'menu') {
+  if (tLower === 'm' || tLower === 'menu') {
     await volverAlMenuPrincipal(conversationId, telefono);
     return;
   }
@@ -229,13 +234,14 @@ const mostrarCarrito = async (conversationId, telefono, prefijo = '') => {
   }
 
   if (items.length === 0) {
+    // El carrito vacío deja al cliente en el estado de menú principal: "1" ya
+    // dispara la búsqueda de productos y cualquier otra entrada (incluida "m")
+    // vuelve a mostrar este mismo menú, así que ambos atajos ya funcionan.
     await supabase.from('conversations').update({ bot_state: null, bot_context: null }).eq('id', conversationId);
-    // El carrito vacío deja al cliente en el estado de menú principal, así que le
-    // repetimos ese mismo menú (con sus opciones numeradas) para que sepa cómo seguir.
     await enviarMensajeBot(
       conversationId,
       telefono,
-      `${prefijo}${MENSAJE_CARRITO_VACIO} Escribí "menu" para volver al menú principal, o elegí una opción:\n\n${MENSAJE_BIENVENIDA}`
+      `${prefijo}${MENSAJE_CARRITO_VACIO}\n\n¿Qué querés hacer?\n1. Buscar un producto\nm. Menú de inicio`
     );
     return;
   }
@@ -353,8 +359,8 @@ const confirmarPedido = async (conversationId, telefono) => {
   const botKeyword = await getBotKeyword();
   const mensaje =
     `✅ ¡Gracias por tu pedido! Este es el resumen:\n\n${texto}\n\nTotal: $${total.toLocaleString('es-AR')}\n\n${envioGratisTexto}\n\n` +
-    `Te estamos derivando con un asesor humano para coordinar el pago y la entrega. En breve se pondrán en contacto contigo. ` +
-    `Si en cualquier momento deseas volver a hablar con el bot, simplemente escribí la palabra ${botKeyword}.`;
+    `Te estamos derivando con un asesor humano para coordinar el pago y la entrega.\n\n` +
+    `En breve se pondrán en contacto contigo. Si en cualquier momento querés volver a hablar con el bot, escribí la palabra "${botKeyword}".`;
 
   // Items en el formato que espera el Cotizador del CRM (nombre + precio de línea ya
   // multiplicado por la cantidad), para que el operador los vea cargados de una.
