@@ -24,6 +24,15 @@ export default function ImageModal({ imageUrl, onClose }) {
   const handleZoomOut = () => setScale(prev => Math.max(prev - 0.25, 0.5));
   const handleRotate = () => setRotation(prev => prev + 90);
 
+  // Zoom con la rueda del mouse: hacia arriba acerca, hacia abajo aleja, en
+  // pasos chicos para que se sienta gradual. preventDefault() evita que la
+  // rueda scrollee la página de fondo mientras se hace zoom.
+  const handleWheel = (e) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 0.1 : -0.1;
+    setScale(prev => Math.min(3, Math.max(0.5, +(prev + delta).toFixed(2))));
+  };
+
   const handleDownload = async () => {
     setDownloading(true);
     await downloadFile(imageUrl, filenameFromUrl(imageUrl));
@@ -97,11 +106,15 @@ export default function ImageModal({ imageUrl, onClose }) {
         </button>
       </div>
 
-      <div className="max-w-[90vw] max-h-[90vh] overflow-hidden flex items-center justify-center">
+      <div
+        className="max-w-[90vw] max-h-[90vh] overflow-hidden flex items-center justify-center"
+        onWheel={handleWheel}
+      >
         <img
           src={imageUrl}
           alt="Vista ampliada"
           onMouseDown={handleMouseDown}
+          onDragStart={(e) => e.preventDefault()}
           draggable={false}
           style={{
             transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)`,
