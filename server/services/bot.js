@@ -5,6 +5,7 @@ import { getBotKeyword } from './appConfig.js';
 import { getBotSchedule, getHumanSchedule, isWithinSchedule, renderScheduleMessage } from './scheduleConfig.js';
 import { agregarAlCarrito, obtenerCarrito, eliminarItemCarrito, vaciarCarrito, formatearCarrito } from './cart.js';
 import { getSucursalesActivas, formatearMensajeSucursales } from './sucursales.js';
+import { getCliente, tieneRegistroCompleto, guardarDatoCliente } from './clientes.js';
 
 // Todas las opciones del bot se muestran como texto plano dentro del propio chat
 // (nada de botones/listas nativas de Meta). Cada mensaje separa con saltos de línea
@@ -12,9 +13,33 @@ import { getSucursalesActivas, formatearMensajeSucursales } from './sucursales.j
 // navegación, para que nunca quede todo amontonado en una sola oración. Las opciones
 // de navegación secundarias (ver carrito / volver al menú) usan siempre el mismo
 // formato de letra: "c." para carrito, "m." para menú de inicio.
-export const MENSAJE_BIENVENIDA = '¡Hola! Soy el bot de la Farmacia. 💊\n\n¿Qué querés hacer?\n1. Consultar precios e info\n2. Hablar con un humano\n3. Ver mi carrito\n4. Horarios y sucursales';
+export const MENSAJE_BIENVENIDA = '¡Hola! Soy el bot de la Farmacia. 💊\n\n¿Qué querés hacer?\n1. Consultar precios e info\n2. Hablar con un humano\n3. Ver mi carrito\n4. Horarios y sucursales\n5. Actualizar mis datos';
 
 const MENSAJE_ERROR_SUCURSALES = 'Tuvimos un problema consultando las sucursales.\n\nPor favor, intentá de nuevo en un momento.';
+
+// Registro de datos personales: se le pide al cliente la primera vez que
+// escribe (antes de mostrarle el menú) y puede volver a hacerse desde
+// "5. Actualizar mis datos". Cada dato se guarda apenas se confirma (no se
+// espera a tener los tres), así que si el cliente abandona a mitad de
+// camino no se pierde lo ya cargado.
+const MENSAJE_PEDIR_NOMBRE = '¿Cuál es tu nombre completo?';
+const MENSAJE_PEDIR_DNI = '¿Cuál es tu número de DNI?';
+const MENSAJE_PEDIR_OBRA_SOCIAL = '¿Tenés obra social?\n\nSi es así, escribí cuál. Si no tenés, escribí "no".';
+const MENSAJE_ERROR_REGISTRO = 'Tuvimos un problema guardando tus datos.\n\nPor favor, intentá de nuevo en un momento.';
+
+const MENSAJE_POR_ESTADO_REGISTRO = {
+  registro_nombre: MENSAJE_PEDIR_NOMBRE,
+  registro_dni: MENSAJE_PEDIR_DNI,
+  registro_obra_social: MENSAJE_PEDIR_OBRA_SOCIAL
+};
+
+// Si el registro se había interrumpido a mitad de camino, retomamos desde el
+// primer dato que falte en vez de volver a pedir todo desde cero.
+const determinarEstadoRegistro = (cliente) => {
+  if (!cliente?.nombre_completo) return 'registro_nombre';
+  if (!cliente?.dni) return 'registro_dni';
+  return 'registro_obra_social';
+};
 
 const mensajeDerivacionHumano = (keyword) =>
   `Entendido, te estamos derivando con un asesor humano.\n\nEn breve se pondrán en contacto contigo. Si en cualquier momento querés volver a hablar con el bot, escribí la palabra "${keyword}".`;
@@ -67,6 +92,14 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
         await enviarMensajeBot(conversationId, telefono, renderScheduleMessage(botSchedule));
         return;
       }
+
+      const cliente = await getCliente(telefono);
+      if (!tieneRegistroCompleto(cliente)) {
+        console.log(`[BOT] Cliente ${telefono} sin datos registrados. Iniciando registro antes del menú.`);
+        await iniciarRegistro(conversationId, telefono, false, cliente);
+        return;
+      }
+
       await volverAlMenuPrincipal(conversationId, telefono);
       return;
     }
@@ -141,6 +174,11 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
       return;
     }
 
+    if (estado === 'registro_nombre' || estado === 'registro_dni' || estado === 'registro_obra_social') {
+      await manejarPasoRegistro(conversationId, telefono, t, estado, conv?.bot_context);
+      return;
+    }
+
     // Estado normal: menú principal
     if (t === '1') {
       await supabase.from('conversations').update({ bot_state: 'awaiting_product_search', bot_context: null }).eq('id', conversationId);
@@ -165,6 +203,8 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
       await mostrarCarrito(conversationId, telefono);
     } else if (t === '4') {
       await mostrarSucursales(conversationId, telefono);
+    } else if (t === '5') {
+      await iniciarRegistro(conversationId, telefono, true, null);
     } else {
       await enviarMensajeBot(conversationId, telefono, MENSAJE_BIENVENIDA);
     }
@@ -251,6 +291,87 @@ const mostrarSucursales = async (conversationId, telefono) => {
   // Es una consulta informativa (no cambia el bot_state), pero igual reenviamos
   // el menú principal para que el cliente no quede sin saber cómo seguir.
   await enviarMensajeBot(conversationId, telefono, MENSAJE_BIENVENIDA);
+};
+
+// Arranca (o retoma) el flujo de registro de datos personales. `esActualizacion`
+// distingue el registro inicial obligatorio (antes de mostrar el menú) de la
+// actualización voluntaria desde "5. Actualizar mis datos": en la actualización
+// siempre se vuelve a pedir todo desde el nombre, para que el cliente pueda
+// corregir cualquier dato ya cargado.
+const iniciarRegistro = async (conversationId, telefono, esActualizacion, clienteActual) => {
+  const estadoInicio = esActualizacion ? 'registro_nombre' : determinarEstadoRegistro(clienteActual);
+  await supabase
+    .from('conversations')
+    .update({ bot_state: estadoInicio, bot_context: { actualizando: esActualizacion } })
+    .eq('id', conversationId);
+
+  const pregunta = MENSAJE_POR_ESTADO_REGISTRO[estadoInicio];
+  const intro = esActualizacion
+    ? 'Vamos a actualizar tus datos.\n\n'
+    : (estadoInicio === 'registro_nombre' ? '¡Hola! Bienvenido a la Farmacia. 💊\n\nAntes de continuar, necesitamos algunos datos tuyos.\n\n' : '');
+  await enviarMensajeBot(conversationId, telefono, `${intro}${pregunta}`);
+};
+
+const manejarPasoRegistro = async (conversationId, telefono, t, estado, botContext) => {
+  if (estado === 'registro_nombre') {
+    const nombre = t.trim();
+    if (nombre.length < 3) {
+      await enviarMensajeBot(conversationId, telefono, `Ese nombre no parece válido.\n\n${MENSAJE_PEDIR_NOMBRE}`);
+      return;
+    }
+    try {
+      await guardarDatoCliente(telefono, 'nombre_completo', nombre);
+    } catch (err) {
+      console.error('[BOT] Error guardando el nombre del cliente:', err);
+      await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_REGISTRO);
+      return;
+    }
+    await supabase.from('conversations').update({ bot_state: 'registro_dni' }).eq('id', conversationId);
+    await enviarMensajeBot(conversationId, telefono, `Gracias, ${nombre.split(' ')[0]}.\n\n${MENSAJE_PEDIR_DNI}`);
+    return;
+  }
+
+  if (estado === 'registro_dni') {
+    const dni = t.replace(/[.\s]/g, '');
+    if (!/^\d{6,10}$/.test(dni)) {
+      await enviarMensajeBot(conversationId, telefono, `Ese DNI no parece válido. Escribilo solo con números (por ejemplo: 30123456).\n\n${MENSAJE_PEDIR_DNI}`);
+      return;
+    }
+    try {
+      await guardarDatoCliente(telefono, 'dni', dni);
+    } catch (err) {
+      console.error('[BOT] Error guardando el DNI del cliente:', err);
+      await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_REGISTRO);
+      return;
+    }
+    await supabase.from('conversations').update({ bot_state: 'registro_obra_social' }).eq('id', conversationId);
+    await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_OBRA_SOCIAL);
+    return;
+  }
+
+  // registro_obra_social
+  const respuesta = t.trim();
+  if (!respuesta) {
+    await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_OBRA_SOCIAL);
+    return;
+  }
+  const sinObraSocial = ['no', 'no tengo', 'ninguna', 'n/a', 'nose', 'no se'].includes(respuesta.toLowerCase());
+
+  try {
+    await guardarDatoCliente(telefono, 'obra_social', sinObraSocial ? null : respuesta);
+  } catch (err) {
+    console.error('[BOT] Error guardando la obra social del cliente:', err);
+    await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_REGISTRO);
+    return;
+  }
+
+  const esActualizacion = !!botContext?.actualizando;
+  await supabase.from('conversations').update({ status: 'open', bot_state: null, bot_context: null }).eq('id', conversationId);
+  await enviarMensajeBot(
+    conversationId,
+    telefono,
+    `${esActualizacion ? '✅ ¡Listo! Actualizamos tus datos.' : '✅ ¡Gracias! Ya registramos tus datos.'}\n\n${MENSAJE_BIENVENIDA}`
+  );
 };
 
 const mostrarCarrito = async (conversationId, telefono, prefijo = '') => {

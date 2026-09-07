@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator, Trash2, Plus, Send, ChevronDown, ChevronUp, Truck } from 'lucide-react';
 import { formatPhone } from '../lib/formatPhone';
 import { supabase } from '../lib/supabase';
+import ClientNotesPanel from './ClientNotesPanel';
 
 // Estados en los que la conversación ya está cerrada (mismo criterio que en ChatArea/Sidebar).
 const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
@@ -385,6 +386,14 @@ export default function ValidationPanel({
               </div>
             )}
           </div>
+        )}
+
+        {/* Observaciones del cliente: notas internas del operador + su ficha
+            de datos (nombre/DNI/obra social) cargada por el bot. Persiste
+            por cliente (no por conversación), así que se muestra siempre que
+            haya un chat abierto, incluso en el Historial. */}
+        {activeConversation && (
+          <ClientNotesPanel clientPhone={activeConversation.client_phone} />
         )}
       </div>
     </div>
