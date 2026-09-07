@@ -3,8 +3,29 @@ import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
 import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getBotKeyword, setBotKeyword } from '../services/appConfig.js';
 import { finalizarConversacion } from '../services/ratingSurvey.js';
+import { getBotSchedule, getHumanSchedule, setBotSchedule, setHumanSchedule } from '../services/scheduleConfig.js';
 
 const router = express.Router();
+
+// Horarios de atención del bot y de los asesores humanos.
+router.get('/schedules', async (req, res) => {
+  const [bot, human] = await Promise.all([getBotSchedule(), getHumanSchedule()]);
+  res.status(200).json({ bot, human });
+});
+
+router.put('/schedules', async (req, res) => {
+  const { bot, human } = req.body;
+
+  try {
+    if (bot) await setBotSchedule(bot);
+    if (human) await setHumanSchedule(human);
+    console.log('[API] -> Horarios de atención actualizados.');
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('[API] ❌ Error actualizando horarios:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
 
 // Palabra clave con la que un cliente reactiva al bot en modo humano.
 router.get('/bot-config', async (req, res) => {

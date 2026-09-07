@@ -2,6 +2,7 @@ import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from './whatsapp.js';
 import { buscarProductos } from './productos.js';
 import { getBotKeyword } from './appConfig.js';
+import { getBotSchedule, getHumanSchedule, isWithinSchedule, renderScheduleMessage } from './scheduleConfig.js';
 
 export const MENSAJE_BIENVENIDA = '¡Hola! Soy el bot de la Farmacia. Elige una opción:\n1. Consultar precios e info\n2. Hablar con un humano';
 
@@ -29,7 +30,14 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
   try {
     // Si la consulta es nueva (no existía, o la anterior expiró/finalizó), siempre se
     // reinicia el ciclo con el menú de bienvenida, sin importar qué haya escrito el cliente.
+    // Salvo que el bot esté fuera de su horario configurado.
     if (isNewSession) {
+      const botSchedule = await getBotSchedule();
+      if (!isWithinSchedule(botSchedule)) {
+        console.log(`[BOT] Fuera de horario del bot para ${conversationId}. Enviando aviso de horario.`);
+        await enviarMensajeBot(conversationId, telefono, renderScheduleMessage(botSchedule));
+        return;
+      }
       await volverAlMenuPrincipal(conversationId, telefono);
       return;
     }
@@ -56,6 +64,13 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
       } else {
         console.log(`[BOT] Conversación ${conversationId} en modo humano ('esperando'). Bot silenciado, no se responde.`);
       }
+      return;
+    }
+
+    const botSchedule = await getBotSchedule();
+    if (!isWithinSchedule(botSchedule)) {
+      console.log(`[BOT] Fuera de horario del bot para ${conversationId}. Enviando aviso de horario.`);
+      await enviarMensajeBot(conversationId, telefono, renderScheduleMessage(botSchedule));
       return;
     }
 
@@ -87,6 +102,13 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
       await supabase.from('conversations').update({ bot_state: 'awaiting_product_search' }).eq('id', conversationId);
       await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_PRODUCTO);
     } else if (t === '2') {
+      const humanSchedule = await getHumanSchedule();
+      if (!isWithinSchedule(humanSchedule)) {
+        console.log(`[BOT] Se pidió un humano fuera de su horario de atención para ${conversationId}.`);
+        await enviarMensajeBot(conversationId, telefono, renderScheduleMessage(humanSchedule));
+        return;
+      }
+
       const botKeyword = await getBotKeyword();
       await enviarMensajeBot(conversationId, telefono, mensajeDerivacionHumano(botKeyword));
 
