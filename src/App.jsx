@@ -12,9 +12,12 @@ import ClientDirectory from './components/ClientDirectory';
 function App() {
   const [activeTab, setActiveTab] = useState('atendiendo');
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   const [conversations, setConversations] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
+  // Directorio de clientes: independiente de activeTab, para que Entrantes/
+  // Atendiendo/Historial se sigan viendo mientras se muestra el directorio.
+  const [showClientDirectory, setShowClientDirectory] = useState(false);
   
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState('');
@@ -175,14 +178,19 @@ function App() {
     }, 100);
   };
 
-  // Al cambiar de pestaña en el sidebar, si se va a "Clientes" se limpia la
-  // conversación activa para que el panel central muestre el directorio en
-  // vez de dejar un chat abierto pisándolo.
-  const handleTabChange = (tabId) => {
-    setActiveTab(tabId);
-    if (tabId === 'clientes') {
-      setActiveConversation(null);
-    }
+  // Seleccionar una conversación (desde el sidebar o desde el directorio de
+  // clientes) siempre saca al directorio de en medio, para que el panel
+  // central muestre el chat.
+  const handleSelectConversation = (conv) => {
+    setShowClientDirectory(false);
+    setActiveConversation(conv);
+  };
+
+  // Abrir el directorio de clientes: deja de mostrar cualquier chat abierto,
+  // pero NO toca activeTab, así Entrantes/Atendiendo/Historial se siguen viendo.
+  const handleShowClientDirectory = () => {
+    setActiveConversation(null);
+    setShowClientDirectory(true);
   };
 
   const fetchConversations = async () => {
@@ -406,23 +414,25 @@ function App() {
   return (
     <div className="flex h-screen bg-gray-50 font-sans text-gray-800">
       
-      <Sidebar 
+      <Sidebar
         conversations={conversations}
         loading={loading}
         activeConversation={activeConversation}
-        setActiveConversation={setActiveConversation}
+        setActiveConversation={handleSelectConversation}
         activeTab={activeTab}
-        setActiveTab={handleTabChange}
+        setActiveTab={setActiveTab}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         handleSeedData={handleSeedData}
         isSeeding={isSeeding}
         sessionTimeoutMs={sessionTimeoutMs}
         onSessionTimeoutChange={setSessionTimeoutMs}
+        showClientDirectory={showClientDirectory}
+        onShowClientDirectory={handleShowClientDirectory}
       />
 
-      {activeTab === 'clientes' && !activeConversation ? (
-        <ClientDirectory onOpenConversation={(conv) => setActiveConversation(conv)} />
+      {showClientDirectory && !activeConversation ? (
+        <ClientDirectory onOpenConversation={handleSelectConversation} />
       ) : (
         <ChatArea
           activeConversation={activeConversation}

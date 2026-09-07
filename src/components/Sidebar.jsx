@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, FileText, Database, Loader2, Clock, MessagesSquare, Inbox, Headset, Archive, Settings, Users } from 'lucide-react';
+import { Search, Database, Loader2, Clock, MessagesSquare, Inbox, Headset, Archive, Settings, Users } from 'lucide-react';
 import SettingsModal from './SettingsModal';
 import { formatPhone } from '../lib/formatPhone';
 
@@ -24,8 +24,7 @@ const necesitaHumano = (status) => status === 'esperando';
 const TABS = [
   { id: 'entrantes', label: 'Entrantes', icon: Inbox },
   { id: 'atendiendo', label: 'Atendiendo', icon: Headset },
-  { id: 'historial', label: 'Historial', icon: Archive },
-  { id: 'clientes', label: 'Clientes', icon: Users }
+  { id: 'historial', label: 'Historial', icon: Archive }
 ];
 
 export default function Sidebar({
@@ -40,7 +39,9 @@ export default function Sidebar({
   searchQuery,
   setSearchQuery,
   sessionTimeoutMs,
-  onSessionTimeoutChange
+  onSessionTimeoutChange,
+  showClientDirectory,
+  onShowClientDirectory
 }) {
   const [showSettings, setShowSettings] = useState(false);
 
@@ -55,7 +56,6 @@ export default function Sidebar({
     if (activeTab === 'entrantes') matchesTab = esBotAutomatico(c.status);
     else if (activeTab === 'atendiendo') matchesTab = necesitaHumano(c.status);
     else if (activeTab === 'historial') matchesTab = ESTADOS_HISTORIAL.includes(c.status);
-    else if (activeTab === 'clientes') matchesTab = false; // el directorio se muestra en el panel central, no acá
 
     // 2. Filtro por texto (búsqueda)
     let matchesSearch = true;
@@ -79,17 +79,23 @@ export default function Sidebar({
     <div className="w-1/4 border-r border-gray-200 bg-white flex flex-col shadow-sm z-10">
       <div className="p-4 border-b border-gray-200 space-y-4">
         <h1 className="text-xl font-bold text-teal-700 flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2">
-            <span className="p-2 bg-teal-100 rounded-lg"><FileText size={20} className="text-teal-600"/></span>
-            FarmaPanel CRM
-          </span>
-          <button
-            onClick={() => setShowSettings(true)}
-            title="Configuración"
-            className="p-2 text-gray-400 hover:text-teal-600 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <Settings size={20} />
-          </button>
+          <span>CRM</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={onShowClientDirectory}
+              title="Directorio de clientes"
+              className={`p-2 rounded-full transition-colors ${showClientDirectory ? 'bg-teal-100 text-teal-700' : 'text-gray-400 hover:text-teal-600 hover:bg-gray-100'}`}
+            >
+              <Users size={20} />
+            </button>
+            <button
+              onClick={() => setShowSettings(true)}
+              title="Configuración"
+              className="p-2 text-gray-400 hover:text-teal-600 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <Settings size={20} />
+            </button>
+          </div>
         </h1>
 
         {/* Tarjetas de contadores */}
@@ -179,11 +185,6 @@ export default function Sidebar({
                {isSeeding ? <Loader2 className="animate-spin" size={18} /> : <Database size={18} />}
                {isSeeding ? 'Cargando...' : 'Cargar datos mock'}
              </button>
-           </div>
-        ) : activeTab === 'clientes' ? (
-           <div className="p-8 text-center flex flex-col items-center justify-center h-full text-gray-400">
-              <Users className="w-10 h-10 mb-3 text-gray-300" />
-              <p className="text-sm">Mostrando el directorio de clientes en el panel central.</p>
            </div>
         ) : filteredConversations.length === 0 ? (
            <div className="p-8 text-center text-gray-500 text-sm">
