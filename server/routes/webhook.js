@@ -210,13 +210,20 @@ router.post('/', async (req, res) => {
               }
 
               if (!bloqueadoPorSeguridad) {
-                const fileName = `${conversationId}_${Date.now()}.${mediaData.extension}`;
-                console.log(`[WEBHOOK] -> Subiendo a Supabase Storage bucket 'media' como: ${fileName}`);
+                // Si ya confirmamos por la firma binaria que es un PDF, forzamos
+                // extensión/content-type limpios ("application/pdf") en vez de
+                // confiar en lo que haya devuelto Meta (a veces manda un mime
+                // genérico como application/octet-stream para documentos, lo que
+                // hacía que el navegador no supiera renderizarlo ni nombrarlo bien).
+                const extension = mediaTypeDB === 'pdf' ? 'pdf' : mediaData.extension;
+                const contentType = mediaTypeDB === 'pdf' ? 'application/pdf' : mediaData.mimeType;
+                const fileName = `${conversationId}_${Date.now()}.${extension}`;
+                console.log(`[WEBHOOK] -> Subiendo a Supabase Storage bucket 'media' como: ${fileName} (content-type: ${contentType})`);
 
                 const { data: uploadData, error: uploadError } = await supabase.storage
                     .from('media')
                     .upload(fileName, mediaData.arrayBuffer, {
-                        contentType: mediaData.mimeType,
+                        contentType,
                         upsert: false
                     });
 

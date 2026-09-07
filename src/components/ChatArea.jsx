@@ -60,7 +60,6 @@ export default function ChatArea({
   handleSendMessage,
   handleDeleteConversation,
   setModalImage,
-  setModalPdf,
   sessionTimeoutMs
 }) {
   const [showQuickResponses, setShowQuickResponses] = useState(false);
@@ -72,9 +71,18 @@ export default function ChatArea({
   const [downloadingId, setDownloadingId] = useState(null);
   const fileInputRef = useRef(null);
 
+  // El nombre "bonito" del archivo (ej. "receta.pdf") viaja en message_text
+  // para documentos/PDF; para fotos y videos no hay nombre real, así que
+  // caemos al nombre técnico derivado de la URL de Storage.
+  const esNombreArchivoValido = (texto) => /\.[a-z0-9]{2,5}$/i.test((texto || '').trim());
+
   const handleDownloadMedia = async (msg) => {
     setDownloadingId(msg.id);
-    await downloadFile(msg.media_url, filenameFromUrl(msg.media_url));
+    const nombre = esNombreArchivoValido(msg.message_text) ? msg.message_text.trim() : filenameFromUrl(msg.media_url);
+    const resultado = await downloadFile(msg.media_url, nombre);
+    if (!resultado.ok) {
+      alert('No se pudo descargar el archivo directamente. Se abrió en una pestaña nueva: desde ahí podés guardarlo con Ctrl+S o clic derecho → "Guardar como".');
+    }
     setDownloadingId(null);
   };
 
@@ -329,12 +337,14 @@ export default function ChatArea({
                         <span className="text-sm font-medium truncate">{msg.message_text || 'Documento PDF'}</span>
                       </div>
                       <div className={`flex border-t ${msg.sender_type === 'client' ? 'border-gray-200' : 'border-teal-400/50'}`}>
-                        <button
-                          onClick={() => setModalPdf(msg.media_url)}
+                        <a
+                          href={msg.media_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${msg.sender_type === 'client' ? 'text-teal-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
                         >
                           <Eye size={14} /> Visualizar
-                        </button>
+                        </a>
                         <div className={`w-px ${msg.sender_type === 'client' ? 'bg-gray-200' : 'bg-teal-400/50'}`} />
                         <button
                           onClick={() => handleDownloadMedia(msg)}

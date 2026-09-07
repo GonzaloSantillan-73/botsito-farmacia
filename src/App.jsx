@@ -7,7 +7,6 @@ import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import ValidationPanel from './components/ValidationPanel';
 import ImageModal from './components/ImageModal';
-import PdfModal from './components/PdfModal';
 import ClientDirectory from './components/ClientDirectory';
 
 function App() {
@@ -31,7 +30,6 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [isSeeding, setIsSeeding] = useState(false);
   const [modalImage, setModalImage] = useState(null);
-  const [modalPdf, setModalPdf] = useState(null);
 
   // Límite de expiración de sesiones (configurable desde el panel de ajustes).
   const [sessionTimeoutMs, setSessionTimeoutMs] = useState(null);
@@ -450,7 +448,6 @@ function App() {
           handleSendMessage={handleSendMessage}
           handleDeleteConversation={handleDeleteConversation}
           setModalImage={setModalImage}
-          setModalPdf={setModalPdf}
           sessionTimeoutMs={sessionTimeoutMs}
         />
       )}
@@ -474,13 +471,6 @@ function App() {
         <ImageModal
           imageUrl={modalImage}
           onClose={() => setModalImage(null)}
-        />
-      )}
-
-      {modalPdf && (
-        <PdfModal
-          pdfUrl={modalPdf}
-          onClose={() => setModalPdf(null)}
         />
       )}
 

@@ -136,7 +136,11 @@ export const downloadWhatsAppMedia = async (mediaId) => {
     }
 
     const arrayBuffer = await fileResponse.arrayBuffer();
-    const mimeType = fileResponse.headers.get('content-type');
+    // Content-Type real de la respuesta (puede venir con parámetros extra tipo
+    // "application/pdf; charset=binary"); nos quedamos solo con la parte del
+    // mime type para no terminar con una extensión de archivo corrupta.
+    const rawContentType = fileResponse.headers.get('content-type') || '';
+    const mimeType = rawContentType.split(';')[0].trim() || null;
     const extension = mimeType ? mimeType.split('/')[1] : 'bin';
     
     console.log(`[SERVICES/WHATSAPP] -> 3. Procesamiento binario exitoso.`);
