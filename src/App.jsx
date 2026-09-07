@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './lib/supabase';
+import { notifyNewEvent } from './lib/notifications';
 
 // Components
 import Sidebar from './components/Sidebar';
@@ -44,6 +45,14 @@ function App() {
   useEffect(() => {
     activeConversationRef.current = activeConversation;
   }, [activeConversation]);
+
+  // Ref con la lista de conversaciones "al día", para poder comparar el status
+  // anterior de una fila cuando llega un UPDATE por Realtime (el payload de
+  // Supabase solo trae el id en payload.old, no el resto de columnas viejas).
+  const conversationsRef = useRef([]);
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
 
   // 1. Fetch Initial Data
   useEffect(() => {
@@ -100,6 +109,11 @@ function App() {
           if (!payload.new?.id) return;
 
           if (payload.eventType === 'UPDATE') {
+            // Se calcula ANTES de actualizar el estado, comparando contra lo que
+            // ya teníamos, para detectar la transición "recién pasó a esperando".
+            const previous = conversationsRef.current.find(c => c.id === payload.new.id);
+            const empezoAEsperar = payload.new.status === 'esperando' && previous?.status !== 'esperando';
+
             setConversations(prev => {
               const exists = prev.some(c => c.id === payload.new.id);
               const next = exists
@@ -111,11 +125,26 @@ function App() {
             if (activeConversationRef.current?.id === payload.new.id) {
               setActiveConversation(payload.new);
             }
+
+            if (empezoAEsperar) {
+              const nombre = payload.new.client_name || payload.new.client_phone || 'Un cliente';
+              notifyNewEvent({
+                title: 'Cliente esperando un asesor',
+                body: `${nombre} quiere hablar con un humano.`
+              });
+            }
           } else if (payload.eventType === 'INSERT') {
             setConversations(prev => {
               // Evita duplicar si ese id ya está en la lista (ej. un evento repetido).
               if (prev.some(c => c.id === payload.new.id)) return prev;
               return [payload.new, ...prev].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+            });
+
+            // Toda conversación nueva arranca en 'open' (cola de Entrantes).
+            const nombre = payload.new.client_name || payload.new.client_phone || 'Un cliente';
+            notifyNewEvent({
+              title: 'Nuevo chat entrante',
+              body: `${nombre} inició una conversación.`
             });
           }
         }

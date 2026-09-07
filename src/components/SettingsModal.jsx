@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Settings, Loader2, Check, BarChart3, Star, Sliders, Hash, Zap, CalendarClock, Download } from 'lucide-react';
+import { X, Settings, Loader2, Check, BarChart3, Star, Sliders, Hash, Zap, CalendarClock, Download, Bell } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import QuickRepliesPanel from './QuickRepliesPanel';
 import SchedulePanel from './SchedulePanel';
 import ExportPanel from './ExportPanel';
+import NotificationsPanel from './NotificationsPanel';
 
 const TABS = [
   { id: 'chat', label: 'Ajustes de Chat', icon: Sliders },
   { id: 'replies', label: 'Respuestas Rápidas', icon: Zap },
   { id: 'schedule', label: 'Horarios de Atención', icon: CalendarClock },
+  { id: 'notifications', label: 'Notificaciones', icon: Bell },
   { id: 'metrics', label: 'Métricas y Estadísticas', icon: BarChart3 },
   { id: 'export', label: 'Exportar Datos', icon: Download }
 ];
@@ -241,6 +243,8 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose }) {
               <SchedulePanel />
             ) : activeTab === 'export' ? (
               <ExportPanel />
+            ) : activeTab === 'notifications' ? (
+              <NotificationsPanel />
             ) : (
               <div>
                 <h3 className="text-sm font-semibold text-gray-800 mb-1">Calificaciones de satisfacción</h3>
