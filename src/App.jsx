@@ -7,6 +7,7 @@ import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import ValidationPanel from './components/ValidationPanel';
 import ImageModal from './components/ImageModal';
+import ClientDirectory from './components/ClientDirectory';
 
 function App() {
   const [activeTab, setActiveTab] = useState('atendiendo');
@@ -172,6 +173,16 @@ function App() {
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 100);
+  };
+
+  // Al cambiar de pestaña en el sidebar, si se va a "Clientes" se limpia la
+  // conversación activa para que el panel central muestre el directorio en
+  // vez de dejar un chat abierto pisándolo.
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    if (tabId === 'clientes') {
+      setActiveConversation(null);
+    }
   };
 
   const fetchConversations = async () => {
@@ -401,7 +412,7 @@ function App() {
         activeConversation={activeConversation}
         setActiveConversation={setActiveConversation}
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleTabChange}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         handleSeedData={handleSeedData}
@@ -410,17 +421,21 @@ function App() {
         onSessionTimeoutChange={setSessionTimeoutMs}
       />
 
-      <ChatArea
-        activeConversation={activeConversation}
-        messages={messages}
-        messagesEndRef={messagesEndRef}
-        messageInput={messageInput}
-        setMessageInput={setMessageInput}
-        handleSendMessage={handleSendMessage}
-        handleDeleteConversation={handleDeleteConversation}
-        setModalImage={setModalImage}
-        sessionTimeoutMs={sessionTimeoutMs}
-      />
+      {activeTab === 'clientes' && !activeConversation ? (
+        <ClientDirectory onOpenConversation={(conv) => setActiveConversation(conv)} />
+      ) : (
+        <ChatArea
+          activeConversation={activeConversation}
+          messages={messages}
+          messagesEndRef={messagesEndRef}
+          messageInput={messageInput}
+          setMessageInput={setMessageInput}
+          handleSendMessage={handleSendMessage}
+          handleDeleteConversation={handleDeleteConversation}
+          setModalImage={setModalImage}
+          sessionTimeoutMs={sessionTimeoutMs}
+        />
+      )}
 
       {activeConversation && (
         <ValidationPanel

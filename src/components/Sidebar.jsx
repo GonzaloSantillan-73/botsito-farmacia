@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Search, FileText, Database, Loader2, Clock, MessagesSquare, Inbox, Headset, Archive, Settings } from 'lucide-react';
+import { Search, FileText, Database, Loader2, Clock, MessagesSquare, Inbox, Headset, Archive, Settings, Users } from 'lucide-react';
 import SettingsModal from './SettingsModal';
 import { formatPhone } from '../lib/formatPhone';
 
-const STATUS_BADGES = {
+export const STATUS_BADGES = {
   pending_validation: { label: 'Receta Pendiente', className: 'bg-amber-100 text-amber-800' },
   open: { label: 'Abierto', className: 'bg-blue-100 text-blue-800' },
   preparation: { label: 'En Preparación', className: 'bg-indigo-100 text-indigo-800' },
@@ -15,7 +15,7 @@ const STATUS_BADGES = {
 };
 
 // Estados "cerrados": la consulta ya terminó (por el operador o por inactividad).
-const ESTADOS_HISTORIAL = ['finalizada', 'resolved', 'rejected'];
+export const ESTADOS_HISTORIAL = ['finalizada', 'resolved', 'rejected'];
 // El bot está respondiendo solo (menú, precios, etc.) y todavía no se pidió un humano.
 const esBotAutomatico = (status) => status !== 'esperando' && !ESTADOS_HISTORIAL.includes(status);
 // El cliente pidió hablar con un humano: pasa a "Atendiendo" de forma automática e inmediata.
@@ -24,7 +24,8 @@ const necesitaHumano = (status) => status === 'esperando';
 const TABS = [
   { id: 'entrantes', label: 'Entrantes', icon: Inbox },
   { id: 'atendiendo', label: 'Atendiendo', icon: Headset },
-  { id: 'historial', label: 'Historial', icon: Archive }
+  { id: 'historial', label: 'Historial', icon: Archive },
+  { id: 'clientes', label: 'Clientes', icon: Users }
 ];
 
 export default function Sidebar({
@@ -54,6 +55,7 @@ export default function Sidebar({
     if (activeTab === 'entrantes') matchesTab = esBotAutomatico(c.status);
     else if (activeTab === 'atendiendo') matchesTab = necesitaHumano(c.status);
     else if (activeTab === 'historial') matchesTab = ESTADOS_HISTORIAL.includes(c.status);
+    else if (activeTab === 'clientes') matchesTab = false; // el directorio se muestra en el panel central, no acá
 
     // 2. Filtro por texto (búsqueda)
     let matchesSearch = true;
@@ -177,6 +179,11 @@ export default function Sidebar({
                {isSeeding ? <Loader2 className="animate-spin" size={18} /> : <Database size={18} />}
                {isSeeding ? 'Cargando...' : 'Cargar datos mock'}
              </button>
+           </div>
+        ) : activeTab === 'clientes' ? (
+           <div className="p-8 text-center flex flex-col items-center justify-center h-full text-gray-400">
+              <Users className="w-10 h-10 mb-3 text-gray-300" />
+              <p className="text-sm">Mostrando el directorio de clientes en el panel central.</p>
            </div>
         ) : filteredConversations.length === 0 ? (
            <div className="p-8 text-center text-gray-500 text-sm">
