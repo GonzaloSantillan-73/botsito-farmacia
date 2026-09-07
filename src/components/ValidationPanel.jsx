@@ -1,9 +1,15 @@
-import React, { useState } from 'react';
-import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator, Trash2, Plus, Send, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator, Trash2, Plus, Send, ChevronDown, ChevronUp, Truck } from 'lucide-react';
 import { formatPhone } from '../lib/formatPhone';
+import { supabase } from '../lib/supabase';
 
 // Estados en los que la conversación ya está cerrada (mismo criterio que en ChatArea/Sidebar).
 const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
+
+// Debe coincidir con FREE_SHIPPING_THRESHOLD de server/services/cart.js: es el
+// mismo umbral que usa el bot, pero acá se duplica porque el frontend no
+// comparte código con el backend.
+const FREE_SHIPPING_THRESHOLD = 20000;
 
 export default function ValidationPanel({
   activeConversation,
@@ -27,7 +33,33 @@ export default function ValidationPanel({
   const [newItemDiscount, setNewItemDiscount] = useState('0');
 
   const discountOptions = ['0', '40', '70', '100'];
-  
+
+  // Cuando el bot confirma un pedido desde el carrito del cliente, deja los
+  // productos en conversations.pending_order para que el operador los vea
+  // cargados de una en el Cotizador. Se agregan a lo que ya haya (sin pisar
+  // items que el operador esté cargando a mano) y se limpia el campo en la
+  // base para no volver a cargarlos si se re-abre este chat más tarde.
+  const procesadoRef = useRef(null);
+  useEffect(() => {
+    const pending = activeConversation?.pending_order;
+    if (!pending || !Array.isArray(pending.items) || pending.items.length === 0) return;
+    if (procesadoRef.current === pending.confirmedAt) return;
+    procesadoRef.current = pending.confirmedAt;
+
+    setQuoteItems(prev => [
+      ...prev,
+      ...pending.items.map(item => ({
+        id: crypto.randomUUID(),
+        name: item.name,
+        price: item.price,
+        discount: 0
+      }))
+    ]);
+    setIsQuoteOpen(true);
+
+    supabase.from('conversations').update({ pending_order: null }).eq('id', activeConversation.id);
+  }, [activeConversation?.id, activeConversation?.pending_order]);
+
   const rejectionReasons = [
     'Ilegible',
     'Vencida',
@@ -61,10 +93,11 @@ export default function ValidationPanel({
   const subtotal = quoteItems.reduce((acc, item) => acc + item.price, 0);
   const totalDiscount = quoteItems.reduce((acc, item) => acc + (item.price * (item.discount / 100)), 0);
   const total = subtotal - totalDiscount;
+  const envioGratis = total >= FREE_SHIPPING_THRESHOLD;
 
   const handleSendQuote = () => {
     if (quoteItems.length === 0) return;
-    
+
     let message = `📋 *Cotización de Receta*\n\n`;
     quoteItems.forEach(item => {
       const itemDiscount = item.price * (item.discount / 100);
@@ -76,13 +109,16 @@ export default function ValidationPanel({
       }
       message += `  Subtotal: $${itemFinal.toFixed(2)}\n\n`;
     });
-    
+
     message += `💰 *Subtotal:* $${subtotal.toFixed(2)}\n`;
     if (totalDiscount > 0) {
       message += `📉 *Descuento Total:* -$${totalDiscount.toFixed(2)}\n`;
     }
     message += `💲 *Total a Pagar:* $${total.toFixed(2)}\n`;
-    
+    message += envioGratis
+      ? `🎉 *¡Envío gratis!* (supera los $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')})\n`
+      : `🚚 *Envío gratis* a partir de $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')} (faltan $${(FREE_SHIPPING_THRESHOLD - total).toFixed(2)})\n`;
+
     if (handleSendMessage) {
       handleSendMessage(message);
     }
@@ -328,8 +364,16 @@ export default function ValidationPanel({
                       <span>Total:</span>
                       <span>${total.toFixed(2)}</span>
                     </div>
-                    
-                    <button 
+
+                    <div className={`flex items-center gap-2 text-xs font-medium rounded-lg px-3 py-2 mt-2 ${envioGratis ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+                      <Truck size={14} className="shrink-0" />
+                      {envioGratis
+                        ? `¡Envío gratis! Supera los $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')}.`
+                        : `Faltan $${(FREE_SHIPPING_THRESHOLD - total).toFixed(2)} para envío gratis (a partir de $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')}).`
+                      }
+                    </div>
+
+                    <button
                       onClick={handleSendQuote}
                       className="w-full mt-3 flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white p-2 rounded-lg font-medium transition-colors shadow-sm"
                     >

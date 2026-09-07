@@ -26,20 +26,50 @@ const limpiarTelefono = (phone) => {
 export const normalizarTelefono = limpiarTelefono;
 export const formatearNumeroArg = limpiarTelefono;
 
-// Lógica compartida de envío a la API de Meta: arma headers, hace el POST,
-// loguea y normaliza el manejo de errores para cualquier tipo de payload
-// (texto, media o interactivo).
-const enviarPayloadMeta = async (payload, etiqueta) => {
-  console.log(`\n------------------------------------------------------`);
-  console.log(`[SERVICES/WHATSAPP] ==> LLAMADA A FETCH (META API) [${etiqueta}]`);
-  console.log(`[SERVICES/WHATSAPP] -> URL de Meta: ${API_URL}`);
-  console.log(`[SERVICES/WHATSAPP] -> Headers: Authorization: Bearer ${TOKEN ? TOKEN.substring(0, 6) + '...' : 'UNDEFINED'}, Content-Type: application/json`);
-  console.log(`[SERVICES/WHATSAPP] -> Payload completo enviado a Meta:`, JSON.stringify(payload, null, 2));
+export const sendWhatsAppMessage = async (to, text, mediaUrl = null, mediaType = null) => {
+  console.log(`\n======================================================`);
+  console.log(`[SERVICES/WHATSAPP - sendWhatsAppMessage] ==> INICIO DE FUNCIÓN`);
+  console.log(`[SERVICES/WHATSAPP] ==> Parámetros recibidos: to="${to}", text="${text}", mediaUrl="${mediaUrl}", mediaType="${mediaType}"`);
 
   try {
+    let cleanTo = formatearNumeroArg(to);
+    console.log(`[SERVICES/WHATSAPP] -> Teléfono limpio para enviar: ${cleanTo}`);
+
     if (!TOKEN || !PHONE_ID) {
       console.warn('[SERVICES/WHATSAPP] ⚠️ ALERTA: WHATSAPP_TOKEN o PHONE_NUMBER_ID no están configurados.');
     }
+
+    let payload = {
+        messaging_product: 'whatsapp',
+        to: cleanTo
+    };
+
+    if (mediaUrl) {
+        console.log(`[SERVICES/WHATSAPP] -> Condición: Se detectó mediaUrl. Preparando payload multimedia.`);
+        const validTypes = ['image', 'document', 'audio', 'video'];
+        const type = validTypes.includes(mediaType) ? mediaType : 'document';
+        console.log(`[SERVICES/WHATSAPP] -> Tipo de medio resuelto: ${type}`);
+
+        payload.type = type;
+        payload[type] = {
+            link: mediaUrl
+        };
+
+        if (text && (type === 'image' || type === 'video' || type === 'document')) {
+            console.log(`[SERVICES/WHATSAPP] -> Condición: Agregando text como caption.`);
+            payload[type].caption = text;
+        }
+    } else {
+        console.log(`[SERVICES/WHATSAPP] -> Condición: No hay mediaUrl. Preparando payload de texto plano.`);
+        payload.type = 'text';
+        payload.text = { body: text };
+    }
+
+    console.log(`\n------------------------------------------------------`);
+    console.log(`[SERVICES/WHATSAPP] ==> LLAMADA A FETCH (META API)`);
+    console.log(`[SERVICES/WHATSAPP] -> URL de Meta: ${API_URL}`);
+    console.log(`[SERVICES/WHATSAPP] -> Headers: Authorization: Bearer ${TOKEN ? TOKEN.substring(0,6) + '...' : 'UNDEFINED'}, Content-Type: application/json`);
+    console.log(`[SERVICES/WHATSAPP] -> Payload completo enviado a Meta:`, JSON.stringify(payload, null, 2));
 
     const response = await fetch(API_URL, {
       method: 'POST',
@@ -59,111 +89,16 @@ const enviarPayloadMeta = async (payload, etiqueta) => {
       throw new Error(data.error?.message || 'Error desconocido de Meta');
     }
 
-    console.log(`[SERVICES/WHATSAPP] ==> ✅ FIN EXITOSO DE ENVÍO META [${etiqueta}]. Message ID: ${data.messages?.[0]?.id}`);
+    console.log(`[SERVICES/WHATSAPP] ==> ✅ FIN EXITOSO DE ENVÍO META. Message ID: ${data.messages?.[0]?.id}`);
     console.log(`======================================================\n`);
     return data;
   } catch (error) {
     console.error(`\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!`);
-    console.error(`[SERVICES/WHATSAPP - ${etiqueta} CATCH BLOCK] ❌ ERROR FATAL:`);
+    console.error(`[SERVICES/WHATSAPP - sendWhatsAppMessage CATCH BLOCK] ❌ ERROR FATAL:`);
     console.error(error.stack || error);
     console.error(`!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n`);
     throw error;
   }
-};
-
-export const sendWhatsAppMessage = async (to, text, mediaUrl = null, mediaType = null) => {
-  console.log(`\n======================================================`);
-  console.log(`[SERVICES/WHATSAPP - sendWhatsAppMessage] ==> INICIO DE FUNCIÓN`);
-  console.log(`[SERVICES/WHATSAPP] ==> Parámetros recibidos: to="${to}", text="${text}", mediaUrl="${mediaUrl}", mediaType="${mediaType}"`);
-
-  let cleanTo = formatearNumeroArg(to);
-  console.log(`[SERVICES/WHATSAPP] -> Teléfono limpio para enviar: ${cleanTo}`);
-
-  let payload = {
-      messaging_product: 'whatsapp',
-      to: cleanTo
-  };
-
-  if (mediaUrl) {
-      console.log(`[SERVICES/WHATSAPP] -> Condición: Se detectó mediaUrl. Preparando payload multimedia.`);
-      const validTypes = ['image', 'document', 'audio', 'video'];
-      const type = validTypes.includes(mediaType) ? mediaType : 'document';
-      console.log(`[SERVICES/WHATSAPP] -> Tipo de medio resuelto: ${type}`);
-
-      payload.type = type;
-      payload[type] = {
-          link: mediaUrl
-      };
-
-      if (text && (type === 'image' || type === 'video' || type === 'document')) {
-          console.log(`[SERVICES/WHATSAPP] -> Condición: Agregando text como caption.`);
-          payload[type].caption = text;
-      }
-  } else {
-      console.log(`[SERVICES/WHATSAPP] -> Condición: No hay mediaUrl. Preparando payload de texto plano.`);
-      payload.type = 'text';
-      payload.text = { body: text };
-  }
-
-  return enviarPayloadMeta(payload, 'sendWhatsAppMessage');
-};
-
-// Mensaje interactivo de hasta 3 botones de respuesta rápida. `buttons` es
-// [{ id, title }]; id es lo que vuelve en el webhook al presionar, title es
-// lo que ve el cliente (máx. 20 caracteres, lo truncamos por las dudas).
-export const sendInteractiveButtons = async (to, bodyText, buttons) => {
-  console.log(`\n======================================================`);
-  console.log(`[SERVICES/WHATSAPP - sendInteractiveButtons] ==> to="${to}", buttons=${JSON.stringify(buttons)}`);
-
-  const cleanTo = formatearNumeroArg(to);
-  const payload = {
-    messaging_product: 'whatsapp',
-    to: cleanTo,
-    type: 'interactive',
-    interactive: {
-      type: 'button',
-      body: { text: bodyText },
-      action: {
-        buttons: buttons.slice(0, 3).map(b => ({
-          type: 'reply',
-          reply: { id: b.id, title: b.title.slice(0, 20) }
-        }))
-      }
-    }
-  };
-
-  return enviarPayloadMeta(payload, 'sendInteractiveButtons');
-};
-
-// Mensaje interactivo de lista (hasta 10 filas en total entre todas las secciones).
-// `sections` es [{ title, rows: [{ id, title, description? }] }].
-export const sendInteractiveList = async (to, bodyText, buttonText, sections) => {
-  console.log(`\n======================================================`);
-  console.log(`[SERVICES/WHATSAPP - sendInteractiveList] ==> to="${to}", buttonText="${buttonText}", sections=${JSON.stringify(sections)}`);
-
-  const cleanTo = formatearNumeroArg(to);
-  const payload = {
-    messaging_product: 'whatsapp',
-    to: cleanTo,
-    type: 'interactive',
-    interactive: {
-      type: 'list',
-      body: { text: bodyText },
-      action: {
-        button: buttonText.slice(0, 20),
-        sections: sections.map(s => ({
-          title: s.title.slice(0, 24),
-          rows: s.rows.map(r => ({
-            id: r.id,
-            title: r.title.slice(0, 24),
-            ...(r.description ? { description: r.description.slice(0, 72) } : {})
-          }))
-        }))
-      }
-    }
-  };
-
-  return enviarPayloadMeta(payload, 'sendInteractiveList');
 };
 
 export const downloadWhatsAppMedia = async (mediaId) => {
