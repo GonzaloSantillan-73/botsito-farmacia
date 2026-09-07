@@ -246,10 +246,16 @@ export default function ChatArea({
                       className="mb-2 rounded-lg overflow-hidden border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity w-64 max-w-full"
                       title="Abrir ubicación en Google Maps"
                     >
-                      <div className="h-32 w-full pointer-events-none bg-gray-100">
+                      {/* El iframe de OpenStreetMap trae su propia franja de atribución
+                          anclada al fondo del documento embebido; como es de otro origen
+                          no podemos aplicarle CSS para ocultarla, así que lo agrandamos y
+                          lo corremos hacia arriba dentro de un contenedor más bajo con
+                          overflow:hidden, recortando esa franja fuera del área visible. */}
+                      <div className="h-32 w-full overflow-hidden relative bg-gray-100">
                         <iframe
                           src={`https://www.openstreetmap.org/export/embed.html?bbox=${location.lng - 0.01}%2C${location.lat - 0.01}%2C${location.lng + 0.01}%2C${location.lat + 0.01}&marker=${location.lat}%2C${location.lng}`}
-                          className="w-full h-full border-0"
+                          className="absolute top-0 left-0 w-full border-0 pointer-events-none"
+                          style={{ height: 'calc(100% + 70px)' }}
                           loading="lazy"
                           title="Vista previa de ubicación"
                         />
