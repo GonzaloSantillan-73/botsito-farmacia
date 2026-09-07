@@ -31,6 +31,7 @@ export default function ChatArea({
   sessionTimeoutMs
 }) {
   const [showQuickResponses, setShowQuickResponses] = useState(false);
+  const [quickResponses, setQuickResponses] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -43,19 +44,25 @@ export default function ChatArea({
     return () => clearInterval(interval);
   }, []);
 
+  // Trae las plantillas cada vez que se abre el menú, para reflejar cambios
+  // hechos en Configuración sin necesidad de recargar la página.
+  useEffect(() => {
+    if (!showQuickResponses) return;
+    supabase
+      .from('quick_replies')
+      .select('*')
+      .order('shortcut')
+      .then(({ data, error }) => {
+        if (!error) setQuickResponses(data || []);
+      });
+  }, [showQuickResponses]);
+
   const isConversacionCerrada = activeConversation && ESTADOS_CERRADOS.includes(activeConversation.status);
   let remainingMs = null;
   if (activeConversation && !isConversacionCerrada && sessionTimeoutMs != null) {
     const lastActivity = getLastActivityTime(activeConversation, messages);
     remainingMs = sessionTimeoutMs - (now - new Date(lastActivity).getTime());
   }
-
-  const quickResponses = [
-    { title: "Requisitos de Receta", text: "Por favor, recuerda que la foto de la receta debe incluir fecha, firma y diagnóstico legible." },
-    { title: "Datos de Pago / Transferencia", text: "Puedes transferir a nuestro CBU: 0000000000000000000000, Alias: FARMACIA.PAGO. Recuerda enviarnos el comprobante." },
-    { title: "Retiro por Sucursal", text: "Nuestra sucursal se encuentra en Av. Principal 123. Los horarios de atención son de Lunes a Viernes de 9 a 20hs. Recuerda traer tu DNI o el de la persona que retira." },
-    { title: "Consulta Obra Social", text: "Para consultar cobertura, por favor envíanos una foto de tu credencial de obra social y el número de DNI del afiliado." }
-  ];
 
   const handleInputChange = (e) => {
     const value = e.target.value;
@@ -248,16 +255,22 @@ export default function ChatArea({
                   </button>
                 </div>
                 <div className="max-h-60 overflow-y-auto">
-                  {quickResponses.map((qr, idx) => (
-                    <button 
-                      key={idx}
-                      onClick={() => insertQuickResponse(qr.text)}
-                      className="w-full text-left p-3 hover:bg-teal-50 border-b border-gray-100 last:border-0 transition-colors flex flex-col gap-1"
-                    >
-                      <span className="text-sm font-semibold text-teal-800">{qr.title}</span>
-                      <span className="text-xs text-gray-500 line-clamp-2">{qr.text}</span>
-                    </button>
-                  ))}
+                  {quickResponses.length === 0 ? (
+                    <div className="p-3 text-xs text-gray-400 text-center">
+                      No hay plantillas creadas. Agregalas desde Configuración.
+                    </div>
+                  ) : (
+                    quickResponses.map((qr) => (
+                      <button
+                        key={qr.id}
+                        onClick={() => insertQuickResponse(qr.message_text)}
+                        className="w-full text-left p-3 hover:bg-teal-50 border-b border-gray-100 last:border-0 transition-colors flex flex-col gap-1"
+                      >
+                        <span className="text-sm font-semibold text-teal-800">{qr.shortcut}</span>
+                        <span className="text-xs text-gray-500 line-clamp-2">{qr.message_text}</span>
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
             )}

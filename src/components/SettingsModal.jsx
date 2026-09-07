@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Settings, Loader2, Check, BarChart3, Star, Sliders, Hash } from 'lucide-react';
+import { X, Settings, Loader2, Check, BarChart3, Star, Sliders, Hash, Zap } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import QuickRepliesPanel from './QuickRepliesPanel';
 
 const TABS = [
   { id: 'chat', label: 'Ajustes de Chat', icon: Sliders },
+  { id: 'replies', label: 'Respuestas Rápidas', icon: Zap },
   { id: 'metrics', label: 'Métricas y Estadísticas', icon: BarChart3 }
 ];
 
@@ -229,6 +231,8 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose }) {
                   {saving ? 'Guardando...' : saved ? 'Guardado' : 'Guardar cambios'}
                 </button>
               </div>
+            ) : activeTab === 'replies' ? (
+              <QuickRepliesPanel />
             ) : (
               <div>
                 <h3 className="text-sm font-semibold text-gray-800 mb-1">Calificaciones de satisfacción</h3>
