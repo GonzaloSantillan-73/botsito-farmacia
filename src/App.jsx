@@ -44,6 +44,9 @@ function App() {
   // Directorio de clientes: independiente de activeTab, para que Entrantes/
   // Atendiendo/Historial se sigan viendo mientras se muestra el directorio.
   const [showClientDirectory, setShowClientDirectory] = useState(false);
+  // Teléfono del cliente cuya ficha hay que reabrir si el operador vuelve
+  // atrás desde un chat que abrió desde el historial de ese cliente.
+  const [historyReturnPhone, setHistoryReturnPhone] = useState(null);
   
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState('');
@@ -230,13 +233,30 @@ function App() {
   // central muestre el chat.
   const handleSelectConversation = (conv) => {
     setShowClientDirectory(false);
+    setHistoryReturnPhone(null);
     setActiveConversation(conv);
+  };
+
+  // Igual que handleSelectConversation, pero recordando de qué cliente venía
+  // (para que el botón de retroceso del chat pueda volver justo a su ficha).
+  const handleSelectConversationFromHistory = (conv) => {
+    setHistoryReturnPhone(conv.client_phone);
+    setShowClientDirectory(false);
+    setActiveConversation(conv);
+  };
+
+  // Volver desde el chat a la ficha del cliente en el Directorio (en vez de
+  // sacar al operador de esa sección por completo).
+  const handleBackToHistory = () => {
+    setActiveConversation(null);
+    setShowClientDirectory(true);
   };
 
   // Abrir el directorio de clientes: deja de mostrar cualquier chat abierto,
   // pero NO toca activeTab, así Entrantes/Atendiendo/Historial se siguen viendo.
   const handleShowClientDirectory = () => {
     setActiveConversation(null);
+    setHistoryReturnPhone(null);
     setShowClientDirectory(true);
   };
 
@@ -501,7 +521,7 @@ function App() {
       />
 
       {showClientDirectory && !activeConversation ? (
-        <ClientDirectory onOpenConversation={handleSelectConversation} />
+        <ClientDirectory onOpenConversation={handleSelectConversationFromHistory} initialSelectedPhone={historyReturnPhone} />
       ) : (
         <ChatArea
           activeConversation={activeConversation}
@@ -513,6 +533,7 @@ function App() {
           handleDeleteConversation={handleDeleteConversation}
           setModalImage={setModalImage}
           sessionTimeoutMs={sessionTimeoutMs}
+          onBackToHistory={historyReturnPhone ? handleBackToHistory : null}
         />
       )}
 

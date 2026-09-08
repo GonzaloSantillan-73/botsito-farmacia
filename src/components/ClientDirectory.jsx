@@ -60,11 +60,11 @@ const groupByClient = (conversations) => {
     .sort((a, b) => new Date(b.lastContact) - new Date(a.lastContact));
 };
 
-export default function ClientDirectory({ onOpenConversation }) {
+export default function ClientDirectory({ onOpenConversation, initialSelectedPhone = null }) {
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [selectedPhone, setSelectedPhone] = useState(null);
+  const [selectedPhone, setSelectedPhone] = useState(initialSelectedPhone);
   const [sortBy, setSortBy] = useState('recent');
 
   useEffect(() => {
@@ -106,9 +106,6 @@ export default function ClientDirectory({ onOpenConversation }) {
           <button onClick={() => setSelectedPhone(null)} className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
             <ArrowLeft size={20} />
           </button>
-          <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold uppercase shrink-0">
-            {(selectedClient.client_name || '?').charAt(0)}
-          </div>
           <div className="min-w-0">
             <h2 className="font-bold text-gray-900 truncate">{selectedClient.client_name || formatPhone(selectedClient.client_phone)}</h2>
             <p className="text-xs text-gray-500">{formatPhone(selectedClient.client_phone)}</p>

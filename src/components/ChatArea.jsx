@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Image as ImageIcon, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MapPin, Download, Eye, ShieldAlert } from 'lucide-react';
+import { MessageSquare, Image as ImageIcon, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MapPin, Download, Eye, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
@@ -61,7 +61,8 @@ export default function ChatArea({
   handleSendMessage,
   handleDeleteConversation,
   setModalImage,
-  sessionTimeoutMs
+  sessionTimeoutMs,
+  onBackToHistory
 }) {
   const [showQuickResponses, setShowQuickResponses] = useState(false);
   const [quickResponses, setQuickResponses] = useState([]);
@@ -193,9 +194,15 @@ export default function ChatArea({
           {/* Header */}
           <div className="px-6 py-3 bg-white border-b border-gray-200 flex items-center justify-between shadow-sm z-10">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold uppercase">
-                {(activeConversation.client_name || '?').charAt(0)}
-              </div>
+              {onBackToHistory && (
+                <button
+                  onClick={onBackToHistory}
+                  title="Volver al historial del cliente"
+                  className="p-1.5 -ml-1.5 text-gray-500 hover:bg-gray-100 rounded-full transition-colors shrink-0"
+                >
+                  <ArrowLeft size={20} />
+                </button>
+              )}
               <div>
                 <h2 className="font-bold text-gray-900">{activeConversation.client_name}</h2>
                 <p className="text-xs text-gray-500">{formatPhone(activeConversation.client_phone)}</p>
