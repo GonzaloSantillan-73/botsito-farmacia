@@ -19,11 +19,11 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { username, password, sucursalId } = req.body;
+  const { username, password, sucursalNombre, direccion, googleMapsUrl } = req.body;
 
   try {
-    const empleado = await crearEmpleado({ username, password, sucursalId });
-    console.log(`[STAFF] Empleado creado: ${empleado.username} (sucursal ${sucursalId})`);
+    const empleado = await crearEmpleado({ username, password, sucursalNombre, direccion, googleMapsUrl });
+    console.log(`[STAFF] Empleado creado: ${empleado.username} (nueva sucursal ${empleado.sucursal_id})`);
     res.status(201).json({ success: true, empleado });
   } catch (error) {
     console.error('[STAFF] Error creando empleado:', error.message);
@@ -33,10 +33,10 @@ router.post('/', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
-  const { username, password, sucursalId } = req.body;
+  const { username, password, sucursalNombre, direccion, googleMapsUrl } = req.body;
 
   try {
-    const empleado = await actualizarEmpleado(req.params.id, { username, password, sucursalId });
+    const empleado = await actualizarEmpleado(req.params.id, { username, password, sucursalNombre, direccion, googleMapsUrl });
     console.log(`[STAFF] Empleado actualizado: ${empleado.id}`);
     res.status(200).json({ success: true, empleado });
   } catch (error) {

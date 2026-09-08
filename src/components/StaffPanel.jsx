@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Loader2, Check, X, UserPlus, Store } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { Plus, Pencil, Trash2, Loader2, Check, X, UserPlus, MapPin } from 'lucide-react';
 import { adminFetch } from '../lib/adminAuth';
 
-const FORM_VACIO = { username: '', password: '', sucursalId: '' };
+const FORM_VACIO = { username: '', password: '', sucursalNombre: '', direccion: '', googleMapsUrl: '' };
 
 export default function StaffPanel() {
   const [empleados, setEmpleados] = useState([]);
-  const [sucursales, setSucursales] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [editingId, setEditingId] = useState(null); // null = cerrado, 'new' = alta, o el id que se edita
@@ -17,12 +15,8 @@ export default function StaffPanel() {
 
   const fetchDatos = async () => {
     setLoading(true);
-    const [empleadosRes, sucursalesRes] = await Promise.all([
-      adminFetch('/api/admin/staff').then(r => r.json()),
-      supabase.from('sucursales').select('id, nombre').order('nombre')
-    ]);
-    setEmpleados(empleadosRes.empleados || []);
-    setSucursales(sucursalesRes.data || []);
+    const res = await adminFetch('/api/admin/staff').then(r => r.json());
+    setEmpleados(res.empleados || []);
     setLoading(false);
   };
 
@@ -32,13 +26,19 @@ export default function StaffPanel() {
 
   const startNew = () => {
     setEditingId('new');
-    setForm({ ...FORM_VACIO, sucursalId: sucursales[0]?.id || '' });
+    setForm(FORM_VACIO);
     setError('');
   };
 
   const startEdit = (emp) => {
     setEditingId(emp.id);
-    setForm({ username: emp.username, password: '', sucursalId: emp.sucursal_id });
+    setForm({
+      username: emp.username,
+      password: '',
+      sucursalNombre: emp.sucursales?.nombre || '',
+      direccion: emp.sucursales?.direccion || '',
+      googleMapsUrl: emp.sucursales?.google_maps_url || ''
+    });
     setError('');
   };
 
@@ -51,13 +51,16 @@ export default function StaffPanel() {
   const handleSave = async () => {
     setError('');
 
-    if (editingId === 'new') {
-      if (!form.username.trim() || !form.password || !form.sucursalId) {
-        setError('Completá el usuario, la contraseña y la sucursal.');
-        return;
-      }
-    } else if (!form.username.trim() && !form.password && !form.sucursalId) {
-      setError('No hay ningún cambio para guardar.');
+    if (!form.username.trim()) {
+      setError('Completá el usuario.');
+      return;
+    }
+    if (editingId === 'new' && !form.password) {
+      setError('Completá la contraseña.');
+      return;
+    }
+    if (!form.sucursalNombre.trim() || !form.direccion.trim() || !form.googleMapsUrl.trim()) {
+      setError('Completá el nombre, la dirección y el link de Maps de la sucursal.');
       return;
     }
 
@@ -67,7 +70,13 @@ export default function StaffPanel() {
       const method = editingId === 'new' ? 'POST' : 'PUT';
       const res = await adminFetch(url, {
         method,
-        body: JSON.stringify({ username: form.username, password: form.password, sucursalId: form.sucursalId })
+        body: JSON.stringify({
+          username: form.username,
+          password: form.password,
+          sucursalNombre: form.sucursalNombre,
+          direccion: form.direccion,
+          googleMapsUrl: form.googleMapsUrl
+        })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'No se pudo guardar el empleado.');
@@ -82,7 +91,7 @@ export default function StaffPanel() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Eliminar este empleado? Ya no va a poder acceder al CRM.')) return;
+    if (!window.confirm('¿Eliminar este empleado? Ya no va a poder acceder al CRM. Su sucursal se mantiene.')) return;
     await adminFetch(`/api/admin/staff/${id}`, { method: 'DELETE' });
     fetchDatos();
   };
@@ -91,9 +100,9 @@ export default function StaffPanel() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <p className="text-xs text-gray-500">
-          Cada empleado queda vinculado a una sucursal específica para acceder al CRM.
+          Cada empleado nuevo crea su propia sucursal: usuario y contraseña para entrar al CRM, más el nombre, la dirección y el link de Maps de esa sucursal.
         </p>
-        {editingId === null && sucursales.length > 0 && (
+        {editingId === null && (
           <button
             onClick={startNew}
             className="flex items-center gap-1.5 text-sm font-medium text-teal-700 hover:text-teal-800 transition-colors shrink-0 ml-3"
@@ -102,12 +111,6 @@ export default function StaffPanel() {
           </button>
         )}
       </div>
-
-      {sucursales.length === 0 && !loading && (
-        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-          Todavía no hay sucursales cargadas. Creá al menos una sucursal antes de dar de alta empleados.
-        </div>
-      )}
 
       {(editingId === 'new' || empleados.some(e => e.id === editingId)) && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 space-y-3">
@@ -133,18 +136,41 @@ export default function StaffPanel() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
             />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Sucursal</label>
-            <select
-              value={form.sucursalId}
-              onChange={(e) => setForm({ ...form, sucursalId: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm bg-white"
-            >
-              <option value="">Seleccioná una sucursal</option>
-              {sucursales.map(s => (
-                <option key={s.id} value={s.id}>{s.nombre}</option>
-              ))}
-            </select>
+
+          <div className="pt-2 border-t border-gray-200">
+            <p className="text-xs font-semibold text-gray-500 mb-2">Sucursal</p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Nombre de la sucursal</label>
+                <input
+                  type="text"
+                  value={form.sucursalNombre}
+                  onChange={(e) => setForm({ ...form, sucursalNombre: e.target.value })}
+                  placeholder="Ej: Sucursal Centro"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Dirección</label>
+                <input
+                  type="text"
+                  value={form.direccion}
+                  onChange={(e) => setForm({ ...form, direccion: e.target.value })}
+                  placeholder="Ej: Av. Siempre Viva 123"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Link de Google Maps</label>
+                <input
+                  type="text"
+                  value={form.googleMapsUrl}
+                  onChange={(e) => setForm({ ...form, googleMapsUrl: e.target.value })}
+                  placeholder="https://maps.app.goo.gl/..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
+                />
+              </div>
+            </div>
           </div>
 
           {error && <p className="text-xs text-rose-600">{error}</p>}
@@ -182,8 +208,9 @@ export default function StaffPanel() {
                 </div>
                 <div className="min-w-0">
                   <div className="text-sm font-semibold text-gray-800 truncate">{emp.username}</div>
-                  <div className="text-xs text-gray-500 flex items-center gap-1">
-                    <Store size={11} /> {emp.sucursales?.nombre || 'Sin sucursal'}
+                  <div className="text-xs text-gray-500 flex items-center gap-1 truncate">
+                    <MapPin size={11} className="shrink-0" /> {emp.sucursales?.nombre || 'Sin sucursal'}
+                    {emp.sucursales?.direccion && <span className="text-gray-400">· {emp.sucursales.direccion}</span>}
                   </div>
                 </div>
               </div>
