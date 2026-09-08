@@ -228,12 +228,14 @@ export default function ValidationPanel({
             </h3>
             {activeConversation ? (
                <div className="space-y-6 mt-6">
-                  <div className="flex flex-col items-center">
-                     <div className="w-20 h-20 bg-teal-50 text-teal-600 rounded-full flex items-center justify-center text-2xl font-bold shadow-sm mb-3 uppercase">
+                  <div className="flex items-center gap-4">
+                     <div className="w-16 h-16 bg-teal-50 text-teal-600 rounded-full flex items-center justify-center text-xl font-bold shadow-sm uppercase shrink-0">
                         {(activeConversation.client_name || '?').charAt(0)}
                      </div>
-                     <h4 className="font-bold text-lg">{activeConversation.client_name}</h4>
-                     <span className="text-sm text-gray-500 flex items-center gap-1"><Phone size={14}/> {formatPhone(activeConversation.client_phone)}</span>
+                     <div className="min-w-0">
+                        <h4 className="font-bold text-lg truncate">{activeConversation.client_name}</h4>
+                        <span className="text-sm text-gray-500 flex items-center gap-1"><Phone size={14}/> {formatPhone(activeConversation.client_phone)}</span>
+                     </div>
                   </div>
                   
                   {activePrescription && activePrescription.status !== 'pending' && (
