@@ -1,20 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, History, Clock, FileText, Search, CalendarRange, ArrowUpDown, Loader2 } from 'lucide-react';
+import { X, History, FileText } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
-import { SALE_STATUS_BADGES } from './Sidebar';
-
-const STATUS_LABELS = {
-  open: 'Abierto',
-  pending_validation: 'Receta pendiente',
-  preparation: 'En preparación',
-  ready: 'Listo / en envío',
-  resolved: 'Resuelto',
-  rejected: 'Rechazado',
-  esperando: 'Esperando humano',
-  finalizada: 'Finalizada por inactividad'
-};
+import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
+import ClientHistoryList from './ClientHistoryList';
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -41,14 +31,7 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
   const [selectedConv, setSelectedConv] = useState(null);
   const [selectedMessages, setSelectedMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
-
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [matchingIds, setMatchingIds] = useState(null); // null = sin búsqueda activa
-  const [snippets, setSnippets] = useState({}); // conversation_id -> mensaje que matcheó la búsqueda
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [sortAsc, setSortAsc] = useState(false);
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -72,43 +55,6 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
     if (clientPhone) fetchHistory();
   }, [clientPhone, currentConversationId]);
 
-  // Búsqueda de contenido: revisa los mensajes de todas las consultas pasadas
-  // de este cliente y marca cuáles la contienen, sin recargar toda la vista.
-  useEffect(() => {
-    const q = searchQuery.trim();
-    if (!q || pastConversations.length === 0) {
-      setMatchingIds(null);
-      setSnippets({});
-      setSearchLoading(false);
-      return;
-    }
-    setSearchLoading(true);
-    let cancelled = false;
-    supabase
-      .from('messages')
-      .select('conversation_id, message_text, created_at')
-      .in('conversation_id', pastConversations.map(c => c.id))
-      .ilike('message_text', `%${q}%`)
-      .order('created_at', { ascending: true })
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (!error) {
-          const ids = new Set();
-          const snip = {};
-          for (const m of data || []) {
-            ids.add(m.conversation_id);
-            // Nos quedamos con la primera coincidencia por conversación, para
-            // mostrar en la lista justo el fragmento que explica el resultado.
-            if (!snip[m.conversation_id]) snip[m.conversation_id] = m.message_text;
-          }
-          setMatchingIds(ids);
-          setSnippets(snip);
-        }
-        setSearchLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [searchQuery, pastConversations]);
-
   const openConversation = async (conv) => {
     setSelectedConv(conv);
     setLoadingMessages(true);
@@ -121,24 +67,6 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
     if (!error && data) setSelectedMessages(data);
     setLoadingMessages(false);
   };
-
-  const dentroDeFecha = (conv) => {
-    if (!dateFrom && !dateTo) return true;
-    const t = new Date(conv.created_at).getTime();
-    if (dateFrom && t < new Date(dateFrom).getTime()) return false;
-    if (dateTo && t > new Date(dateTo).getTime() + 24 * 60 * 60 * 1000 - 1) return false;
-    return true;
-  };
-
-  const hayFiltrosActivos = Boolean(dateFrom || dateTo || searchQuery.trim());
-  const limpiarFiltros = () => { setDateFrom(''); setDateTo(''); setSearchQuery(''); };
-
-  const visibleConversations = pastConversations
-    .filter(dentroDeFecha)
-    .filter(c => !searchQuery.trim() || matchingIds == null || matchingIds.has(c.id))
-    .sort((a, b) => sortAsc
-      ? new Date(a.created_at) - new Date(b.created_at)
-      : new Date(b.created_at) - new Date(a.created_at));
 
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6">
@@ -154,115 +82,30 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
         </div>
 
         <div className="flex-1 flex overflow-hidden">
-          {/* Panel izquierdo: bandeja de sesiones pasadas, estilo lista de WhatsApp */}
-          <div className="w-[340px] shrink-0 border-r border-gray-200 flex flex-col overflow-hidden bg-gray-50">
-            <div className="p-3 border-b border-gray-200 bg-white space-y-2 shrink-0">
-              <div className="relative">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar en los mensajes..."
-                  className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                />
-                {searchLoading ? (
-                  <Loader2 size={14} className="absolute left-2.5 top-2 text-gray-400 animate-spin" />
-                ) : (
-                  <Search size={14} className="absolute left-2.5 top-2 text-gray-400" />
-                )}
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <CalendarRange size={14} className="text-gray-400 shrink-0" />
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 rounded-lg text-[11px] focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                />
-                <span className="text-gray-300 text-xs">–</span>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 rounded-lg text-[11px] focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() => setSortAsc(v => !v)}
-                  className="flex items-center gap-1 text-[11px] font-medium text-gray-500 hover:text-teal-700 transition-colors"
-                >
-                  <ArrowUpDown size={12} /> {sortAsc ? 'Más antiguas primero' : 'Más recientes primero'}
-                </button>
-                {hayFiltrosActivos && (
-                  <button onClick={limpiarFiltros} className="text-[11px] font-medium text-teal-700 hover:text-teal-800">
-                    Limpiar filtros
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto">
-              {loading ? (
-                <div className="text-center text-gray-400 py-10 text-sm">Cargando historial...</div>
-              ) : pastConversations.length === 0 ? (
-                <div className="text-center text-gray-400 py-10 flex flex-col items-center gap-2 px-4">
-                  <Clock size={32} className="text-gray-300" />
-                  <span className="text-sm">Este cliente no tiene consultas anteriores.</span>
-                </div>
-              ) : visibleConversations.length === 0 ? (
-                <div className="text-center text-gray-400 py-10 text-sm px-4">
-                  Ninguna consulta coincide con el filtro aplicado.
-                </div>
-              ) : (
-                visibleConversations.map(conv => {
-                  const saleBadge = SALE_STATUS_BADGES[conv.sale_status];
-                  return (
-                  <button
-                    key={conv.id}
-                    onClick={() => openConversation(conv)}
-                    className={`w-full text-left p-3 border-b border-gray-100 transition-colors flex items-start justify-between gap-2 ${
-                      selectedConv?.id === conv.id ? 'bg-teal-50' : 'bg-white hover:bg-teal-50/50'
-                    }`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[11px] text-gray-500 mb-1">
-                        {new Date(conv.created_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                      <div className="text-sm text-gray-700 truncate">
-                        {searchQuery.trim() && snippets[conv.id]
-                          ? highlightMatches(snippets[conv.id], searchQuery)
-                          : conv.last_message
-                            ? (searchQuery.trim() ? highlightMatches(conv.last_message, searchQuery) : conv.last_message)
-                            : <span className="italic text-gray-400">Sin mensajes</span>}
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end gap-1 shrink-0">
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-gray-100 text-gray-600 uppercase font-medium whitespace-nowrap">
-                        {STATUS_LABELS[conv.status] || conv.status}
-                      </span>
-                      {saleBadge && (
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-medium whitespace-nowrap ${saleBadge.className}`}>
-                          {saleBadge.label}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                  );
-                })
-              )}
-            </div>
+          {/* Panel izquierdo: bandeja de sesiones pasadas, estilo lista de WhatsApp.
+              Mismas herramientas (búsqueda, rango de fechas, orden) que la ficha
+              de cliente del Directorio, porque ambas usan ClientHistoryList. */}
+          <div className="w-[340px] shrink-0 border-r border-gray-200 bg-gray-50">
+            <ClientHistoryList
+              conversations={pastConversations}
+              selectedId={selectedConv?.id}
+              onSelect={openConversation}
+              loading={loading}
+              fillHeight
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+            />
           </div>
 
           {/* Panel derecho: transcripción de la sesión elegida, liviana y de solo lectura */}
           <div className="flex-1 flex flex-col overflow-hidden bg-[#f0f2f5]">
             {selectedConv && (
               <div className="px-4 py-2 border-b border-gray-200 bg-white flex items-center gap-2 shrink-0">
-                <span className="text-xs font-medium text-gray-500">
-                  {STATUS_LABELS[selectedConv.status] || selectedConv.status}
-                </span>
+                {STATUS_BADGES[selectedConv.status] && (
+                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${STATUS_BADGES[selectedConv.status].className}`}>
+                    {STATUS_BADGES[selectedConv.status].label}
+                  </span>
+                )}
                 {SALE_STATUS_BADGES[selectedConv.sale_status] && (
                   <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${SALE_STATUS_BADGES[selectedConv.sale_status].className}`}>
                     {SALE_STATUS_BADGES[selectedConv.sale_status].label}

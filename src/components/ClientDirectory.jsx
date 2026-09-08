@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Search, Star, ArrowLeft, ArrowUpDown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
-import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
+import ClientHistoryList from './ClientHistoryList';
 
 const SORT_OPTIONS = [
   { value: 'recent', label: 'Fecha (más reciente)' },
@@ -66,7 +66,6 @@ export default function ClientDirectory({ onOpenConversation }) {
   const [search, setSearch] = useState('');
   const [selectedPhone, setSelectedPhone] = useState(null);
   const [sortBy, setSortBy] = useState('recent');
-  const [detailSortAsc, setDetailSortAsc] = useState(false);
 
   useEffect(() => {
     supabase
@@ -90,11 +89,6 @@ export default function ClientDirectory({ onOpenConversation }) {
   const sortedClients = ordenarClientes(filteredClients, sortBy);
 
   const selectedClient = selectedPhone ? clients.find(c => c.client_phone === selectedPhone) : null;
-  const sortedClientConversations = selectedClient
-    ? [...selectedClient.conversations].sort((a, b) => detailSortAsc
-        ? new Date(a.created_at) - new Date(b.created_at)
-        : new Date(b.created_at) - new Date(a.created_at))
-    : [];
 
   if (loading) {
     return (
@@ -140,46 +134,12 @@ export default function ClientDirectory({ onOpenConversation }) {
             </div>
           </div>
 
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-700">Historial de consultas</h3>
-            <button
-              onClick={() => setDetailSortAsc(v => !v)}
-              className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-teal-700 transition-colors"
-            >
-              <ArrowUpDown size={12} /> {detailSortAsc ? 'Más antiguas primero' : 'Más recientes primero'}
-            </button>
-          </div>
-          <div className="space-y-2">
-            {sortedClientConversations.map(conv => {
-              const badge = STATUS_BADGES[conv.status];
-              const saleBadge = SALE_STATUS_BADGES[conv.sale_status];
-              return (
-                <button
-                  key={conv.id}
-                  onClick={() => onOpenConversation && onOpenConversation(conv)}
-                  className="w-full text-left flex items-center justify-between gap-3 p-3 bg-white border border-gray-200 rounded-lg hover:border-teal-300 hover:bg-teal-50/40 transition-colors"
-                >
-                  <div className="min-w-0">
-                    <div className="text-sm text-gray-800">{formatDateTime(conv.created_at)}</div>
-                    <div className="text-xs text-gray-500 truncate mt-0.5">
-                      {conv.last_message || <span className="italic text-gray-400">Sin mensajes</span>}
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    {conv.rating != null && (
-                      <span className="flex items-center gap-0.5 text-xs text-amber-600 font-medium">
-                        {conv.rating} <Star size={12} className="text-amber-400 fill-amber-400" />
-                      </span>
-                    )}
-                    <div className="flex items-center gap-1.5">
-                      {saleBadge && <span className={`text-[10px] font-medium px-2 py-0.5 rounded whitespace-nowrap ${saleBadge.className}`}>{saleBadge.label}</span>}
-                      {badge && <span className={`text-[10px] font-medium px-2 py-0.5 rounded whitespace-nowrap ${badge.className}`}>{badge.label}</span>}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Historial de consultas</h3>
+          <ClientHistoryList
+            conversations={selectedClient.conversations}
+            onSelect={(conv) => onOpenConversation && onOpenConversation(conv)}
+            emptyMessage="Este cliente todavía no tiene consultas."
+          />
         </div>
       </div>
     );
