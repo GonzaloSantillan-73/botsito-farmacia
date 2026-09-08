@@ -28,7 +28,7 @@ export default function LoginModal({ onLoginSuccess }) {
 
       if (!res.ok) throw new Error(data.error || 'No se pudo iniciar sesión.');
 
-      setAdminSession(data.token, data.username);
+      setAdminSession(data.token, data.username, data.role, data.sucursalId, data.sucursalNombre);
       onLoginSuccess(data.token, data.username);
     } catch (err) {
       setError(err.message || 'No se pudo iniciar sesión.');

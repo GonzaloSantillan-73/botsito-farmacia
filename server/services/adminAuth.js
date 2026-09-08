@@ -9,21 +9,42 @@ import { supabase } from '../supabase.js';
 const JWT_SECRET = process.env.ADMIN_JWT_SECRET || 'botsito-farmacia-admin-dev-secret-cambiar-en-produccion';
 const JWT_EXPIRES_IN = '12h';
 
+// Login unificado: primero prueba contra admin_users: si no hay coincidencia
+// de usuario, prueba contra staff_users (empleados). Devuelve un objeto con
+// forma uniforme para poder generar el token sin importar de qué tabla vino.
 export const verificarCredenciales = async (username, password) => {
-  const { data: admin, error } = await supabase
+  const { data: admin, error: adminError } = await supabase
     .from('admin_users')
     .select('*')
     .eq('username', username)
     .maybeSingle();
-  if (error) throw error;
-  if (!admin) return null;
+  if (adminError) throw adminError;
 
-  const passwordOk = await bcrypt.compare(password, admin.password_hash);
-  return passwordOk ? admin : null;
+  if (admin) {
+    const passwordOk = await bcrypt.compare(password, admin.password_hash);
+    return passwordOk ? { id: admin.id, username: admin.username, role: 'admin', sucursalId: null } : null;
+  }
+
+  const { data: staff, error: staffError } = await supabase
+    .from('staff_users')
+    .select('*, sucursales(nombre)')
+    .eq('username', username)
+    .maybeSingle();
+  if (staffError) throw staffError;
+  if (!staff) return null;
+
+  const passwordOk = await bcrypt.compare(password, staff.password_hash);
+  return passwordOk
+    ? { id: staff.id, username: staff.username, role: 'staff', sucursalId: staff.sucursal_id, sucursalNombre: staff.sucursales?.nombre || null }
+    : null;
 };
 
-export const generarToken = (admin) =>
-  jwt.sign({ sub: admin.id, username: admin.username }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+export const generarToken = (user) =>
+  jwt.sign(
+    { sub: user.id, username: user.username, role: user.role, sucursalId: user.sucursalId || null },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN }
+  );
 
 export const verificarToken = (token) => {
   try {

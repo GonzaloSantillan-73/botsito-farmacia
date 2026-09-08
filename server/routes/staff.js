@@ -1,11 +1,12 @@
 import express from 'express';
-import { requireAuth } from './adminAuth.js';
+import { requireAuth, requireAdminRole } from './adminAuth.js';
 import { listarEmpleados, crearEmpleado, actualizarEmpleado, eliminarEmpleado } from '../services/staffAuth.js';
 
 const router = express.Router();
 
-// Todas las rutas de empleados requieren estar logueado como administrador.
-router.use(requireAuth);
+// Todas las rutas de empleados requieren estar logueado como administrador
+// (un empleado no puede gestionar otros empleados).
+router.use(requireAuth, requireAdminRole);
 
 router.get('/', async (req, res) => {
   try {

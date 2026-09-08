@@ -42,7 +42,9 @@ export default function Sidebar({
   onSessionTimeoutChange,
   showClientDirectory,
   onShowClientDirectory,
-  onLogout
+  onLogout,
+  isAdmin = true,
+  staffSucursalNombre
 }) {
   const [showSettings, setShowSettings] = useState(false);
 
@@ -107,6 +109,12 @@ export default function Sidebar({
             </button>
           </div>
         </h1>
+
+        {!isAdmin && staffSucursalNombre && (
+          <div className="text-[11px] font-medium text-teal-700 bg-teal-50 border border-teal-100 rounded-lg px-2.5 py-1.5 -mt-1">
+            Sucursal: {staffSucursalNombre}
+          </div>
+        )}
 
         {/* Tarjetas de contadores */}
         <div className="grid grid-cols-2 gap-3">
@@ -238,6 +246,7 @@ export default function Sidebar({
           sessionTimeoutMs={sessionTimeoutMs}
           onSave={(newMs) => onSessionTimeoutChange && onSessionTimeoutChange(newMs)}
           onClose={() => setShowSettings(false)}
+          isAdmin={isAdmin}
         />
       )}
     </div>

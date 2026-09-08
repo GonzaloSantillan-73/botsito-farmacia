@@ -9,10 +9,33 @@ import ValidationPanel from './components/ValidationPanel';
 import ImageModal from './components/ImageModal';
 import ClientDirectory from './components/ClientDirectory';
 import LoginModal from './components/LoginModal';
-import { getAdminToken, clearAdminSession } from './lib/adminAuth';
+import { getAdminToken, clearAdminSession, isAdminRole, getStaffSucursalId, getStaffSucursalNombre } from './lib/adminAuth';
 
 function App() {
   const [adminToken, setAdminToken] = useState(() => getAdminToken());
+
+  // Un empleado solo ve conversaciones de su propia sucursal, más las que
+  // todavía no tienen sucursal asignada (para poder "tomarlas"). El admin ve
+  // todo sin restricción. Se recalcula en cada render (lectura de
+  // localStorage, no hooks) para reflejar el login recién hecho.
+  const soyStaff = !isAdminRole();
+  const miSucursalId = getStaffSucursalId();
+
+  // El canal de Realtime se suscribe una sola vez (deps [] más abajo), así
+  // que su callback capturaría soyStaff/miSucursalId del momento del primer
+  // render (antes del login, donde localStorage todavía no tenía sesión).
+  // Leemos siempre desde este ref -sincronizado cada vez que el login cambia-
+  // para evitar ese closure obsoleto.
+  const ambitoRef = useRef({ soyStaff, miSucursalId });
+  useEffect(() => {
+    ambitoRef.current = { soyStaff, miSucursalId };
+  }, [adminToken]);
+
+  const perteneceAMiAmbito = (conv) => {
+    const { soyStaff: soy, miSucursalId: mi } = ambitoRef.current;
+    return !soy || !conv.sucursal_id || conv.sucursal_id === mi;
+  };
+
   const [activeTab, setActiveTab] = useState('atendiendo');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -61,10 +84,13 @@ function App() {
     conversationsRef.current = conversations;
   }, [conversations]);
 
-  // 1. Fetch Initial Data
+  // 1. Fetch Initial Data. Depende de adminToken para volver a traer (ya con
+  // el filtro de sucursal correcto) apenas el login termina: en el primer
+  // render (antes de loguearse) todavía no hay sesión en localStorage, así
+  // que un fetch hecho en ese momento ignoraría el filtro por completo.
   useEffect(() => {
-    fetchConversations();
-  }, []);
+    if (adminToken) fetchConversations();
+  }, [adminToken]);
 
   // 2. Fetch Messages and Prescription when conversation changes
   useEffect(() => {
@@ -119,6 +145,19 @@ function App() {
 
           // Guarda contra un payload malformado (sin id no hay nada que hacer con él).
           if (!payload.new?.id) return;
+
+          // Un empleado no debe ver conversaciones de otra sucursal: si un UPDATE
+          // le asigna una sucursal ajena a una fila que sí tenía en su lista, la
+          // saca; si es de otra sucursal desde el vamos (INSERT o UPDATE), la ignora.
+          if (!perteneceAMiAmbito(payload.new)) {
+            if (payload.eventType === 'UPDATE') {
+              setConversations(prev => prev.filter(c => c.id !== payload.new.id));
+              if (activeConversationRef.current?.id === payload.new.id) {
+                setActiveConversation(null);
+              }
+            }
+            return;
+          }
 
           if (payload.eventType === 'UPDATE') {
             // Se calcula ANTES de actualizar el estado, comparando contra lo que
@@ -203,11 +242,14 @@ function App() {
 
   const fetchConversations = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('conversations')
-      .select('*')
-      .order('updated_at', { ascending: false });
-      
+    let query = supabase.from('conversations').select('*');
+    // Un empleado solo trae las conversaciones de su sucursal + las que
+    // todavía no tienen sucursal asignada.
+    if (soyStaff) {
+      query = query.or(`sucursal_id.eq.${miSucursalId},sucursal_id.is.null`);
+    }
+    const { data, error } = await query.order('updated_at', { ascending: false });
+
     if (!error && data) {
       setConversations(data);
     }
@@ -290,12 +332,19 @@ function App() {
       // Update conversation timestamp & last_message
       const previewText = mediaUrl ? `📎 Archivo enviado${inputToSave ? ' - ' + inputToSave : ''}` : inputToSave;
 
+      const updates = {
+        updated_at: new Date().toISOString(),
+        last_message: previewText
+      };
+      // Un empleado "toma" una conversación sin sucursal apenas le contesta:
+      // queda asignada a su sucursal para que otras sucursales dejen de verla.
+      if (soyStaff && !activeConversation.sucursal_id) {
+        updates.sucursal_id = miSucursalId;
+      }
+
       await supabase
         .from('conversations')
-        .update({
-           updated_at: new Date().toISOString(),
-           last_message: previewText
-        })
+        .update(updates)
         .eq('id', activeConversation.id);
     } catch (err) {
       console.error('Error contactando backend:', err);
@@ -447,6 +496,8 @@ function App() {
         showClientDirectory={showClientDirectory}
         onShowClientDirectory={handleShowClientDirectory}
         onLogout={handleLogout}
+        isAdmin={!soyStaff}
+        staffSucursalNombre={getStaffSucursalNombre()}
       />
 
       {showClientDirectory && !activeConversation ? (

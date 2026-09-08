@@ -11,14 +11,21 @@ router.post('/login', async (req, res) => {
   }
 
   try {
-    const admin = await verificarCredenciales(username.trim(), password);
-    if (!admin) {
+    const user = await verificarCredenciales(username.trim(), password);
+    if (!user) {
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos.' });
     }
 
-    const token = generarToken(admin);
-    console.log(`[ADMIN AUTH] Login exitoso: ${admin.username}`);
-    res.status(200).json({ success: true, token, username: admin.username });
+    const token = generarToken(user);
+    console.log(`[ADMIN AUTH] Login exitoso: ${user.username} (${user.role})`);
+    res.status(200).json({
+      success: true,
+      token,
+      username: user.username,
+      role: user.role,
+      sucursalId: user.sucursalId,
+      sucursalNombre: user.sucursalNombre || null
+    });
   } catch (error) {
     console.error('[ADMIN AUTH] Error en login:', error.message);
     res.status(500).json({ error: 'Error interno verificando las credenciales.' });
@@ -41,7 +48,17 @@ export const requireAuth = (req, res, next) => {
   next();
 };
 
-router.put('/update-credentials', requireAuth, async (req, res) => {
+// Exige, además de una sesión válida, que sea específicamente el
+// administrador (no un empleado). Protege gestión de empleados, sucursales
+// y las propias credenciales de admin.
+export const requireAdminRole = (req, res, next) => {
+  if (req.admin?.role !== 'admin') {
+    return res.status(403).json({ error: 'Esta acción es solo para el administrador.' });
+  }
+  next();
+};
+
+router.put('/update-credentials', requireAuth, requireAdminRole, async (req, res) => {
   const { currentPassword, newUsername, newPassword } = req.body;
 
   if (!currentPassword) {
@@ -55,7 +72,7 @@ router.put('/update-credentials', requireAuth, async (req, res) => {
     const updated = await actualizarCredenciales(req.admin.sub, { currentPassword, newUsername, newPassword });
     // Reemitimos el token con el username actualizado (el JWT no lleva la
     // contraseña, así que un cambio de solo contraseña no invalida la sesión).
-    const token = generarToken(updated);
+    const token = generarToken({ id: updated.id, username: updated.username, role: 'admin', sucursalId: null });
     console.log(`[ADMIN AUTH] Credenciales actualizadas para el admin ${updated.id}.`);
     res.status(200).json({ success: true, username: updated.username, token });
   } catch (error) {

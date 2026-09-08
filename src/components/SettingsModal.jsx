@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Settings, BarChart3, Sliders, Hash, Zap, CalendarClock, Download, Bell, Clock, Store, ShieldCheck, Users } from 'lucide-react';
+import { X, Settings, BarChart3, Sliders, Hash, Zap, CalendarClock, Download, Bell, Clock, Store, ShieldCheck, Users, UserCog } from 'lucide-react';
 import Accordion from './Accordion';
 import SessionTimeoutPanel from './SessionTimeoutPanel';
 import BotKeywordPanel from './BotKeywordPanel';
@@ -13,13 +13,17 @@ import ExportPanel from './ExportPanel';
 import AdminCredentialsPanel from './AdminCredentialsPanel';
 import StaffPanel from './StaffPanel';
 
-const TABS = [
-  { id: 'chat', label: 'Ajustes de Chat', icon: Sliders },
-  { id: 'metrics', label: 'Métricas y Estadísticas', icon: BarChart3 },
-  { id: 'export', label: 'Exportar Datos', icon: Download }
-];
+export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdmin = true }) {
+  // El apartado de Administración (credenciales del admin, empleados y
+  // sucursales) es exclusivo del administrador: un empleado ni siquiera ve
+  // la pestaña, para que quede claro que no puede tocar nada de eso.
+  const TABS = [
+    { id: 'chat', label: 'Ajustes de Chat', icon: Sliders },
+    { id: 'metrics', label: 'Métricas y Estadísticas', icon: BarChart3 },
+    { id: 'export', label: 'Exportar Datos', icon: Download },
+    ...(isAdmin ? [{ id: 'admin', label: 'Administración', icon: UserCog }] : [])
+  ];
 
-export default function SettingsModal({ sessionTimeoutMs, onSave, onClose }) {
   const [activeTab, setActiveTab] = useState('chat');
 
   return createPortal(
@@ -77,24 +81,26 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose }) {
                   <SchedulePanel />
                 </Accordion>
 
-                <Accordion title="Sucursales" icon={Store}>
-                  <SucursalesPanel />
-                </Accordion>
-
                 <Accordion title="Notificaciones" icon={Bell}>
                   <NotificationsPanel />
                 </Accordion>
-
-                <Accordion title="Administrador" icon={ShieldCheck}>
+              </div>
+            ) : activeTab === 'export' ? (
+              <ExportPanel />
+            ) : activeTab === 'admin' ? (
+              <div className="space-y-3">
+                <Accordion title="Administrador" icon={ShieldCheck} defaultOpen>
                   <AdminCredentialsPanel />
                 </Accordion>
 
                 <Accordion title="Empleados" icon={Users}>
                   <StaffPanel />
                 </Accordion>
+
+                <Accordion title="Sucursales" icon={Store}>
+                  <SucursalesPanel />
+                </Accordion>
               </div>
-            ) : activeTab === 'export' ? (
-              <ExportPanel />
             ) : (
               <MetricsPanel />
             )}
