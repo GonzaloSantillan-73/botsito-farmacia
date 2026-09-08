@@ -483,6 +483,7 @@ export default function ChatArea({
           {showHistory && (
             <HistoryPanel
               clientPhone={activeConversation.client_phone}
+              clientName={activeConversation.client_name}
               currentConversationId={activeConversation.id}
               onClose={() => setShowHistory(false)}
             />
