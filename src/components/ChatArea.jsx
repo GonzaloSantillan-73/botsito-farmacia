@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
 import HistoryPanel from './HistoryPanel';
+import { SALE_STATUS_BADGES } from './Sidebar';
 
 // Estados en los que la conversación ya está cerrada y no aplica el conteo de expiración.
 const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
@@ -199,6 +200,11 @@ export default function ChatArea({
                 <h2 className="font-bold text-gray-900">{activeConversation.client_name}</h2>
                 <p className="text-xs text-gray-500">{formatPhone(activeConversation.client_phone)}</p>
               </div>
+              {SALE_STATUS_BADGES[activeConversation.sale_status] && (
+                <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${SALE_STATUS_BADGES[activeConversation.sale_status].className}`}>
+                  {SALE_STATUS_BADGES[activeConversation.sale_status].label}
+                </span>
+              )}
             </div>
 
             {remainingMs !== null && (

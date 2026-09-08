@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, History, Clock, FileText, Search, CalendarRange, ArrowUpDown, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
+import { SALE_STATUS_BADGES } from './Sidebar';
 
 const STATUS_LABELS = {
   open: 'Abierto',
@@ -216,7 +217,9 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
                   Ninguna consulta coincide con el filtro aplicado.
                 </div>
               ) : (
-                visibleConversations.map(conv => (
+                visibleConversations.map(conv => {
+                  const saleBadge = SALE_STATUS_BADGES[conv.sale_status];
+                  return (
                   <button
                     key={conv.id}
                     onClick={() => openConversation(conv)}
@@ -236,17 +239,37 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
                             : <span className="italic text-gray-400">Sin mensajes</span>}
                       </div>
                     </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-gray-100 text-gray-600 shrink-0 uppercase font-medium whitespace-nowrap">
-                      {STATUS_LABELS[conv.status] || conv.status}
-                    </span>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-gray-100 text-gray-600 uppercase font-medium whitespace-nowrap">
+                        {STATUS_LABELS[conv.status] || conv.status}
+                      </span>
+                      {saleBadge && (
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-medium whitespace-nowrap ${saleBadge.className}`}>
+                          {saleBadge.label}
+                        </span>
+                      )}
+                    </div>
                   </button>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
 
           {/* Panel derecho: transcripción de la sesión elegida, liviana y de solo lectura */}
           <div className="flex-1 flex flex-col overflow-hidden bg-[#f0f2f5]">
+            {selectedConv && (
+              <div className="px-4 py-2 border-b border-gray-200 bg-white flex items-center gap-2 shrink-0">
+                <span className="text-xs font-medium text-gray-500">
+                  {STATUS_LABELS[selectedConv.status] || selectedConv.status}
+                </span>
+                {SALE_STATUS_BADGES[selectedConv.sale_status] && (
+                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${SALE_STATUS_BADGES[selectedConv.sale_status].className}`}>
+                    {SALE_STATUS_BADGES[selectedConv.sale_status].label}
+                  </span>
+                )}
+              </div>
+            )}
             {!selectedConv ? (
               <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
                 <History size={40} className="mb-3 text-gray-300" />

@@ -1,8 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, Star, ArrowLeft } from 'lucide-react';
+import { Users, Search, Star, ArrowLeft, ArrowUpDown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
-import { STATUS_BADGES } from './Sidebar';
+import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
+
+const SORT_OPTIONS = [
+  { value: 'recent', label: 'Fecha (más reciente)' },
+  { value: 'name', label: 'Nombre (A-Z)' },
+  { value: 'interactions', label: 'Interacciones (más primero)' },
+  { value: 'rating', label: 'Calificación (mejor primero)' }
+];
+
+const ordenarClientes = (clients, sortBy) => {
+  const sorted = [...clients];
+  switch (sortBy) {
+    case 'name':
+      return sorted.sort((a, b) => (a.client_name || '').localeCompare(b.client_name || ''));
+    case 'interactions':
+      return sorted.sort((a, b) => b.total - a.total);
+    case 'rating':
+      return sorted.sort((a, b) => (b.avgRating ?? -1) - (a.avgRating ?? -1));
+    case 'recent':
+    default:
+      return sorted.sort((a, b) => new Date(b.lastContact) - new Date(a.lastContact));
+  }
+};
 
 const formatDateTime = (iso) =>
   new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -43,6 +65,8 @@ export default function ClientDirectory({ onOpenConversation }) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedPhone, setSelectedPhone] = useState(null);
+  const [sortBy, setSortBy] = useState('recent');
+  const [detailSortAsc, setDetailSortAsc] = useState(false);
 
   useEffect(() => {
     supabase
@@ -63,7 +87,14 @@ export default function ClientDirectory({ onOpenConversation }) {
     return cl.client_name?.toLowerCase().includes(q) || cl.client_phone?.toLowerCase().includes(q);
   });
 
+  const sortedClients = ordenarClientes(filteredClients, sortBy);
+
   const selectedClient = selectedPhone ? clients.find(c => c.client_phone === selectedPhone) : null;
+  const sortedClientConversations = selectedClient
+    ? [...selectedClient.conversations].sort((a, b) => detailSortAsc
+        ? new Date(a.created_at) - new Date(b.created_at)
+        : new Date(b.created_at) - new Date(a.created_at))
+    : [];
 
   if (loading) {
     return (
@@ -109,10 +140,19 @@ export default function ClientDirectory({ onOpenConversation }) {
             </div>
           </div>
 
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Historial de consultas</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-700">Historial de consultas</h3>
+            <button
+              onClick={() => setDetailSortAsc(v => !v)}
+              className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-teal-700 transition-colors"
+            >
+              <ArrowUpDown size={12} /> {detailSortAsc ? 'Más antiguas primero' : 'Más recientes primero'}
+            </button>
+          </div>
           <div className="space-y-2">
-            {selectedClient.conversations.map(conv => {
+            {sortedClientConversations.map(conv => {
               const badge = STATUS_BADGES[conv.status];
+              const saleBadge = SALE_STATUS_BADGES[conv.sale_status];
               return (
                 <button
                   key={conv.id}
@@ -125,13 +165,16 @@ export default function ClientDirectory({ onOpenConversation }) {
                       {conv.last_message || <span className="italic text-gray-400">Sin mensajes</span>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex flex-col items-end gap-1 shrink-0">
                     {conv.rating != null && (
                       <span className="flex items-center gap-0.5 text-xs text-amber-600 font-medium">
                         {conv.rating} <Star size={12} className="text-amber-400 fill-amber-400" />
                       </span>
                     )}
-                    {badge && <span className={`text-[10px] font-medium px-2 py-0.5 rounded whitespace-nowrap ${badge.className}`}>{badge.label}</span>}
+                    <div className="flex items-center gap-1.5">
+                      {saleBadge && <span className={`text-[10px] font-medium px-2 py-0.5 rounded whitespace-nowrap ${saleBadge.className}`}>{saleBadge.label}</span>}
+                      {badge && <span className={`text-[10px] font-medium px-2 py-0.5 rounded whitespace-nowrap ${badge.className}`}>{badge.label}</span>}
+                    </div>
                   </div>
                 </button>
               );
@@ -149,20 +192,34 @@ export default function ClientDirectory({ onOpenConversation }) {
         <h2 className="font-bold text-gray-900 flex items-center gap-2 mb-3">
           <Users size={20} className="text-teal-600" /> Directorio de Clientes
         </h2>
-        <div className="relative max-w-sm">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre o teléfono..."
-            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-          />
-          <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
+        <div className="flex items-center gap-3">
+          <div className="relative max-w-sm flex-1">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por nombre o teléfono..."
+              className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+            />
+            <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
+          </div>
+          <div className="relative shrink-0">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 appearance-none"
+            >
+              {SORT_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <ArrowUpDown className="absolute left-2.5 top-2.5 text-gray-400 pointer-events-none" size={16} />
+          </div>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        {filteredClients.length === 0 ? (
+        {sortedClients.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400">
             <Users size={48} className="mb-3 text-gray-300" />
             <p className="text-sm">No se encontraron clientes.</p>
@@ -180,7 +237,7 @@ export default function ClientDirectory({ onOpenConversation }) {
                 </tr>
               </thead>
               <tbody>
-                {filteredClients.map(cl => (
+                {sortedClients.map(cl => (
                   <tr
                     key={cl.client_phone}
                     onClick={() => setSelectedPhone(cl.client_phone)}

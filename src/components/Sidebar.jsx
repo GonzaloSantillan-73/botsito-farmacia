@@ -14,6 +14,14 @@ export const STATUS_BADGES = {
   finalizada: { label: 'Finalizada', className: 'bg-gray-200 text-gray-600' }
 };
 
+// Resultado comercial de la conversación (conversations.sale_status), lo carga
+// el operador manualmente desde SaleStatusPanel. Se muestra como badge aparte
+// del estado del chat en el Directorio, el Historial y la vista del chat.
+export const SALE_STATUS_BADGES = {
+  concretada: { label: '✅ Venta Concretada', className: 'bg-emerald-100 text-emerald-800' },
+  no_concretada: { label: '❌ Venta No Concretada', className: 'bg-rose-100 text-rose-800' }
+};
+
 // Estados "cerrados": la consulta ya terminó (por el operador o por inactividad).
 export const ESTADOS_HISTORIAL = ['finalizada', 'resolved', 'rejected'];
 // El bot está respondiendo solo (menú, precios, etc.) y todavía no se pidió un humano.
