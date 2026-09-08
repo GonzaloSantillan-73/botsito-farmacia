@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Database, Loader2, Clock, MessagesSquare, Inbox, Headset, Archive, Settings, Users } from 'lucide-react';
+import { Search, Database, Loader2, Clock, MessagesSquare, Inbox, Headset, Archive, Settings, Users, LogOut } from 'lucide-react';
 import SettingsModal from './SettingsModal';
 import { formatPhone } from '../lib/formatPhone';
 
@@ -41,7 +41,8 @@ export default function Sidebar({
   sessionTimeoutMs,
   onSessionTimeoutChange,
   showClientDirectory,
-  onShowClientDirectory
+  onShowClientDirectory,
+  onLogout
 }) {
   const [showSettings, setShowSettings] = useState(false);
 
@@ -94,6 +95,15 @@ export default function Sidebar({
               className="p-2 text-gray-400 hover:text-teal-600 hover:bg-gray-100 rounded-full transition-colors"
             >
               <Settings size={20} />
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm('¿Cerrar sesión del CRM?')) onLogout?.();
+              }}
+              title="Cerrar sesión"
+              className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-full transition-colors"
+            >
+              <LogOut size={20} />
             </button>
           </div>
         </h1>

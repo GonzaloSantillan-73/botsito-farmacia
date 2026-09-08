@@ -8,8 +8,11 @@ import ChatArea from './components/ChatArea';
 import ValidationPanel from './components/ValidationPanel';
 import ImageModal from './components/ImageModal';
 import ClientDirectory from './components/ClientDirectory';
+import LoginModal from './components/LoginModal';
+import { getAdminToken, clearAdminSession } from './lib/adminAuth';
 
 function App() {
+  const [adminToken, setAdminToken] = useState(() => getAdminToken());
   const [activeTab, setActiveTab] = useState('atendiendo');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -416,9 +419,18 @@ function App() {
     setIsSeeding(false);
   };
 
+  if (!adminToken) {
+    return <LoginModal onLoginSuccess={(token) => setAdminToken(token)} />;
+  }
+
+  const handleLogout = () => {
+    clearAdminSession();
+    setAdminToken(null);
+  };
+
   return (
     <div className="flex h-screen bg-gray-50 font-sans text-gray-800">
-      
+
       <Sidebar
         conversations={conversations}
         loading={loading}
@@ -434,6 +446,7 @@ function App() {
         onSessionTimeoutChange={setSessionTimeoutMs}
         showClientDirectory={showClientDirectory}
         onShowClientDirectory={handleShowClientDirectory}
+        onLogout={handleLogout}
       />
 
       {showClientDirectory && !activeConversation ? (
