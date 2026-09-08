@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import webhookRoutes from './routes/webhook.js';
 import apiRoutes from './routes/api.js';
 import adminAuthRoutes from './routes/adminAuth.js';
+import staffRoutes from './routes/staff.js';
 import { startSessionExpiryChecker } from './services/sessionExpiryChecker.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -28,6 +29,7 @@ app.use('/uploads', express.static(path.resolve('public', 'uploads')));
 app.use('/webhook', webhookRoutes);
 app.use('/api', apiRoutes);
 app.use('/api/admin', adminAuthRoutes);
+app.use('/api/admin/staff', staffRoutes);
 
 // Servir estáticos de React (Vite build)
 app.use(express.static(path.join(__dirname, '../dist')));

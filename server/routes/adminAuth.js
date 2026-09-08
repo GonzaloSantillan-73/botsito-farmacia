@@ -25,8 +25,10 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Exige un JWT válido (emitido por /login) en el header Authorization.
-const requireAuth = (req, res, next) => {
+// Exige un JWT válido (emitido por /login) en el header Authorization. Se
+// exporta para que otras rutas de administración (ej. gestión de empleados)
+// puedan protegerse con el mismo middleware.
+export const requireAuth = (req, res, next) => {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
   const payload = token && verificarToken(token);

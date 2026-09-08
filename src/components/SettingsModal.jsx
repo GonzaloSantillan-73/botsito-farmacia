@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Settings, BarChart3, Sliders, Hash, Zap, CalendarClock, Download, Bell, Clock, Store, ShieldCheck } from 'lucide-react';
+import { X, Settings, BarChart3, Sliders, Hash, Zap, CalendarClock, Download, Bell, Clock, Store, ShieldCheck, Users } from 'lucide-react';
 import Accordion from './Accordion';
 import SessionTimeoutPanel from './SessionTimeoutPanel';
 import BotKeywordPanel from './BotKeywordPanel';
@@ -11,6 +11,7 @@ import NotificationsPanel from './NotificationsPanel';
 import MetricsPanel from './MetricsPanel';
 import ExportPanel from './ExportPanel';
 import AdminCredentialsPanel from './AdminCredentialsPanel';
+import StaffPanel from './StaffPanel';
 
 const TABS = [
   { id: 'chat', label: 'Ajustes de Chat', icon: Sliders },
@@ -86,6 +87,10 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose }) {
 
                 <Accordion title="Administrador" icon={ShieldCheck}>
                   <AdminCredentialsPanel />
+                </Accordion>
+
+                <Accordion title="Empleados" icon={Users}>
+                  <StaffPanel />
                 </Accordion>
               </div>
             ) : activeTab === 'export' ? (
