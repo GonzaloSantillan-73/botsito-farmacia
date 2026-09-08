@@ -166,8 +166,34 @@ router.get('/metrics/negocio', async (req, res) => {
       .eq('media_type', 'pdf');
     if (acepError) throw acepError;
 
+    // Conversión de ventas: resultado que el vendedor marca a mano (Venta
+    // Concretada / No Concretada), sin depender del carrito del bot. Se
+    // reporta aparte de "ventas" (pedidos_confirmados) porque son dos
+    // fuentes distintas: una la arma el cliente solo, la otra la cierra el
+    // vendedor (a veces cotizando a mano, sin pasar por el carrito).
+    const { data: gestionVentas, error: gestionError } = await supabase
+      .from('conversations')
+      .select('sale_status, sale_amount')
+      .not('sale_status', 'is', null);
+    if (gestionError) throw gestionError;
+
+    const concretadas = gestionVentas.filter(g => g.sale_status === 'concretada');
+    const noConcretadas = gestionVentas.filter(g => g.sale_status === 'no_concretada');
+    const ticketPromedioConcretadas = concretadas.length > 0
+      ? concretadas.reduce((acc, g) => acc + (Number(g.sale_amount) || 0), 0) / concretadas.length
+      : 0;
+    const totalGestionadas = gestionVentas.length;
+    const tasaConversion = totalGestionadas > 0 ? (concretadas.length / totalGestionadas) * 100 : 0;
+
     res.status(200).json({
       ventas: { totalPedidos, ticketPromedio, volumenTotalItems, rankingProductos },
+      conversion: {
+        totalGestionadas,
+        concretadas: concretadas.length,
+        noConcretadas: noConcretadas.length,
+        tasaConversion,
+        ticketPromedioConcretadas
+      },
       operacion: { totalCerradas, autonomas, derivadas, pctAutonoma },
       seguridad: { pdfBloqueados: pdfBloqueados || 0, pdfAceptados: pdfAceptados || 0 }
     });

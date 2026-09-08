@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Star, ShoppingCart, Package, Bot, Headset, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Star, ShoppingCart, Package, Bot, Headset, ShieldCheck, ShieldAlert, TrendingUp, CheckCircle2, XCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const formatMoney = (n) => `$${(Number(n) || 0).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
@@ -104,6 +104,41 @@ export default function MetricsPanel() {
                 </div>
               </div>
             )}
+          </>
+        )}
+      </Seccion>
+
+      <Seccion
+        title="Conversión de ventas (gestión manual)"
+        description='Resultado que el vendedor marca a mano en el chat: "Venta Concretada" / "Venta No Concretada" (no requiere que el pedido haya pasado por el carrito del bot).'
+      >
+        {!negocio || negocio.conversion.totalGestionadas === 0 ? (
+          <div className="text-sm text-gray-400 py-6 text-center bg-gray-50 rounded-xl border border-gray-100">
+            Todavía no se marcó ninguna venta como concretada o no concretada.
+          </div>
+        ) : (
+          <>
+            <div className="flex gap-3 mb-5">
+              <StatCard icon={TrendingUp} value={`${negocio.conversion.tasaConversion.toFixed(0)}%`} label="Tasa de conversión" accent="text-teal-700" />
+              <StatCard icon={ShoppingCart} value={formatMoney(negocio.conversion.ticketPromedioConcretadas)} label="Ticket promedio (concretadas)" />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 text-sm">
+                <span className="w-32 text-gray-600 shrink-0 flex items-center gap-1.5"><CheckCircle2 size={14} /> Concretadas</span>
+                <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${negocio.conversion.tasaConversion}%` }} />
+                </div>
+                <span className="w-8 text-right text-gray-500 shrink-0">{negocio.conversion.concretadas}</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <span className="w-32 text-gray-600 shrink-0 flex items-center gap-1.5"><XCircle size={14} /> No concretadas</span>
+                <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-rose-400 rounded-full transition-all" style={{ width: `${100 - negocio.conversion.tasaConversion}%` }} />
+                </div>
+                <span className="w-8 text-right text-gray-500 shrink-0">{negocio.conversion.noConcretadas}</span>
+              </div>
+            </div>
           </>
         )}
       </Seccion>
