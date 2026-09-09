@@ -62,9 +62,8 @@ export const mensajeEnvioGratis = (total) => {
 // recalcular el total dos veces en distintos mensajes.
 export const formatearCarrito = (items) => {
   const lineas = items.map((item, idx) => {
-    const letra = String.fromCharCode(97 + idx);
-    return `${letra}. ${item.plex_productos?.nombre || 'Producto'} x${item.quantity} — $${((Number(item.plex_productos?.precio) || 0) * item.quantity).toLocaleString('es-AR')}`;
+    return `${idx + 1}. ${item.plex_productos?.nombre || 'Producto'} x${item.quantity} — $${((Number(item.plex_productos?.precio) || 0) * item.quantity).toLocaleString('es-AR')}`;
   });
   const total = calcularTotal(items);
-  return { lineas, texto: lineas.join('\n'), total, envioGratisTexto: mensajeEnvioGratis(total) };
+  return { lineas, texto: lineas.join('\n\n'), total, envioGratisTexto: mensajeEnvioGratis(total) };
 };

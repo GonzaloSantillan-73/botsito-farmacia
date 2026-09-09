@@ -14,7 +14,7 @@ import { asignarSucursalParaPedido } from './pedidoAsignacion.js';
 // navegación, para que nunca quede todo amontonado en una sola oración. Las opciones
 // de navegación secundarias (ver carrito / volver al menú) usan siempre el mismo
 // formato de letra: "c." para carrito, "m." para menú de inicio.
-export const MENSAJE_BIENVENIDA = '¡Hola! Soy el bot de la Farmacia. 💊\n\n¿Qué querés hacer?\na. Consultar precios e info\nb. Hablar con un humano\nc. Ver mi carrito\nd. Horarios y sucursales\ne. Actualizar mis datos';
+export const MENSAJE_BIENVENIDA = '¡Hola! Soy el bot de la Farmacia. 💊\n\n¿Qué querés hacer?\n\na. Consultar precios e info\nb. Hablar con un humano\nc. Ver mi carrito\nd. Horarios y sucursales\ne. Actualizar mis datos';
 
 const MENSAJE_ERROR_SUCURSALES = 'Tuvimos un problema consultando las sucursales.\n\nPor favor, intentá de nuevo en un momento.';
 
@@ -51,8 +51,8 @@ const MENSAJE_TEXTO_VACIO = 'Por favor escribí el nombre del producto que busc�
 const MENSAJE_ERROR_CARRITO = 'Tuvimos un problema con tu carrito.\n\nPor favor, intentá de nuevo en un momento.';
 
 const OPCIONES_NO_ENCONTRADO = 'a. Volver a ingresar el nombre del producto\nb. Volver al menú principal';
-const mensajeNoEncontrado = (texto) => `No encontramos "${texto}" en nuestro catálogo.\n\n¿Qué querés hacer?\n${OPCIONES_NO_ENCONTRADO}`;
-const MENSAJE_OPCION_INVALIDA_NO_ENCONTRADO = `No entendí tu respuesta.\n\nPor favor, elegí una opción válida:\n${OPCIONES_NO_ENCONTRADO}`;
+const mensajeNoEncontrado = (texto) => `No encontramos "${texto}" en nuestro catálogo.\n\n¿Qué querés hacer?\n\n${OPCIONES_NO_ENCONTRADO}`;
+const MENSAJE_OPCION_INVALIDA_NO_ENCONTRADO = `No entendí tu respuesta.\n\nPor favor, elegí una opción válida:\n\n${OPCIONES_NO_ENCONTRADO}`;
 
 // Formato exacto pedido para catálogo + opciones: resultados numerados, instrucción
 // principal, y un bloque separado de "Otras opciones" con los atajos de letra.
@@ -71,13 +71,13 @@ const mensajeResultadoBusqueda = (texto, productos) => {
       return `${idx + 1}. ${p.nombre} — ${precio}${stockTexto}`;
     })
     .join('\n\n');
-  return `Esto encontramos para "${texto}":\n\n${lista}\n\nPara agregar un producto a tu carrito, escribí el número correspondiente (por ejemplo: 1).\n\nOtras opciones:\nc. Ver carrito\nm. Menú de inicio`;
+  return `Esto encontramos para "${texto}":\n\n${lista}\n\nPara agregar un producto a tu carrito, escribí el número correspondiente (por ejemplo: 1).\n\nOtras opciones:\n\nc. Ver carrito\nm. Menú de inicio`;
 };
 
-const MENSAJE_OPCION_INVALIDA_RESULTADO = 'No entendí tu respuesta.\n\nPara agregar un producto a tu carrito, escribí el número correspondiente.\n\nOtras opciones:\nc. Ver carrito\nm. Menú de inicio';
+const MENSAJE_OPCION_INVALIDA_RESULTADO = 'No entendí tu respuesta.\n\nPara agregar un producto a tu carrito, escribí el número correspondiente.\n\nOtras opciones:\n\nc. Ver carrito\nm. Menú de inicio';
 
 const OPCIONES_CARRITO = 'a. Agregar otro producto\nb. Eliminar un producto\nc. Vaciar el carrito\nd. Confirmar pedido\ne. Volver al menú principal';
-const MENSAJE_OPCION_INVALIDA_CARRITO = `No entendí tu respuesta.\n\nPor favor, elegí una opción válida:\n${OPCIONES_CARRITO}`;
+const MENSAJE_OPCION_INVALIDA_CARRITO = `No entendí tu respuesta.\n\nPor favor, elegí una opción válida:\n\n${OPCIONES_CARRITO}`;
 const MENSAJE_CARRITO_VACIO = 'Tu carrito está vacío.';
 
 // Tras confirmar el pedido, pedimos la ubicación para asignar la sucursal
@@ -88,12 +88,12 @@ const MENSAJE_UBICACION_INVALIDA = `No pudimos leer tu ubicación.\n\n${MENSAJE_
 
 const mensajeCarrito = (items, prefijo = '') => {
   const { texto, total, envioGratisTexto } = formatearCarrito(items);
-  return `${prefijo}🛒 Tu carrito:\n\n${texto}\n\nTotal: $${total.toLocaleString('es-AR')}\n\n${envioGratisTexto}\n\n¿Qué querés hacer?\n${OPCIONES_CARRITO}`;
+  return `${prefijo}🛒 Tu carrito:\n\n${texto}\n\nTotal: $${total.toLocaleString('es-AR')}\n\n${envioGratisTexto}\n\n¿Qué querés hacer?\n\n${OPCIONES_CARRITO}`;
 };
 
 const mensajePedirEliminacion = (items) => {
   const { texto } = formatearCarrito(items);
-  return `¿Qué producto querés eliminar?\n\n${texto}\n\nIngresá la letra correspondiente, o escribí "cancelar" para volver al carrito.`;
+  return `¿Qué producto querés eliminar?\n\n${texto}\n\nIngresá el número correspondiente, o escribí "cancelar" para volver al carrito.`;
 };
 
 export const procesarMensajeBot = async (texto, conversationId, telefono, isNewSession = false) => {
@@ -417,7 +417,7 @@ const mostrarCarrito = async (conversationId, telefono, prefijo = '') => {
     await enviarMensajeBot(
       conversationId,
       telefono,
-      `${prefijo}${MENSAJE_CARRITO_VACIO}\n\n¿Qué querés hacer?\na. Buscar un producto\nm. Menú de inicio`
+      `${prefijo}${MENSAJE_CARRITO_VACIO}\n\n¿Qué querés hacer?\n\na. Buscar un producto\nm. Menú de inicio`
     );
     return;
   }
@@ -496,9 +496,8 @@ const manejarEliminarItem = async (conversationId, telefono, t) => {
     return;
   }
 
-  const letra = t.toLowerCase();
-  const indice = letra.charCodeAt(0) - 97;
-  if (letra.length !== 1 || indice < 0 || indice >= items.length) {
+  const indice = Number(t) - 1;
+  if (!Number.isInteger(indice) || indice < 0 || indice >= items.length) {
     await enviarMensajeBot(conversationId, telefono, `No entendí tu respuesta.\n\n${mensajePedirEliminacion(items)}`);
     return;
   }
