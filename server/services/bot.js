@@ -14,7 +14,7 @@ import { asignarSucursalParaPedido } from './pedidoAsignacion.js';
 // navegación, para que nunca quede todo amontonado en una sola oración. Las opciones
 // de navegación secundarias (ver carrito / volver al menú) usan siempre el mismo
 // formato de letra: "c." para carrito, "m." para menú de inicio.
-export const MENSAJE_BIENVENIDA = '¡Hola! Soy el bot de la Farmacia. 💊\n\n¿Qué querés hacer?\n1. Consultar precios e info\n2. Hablar con un humano\n3. Ver mi carrito\n4. Horarios y sucursales\n5. Actualizar mis datos';
+export const MENSAJE_BIENVENIDA = '¡Hola! Soy el bot de la Farmacia. 💊\n\n¿Qué querés hacer?\na. Consultar precios e info\nb. Hablar con un humano\nc. Ver mi carrito\nd. Horarios y sucursales\ne. Actualizar mis datos';
 
 const MENSAJE_ERROR_SUCURSALES = 'Tuvimos un problema consultando las sucursales.\n\nPor favor, intentá de nuevo en un momento.';
 
@@ -50,7 +50,7 @@ const MENSAJE_ERROR_BUSQUEDA = 'Tuvimos un problema buscando en nuestro sistema.
 const MENSAJE_TEXTO_VACIO = 'Por favor escribí el nombre del producto que buscás.';
 const MENSAJE_ERROR_CARRITO = 'Tuvimos un problema con tu carrito.\n\nPor favor, intentá de nuevo en un momento.';
 
-const OPCIONES_NO_ENCONTRADO = '1. Volver a ingresar el nombre del producto\n2. Volver al menú principal';
+const OPCIONES_NO_ENCONTRADO = 'a. Volver a ingresar el nombre del producto\nb. Volver al menú principal';
 const mensajeNoEncontrado = (texto) => `No encontramos "${texto}" en nuestro catálogo.\n\n¿Qué querés hacer?\n${OPCIONES_NO_ENCONTRADO}`;
 const MENSAJE_OPCION_INVALIDA_NO_ENCONTRADO = `No entendí tu respuesta.\n\nPor favor, elegí una opción válida:\n${OPCIONES_NO_ENCONTRADO}`;
 
@@ -76,7 +76,7 @@ const mensajeResultadoBusqueda = (texto, productos) => {
 
 const MENSAJE_OPCION_INVALIDA_RESULTADO = 'No entendí tu respuesta.\n\nPara agregar un producto a tu carrito, escribí el número correspondiente.\n\nOtras opciones:\nc. Ver carrito\nm. Menú de inicio';
 
-const OPCIONES_CARRITO = '1. Agregar otro producto\n2. Eliminar un producto\n3. Vaciar el carrito\n4. Confirmar pedido\n5. Volver al menú principal';
+const OPCIONES_CARRITO = 'a. Agregar otro producto\nb. Eliminar un producto\nc. Vaciar el carrito\nd. Confirmar pedido\ne. Volver al menú principal';
 const MENSAJE_OPCION_INVALIDA_CARRITO = `No entendí tu respuesta.\n\nPor favor, elegí una opción válida:\n${OPCIONES_CARRITO}`;
 const MENSAJE_CARRITO_VACIO = 'Tu carrito está vacío.';
 
@@ -93,7 +93,7 @@ const mensajeCarrito = (items, prefijo = '') => {
 
 const mensajePedirEliminacion = (items) => {
   const { texto } = formatearCarrito(items);
-  return `¿Qué producto querés eliminar?\n\n${texto}\n\nIngresá el número correspondiente, o escribí "cancelar" para volver al carrito.`;
+  return `¿Qué producto querés eliminar?\n\n${texto}\n\nIngresá la letra correspondiente, o escribí "cancelar" para volver al carrito.`;
 };
 
 export const procesarMensajeBot = async (texto, conversationId, telefono, isNewSession = false) => {
@@ -166,10 +166,11 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
     }
 
     if (estado === 'product_not_found') {
-      if (t === '1') {
+      const tLower = t.toLowerCase();
+      if (tLower === 'a') {
         await supabase.from('conversations').update({ bot_state: 'awaiting_product_search' }).eq('id', conversationId);
         await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_PRODUCTO);
-      } else if (t === '2') {
+      } else if (tLower === 'b') {
         await volverAlMenuPrincipal(conversationId, telefono);
       } else {
         await enviarMensajeBot(conversationId, telefono, MENSAJE_OPCION_INVALIDA_NO_ENCONTRADO);
@@ -203,10 +204,11 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
     }
 
     // Estado normal: menú principal
-    if (t === '1') {
+    const tLower = t.toLowerCase();
+    if (tLower === 'a') {
       await supabase.from('conversations').update({ bot_state: 'awaiting_product_search', bot_context: null }).eq('id', conversationId);
       await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_PRODUCTO);
-    } else if (t === '2') {
+    } else if (tLower === 'b') {
       const humanSchedule = await getHumanSchedule();
       if (!isWithinSchedule(humanSchedule)) {
         console.log(`[BOT] Se pidió un humano fuera de su horario de atención para ${conversationId}.`);
@@ -222,11 +224,11 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
         .from('conversations')
         .update({ status: 'esperando', bot_state: null, bot_context: null })
         .eq('id', conversationId);
-    } else if (t === '3') {
+    } else if (tLower === 'c') {
       await mostrarCarrito(conversationId, telefono);
-    } else if (t === '4') {
+    } else if (tLower === 'd') {
       await mostrarSucursales(conversationId, telefono);
-    } else if (t === '5') {
+    } else if (tLower === 'e') {
       await iniciarRegistro(conversationId, telefono, true, null);
     } else {
       await enviarMensajeBot(conversationId, telefono, MENSAJE_BIENVENIDA);
@@ -408,14 +410,14 @@ const mostrarCarrito = async (conversationId, telefono, prefijo = '') => {
   }
 
   if (items.length === 0) {
-    // El carrito vacío deja al cliente en el estado de menú principal: "1" ya
+    // El carrito vacío deja al cliente en el estado de menú principal: "a" ya
     // dispara la búsqueda de productos y cualquier otra entrada (incluida "m")
     // vuelve a mostrar este mismo menú, así que ambos atajos ya funcionan.
     await supabase.from('conversations').update({ bot_state: null, bot_context: null }).eq('id', conversationId);
     await enviarMensajeBot(
       conversationId,
       telefono,
-      `${prefijo}${MENSAJE_CARRITO_VACIO}\n\n¿Qué querés hacer?\n1. Buscar un producto\nm. Menú de inicio`
+      `${prefijo}${MENSAJE_CARRITO_VACIO}\n\n¿Qué querés hacer?\na. Buscar un producto\nm. Menú de inicio`
     );
     return;
   }
@@ -425,13 +427,14 @@ const mostrarCarrito = async (conversationId, telefono, prefijo = '') => {
 };
 
 const manejarMenuCarrito = async (conversationId, telefono, t) => {
-  if (t === '1') {
+  const tLower = t.toLowerCase();
+  if (tLower === 'a') {
     await supabase.from('conversations').update({ bot_state: 'awaiting_product_search', bot_context: null }).eq('id', conversationId);
     await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_PRODUCTO);
     return;
   }
 
-  if (t === '2') {
+  if (tLower === 'b') {
     let items;
     try {
       items = await obtenerCarrito(telefono);
@@ -452,7 +455,7 @@ const manejarMenuCarrito = async (conversationId, telefono, t) => {
     return;
   }
 
-  if (t === '3') {
+  if (tLower === 'c') {
     try {
       await vaciarCarrito(telefono);
     } catch (err) {
@@ -465,12 +468,12 @@ const manejarMenuCarrito = async (conversationId, telefono, t) => {
     return;
   }
 
-  if (t === '4') {
+  if (tLower === 'd') {
     await confirmarPedido(conversationId, telefono);
     return;
   }
 
-  if (t === '5') {
+  if (tLower === 'e') {
     await volverAlMenuPrincipal(conversationId, telefono);
     return;
   }
@@ -493,8 +496,9 @@ const manejarEliminarItem = async (conversationId, telefono, t) => {
     return;
   }
 
-  const indice = Number(t) - 1;
-  if (!Number.isInteger(indice) || indice < 0 || indice >= items.length) {
+  const letra = t.toLowerCase();
+  const indice = letra.charCodeAt(0) - 97;
+  if (letra.length !== 1 || indice < 0 || indice >= items.length) {
     await enviarMensajeBot(conversationId, telefono, `No entendí tu respuesta.\n\n${mensajePedirEliminacion(items)}`);
     return;
   }

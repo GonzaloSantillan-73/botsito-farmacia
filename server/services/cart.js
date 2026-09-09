@@ -61,9 +61,10 @@ export const mensajeEnvioGratis = (total) => {
 // Devuelve tanto el texto formateado como los datos crudos, para no tener que
 // recalcular el total dos veces en distintos mensajes.
 export const formatearCarrito = (items) => {
-  const lineas = items.map((item, idx) =>
-    `${idx + 1}. ${item.plex_productos?.nombre || 'Producto'} x${item.quantity} — $${((Number(item.plex_productos?.precio) || 0) * item.quantity).toLocaleString('es-AR')}`
-  );
+  const lineas = items.map((item, idx) => {
+    const letra = String.fromCharCode(97 + idx);
+    return `${letra}. ${item.plex_productos?.nombre || 'Producto'} x${item.quantity} — $${((Number(item.plex_productos?.precio) || 0) * item.quantity).toLocaleString('es-AR')}`;
+  });
   const total = calcularTotal(items);
   return { lineas, texto: lineas.join('\n'), total, envioGratisTexto: mensajeEnvioGratis(total) };
 };
