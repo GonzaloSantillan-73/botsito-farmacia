@@ -26,13 +26,15 @@ export const SALE_STATUS_BADGES = {
 export const ESTADOS_HISTORIAL = ['finalizada', 'resolved', 'rejected'];
 // El bot está respondiendo solo (menú, precios, etc.) y todavía no se pidió un humano.
 const esBotAutomatico = (status) => status !== 'esperando' && !ESTADOS_HISTORIAL.includes(status);
-// El cliente pidió hablar con un humano: pasa a "Atendiendo" de forma automática e inmediata.
-const necesitaHumano = (status) => status === 'esperando';
 // El pedido fue derivado automáticamente a una sucursal puntual (la más cercana
 // con stock completo, ver server/services/pedidoAsignacion.js). El fetch de
 // conversations en App.jsx ya excluye para un empleado las de otra sucursal, así
 // que este filtro alcanza para que cada uno solo vea los derivados propios.
 const esDerivado = (conv) => conv.sucursal_id != null;
+// El cliente pidió hablar con un humano y todavía NO fue derivado a ninguna
+// sucursal puntual: si ya tiene sucursal_id, pasa a "Derivados" en vez de acá
+// (antes se mostraba en las dos pestañas a la vez).
+const necesitaHumano = (conv) => conv.status === 'esperando' && !esDerivado(conv);
 
 const TABS = [
   { id: 'entrantes', label: 'Entrantes', icon: Inbox },
@@ -70,7 +72,7 @@ export default function Sidebar({
     // 1. Filtro por tab
     let matchesTab = true;
     if (activeTab === 'entrantes') matchesTab = esBotAutomatico(c.status);
-    else if (activeTab === 'atendiendo') matchesTab = necesitaHumano(c.status);
+    else if (activeTab === 'atendiendo') matchesTab = necesitaHumano(c);
     else if (activeTab === 'derivados') matchesTab = esDerivado(c);
 
     // 2. Filtro por texto (búsqueda)
@@ -84,7 +86,7 @@ export default function Sidebar({
   });
 
   const enEsperaCount = validConversations.filter(c => esBotAutomatico(c.status)).length;
-  const misChatsCount = validConversations.filter(c => necesitaHumano(c.status)).length;
+  const misChatsCount = validConversations.filter(necesitaHumano).length;
   const tabCounts = {
     entrantes: enEsperaCount,
     atendiendo: misChatsCount,
