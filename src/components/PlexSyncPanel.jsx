@@ -66,10 +66,13 @@ function SyncRow({ icon: Icon, titulo, descripcion, onSync, resumen, extra }) {
   );
 }
 
-// Botón secundario para disparar la sincronización de stock de todas las
-// sucursales de una (mismo endpoint 7.1 de Plex, repetido por sucursal en el
-// backend). Vive junto al select de "Stock por Sucursal" y lleva su propio
-// loading/resultado porque es una acción independiente del botón principal.
+// Botón secundario para disparar la sincronización de stock de TODAS las
+// sucursales de una (el backend la hace tolerante a fallos: si una sucursal
+// puntual falla, sigue con las demás). Vive junto al select de "Stock por
+// Sucursal" y lleva su propio loading/resultado porque es una acción
+// independiente del botón principal. Además del resumen general, desglosa
+// el resultado sucursal por sucursal para que el fallo de una no tape el
+// éxito de las demás.
 function SyncTodasButton({ onSync }) {
   const [loading, setLoading] = useState(false);
   const [resultado, setResultado] = useState(null);
@@ -101,9 +104,35 @@ function SyncTodasButton({ onSync }) {
       </button>
 
       {resultado && (
-        <div className="mt-2 flex items-start gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg p-2.5">
-          <CheckCircle2 size={14} className="shrink-0 mt-0.5" />
-          <span>{resultado.sucursales} sucursales procesadas, {resultado.guardados} productos con stock guardados, {resultado.omitidos} omitidos.</span>
+        <div className="mt-2 space-y-2">
+          <div className={`flex items-start gap-2 text-xs rounded-lg p-2.5 border ${
+            resultado.fallidas > 0 ? 'text-amber-700 bg-amber-50 border-amber-100' : 'text-emerald-700 bg-emerald-50 border-emerald-100'
+          }`}>
+            {resultado.fallidas > 0 ? <AlertCircle size={14} className="shrink-0 mt-0.5" /> : <CheckCircle2 size={14} className="shrink-0 mt-0.5" />}
+            <span>
+              {resultado.exitosas}/{resultado.sucursales} sucursales sincronizadas{resultado.fallidas > 0 ? `, ${resultado.fallidas} con error` : ''}
+              {' '}· {resultado.guardados} productos con stock guardados, {resultado.omitidos} omitidos en total.
+            </span>
+          </div>
+
+          {(resultado.resultados || []).length > 0 && (
+            <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 overflow-hidden">
+              {resultado.resultados.map(r => (
+                <div key={r.id_sucursal} className="flex items-start justify-between gap-3 px-2.5 py-2 text-xs">
+                  <span className="font-medium text-gray-700 shrink-0">{r.nombre}</span>
+                  {r.success ? (
+                    <span className="flex items-center gap-1 text-emerald-700 text-right">
+                      <CheckCircle2 size={12} className="shrink-0" /> {r.guardados} guardados, {r.omitidos} omitidos
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-rose-600 text-right">
+                      <AlertCircle size={12} className="shrink-0" /> {r.error}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
       {error && (

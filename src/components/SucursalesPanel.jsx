@@ -88,7 +88,10 @@ export default function SucursalesPanel() {
           {sucursales.map(ps => {
             const config = ps.configuracion;
             const empleados = config?.staff_users || [];
-            const estaConfigurada = Boolean(config?.direccion) && empleados.length > 0;
+            // "No disponible" si falta información/credenciales, o si el
+            // último intento de sincronizar su stock desde Plex falló.
+            const stockSyncFallo = ps.stockSyncOk === false;
+            const estaConfigurada = Boolean(config?.direccion) && empleados.length > 0 && !stockSyncFallo;
             return (
               <div key={ps.idSucursalPlex} className="p-3 bg-white border border-gray-200 rounded-lg">
                 <div className="flex items-start justify-between gap-3">
@@ -114,6 +117,11 @@ export default function SucursalesPanel() {
                     {config?.direccion && <div className="text-xs text-gray-600 mt-0.5">{config.direccion}</div>}
                     {config && (config.latitud == null || config.longitud == null) && (
                       <div className="text-[11px] text-amber-600 mt-0.5">Sin coordenadas: el bot no puede calcular cercanía a esta sucursal todavía.</div>
+                    )}
+                    {stockSyncFallo && (
+                      <div className="text-[11px] text-rose-600 mt-0.5">
+                        Último intento de sincronizar el stock falló: {ps.stockSyncError || 'error desconocido'}.
+                      </div>
                     )}
                   </div>
                   <button

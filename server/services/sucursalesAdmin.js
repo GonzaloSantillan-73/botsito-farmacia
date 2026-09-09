@@ -6,7 +6,7 @@ import { supabase } from '../supabase.js';
 export const listarSucursalesConEstado = async () => {
   const { data: plexSucursales, error: plexError } = await supabase
     .from('plex_sucursales')
-    .select('id_sucursal, nombre, empresa, cuit')
+    .select('id_sucursal, nombre, empresa, cuit, last_stock_sync_ok, last_stock_sync_error, last_stock_sync_at')
     .order('nombre');
   if (plexError) throw plexError;
 
@@ -23,7 +23,11 @@ export const listarSucursalesConEstado = async () => {
     nombrePlex: ps.nombre,
     empresa: ps.empresa,
     cuit: ps.cuit,
-    configuracion: internasPorPlexId.get(ps.id_sucursal) || null
+    configuracion: internasPorPlexId.get(ps.id_sucursal) || null,
+    // null = todavía no se intentó sincronizar el stock de esta sucursal.
+    stockSyncOk: ps.last_stock_sync_ok,
+    stockSyncError: ps.last_stock_sync_error,
+    stockSyncAt: ps.last_stock_sync_at
   }));
 };
 

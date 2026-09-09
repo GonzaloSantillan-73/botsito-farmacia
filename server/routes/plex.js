@@ -49,6 +49,10 @@ router.post('/sync/productos', async (req, res) => {
   }
 });
 
+// sincronizarStockTodasLasSucursales ya es tolerante a fallos por sucursal
+// (los captura y los devuelve dentro de "resultados" en vez de tirar la
+// promesa entera abajo), así que este catch solo dispara ante un error
+// verdaderamente fatal (p. ej. ni siquiera se pudo leer plex_sucursales).
 router.post('/sync/stock/todas', async (req, res) => {
   try {
     const resultado = await sincronizarStockTodasLasSucursales();
