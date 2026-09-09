@@ -177,6 +177,7 @@ router.post('/', async (req, res) => {
             address: loc.address || null
           });
           previewText = '📍 Ubicación compartida';
+          botInputText = messageText; // el bot lo parsea como JSON cuando está esperando ubicación
           console.log(`[WEBHOOK] -> Coordenadas extraídas: lat=${loc.latitude}, lng=${loc.longitude}`);
         } else if (messageType === 'image' || messageType === 'document' || messageType === 'audio' || messageType === 'video') {
           console.log(`[WEBHOOK] -> Entró al bloque de multimedia/documento`);
@@ -298,10 +299,11 @@ router.post('/', async (req, res) => {
         if (isRatingReply) {
            console.log(`[WEBHOOK] -> Guardando calificación: ${messageText}`);
            await guardarCalificacion(conversationId, clientPhone, Number(messageText.trim()));
-        } else if (isNewSession || messageType === 'text' || messageType === 'interactive') {
+        } else if (isNewSession || messageType === 'text' || messageType === 'interactive' || messageType === 'location') {
            // Si es sesión nueva, se manda la bienvenida sin importar el tipo de mensaje;
-           // si la sesión ya estaba activa, se procesan mensajes de texto (menú 1/2) y
-           // respuestas interactivas (botón/lista presionado, usando su ID como comando).
+           // si la sesión ya estaba activa, se procesan mensajes de texto (menú 1/2),
+           // respuestas interactivas (botón/lista presionado, usando su ID como comando)
+           // y ubicaciones (solo tienen efecto si el bot está esperando una, ver bot.js).
            console.log(`[WEBHOOK] -> Derivando mensaje a la lógica del bot (input: "${botInputText}")...`);
            await procesarMensajeBot(botInputText, conversationId, clientPhone, isNewSession);
         }

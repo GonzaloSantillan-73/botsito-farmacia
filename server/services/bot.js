@@ -6,6 +6,7 @@ import { getBotSchedule, getHumanSchedule, isWithinSchedule, renderScheduleMessa
 import { agregarAlCarrito, obtenerCarrito, eliminarItemCarrito, vaciarCarrito, formatearCarrito } from './cart.js';
 import { getSucursalesActivas, formatearMensajeSucursales } from './sucursales.js';
 import { getCliente, tieneRegistroCompleto, guardarDatoCliente } from './clientes.js';
+import { asignarSucursalParaPedido } from './pedidoAsignacion.js';
 
 // Todas las opciones del bot se muestran como texto plano dentro del propio chat
 // (nada de botones/listas nativas de Meta). Cada mensaje separa con saltos de línea
@@ -78,6 +79,12 @@ const MENSAJE_OPCION_INVALIDA_RESULTADO = 'No entendí tu respuesta.\n\nPara agr
 const OPCIONES_CARRITO = '1. Agregar otro producto\n2. Eliminar un producto\n3. Vaciar el carrito\n4. Confirmar pedido\n5. Volver al menú principal';
 const MENSAJE_OPCION_INVALIDA_CARRITO = `No entendí tu respuesta.\n\nPor favor, elegí una opción válida:\n${OPCIONES_CARRITO}`;
 const MENSAJE_CARRITO_VACIO = 'Tu carrito está vacío.';
+
+// Tras confirmar el pedido, pedimos la ubicación para asignar la sucursal
+// más cercana que tenga stock completo (no un texto: tiene que ser el
+// mensaje nativo de "Ubicación" de WhatsApp, con latitud/longitud reales).
+const MENSAJE_PEDIR_UBICACION = 'Para asignarte la sucursal más cercana con stock disponible, compartí tu ubicación 📍\n\nEn WhatsApp: tocá el ícono de "+" o el clip 📎 → Ubicación → Ubicación actual.';
+const MENSAJE_UBICACION_INVALIDA = `No pudimos leer tu ubicación.\n\n${MENSAJE_PEDIR_UBICACION}`;
 
 const mensajeCarrito = (items, prefijo = '') => {
   const { texto, total, envioGratisTexto } = formatearCarrito(items);
@@ -182,6 +189,11 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
 
     if (estado === 'awaiting_remove_item') {
       await manejarEliminarItem(conversationId, telefono, t);
+      return;
+    }
+
+    if (estado === 'awaiting_location') {
+      await manejarUbicacionRecibida(conversationId, telefono, t);
       return;
     }
 
@@ -498,10 +510,10 @@ const manejarEliminarItem = async (conversationId, telefono, t) => {
   await mostrarCarrito(conversationId, telefono, `🗑️ Eliminamos "${items[indice].plex_productos?.nombre}" de tu carrito.\n\n`);
 };
 
-// Confirmar pedido: arma el resumen final, deriva la conversación a un asesor
-// humano (mismo estado 'esperando' que "Hablar con un humano"), vacía el carrito,
-// y deja los productos confirmados en 'pending_order' para que el operador los vea
-// automáticamente cargados en el Cotizador del CRM apenas abra el chat.
+// Confirmar pedido: en vez de derivar directo a un humano, primero le pedimos
+// la ubicación al cliente para poder asignarle la sucursal más cercana que
+// tenga stock completo del pedido (ver manejarUbicacionRecibida). El carrito
+// se mantiene intacto hasta que la ubicación llegue y se resuelva la asignación.
 const confirmarPedido = async (conversationId, telefono) => {
   let items;
   try {
@@ -517,42 +529,106 @@ const confirmarPedido = async (conversationId, telefono) => {
     return;
   }
 
-  const { texto, total, envioGratisTexto } = formatearCarrito(items);
-  const botKeyword = await getBotKeyword();
-  const mensaje =
-    `✅ ¡Gracias por tu pedido! Este es el resumen:\n\n${texto}\n\nTotal: $${total.toLocaleString('es-AR')}\n\n${envioGratisTexto}\n\n` +
-    `Te estamos derivando con un asesor humano para coordinar el pago y la entrega.\n\n` +
-    `En breve se pondrán en contacto contigo. Si en cualquier momento querés volver a hablar con el bot, escribí la palabra "${botKeyword}".`;
+  await supabase
+    .from('conversations')
+    .update({ bot_state: 'awaiting_location', bot_context: null })
+    .eq('id', conversationId);
 
-  // Items en el formato que espera el Cotizador del CRM (nombre + precio de línea ya
-  // multiplicado por la cantidad), para que el operador los vea cargados de una.
+  await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_UBICACION);
+};
+
+// Se dispara cuando llega la ubicación pedida tras confirmar el pedido. Corre
+// el motor de cercanía + stock ("todo o nada") y recién ahí deriva la
+// conversación a un asesor humano, ya con la sucursal asignada (o sin
+// asignar, si ninguna cubre el pedido completo, para que un humano lo resuelva).
+const manejarUbicacionRecibida = async (conversationId, telefono, texto) => {
+  let ubicacion = null;
+  try {
+    ubicacion = JSON.parse(texto);
+  } catch {
+    ubicacion = null;
+  }
+
+  if (!ubicacion || typeof ubicacion.lat !== 'number' || typeof ubicacion.lng !== 'number') {
+    await enviarMensajeBot(conversationId, telefono, MENSAJE_UBICACION_INVALIDA);
+    return;
+  }
+
+  let items;
+  try {
+    items = await obtenerCarrito(telefono);
+  } catch (err) {
+    console.error('[BOT] Error obteniendo el carrito para asignar sucursal:', err);
+    await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_CARRITO);
+    return;
+  }
+
+  if (items.length === 0) {
+    // Caso raro: el cliente vació el carrito desde otro lado mientras esperábamos su ubicación.
+    await supabase.from('conversations').update({ bot_state: null, bot_context: null }).eq('id', conversationId);
+    await enviarMensajeBot(conversationId, telefono, `${MENSAJE_CARRITO_VACIO}\n\n${MENSAJE_BIENVENIDA}`);
+    return;
+  }
+
+  const itemsParaAsignacion = items.map(item => ({
+    cod_producto: item.plex_productos?.cod_producto,
+    cantidad: item.quantity,
+    unidades_por_caja: item.plex_productos?.unidades_por_caja
+  }));
+
+  let sucursalAsignada = null;
+  try {
+    sucursalAsignada = await asignarSucursalParaPedido(ubicacion.lat, ubicacion.lng, itemsParaAsignacion);
+  } catch (err) {
+    console.error('[BOT] Error asignando sucursal por cercanía/stock:', err);
+    await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_CARRITO);
+    return;
+  }
+
+  const { texto: textoCarrito, total, envioGratisTexto } = formatearCarrito(items);
+  const botKeyword = await getBotKeyword();
+
   const pendingOrderItems = items.map(item => ({
     name: item.quantity > 1 ? `${item.plex_productos?.nombre || 'Producto'} x${item.quantity}` : (item.plex_productos?.nombre || 'Producto'),
     price: (Number(item.plex_productos?.precio) || 0) * item.quantity
   }));
 
+  const updates = {
+    status: 'esperando',
+    bot_state: null,
+    bot_context: null,
+    pending_order: { items: pendingOrderItems, total, confirmedAt: new Date().toISOString() }
+  };
+
+  let mensaje =
+    `✅ ¡Gracias por tu pedido! Este es el resumen:\n\n${textoCarrito}\n\nTotal: $${total.toLocaleString('es-AR')}\n\n${envioGratisTexto}\n\n`;
+
+  if (sucursalAsignada) {
+    updates.sucursal_id = sucursalAsignada.id;
+    mensaje += `📍 Tu pedido fue asignado a nuestra sucursal *${sucursalAsignada.nombre}* (la más cercana con stock disponible).\n\n`;
+  } else {
+    mensaje += `⚠️ Ninguna de nuestras sucursales tiene stock completo de tu pedido en este momento. Te derivamos igual con un asesor humano para resolverlo.\n\n`;
+  }
+
+  mensaje +=
+    `Te estamos derivando con un asesor humano para coordinar el pago y la entrega.\n\n` +
+    `En breve se pondrán en contacto contigo. Si en cualquier momento querés volver a hablar con el bot, escribí la palabra "${botKeyword}".`;
+
   // Persistimos la transición de estado, el pedido confirmado y vaciamos el carrito
   // ANTES de intentar enviar el mensaje: el pedido ya quedó confirmado del lado del
   // cliente, así que un fallo transitorio de envío a Meta no debe impedir que pase
   // a "Atendiendo" ni que el operador vea el pedido en el Cotizador.
-  console.log(`[BOT] Pedido confirmado para ${conversationId}. Derivando a 'esperando', cargando el cotizador y vaciando el carrito.`);
-  await supabase
-    .from('conversations')
-    .update({
-      status: 'esperando',
-      bot_state: null,
-      bot_context: null,
-      pending_order: { items: pendingOrderItems, total, confirmedAt: new Date().toISOString() }
-    })
-    .eq('id', conversationId);
+  console.log(`[BOT] Pedido confirmado para ${conversationId}. Sucursal asignada: ${sucursalAsignada?.nombre || 'ninguna (sin stock completo)'}.`);
+  await supabase.from('conversations').update(updates).eq('id', conversationId);
 
   // Registro histórico permanente para las métricas de ventas (ticket promedio,
-  // volumen de ítems, ranking de productos): a diferencia de cart_items y
-  // pending_order, esta tabla nunca se vacía ni se limpia.
+  // volumen de ítems, ranking de productos, y ahora también qué sucursal lo
+  // atendió): a diferencia de cart_items y pending_order, nunca se vacía.
   try {
     await supabase.from('pedidos_confirmados').insert([{
       conversation_id: conversationId,
       client_phone: telefono,
+      sucursal_id: sucursalAsignada?.id || null,
       items: items.map(item => ({
         product_id: item.plex_productos?.cod_producto || null,
         nombre: item.plex_productos?.nombre || 'Producto',
