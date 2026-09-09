@@ -73,6 +73,19 @@ export default function SucursalConfigModal({ sucursalPlex, onClose, onSaved }) 
     }
   };
 
+  // Google Maps copia "lat, lng" como un solo texto (clic derecho sobre el
+  // punto → coordenadas). Si lo que se pega tiene una coma, lo repartimos
+  // entre los dos campos en vez de dejar que el input reciba el texto entero.
+  const handlePasteCoordenadas = (e) => {
+    const texto = e.clipboardData.getData('text');
+    if (!texto.includes(',')) return;
+    e.preventDefault();
+    const [lat, lng] = texto.split(',');
+    const limpiar = (v) => (v || '').trim().replace(/[^0-9.\-]/g, '');
+    setLatitud(limpiar(lat));
+    setLongitud(limpiar(lng));
+  };
+
   const eliminarAcceso = async () => {
     if (!empleadoPrincipal) return;
     if (!window.confirm('¿Eliminar este acceso? El empleado ya no va a poder entrar al CRM.')) return;
@@ -129,6 +142,7 @@ export default function SucursalConfigModal({ sucursalPlex, onClose, onSaved }) 
                   type="number" step="any"
                   value={latitud}
                   onChange={(e) => setLatitud(e.target.value)}
+                  onPaste={handlePasteCoordenadas}
                   placeholder="-31.4201"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
                 />
@@ -139,6 +153,7 @@ export default function SucursalConfigModal({ sucursalPlex, onClose, onSaved }) 
                   type="number" step="any"
                   value={longitud}
                   onChange={(e) => setLongitud(e.target.value)}
+                  onPaste={handlePasteCoordenadas}
                   placeholder="-64.1888"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
                 />
@@ -146,6 +161,9 @@ export default function SucursalConfigModal({ sucursalPlex, onClose, onSaved }) 
             </div>
             <p className="text-[11px] text-gray-400">
               La latitud/longitud son necesarias para que el bot calcule la sucursal más cercana al cliente (podés sacarlas de Google Maps: clic derecho sobre el punto → coordenadas).
+            </p>
+            <p className="text-[11px] text-teal-600">
+              Podés pegar las coordenadas juntas copiadas de Google Maps (ej: -28.445, -65.775) y se completarán solas.
             </p>
           </div>
 
