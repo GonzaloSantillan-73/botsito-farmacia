@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Loader2, CheckCircle2, AlertCircle, Store, Package, Boxes } from 'lucide-react';
+import { RefreshCw, Loader2, CheckCircle2, AlertCircle, Store, Package, Boxes, MapPin, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { adminFetch } from '../lib/adminAuth';
 
@@ -76,6 +76,13 @@ export default function PlexSyncPanel() {
   const [loadingSucursales, setLoadingSucursales] = useState(true);
   const [estado, setEstado] = useState({});
 
+  // Sucursal contra la que el bot y el Cotizador consultan stock real (no
+  // es lo mismo que la elegida arriba para "Stock por Sucursal": esa dispara
+  // una sincronización puntual, esta queda guardada como referencia fija).
+  const [sucursalStockRef, setSucursalStockRef] = useState('');
+  const [guardandoRef, setGuardandoRef] = useState(false);
+  const [refGuardada, setRefGuardada] = useState(false);
+
   const fetchEstado = async () => {
     const [{ data: sucs }, { count: totalProductos }, { data: prodSync }] = await Promise.all([
       supabase.from('plex_sucursales').select('id_sucursal, nombre, synced_at').order('nombre'),
@@ -94,7 +101,32 @@ export default function PlexSyncPanel() {
     setLoadingSucursales(false);
   };
 
-  useEffect(() => { fetchEstado(); }, []);
+  useEffect(() => {
+    fetchEstado();
+    adminFetch('/api/admin/plex/settings/sucursal-stock')
+      .then(res => res.json())
+      .then(data => setSucursalStockRef(data.idSucursal || ''))
+      .catch(() => {});
+  }, []);
+
+  const guardarSucursalStockRef = async () => {
+    if (!sucursalStockRef) return;
+    setGuardandoRef(true);
+    setRefGuardada(false);
+    try {
+      const res = await adminFetch('/api/admin/plex/settings/sucursal-stock', {
+        method: 'PUT',
+        body: JSON.stringify({ idSucursal: sucursalStockRef })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo guardar.');
+      setRefGuardada(true);
+    } catch (err) {
+      alert(err.message || 'No se pudo guardar la sucursal de referencia.');
+    } finally {
+      setGuardandoRef(false);
+    }
+  };
 
   const syncSucursales = async () => {
     const res = await adminFetch('/api/admin/plex/sync/sucursales', { method: 'POST' });
@@ -125,6 +157,40 @@ export default function PlexSyncPanel() {
       <p className="text-xs text-gray-500">
         Trae datos reales de Plex Concentrador (solo lectura, nunca se le escribe nada) y los guarda como copia local en Supabase. El catálogo excluye automáticamente cualquier sección de drogas o principios activos.
       </p>
+
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
+            <MapPin size={18} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold text-gray-800">Sucursal de referencia para stock</div>
+            <div className="text-xs text-gray-500 mt-0.5 mb-2">
+              El bot de WhatsApp y el Cotizador del CRM informan el stock real de esta sucursal (el cliente no elige sucursal al chatear).
+            </div>
+            <div className="flex items-center gap-2">
+              <select
+                value={sucursalStockRef}
+                onChange={(e) => { setSucursalStockRef(e.target.value); setRefGuardada(false); }}
+                disabled={sucursales.length === 0}
+                className="flex-1 max-w-xs px-2 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+              >
+                <option value="">{sucursales.length === 0 ? 'Sincronizá sucursales primero' : 'Elegí una sucursal'}</option>
+                {sucursales.map(s => <option key={s.id_sucursal} value={s.id_sucursal}>{s.nombre}</option>)}
+              </select>
+              <button
+                onClick={guardarSucursalStockRef}
+                disabled={guardandoRef || !sucursalStockRef}
+                className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+              >
+                {guardandoRef ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                Guardar
+              </button>
+            </div>
+            {refGuardada && <p className="text-xs text-emerald-600 mt-2">Guardado.</p>}
+          </div>
+        </div>
+      </div>
 
       <SyncRow
         icon={Store}

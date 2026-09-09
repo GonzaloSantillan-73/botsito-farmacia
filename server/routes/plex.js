@@ -1,15 +1,33 @@
 import express from 'express';
 import { requireAuth, requireAdminRole } from './adminAuth.js';
 import { sincronizarSucursalesPlex, sincronizarProductosPlex, sincronizarStockPlex } from '../services/plexSync.js';
+import { getSucursalStockPorDefecto, setSucursalStockPorDefecto } from '../services/appConfig.js';
 
 const router = express.Router();
 
-// Disparar una sincronización contra un sistema externo real es una acción
-// sensible (consume la API de la farmacia): solo el administrador puede
-// hacerlo. Nota: esto protege NUESTRAS rutas internas; la restricción de
-// "solo GET" de la consigna aplica a las llamadas hacia Plex en sí mismas
-// (ver server/services/plexClient.js), no a estas rutas propias.
+// Cualquier empleado logueado necesita saber cuál es la sucursal de
+// referencia para mostrar stock en el Cotizador (no es una acción sensible,
+// solo lectura de una configuración). Va antes del requireAdminRole general.
+router.get('/settings/sucursal-stock', requireAuth, async (req, res) => {
+  const idSucursal = await getSucursalStockPorDefecto();
+  res.status(200).json({ idSucursal });
+});
+
+// Disparar una sincronización contra un sistema externo real, o cambiar la
+// sucursal de referencia, sí son acciones sensibles: solo el administrador.
+// Nota: esto protege NUESTRAS rutas internas; la restricción de "solo GET"
+// de la consigna aplica a las llamadas hacia Plex en sí mismas (ver
+// server/services/plexClient.js), no a estas rutas propias.
 router.use(requireAuth, requireAdminRole);
+
+router.put('/settings/sucursal-stock', async (req, res) => {
+  try {
+    await setSucursalStockPorDefecto(req.body.idSucursal);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: error.message || 'No se pudo guardar la sucursal de referencia.' });
+  }
+});
 
 router.post('/sync/sucursales', async (req, res) => {
   try {

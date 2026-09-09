@@ -55,9 +55,20 @@ const MENSAJE_OPCION_INVALIDA_NO_ENCONTRADO = `No entendí tu respuesta.\n\nPor 
 
 // Formato exacto pedido para catálogo + opciones: resultados numerados, instrucción
 // principal, y un bloque separado de "Otras opciones" con los atajos de letra.
+// stockDisponible es null si todavía no hay una sucursal de referencia
+// configurada (ver Configuración > Administración > Sincronización Plex);
+// en ese caso no mostramos la línea de stock en vez de inventar un dato.
 const mensajeResultadoBusqueda = (texto, productos) => {
   const lista = productos
-    .map((p, idx) => `${idx + 1}. ${p.nombre} — $${Number(p.precio).toLocaleString('es-AR')} — Stock: ${p.stock} unidades`)
+    .map((p, idx) => {
+      const precio = `$${Number(p.precio).toLocaleString('es-AR')}`;
+      const stockTexto = p.stockDisponible == null
+        ? ''
+        : p.stockDisponible > 0
+          ? ` — Stock: ${p.stockDisponible} unidades`
+          : ' — Sin stock disponible';
+      return `${idx + 1}. ${p.nombre} — ${precio}${stockTexto}`;
+    })
     .join('\n\n');
   return `Esto encontramos para "${texto}":\n\n${lista}\n\nPara agregar un producto a tu carrito, escribí el número correspondiente (por ejemplo: 1).\n\nOtras opciones:\nc. Ver carrito\nm. Menú de inicio`;
 };
@@ -229,11 +240,11 @@ const manejarBusquedaProducto = async (conversationId, telefono, texto) => {
     return;
   }
 
-  // Guardamos los ids en orden para poder mapear "1", "2"... a un producto concreto
-  // cuando el cliente elija cuál agregar al carrito.
+  // Guardamos los códigos en orden para poder mapear "1", "2"... a un producto
+  // concreto (cod_producto real de Plex) cuando el cliente elija cuál agregar.
   await supabase
     .from('conversations')
-    .update({ bot_state: 'product_found_menu', bot_context: { productIds: productos.map(p => p.id) } })
+    .update({ bot_state: 'product_found_menu', bot_context: { productIds: productos.map(p => p.cod_producto) } })
     .eq('id', conversationId);
   await enviarMensajeBot(conversationId, telefono, mensajeResultadoBusqueda(texto, productos));
 };
@@ -484,7 +495,7 @@ const manejarEliminarItem = async (conversationId, telefono, t) => {
     return;
   }
 
-  await mostrarCarrito(conversationId, telefono, `🗑️ Eliminamos "${items[indice].productos?.nombre}" de tu carrito.\n\n`);
+  await mostrarCarrito(conversationId, telefono, `🗑️ Eliminamos "${items[indice].plex_productos?.nombre}" de tu carrito.\n\n`);
 };
 
 // Confirmar pedido: arma el resumen final, deriva la conversación a un asesor
@@ -516,8 +527,8 @@ const confirmarPedido = async (conversationId, telefono) => {
   // Items en el formato que espera el Cotizador del CRM (nombre + precio de línea ya
   // multiplicado por la cantidad), para que el operador los vea cargados de una.
   const pendingOrderItems = items.map(item => ({
-    name: item.quantity > 1 ? `${item.productos?.nombre || 'Producto'} x${item.quantity}` : (item.productos?.nombre || 'Producto'),
-    price: (Number(item.productos?.precio) || 0) * item.quantity
+    name: item.quantity > 1 ? `${item.plex_productos?.nombre || 'Producto'} x${item.quantity}` : (item.plex_productos?.nombre || 'Producto'),
+    price: (Number(item.plex_productos?.precio) || 0) * item.quantity
   }));
 
   // Persistimos la transición de estado, el pedido confirmado y vaciamos el carrito
@@ -543,11 +554,11 @@ const confirmarPedido = async (conversationId, telefono) => {
       conversation_id: conversationId,
       client_phone: telefono,
       items: items.map(item => ({
-        product_id: item.productos?.id || null,
-        nombre: item.productos?.nombre || 'Producto',
+        product_id: item.plex_productos?.cod_producto || null,
+        nombre: item.plex_productos?.nombre || 'Producto',
         cantidad: item.quantity,
-        precio_unitario: Number(item.productos?.precio) || 0,
-        subtotal: (Number(item.productos?.precio) || 0) * item.quantity
+        precio_unitario: Number(item.plex_productos?.precio) || 0,
+        subtotal: (Number(item.plex_productos?.precio) || 0) * item.quantity
       })),
       total
     }]);

@@ -20,11 +20,12 @@ export const agregarAlCarrito = async (clientPhone, productId) => {
   }
 };
 
-// Trae el carrito con los datos del producto embebidos (nombre, precio).
+// Trae el carrito con los datos reales del producto embebidos (nombre, precio),
+// consultando el catálogo real sincronizado desde Plex Concentrador.
 export const obtenerCarrito = async (clientPhone) => {
   const { data, error } = await supabase
     .from('cart_items')
-    .select('id, quantity, productos(id, nombre, precio, stock)')
+    .select('id, quantity, plex_productos(cod_producto, nombre, precio, codebar, unidades_por_caja)')
     .eq('client_phone', clientPhone)
     .order('created_at');
 
@@ -43,7 +44,7 @@ export const vaciarCarrito = async (clientPhone) => {
 };
 
 export const calcularTotal = (items) =>
-  items.reduce((sum, item) => sum + (Number(item.productos?.precio) || 0) * item.quantity, 0);
+  items.reduce((sum, item) => sum + (Number(item.plex_productos?.precio) || 0) * item.quantity, 0);
 
 export const FREE_SHIPPING_THRESHOLD = 20000;
 
@@ -61,7 +62,7 @@ export const mensajeEnvioGratis = (total) => {
 // recalcular el total dos veces en distintos mensajes.
 export const formatearCarrito = (items) => {
   const lineas = items.map((item, idx) =>
-    `${idx + 1}. ${item.productos?.nombre || 'Producto'} x${item.quantity} — $${((Number(item.productos?.precio) || 0) * item.quantity).toLocaleString('es-AR')}`
+    `${idx + 1}. ${item.plex_productos?.nombre || 'Producto'} x${item.quantity} — $${((Number(item.plex_productos?.precio) || 0) * item.quantity).toLocaleString('es-AR')}`
   );
   const total = calcularTotal(items);
   return { lineas, texto: lineas.join('\n'), total, envioGratisTexto: mensajeEnvioGratis(total) };
