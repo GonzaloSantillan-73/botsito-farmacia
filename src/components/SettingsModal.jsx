@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Settings, BarChart3, Sliders, Hash, Zap, CalendarClock, Download, Bell, Clock, Store, ShieldCheck, Users, UserCog, RefreshCw } from 'lucide-react';
+import { X, Settings, BarChart3, Sliders, Hash, Zap, CalendarClock, Download, Bell, Clock, Store, ShieldCheck, UserCog, RefreshCw } from 'lucide-react';
 import Accordion from './Accordion';
 import SessionTimeoutPanel from './SessionTimeoutPanel';
 import BotKeywordPanel from './BotKeywordPanel';
@@ -11,13 +11,13 @@ import NotificationsPanel from './NotificationsPanel';
 import MetricsPanel from './MetricsPanel';
 import ExportPanel from './ExportPanel';
 import AdminCredentialsPanel from './AdminCredentialsPanel';
-import StaffPanel from './StaffPanel';
 import PlexSyncPanel from './PlexSyncPanel';
 
 export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdmin = true }) {
-  // El apartado de Administración (credenciales del admin, empleados y
-  // sucursales) es exclusivo del administrador: un empleado ni siquiera ve
-  // la pestaña, para que quede claro que no puede tocar nada de eso.
+  // El apartado de Administración (credenciales del admin y sucursales, con
+  // sus credenciales de empleado) es exclusivo del administrador: un
+  // empleado ni siquiera ve la pestaña, para que quede claro que no puede
+  // tocar nada de eso.
   const TABS = [
     { id: 'chat', label: 'Ajustes de Chat', icon: Sliders },
     { id: 'metrics', label: 'Métricas y Estadísticas', icon: BarChart3 },
@@ -92,10 +92,6 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
               <div className="space-y-3">
                 <Accordion title="Administrador" icon={ShieldCheck} defaultOpen>
                   <AdminCredentialsPanel />
-                </Accordion>
-
-                <Accordion title="Empleados" icon={Users}>
-                  <StaffPanel />
                 </Accordion>
 
                 <Accordion title="Sucursales" icon={Store}>

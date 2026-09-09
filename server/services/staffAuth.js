@@ -1,17 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { supabase } from '../supabase.js';
 
-// Trae todos los empleados con los datos de su sucursal (join), para
-// listarlos en el CRM sin tener que resolver cada sucursal por separado.
-export const listarEmpleados = async () => {
-  const { data, error } = await supabase
-    .from('staff_users')
-    .select('id, username, sucursal_id, created_at, sucursales(id, nombre, direccion, google_maps_url)')
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return data || [];
-};
-
 // Crea un empleado para una sucursal YA configurada (a diferencia del viejo
 // flujo, la sucursal se da de alta aparte, vinculada a una sucursal real de
 // Plex — ver server/services/sucursalesAdmin.js — así que acá solo se crea

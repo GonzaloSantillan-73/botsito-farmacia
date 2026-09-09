@@ -1,6 +1,6 @@
 import express from 'express';
 import { requireAuth, requireAdminRole } from './adminAuth.js';
-import { listarEmpleados, crearEmpleadoParaSucursal, actualizarEmpleado, eliminarEmpleado } from '../services/staffAuth.js';
+import { crearEmpleadoParaSucursal, actualizarEmpleado, eliminarEmpleado } from '../services/staffAuth.js';
 import { listarSucursalesConEstado, configurarSucursal } from '../services/sucursalesAdmin.js';
 
 const router = express.Router();
@@ -8,16 +8,6 @@ const router = express.Router();
 // Todas las rutas de empleados/sucursales requieren estar logueado como
 // administrador (un empleado no puede gestionar otros empleados ni sucursales).
 router.use(requireAuth, requireAdminRole);
-
-router.get('/', async (req, res) => {
-  try {
-    const empleados = await listarEmpleados();
-    res.status(200).json({ empleados });
-  } catch (error) {
-    console.error('[STAFF] Error listando empleados:', error.message);
-    res.status(500).json({ error: 'No se pudo obtener el listado de empleados.' });
-  }
-});
 
 router.post('/', async (req, res) => {
   const { sucursalId, username, password } = req.body;
