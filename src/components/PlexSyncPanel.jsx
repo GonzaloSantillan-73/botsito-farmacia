@@ -66,6 +66,56 @@ function SyncRow({ icon: Icon, titulo, descripcion, onSync, resumen, extra }) {
   );
 }
 
+// Botón secundario para disparar la sincronización de stock de todas las
+// sucursales de una (mismo endpoint 7.1 de Plex, repetido por sucursal en el
+// backend). Vive junto al select de "Stock por Sucursal" y lleva su propio
+// loading/resultado porque es una acción independiente del botón principal.
+function SyncTodasButton({ onSync }) {
+  const [loading, setLoading] = useState(false);
+  const [resultado, setResultado] = useState(null);
+  const [error, setError] = useState('');
+
+  const handleClick = async () => {
+    setLoading(true);
+    setError('');
+    setResultado(null);
+    try {
+      const data = await onSync();
+      setResultado(data);
+    } catch (err) {
+      setError(err.message || 'No se pudo sincronizar.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="mt-2">
+      <button
+        onClick={handleClick}
+        disabled={loading}
+        className="flex items-center gap-1.5 bg-white hover:bg-gray-50 text-teal-700 border border-teal-200 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+      >
+        {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+        {loading ? 'Sincronizando todas...' : 'Sincronizar todas las sucursales'}
+      </button>
+
+      {resultado && (
+        <div className="mt-2 flex items-start gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg p-2.5">
+          <CheckCircle2 size={14} className="shrink-0 mt-0.5" />
+          <span>{resultado.sucursales} sucursales procesadas, {resultado.guardados} productos con stock guardados, {resultado.omitidos} omitidos.</span>
+        </div>
+      )}
+      {error && (
+        <div className="mt-2 flex items-start gap-2 text-xs text-rose-700 bg-rose-50 border border-rose-100 rounded-lg p-2.5">
+          <AlertCircle size={14} className="shrink-0 mt-0.5" />
+          <span>{error}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Este panel solo llega a renderizarse si isAdmin es true (queda dentro del
 // tab "Administración" de SettingsModal, que ya no existe en el DOM para un
 // empleado). Además, cada endpoint vuelve a validar el rol en el backend, así
@@ -152,6 +202,13 @@ export default function PlexSyncPanel() {
     return data;
   };
 
+  const syncStockTodas = async () => {
+    const res = await adminFetch('/api/admin/plex/sync/stock/todas', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'No se pudo sincronizar el stock de todas las sucursales.');
+    return data;
+  };
+
   return (
     <div className="space-y-3">
       <p className="text-xs text-gray-500">
@@ -215,18 +272,21 @@ export default function PlexSyncPanel() {
         onSync={syncStock}
         resumen={(data) => `${data.guardados} productos con stock guardados, ${data.omitidos} omitidos (fuera del catálogo local).`}
         extra={
-          <select
-            value={sucursalId}
-            onChange={(e) => setSucursalId(e.target.value)}
-            disabled={loadingSucursales || sucursales.length === 0}
-            className="mt-2 w-full max-w-xs px-2 py-1 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-          >
-            {sucursales.length === 0 ? (
-              <option value="">Sincronizá sucursales primero</option>
-            ) : (
-              sucursales.map(s => <option key={s.id_sucursal} value={s.id_sucursal}>{s.nombre}</option>)
-            )}
-          </select>
+          <>
+            <select
+              value={sucursalId}
+              onChange={(e) => setSucursalId(e.target.value)}
+              disabled={loadingSucursales || sucursales.length === 0}
+              className="mt-2 w-full max-w-xs px-2 py-1 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+            >
+              {sucursales.length === 0 ? (
+                <option value="">Sincronizá sucursales primero</option>
+              ) : (
+                sucursales.map(s => <option key={s.id_sucursal} value={s.id_sucursal}>{s.nombre}</option>)
+              )}
+            </select>
+            <SyncTodasButton onSync={syncStockTodas} />
+          </>
         }
       />
     </div>

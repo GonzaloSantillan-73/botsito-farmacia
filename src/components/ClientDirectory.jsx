@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, Star, ArrowLeft, ArrowUpDown } from 'lucide-react';
+import { Users, Search, Star, ArrowLeft, ArrowUpDown, History, List } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
+import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
+import { ESTADOS_HISTORIAL } from './Sidebar';
 import ClientHistoryList from './ClientHistoryList';
 
 const SORT_OPTIONS = [
@@ -66,17 +68,30 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
   const [search, setSearch] = useState('');
   const [selectedPhone, setSelectedPhone] = useState(initialSelectedPhone);
   const [sortBy, setSortBy] = useState('recent');
+  // Sub-pestaña de la vista general (no aplica a la ficha de un cliente
+  // puntual): arranca en el historial de consultas, como pidió el negocio.
+  const [vista, setVista] = useState('historial');
+
+  const soyStaff = !isAdminRole();
+  const miSucursalId = getStaffSucursalId();
 
   useEffect(() => {
-    supabase
-      .from('conversations')
-      .select('*')
+    let query = supabase.from('conversations').select('*');
+    // Mismo criterio que el fetch principal de App.jsx: un empleado no debe
+    // ver acá clientes ni consultas de otra sucursal.
+    if (soyStaff) {
+      query = query.or(`sucursal_id.eq.${miSucursalId},sucursal_id.is.null`);
+    }
+    query
       .order('created_at', { ascending: false })
       .then(({ data, error }) => {
         if (!error) setConversations(data || []);
         setLoading(false);
       });
   }, []);
+
+  const historialConsultas = conversations
+    .filter(c => c?.client_phone && ESTADOS_HISTORIAL.includes(c.status));
 
   const clients = groupByClient(conversations.filter(c => c?.client_phone));
 
@@ -149,34 +164,59 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
         <h2 className="font-bold text-gray-900 flex items-center gap-2 mb-3">
           <Users size={20} className="text-teal-600" /> Directorio de Clientes
         </h2>
-        <div className="flex items-center gap-3">
-          <div className="relative max-w-sm flex-1">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por nombre o teléfono..."
-              className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-            />
-            <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
-          </div>
-          <div className="relative shrink-0">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 appearance-none"
-            >
-              {SORT_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-            <ArrowUpDown className="absolute left-2.5 top-2.5 text-gray-400 pointer-events-none" size={16} />
-          </div>
+
+        <div className="flex bg-gray-100 rounded-lg p-1 gap-1 w-fit mb-3">
+          <button
+            onClick={() => setVista('historial')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${vista === 'historial' ? 'bg-white text-teal-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <History size={14} /> Historial de Consultas
+          </button>
+          <button
+            onClick={() => setVista('lista')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${vista === 'lista' ? 'bg-white text-teal-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            <List size={14} /> Lista de Clientes
+          </button>
         </div>
+
+        {vista === 'lista' && (
+          <div className="flex items-center gap-3">
+            <div className="relative max-w-sm flex-1">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar por nombre o teléfono..."
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+              />
+              <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
+            </div>
+            <div className="relative shrink-0">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 appearance-none"
+              >
+                {SORT_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+              <ArrowUpDown className="absolute left-2.5 top-2.5 text-gray-400 pointer-events-none" size={16} />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        {sortedClients.length === 0 ? (
+        {vista === 'historial' ? (
+          <ClientHistoryList
+            conversations={historialConsultas}
+            onSelect={(conv) => onOpenConversation && onOpenConversation(conv)}
+            emptyMessage="Todavía no hay consultas finalizadas."
+            showClient
+          />
+        ) : sortedClients.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-gray-400">
             <Users size={48} className="mb-3 text-gray-300" />
             <p className="text-sm">No se encontraron clientes.</p>

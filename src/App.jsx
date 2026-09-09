@@ -42,7 +42,7 @@ function App() {
   const [conversations, setConversations] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
   // Directorio de clientes: independiente de activeTab, para que Entrantes/
-  // Atendiendo/Historial se sigan viendo mientras se muestra el directorio.
+  // Atendiendo/Derivados se sigan viendo mientras se muestra el directorio.
   const [showClientDirectory, setShowClientDirectory] = useState(false);
   // Teléfono del cliente cuya ficha hay que reabrir si el operador vuelve
   // atrás desde un chat que abrió desde el historial de ese cliente.
@@ -253,7 +253,7 @@ function App() {
   };
 
   // Abrir el directorio de clientes: deja de mostrar cualquier chat abierto,
-  // pero NO toca activeTab, así Entrantes/Atendiendo/Historial se siguen viendo.
+  // pero NO toca activeTab, así Entrantes/Atendiendo/Derivados se siguen viendo.
   const handleShowClientDirectory = () => {
     setActiveConversation(null);
     setHistoryReturnPhone(null);

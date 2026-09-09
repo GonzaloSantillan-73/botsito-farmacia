@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Database, Loader2, Clock, MessagesSquare, Inbox, Headset, Archive, Settings, Users, LogOut } from 'lucide-react';
+import { Search, Database, Loader2, Clock, MessagesSquare, Inbox, Headset, Share2, Settings, Users, LogOut } from 'lucide-react';
 import SettingsModal from './SettingsModal';
 import { formatPhone } from '../lib/formatPhone';
 
@@ -28,11 +28,16 @@ export const ESTADOS_HISTORIAL = ['finalizada', 'resolved', 'rejected'];
 const esBotAutomatico = (status) => status !== 'esperando' && !ESTADOS_HISTORIAL.includes(status);
 // El cliente pidió hablar con un humano: pasa a "Atendiendo" de forma automática e inmediata.
 const necesitaHumano = (status) => status === 'esperando';
+// El pedido fue derivado automáticamente a una sucursal puntual (la más cercana
+// con stock completo, ver server/services/pedidoAsignacion.js). El fetch de
+// conversations en App.jsx ya excluye para un empleado las de otra sucursal, así
+// que este filtro alcanza para que cada uno solo vea los derivados propios.
+const esDerivado = (conv) => conv.sucursal_id != null;
 
 const TABS = [
   { id: 'entrantes', label: 'Entrantes', icon: Inbox },
   { id: 'atendiendo', label: 'Atendiendo', icon: Headset },
-  { id: 'historial', label: 'Historial', icon: Archive }
+  { id: 'derivados', label: 'Derivados', icon: Share2 }
 ];
 
 export default function Sidebar({
@@ -66,7 +71,7 @@ export default function Sidebar({
     let matchesTab = true;
     if (activeTab === 'entrantes') matchesTab = esBotAutomatico(c.status);
     else if (activeTab === 'atendiendo') matchesTab = necesitaHumano(c.status);
-    else if (activeTab === 'historial') matchesTab = ESTADOS_HISTORIAL.includes(c.status);
+    else if (activeTab === 'derivados') matchesTab = esDerivado(c);
 
     // 2. Filtro por texto (búsqueda)
     let matchesSearch = true;
@@ -83,7 +88,7 @@ export default function Sidebar({
   const tabCounts = {
     entrantes: enEsperaCount,
     atendiendo: misChatsCount,
-    historial: validConversations.filter(c => ESTADOS_HISTORIAL.includes(c.status)).length
+    derivados: validConversations.filter(esDerivado).length
   };
 
   return (
@@ -231,7 +236,7 @@ export default function Sidebar({
                    {conv.client_name && <span className="text-xs font-normal text-gray-400 ml-1">({formatPhone(conv.client_phone)})</span>}
                 </h3>
                 <span className="text-xs text-gray-500 whitespace-nowrap">
-                  {activeTab === 'historial'
+                  {activeTab === 'derivados'
                     ? new Date(conv.updated_at).toLocaleString([], { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
                     : new Date(conv.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>

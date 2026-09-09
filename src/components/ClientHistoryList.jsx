@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, CalendarRange, ArrowUpDown, Loader2, Clock, Star } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
+import { formatPhone } from '../lib/formatPhone';
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -36,7 +37,10 @@ export default function ClientHistoryList({
   emptyMessage = 'Este cliente no tiene consultas anteriores.',
   fillHeight = false,
   searchQuery: controlledQuery,
-  onSearchQueryChange
+  onSearchQueryChange,
+  // true en la vista general (Historial de Consultas del Directorio), donde
+  // cada fila puede ser de un cliente distinto y hace falta identificarlo.
+  showClient = false
 }) {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -180,6 +184,12 @@ export default function ClientHistoryList({
                 }`}
               >
                 <div className="flex-1 min-w-0">
+                  {showClient && (
+                    <div className="text-sm font-medium text-gray-900 truncate">
+                      {conv.client_name || formatPhone(conv.client_phone)}
+                      {conv.client_name && <span className="text-xs font-normal text-gray-400 ml-1">({formatPhone(conv.client_phone)})</span>}
+                    </div>
+                  )}
                   <div className="text-[11px] text-gray-500 mb-1">
                     {new Date(conv.created_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </div>

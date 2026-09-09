@@ -184,3 +184,21 @@ export const sincronizarStockPlex = async (idSucursal) => {
   console.log(`[PLEX SYNC] ✅ Stock sincronizado para sucursal ${idSucursal}: ${totalGuardados} guardados, ${totalOmitidos} omitidos (fuera del catálogo local).`);
   return { guardados: totalGuardados, omitidos: totalOmitidos };
 };
+
+// Recorre todas las sucursales guardadas y sincroniza el stock de cada una,
+// una por una (mismo endpoint 7.1, repetido por sucursal).
+export const sincronizarStockTodasLasSucursales = async () => {
+  const { data: sucursales, error } = await supabase.from('plex_sucursales').select('id_sucursal');
+  if (error) throw error;
+
+  let totalGuardados = 0;
+  let totalOmitidos = 0;
+  for (const { id_sucursal } of sucursales || []) {
+    const resultado = await sincronizarStockPlex(id_sucursal);
+    totalGuardados += resultado.guardados;
+    totalOmitidos += resultado.omitidos;
+  }
+
+  console.log(`[PLEX SYNC] ✅ Stock sincronizado para ${sucursales?.length || 0} sucursales: ${totalGuardados} guardados, ${totalOmitidos} omitidos en total.`);
+  return { sucursales: sucursales?.length || 0, guardados: totalGuardados, omitidos: totalOmitidos };
+};

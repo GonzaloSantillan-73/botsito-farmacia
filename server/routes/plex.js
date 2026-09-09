@@ -1,6 +1,6 @@
 import express from 'express';
 import { requireAuth, requireAdminRole } from './adminAuth.js';
-import { sincronizarSucursalesPlex, sincronizarProductosPlex, sincronizarStockPlex } from '../services/plexSync.js';
+import { sincronizarSucursalesPlex, sincronizarProductosPlex, sincronizarStockPlex, sincronizarStockTodasLasSucursales } from '../services/plexSync.js';
 import { getSucursalStockPorDefecto, setSucursalStockPorDefecto } from '../services/appConfig.js';
 
 const router = express.Router();
@@ -46,6 +46,16 @@ router.post('/sync/productos', async (req, res) => {
   } catch (error) {
     console.error('[PLEX] Error sincronizando productos:', error.message);
     res.status(502).json({ error: 'No se pudo sincronizar el catálogo con Plex Concentrador.' });
+  }
+});
+
+router.post('/sync/stock/todas', async (req, res) => {
+  try {
+    const resultado = await sincronizarStockTodasLasSucursales();
+    res.status(200).json({ success: true, ...resultado });
+  } catch (error) {
+    console.error('[PLEX] Error sincronizando stock de todas las sucursales:', error.message);
+    res.status(502).json({ error: 'No se pudo sincronizar el stock de todas las sucursales con Plex Concentrador.' });
   }
 });
 
