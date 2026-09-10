@@ -103,36 +103,10 @@ router.get('/export/metrics', async (req, res) => {
 });
 
 // Métricas de negocio para el panel de "Métricas y Estadísticas" del CRM:
-// ventas (a partir del histórico de pedidos_confirmados, ya que cart_items y
-// pending_order se vacían apenas se usan), resolución autónoma del bot vs
+// conversión de ventas gestionada a mano, resolución autónoma del bot vs
 // derivación a humanos, y efectividad del filtro de seguridad de PDFs.
 router.get('/metrics/negocio', async (req, res) => {
   try {
-    const { data: pedidos, error: pedidosError } = await supabase
-      .from('pedidos_confirmados')
-      .select('items, total');
-    if (pedidosError) throw pedidosError;
-
-    const totalPedidos = pedidos.length;
-    const ticketPromedio = totalPedidos > 0
-      ? pedidos.reduce((acc, p) => acc + Number(p.total), 0) / totalPedidos
-      : 0;
-
-    const productosMap = new Map();
-    let volumenTotalItems = 0;
-    for (const pedido of pedidos) {
-      for (const item of (pedido.items || [])) {
-        const cantidad = Number(item.cantidad) || 0;
-        volumenTotalItems += cantidad;
-        const nombre = item.nombre || 'Producto';
-        productosMap.set(nombre, (productosMap.get(nombre) || 0) + cantidad);
-      }
-    }
-    const rankingProductos = [...productosMap.entries()]
-      .map(([nombre, cantidad]) => ({ nombre, cantidad }))
-      .sort((a, b) => b.cantidad - a.cantidad)
-      .slice(0, 8);
-
     const { data: cerradas, error: cerradasError } = await supabase
       .from('conversations')
       .select('id')
@@ -167,10 +141,7 @@ router.get('/metrics/negocio', async (req, res) => {
     if (acepError) throw acepError;
 
     // Conversión de ventas: resultado que el vendedor marca a mano (Venta
-    // Concretada / No Concretada), sin depender del carrito del bot. Se
-    // reporta aparte de "ventas" (pedidos_confirmados) porque son dos
-    // fuentes distintas: una la arma el cliente solo, la otra la cierra el
-    // vendedor (a veces cotizando a mano, sin pasar por el carrito).
+    // Concretada / No Concretada) sobre lo cotizado en el chat.
     const { data: gestionVentas, error: gestionError } = await supabase
       .from('conversations')
       .select('sale_status, sale_amount')
@@ -186,7 +157,6 @@ router.get('/metrics/negocio', async (req, res) => {
     const tasaConversion = totalGestionadas > 0 ? (concretadas.length / totalGestionadas) * 100 : 0;
 
     res.status(200).json({
-      ventas: { totalPedidos, ticketPromedio, volumenTotalItems, rankingProductos },
       conversion: {
         totalGestionadas,
         concretadas: concretadas.length,

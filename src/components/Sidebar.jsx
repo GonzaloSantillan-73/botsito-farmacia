@@ -24,12 +24,13 @@ export const SALE_STATUS_BADGES = {
 
 // Estados "cerrados": la consulta ya terminó (por el operador o por inactividad).
 export const ESTADOS_HISTORIAL = ['finalizada', 'resolved', 'rejected'];
-// El bot está respondiendo solo (menú, precios, etc.) y todavía no se pidió un humano.
+// El bot está respondiendo solo (menú, horarios, registro de datos) y todavía no se pidió un humano.
 const esBotAutomatico = (status) => status !== 'esperando' && !ESTADOS_HISTORIAL.includes(status);
-// El pedido fue derivado automáticamente a una sucursal puntual (la más cercana
-// con stock completo, ver server/services/pedidoAsignacion.js). El fetch de
-// conversations en App.jsx ya excluye para un empleado las de otra sucursal, así
-// que este filtro alcanza para que cada uno solo vea los derivados propios.
+// El chat fue derivado a una sucursal puntual (a mano por el admin, o
+// automáticamente cuando un empleado sin sucursal asignada le contesta por
+// primera vez, ver App.jsx). El fetch de conversations en App.jsx ya excluye
+// para un empleado las de otra sucursal, así que este filtro alcanza para
+// que cada uno solo vea los derivados propios.
 const esDerivado = (conv) => conv.sucursal_id != null;
 // El cliente pidió hablar con un humano y todavía NO fue derivado a ninguna
 // sucursal puntual: si ya tiene sucursal_id, pasa a "Derivados" en vez de acá

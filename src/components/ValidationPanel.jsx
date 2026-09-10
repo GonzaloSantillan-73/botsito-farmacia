@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator, Trash2, Plus, Send, ChevronDown, ChevronUp, Truck } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator, Trash2, Plus, Send, ChevronDown, ChevronUp, Truck, Share2 } from 'lucide-react';
 import { formatPhone } from '../lib/formatPhone';
 import { supabase } from '../lib/supabase';
-import { adminFetch } from '../lib/adminAuth';
+import { isAdminRole } from '../lib/adminAuth';
 import ClientNotesPanel from './ClientNotesPanel';
 import OrderStatusPanel from './OrderStatusPanel';
 import SaleStatusPanel from './SaleStatusPanel';
@@ -10,10 +10,45 @@ import SaleStatusPanel from './SaleStatusPanel';
 // Estados en los que la conversación ya está cerrada (mismo criterio que en ChatArea/Sidebar).
 const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
 
-// Debe coincidir con FREE_SHIPPING_THRESHOLD de server/services/cart.js: es el
-// mismo umbral que usa el bot, pero acá se duplica porque el frontend no
-// comparte código con el backend.
+// Umbral de envío gratis que usa el Cotizador manual del operador.
 const FREE_SHIPPING_THRESHOLD = 20000;
+
+// Control manual (solo admin) para derivar un chat a la sucursal que lo va a
+// atender: fija conversations.sucursal_id, lo que además hace que esa
+// conversación pase a la pestaña "Derivados" y quede visible solo para el
+// personal de esa sucursal (más el admin).
+function SucursalAsignadaControl({ conversation }) {
+  const [sucursales, setSucursales] = useState([]);
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    supabase.from('sucursales').select('id, nombre').order('nombre').then(({ data }) => setSucursales(data || []));
+  }, []);
+
+  const handleChange = async (e) => {
+    setGuardando(true);
+    await supabase.from('conversations').update({ sucursal_id: e.target.value || null }).eq('id', conversation.id);
+    setGuardando(false);
+  };
+
+  return (
+    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+      <h5 className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1.5">
+        <Share2 size={12} /> Sucursal asignada
+      </h5>
+      <select
+        value={conversation.sucursal_id || ''}
+        onChange={handleChange}
+        disabled={guardando}
+        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 disabled:opacity-50"
+      >
+        <option value="">Sin asignar</option>
+        {sucursales.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+      </select>
+      <p className="text-[11px] text-gray-400 mt-1.5">Derivá manualmente este chat a la sucursal que lo va a atender.</p>
+    </div>
+  );
+}
 
 export default function ValidationPanel({
   activeConversation,
@@ -36,72 +71,7 @@ export default function ValidationPanel({
   const [newItemPrice, setNewItemPrice] = useState('');
   const [newItemDiscount, setNewItemDiscount] = useState('0');
 
-  // Búsqueda en vivo contra el catálogo real (plex_productos) mientras el
-  // operador escribe el nombre del producto en el Cotizador.
-  const [resultadosBusqueda, setResultadosBusqueda] = useState([]);
-  const [mostrarResultados, setMostrarResultados] = useState(false);
-  const [buscandoProducto, setBuscandoProducto] = useState(false);
-  const omitirProximaBusquedaRef = useRef(false);
-
-  useEffect(() => {
-    if (omitirProximaBusquedaRef.current) {
-      omitirProximaBusquedaRef.current = false;
-      return;
-    }
-    const texto = newItemName.trim();
-    if (texto.length < 2) {
-      setResultadosBusqueda([]);
-      setMostrarResultados(false);
-      return;
-    }
-    setBuscandoProducto(true);
-    const timeoutId = setTimeout(() => {
-      adminFetch(`/api/productos/buscar?q=${encodeURIComponent(texto)}`)
-        .then(res => res.json())
-        .then(data => {
-          setResultadosBusqueda(data.productos || []);
-          setMostrarResultados(true);
-        })
-        .catch(() => {})
-        .finally(() => setBuscandoProducto(false));
-    }, 350);
-    return () => clearTimeout(timeoutId);
-  }, [newItemName]);
-
-  const seleccionarProductoBuscado = (producto) => {
-    omitirProximaBusquedaRef.current = true;
-    setNewItemName(producto.nombre);
-    setNewItemPrice(String(producto.precio ?? ''));
-    setMostrarResultados(false);
-  };
-
   const discountOptions = ['0', '40', '70', '100'];
-
-  // Cuando el bot confirma un pedido desde el carrito del cliente, deja los
-  // productos en conversations.pending_order para que el operador los vea
-  // cargados de una en el Cotizador. Se agregan a lo que ya haya (sin pisar
-  // items que el operador esté cargando a mano) y se limpia el campo en la
-  // base para no volver a cargarlos si se re-abre este chat más tarde.
-  const procesadoRef = useRef(null);
-  useEffect(() => {
-    const pending = activeConversation?.pending_order;
-    if (!pending || !Array.isArray(pending.items) || pending.items.length === 0) return;
-    if (procesadoRef.current === pending.confirmedAt) return;
-    procesadoRef.current = pending.confirmedAt;
-
-    setQuoteItems(prev => [
-      ...prev,
-      ...pending.items.map(item => ({
-        id: crypto.randomUUID(),
-        name: item.name,
-        price: item.price,
-        discount: 0
-      }))
-    ]);
-    setIsQuoteOpen(true);
-
-    supabase.from('conversations').update({ pending_order: null }).eq('id', activeConversation.id);
-  }, [activeConversation?.id, activeConversation?.pending_order]);
 
   const rejectionReasons = [
     'Ilegible',
@@ -273,6 +243,8 @@ export default function ValidationPanel({
                      <span className="text-sm text-gray-500 flex items-center gap-1.5 mt-1.5"><Phone size={14}/> {formatPhone(activeConversation.client_phone)}</span>
                   </div>
 
+                  {isAdminRole() && <SucursalAsignadaControl conversation={activeConversation} />}
+
                   {activePrescription && activePrescription.status !== 'pending' && (
                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
                        <h5 className="text-xs font-bold text-gray-500 uppercase mb-3">Receta Actual</h5>
@@ -325,43 +297,11 @@ export default function ValidationPanel({
                   <div className="col-span-12 relative">
                     <input
                       type="text"
-                      placeholder="Medicamento / Producto (buscá en el catálogo real)"
+                      placeholder="Medicamento / Producto"
                       className="w-full text-sm p-2 border border-gray-300 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                       value={newItemName}
                       onChange={e => setNewItemName(e.target.value)}
-                      onFocus={() => { if (resultadosBusqueda.length > 0) setMostrarResultados(true); }}
-                      onBlur={() => setTimeout(() => setMostrarResultados(false), 150)}
                     />
-                    {buscandoProducto && (
-                      <span className="absolute right-2 top-2.5 text-[10px] text-gray-400">Buscando...</span>
-                    )}
-                    {mostrarResultados && resultadosBusqueda.length > 0 && (
-                      <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-52 overflow-y-auto">
-                        {resultadosBusqueda.map(p => (
-                          <button
-                            key={p.cod_producto}
-                            type="button"
-                            onMouseDown={() => seleccionarProductoBuscado(p)}
-                            className="w-full text-left px-3 py-2 hover:bg-teal-50 border-b border-gray-100 last:border-0 transition-colors"
-                          >
-                            <div className="text-sm text-gray-800 truncate">{p.nombre}</div>
-                            <div className="text-xs text-gray-500 flex items-center gap-2">
-                              <span className="font-medium text-teal-700">${Number(p.precio).toLocaleString('es-AR')}</span>
-                              {p.stockDisponible == null ? null : p.stockDisponible > 0 ? (
-                                <span className="text-emerald-600">Stock: {p.stockDisponible}</span>
-                              ) : (
-                                <span className="text-rose-500">Sin stock</span>
-                              )}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {mostrarResultados && resultadosBusqueda.length === 0 && !buscandoProducto && newItemName.trim().length >= 2 && (
-                      <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-xs text-gray-400">
-                        Sin coincidencias en el catálogo. Podés cargarlo manual con el precio.
-                      </div>
-                    )}
                   </div>
                   <div className="col-span-5">
                     <div className="relative">
@@ -464,8 +404,8 @@ export default function ValidationPanel({
         )}
 
         {/* Estado del Pedido: seguimiento manual de pago/entrega que lleva el
-            vendedor una vez que el bot deriva un carrito armado (oculto en
-            conversaciones cerradas/Historial, igual que el Cotizador). */}
+            vendedor sobre lo cotizado a mano (oculto en conversaciones
+            cerradas/Historial, igual que el Cotizador). */}
         <OrderStatusPanel activeConversation={activeConversation} handleSendMessage={handleSendMessage} />
 
         {/* Observaciones del cliente: notas internas del operador + su ficha

@@ -3,26 +3,29 @@ import { createPortal } from 'react-dom';
 import { X, Check, Loader2, Trash2, KeyRound } from 'lucide-react';
 import { adminFetch } from '../lib/adminAuth';
 
-// Modal flotante de configuración de UNA sucursal: ubicación (dirección/maps/
-// coordenadas) + credenciales de acceso del personal, todo bajo un mismo botón
-// "Guardar". Se superpone al modal de Configuración (que ya usa z-50) portando
-// directo a document.body, igual que HistoryPanel.
-export default function SucursalConfigModal({ sucursalPlex, onClose, onSaved }) {
-  const config = sucursalPlex.configuracion;
-  const empleados = config?.staff_users || [];
+// Modal flotante de configuración de UNA sucursal: datos de contacto
+// (nombre/dirección/maps/whatsapp) + credenciales de acceso del personal,
+// todo bajo un mismo botón "Guardar". `sucursal` es null cuando se está
+// dando de alta una sucursal nueva, o la fila existente cuando se edita.
+export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
+  const empleados = sucursal?.staff_users || [];
   const [empleadoPrincipal, setEmpleadoPrincipal] = useState(empleados[0] || null);
   const [extras, setExtras] = useState(empleados.slice(1));
 
-  const [direccion, setDireccion] = useState(config?.direccion || '');
-  const [googleMapsUrl, setGoogleMapsUrl] = useState(config?.google_maps_url || '');
-  const [latitud, setLatitud] = useState(config?.latitud ?? '');
-  const [longitud, setLongitud] = useState(config?.longitud ?? '');
+  const [nombre, setNombre] = useState(sucursal?.nombre || '');
+  const [direccion, setDireccion] = useState(sucursal?.direccion || '');
+  const [googleMapsUrl, setGoogleMapsUrl] = useState(sucursal?.google_maps_url || '');
+  const [whatsappUrl, setWhatsappUrl] = useState(sucursal?.whatsapp_url || '');
   const [username, setUsername] = useState(empleadoPrincipal?.username || '');
   const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const handleGuardar = async () => {
+    if (!nombre.trim()) {
+      setError('Ingresá el nombre de la sucursal.');
+      return;
+    }
     if (!direccion.trim()) {
       setError('Ingresá la dirección de la sucursal.');
       return;
@@ -39,10 +42,10 @@ export default function SucursalConfigModal({ sucursalPlex, onClose, onSaved }) 
     setSaving(true);
     setError('');
     try {
-      const resSucursal = await adminFetch(`/api/admin/staff/sucursales-plex/${sucursalPlex.idSucursalPlex}`, {
-        method: 'PUT',
-        body: JSON.stringify({ direccion, googleMapsUrl, latitud, longitud })
-      });
+      const body = JSON.stringify({ nombre, direccion, googleMapsUrl, whatsappUrl });
+      const resSucursal = sucursal
+        ? await adminFetch(`/api/admin/staff/sucursales/${sucursal.id}`, { method: 'PUT', body })
+        : await adminFetch('/api/admin/staff/sucursales', { method: 'POST', body });
       const dataSucursal = await resSucursal.json();
       if (!resSucursal.ok) throw new Error(dataSucursal.error || 'No se pudo guardar la sucursal.');
 
@@ -73,19 +76,6 @@ export default function SucursalConfigModal({ sucursalPlex, onClose, onSaved }) 
     }
   };
 
-  // Google Maps copia "lat, lng" como un solo texto (clic derecho sobre el
-  // punto → coordenadas). Si lo que se pega tiene una coma, lo repartimos
-  // entre los dos campos en vez de dejar que el input reciba el texto entero.
-  const handlePasteCoordenadas = (e) => {
-    const texto = e.clipboardData.getData('text');
-    if (!texto.includes(',')) return;
-    e.preventDefault();
-    const [lat, lng] = texto.split(',');
-    const limpiar = (v) => (v || '').trim().replace(/[^0-9.\-]/g, '');
-    setLatitud(limpiar(lat));
-    setLongitud(limpiar(lng));
-  };
-
   const eliminarAcceso = async () => {
     if (!empleadoPrincipal) return;
     if (!window.confirm('¿Eliminar este acceso? El empleado ya no va a poder entrar al CRM.')) return;
@@ -107,7 +97,7 @@ export default function SucursalConfigModal({ sucursalPlex, onClose, onSaved }) 
     <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 shrink-0">
-          <h3 className="font-bold text-gray-800">{sucursalPlex.nombrePlex}</h3>
+          <h3 className="font-bold text-gray-800">{sucursal ? sucursal.nombre : 'Nueva sucursal'}</h3>
           <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
             <X size={18} />
           </button>
@@ -116,7 +106,17 @@ export default function SucursalConfigModal({ sucursalPlex, onClose, onSaved }) 
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
           <div className="space-y-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Dirección (ubicación textual)</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Nombre de la sucursal</label>
+              <input
+                type="text"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                placeholder="Sucursal Centro"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Dirección</label>
               <input
                 type="text"
                 value={direccion}
@@ -135,36 +135,16 @@ export default function SucursalConfigModal({ sucursalPlex, onClose, onSaved }) 
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-600 mb-1">Latitud</label>
-                <input
-                  type="number" step="any"
-                  value={latitud}
-                  onChange={(e) => setLatitud(e.target.value)}
-                  onPaste={handlePasteCoordenadas}
-                  placeholder="-31.4201"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                />
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-600 mb-1">Longitud</label>
-                <input
-                  type="number" step="any"
-                  value={longitud}
-                  onChange={(e) => setLongitud(e.target.value)}
-                  onPaste={handlePasteCoordenadas}
-                  placeholder="-64.1888"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                />
-              </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">WhatsApp de la sucursal (opcional)</label>
+              <input
+                type="text"
+                value={whatsappUrl}
+                onChange={(e) => setWhatsappUrl(e.target.value)}
+                placeholder="https://wa.me/54911..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+              />
             </div>
-            <p className="text-[11px] text-gray-400">
-              La latitud/longitud son necesarias para que el bot calcule la sucursal más cercana al cliente (podés sacarlas de Google Maps: clic derecho sobre el punto → coordenadas).
-            </p>
-            <p className="text-[11px] text-teal-600">
-              Podés pegar las coordenadas juntas copiadas de Google Maps (ej: -28.445, -65.775) y se completarán solas.
-            </p>
           </div>
 
           <div className="pt-4 border-t border-gray-100 space-y-3">

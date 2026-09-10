@@ -38,7 +38,7 @@ export const getSucursalesActivas = async () => {
 // Mensaje que el bot envía cuando el cliente elige "Horarios y sucursales".
 export const formatearMensajeSucursales = (sucursales) => {
   if (!sucursales || sucursales.length === 0) {
-    return 'Por el momento no tenemos sucursales cargadas. Escribí "2" para hablar con un asesor y te contamos dónde estamos.';
+    return 'Por el momento no tenemos sucursales cargadas. Escribí "a" para hablar con un asesor y te contamos dónde estamos.';
   }
 
   const lista = sucursales

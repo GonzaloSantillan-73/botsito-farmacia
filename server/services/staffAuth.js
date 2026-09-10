@@ -1,10 +1,8 @@
 import bcrypt from 'bcryptjs';
 import { supabase } from '../supabase.js';
 
-// Crea un empleado para una sucursal YA configurada (a diferencia del viejo
-// flujo, la sucursal se da de alta aparte, vinculada a una sucursal real de
-// Plex — ver server/services/sucursalesAdmin.js — así que acá solo se crea
-// el usuario del empleado).
+// Crea un empleado para una sucursal YA dada de alta (la sucursal se crea
+// aparte, ver server/services/sucursalesAdmin.js).
 export const crearEmpleadoParaSucursal = async ({ sucursalId, username, password }) => {
   if (!sucursalId) throw new Error('Falta indicar la sucursal.');
   if (!username?.trim()) throw new Error('Ingresá un nombre de usuario.');

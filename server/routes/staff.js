@@ -1,7 +1,7 @@
 import express from 'express';
 import { requireAuth, requireAdminRole } from './adminAuth.js';
 import { crearEmpleadoParaSucursal, actualizarEmpleado, eliminarEmpleado } from '../services/staffAuth.js';
-import { listarSucursalesConEstado, configurarSucursal } from '../services/sucursalesAdmin.js';
+import { listarSucursales, crearSucursal, actualizarSucursal, eliminarSucursal } from '../services/sucursalesAdmin.js';
 
 const router = express.Router();
 
@@ -48,28 +48,52 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Sucursales reales de Plex + su configuración interna (dirección, maps,
-// coordenadas, horario, empleados) para el panel de administración.
-router.get('/sucursales-plex', async (req, res) => {
+// Sucursales propias (dirección, maps, whatsapp, horario, empleados) para el
+// panel de administración. Ya no dependen de ningún catálogo externo.
+router.get('/sucursales', async (req, res) => {
   try {
-    const sucursales = await listarSucursalesConEstado();
+    const sucursales = await listarSucursales();
     res.status(200).json({ sucursales });
   } catch (error) {
-    console.error('[STAFF] Error listando sucursales de Plex:', error.message);
+    console.error('[STAFF] Error listando sucursales:', error.message);
     res.status(500).json({ error: 'No se pudo obtener el listado de sucursales.' });
   }
 });
 
-router.put('/sucursales-plex/:plexIdSucursal', async (req, res) => {
-  const { direccion, googleMapsUrl, latitud, longitud } = req.body;
+router.post('/sucursales', async (req, res) => {
+  const { nombre, direccion, googleMapsUrl, whatsappUrl } = req.body;
 
   try {
-    const sucursal = await configurarSucursal({ plexIdSucursal: req.params.plexIdSucursal, direccion, googleMapsUrl, latitud, longitud });
-    console.log(`[STAFF] Sucursal configurada: ${sucursal.nombre} (plex_id_sucursal ${req.params.plexIdSucursal})`);
+    const sucursal = await crearSucursal({ nombre, direccion, googleMapsUrl, whatsappUrl });
+    console.log(`[STAFF] Sucursal creada: ${sucursal.nombre}`);
+    res.status(201).json({ success: true, sucursal });
+  } catch (error) {
+    console.error('[STAFF] Error creando sucursal:', error.message);
+    res.status(400).json({ error: error.message || 'No se pudo crear la sucursal.' });
+  }
+});
+
+router.put('/sucursales/:id', async (req, res) => {
+  const { nombre, direccion, googleMapsUrl, whatsappUrl } = req.body;
+
+  try {
+    const sucursal = await actualizarSucursal(req.params.id, { nombre, direccion, googleMapsUrl, whatsappUrl });
+    console.log(`[STAFF] Sucursal actualizada: ${sucursal.nombre}`);
     res.status(200).json({ success: true, sucursal });
   } catch (error) {
-    console.error('[STAFF] Error configurando sucursal:', error.message);
-    res.status(400).json({ error: error.message || 'No se pudo guardar la configuración de la sucursal.' });
+    console.error('[STAFF] Error actualizando sucursal:', error.message);
+    res.status(400).json({ error: error.message || 'No se pudo guardar la sucursal.' });
+  }
+});
+
+router.delete('/sucursales/:id', async (req, res) => {
+  try {
+    await eliminarSucursal(req.params.id);
+    console.log(`[STAFF] Sucursal eliminada: ${req.params.id}`);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('[STAFF] Error eliminando sucursal:', error.message);
+    res.status(500).json({ error: 'No se pudo eliminar la sucursal.' });
   }
 });
 

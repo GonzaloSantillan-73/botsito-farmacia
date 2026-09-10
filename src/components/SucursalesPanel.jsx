@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Loader2, Check, X, EyeOff, MapPin, MessageCircle, Store, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Clock, Loader2, Check, X, EyeOff, MapPin, MessageCircle, Store, AlertTriangle, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { adminFetch } from '../lib/adminAuth';
 import SucursalConfigModal from './SucursalConfigModal';
@@ -23,14 +23,14 @@ const normalizarWhatsappUrl = (valor) => {
   return soloDigitos ? `https://wa.me/${soloDigitos}` : null;
 };
 
-// Lista TODAS las sucursales reales de Plex. Cada una muestra su estado
-// ("Configurada" cuando tiene dirección y al menos un acceso de personal
-// cargado, "No disponible" si le falta algo) y un botón "Configurar" que abre
-// el modal flotante (SucursalConfigModal) con ubicación + credenciales.
+// CRUD clásico de sucursales: nombre, dirección, maps/whatsapp, horario y
+// credenciales de acceso del personal (todo esto último desde el modal
+// "Configurar"). Ya no dependen de ningún catálogo externo.
 export default function SucursalesPanel() {
   const [sucursales, setSucursales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalSucursal, setModalSucursal] = useState(null);
+  const [mostrarModalNueva, setMostrarModalNueva] = useState(false);
 
   const [editingHorarioId, setEditingHorarioId] = useState(null);
   const [horarioForm, setHorarioForm] = useState(null);
@@ -39,13 +39,19 @@ export default function SucursalesPanel() {
 
   const fetchSucursales = async () => {
     setLoading(true);
-    const res = await adminFetch('/api/admin/staff/sucursales-plex');
+    const res = await adminFetch('/api/admin/staff/sucursales');
     const data = await res.json();
     setSucursales(data.sucursales || []);
     setLoading(false);
   };
 
   useEffect(() => { fetchSucursales(); }, []);
+
+  const eliminarSucursal = async (s) => {
+    if (!window.confirm(`¿Eliminar la sucursal "${s.nombre}"? Se van a eliminar también sus accesos de personal.`)) return;
+    await adminFetch(`/api/admin/staff/sucursales/${s.id}`, { method: 'DELETE' });
+    await fetchSucursales();
+  };
 
   const startEditHorario = (s) => {
     setEditingHorarioId(s.id);
@@ -73,32 +79,36 @@ export default function SucursalesPanel() {
 
   return (
     <div>
-      <p className="text-xs text-gray-500 mb-4">
-        Estas son todas las sucursales reales sincronizadas desde Plex. Desde "Configurar" cargás la dirección, las coordenadas (las usa el bot para calcular la sucursal más cercana al cliente) y las credenciales de acceso del personal que atenderá sus chats derivados.
-      </p>
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <p className="text-xs text-gray-500">
+          Dirección, horario y credenciales de acceso del personal de cada sucursal. Desde "Configurar" cargás todo eso, incluido el usuario/contraseña de quien atenderá sus chats derivados.
+        </p>
+        <button
+          onClick={() => setMostrarModalNueva(true)}
+          className="flex items-center gap-1.5 shrink-0 bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+        >
+          <Plus size={14} /> Nueva sucursal
+        </button>
+      </div>
 
       {loading ? (
         <div className="text-sm text-gray-400 py-8 text-center">Cargando sucursales...</div>
       ) : sucursales.length === 0 ? (
         <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
-          Todavía no hay sucursales sincronizadas. Sincronizalas primero desde "Sincronización Plex".
+          Todavía no hay sucursales cargadas. Creá la primera con "Nueva sucursal".
         </div>
       ) : (
         <div className="space-y-3">
-          {sucursales.map(ps => {
-            const config = ps.configuracion;
-            const empleados = config?.staff_users || [];
-            // "No disponible" si falta información/credenciales, o si el
-            // último intento de sincronizar su stock desde Plex falló.
-            const stockSyncFallo = ps.stockSyncOk === false;
-            const estaConfigurada = Boolean(config?.direccion) && empleados.length > 0 && !stockSyncFallo;
+          {sucursales.map(s => {
+            const empleados = s.staff_users || [];
+            const estaConfigurada = Boolean(s.direccion) && empleados.length > 0;
             return (
-              <div key={ps.idSucursalPlex} className="p-3 bg-white border border-gray-200 rounded-lg">
+              <div key={s.id} className="p-3 bg-white border border-gray-200 rounded-lg">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Store size={14} className="text-teal-600 shrink-0" />
-                      <span className="text-sm font-semibold text-gray-800 truncate">{ps.nombrePlex}</span>
+                      <span className="text-sm font-semibold text-gray-800 truncate">{s.nombre}</span>
                       {estaConfigurada ? (
                         <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded whitespace-nowrap">
                           <CheckCircle2 size={10} /> Configurada
@@ -108,90 +118,92 @@ export default function SucursalesPanel() {
                           <AlertTriangle size={10} /> No disponible
                         </span>
                       )}
-                      {config && !config.activo && (
+                      {!s.activo && (
                         <span className="flex items-center gap-1 text-[10px] font-medium text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
                           <EyeOff size={10} /> Oculta
                         </span>
                       )}
                     </div>
-                    {config?.direccion && <div className="text-xs text-gray-600 mt-0.5">{config.direccion}</div>}
-                    {config && (config.latitud == null || config.longitud == null) && (
-                      <div className="text-[11px] text-amber-600 mt-0.5">Sin coordenadas: el bot no puede calcular cercanía a esta sucursal todavía.</div>
-                    )}
-                    {stockSyncFallo && (
-                      <div className="text-[11px] text-rose-600 mt-0.5">
-                        Último intento de sincronizar el stock falló: {ps.stockSyncError || 'error desconocido'}.
-                      </div>
+                    {s.direccion && <div className="text-xs text-gray-600 mt-0.5">{s.direccion}</div>}
+                    {!estaConfigurada && empleados.length === 0 && (
+                      <div className="text-[11px] text-amber-600 mt-0.5">Sin credenciales de personal: nadie puede atender sus chats derivados todavía.</div>
                     )}
                   </div>
-                  <button
-                    onClick={() => setModalSucursal(ps)}
-                    className="text-xs font-medium text-teal-700 hover:text-teal-800 shrink-0 whitespace-nowrap"
-                  >
-                    Configurar
-                  </button>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <button
+                      onClick={() => setModalSucursal(s)}
+                      className="text-xs font-medium text-teal-700 hover:text-teal-800 whitespace-nowrap"
+                    >
+                      Configurar
+                    </button>
+                    <button
+                      onClick={() => eliminarSucursal(s)}
+                      title="Eliminar sucursal"
+                      className="text-gray-400 hover:text-rose-600"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
 
-                {config && (
-                  <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
-                    {(config.google_maps_url || config.whatsapp_url) && (
-                      <div className="flex items-center gap-3">
-                        {config.google_maps_url && (
-                          <a href={config.google_maps_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-medium text-sky-600 hover:text-sky-800 hover:underline">
-                            <MapPin size={13} /> Ver en Maps
-                          </a>
-                        )}
-                        {normalizarWhatsappUrl(config.whatsapp_url) && (
-                          <a href={normalizarWhatsappUrl(config.whatsapp_url)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-800 hover:underline">
-                            <MessageCircle size={13} /> WhatsApp
-                          </a>
-                        )}
-                      </div>
-                    )}
+                <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
+                  {(s.google_maps_url || s.whatsapp_url) && (
+                    <div className="flex items-center gap-3">
+                      {s.google_maps_url && (
+                        <a href={s.google_maps_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-medium text-sky-600 hover:text-sky-800 hover:underline">
+                          <MapPin size={13} /> Ver en Maps
+                        </a>
+                      )}
+                      {normalizarWhatsappUrl(s.whatsapp_url) && (
+                        <a href={normalizarWhatsappUrl(s.whatsapp_url)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-800 hover:underline">
+                          <MessageCircle size={13} /> WhatsApp
+                        </a>
+                      )}
+                    </div>
+                  )}
 
-                    {/* Horario */}
-                    {editingHorarioId === config.id ? (
-                      <div className="bg-gray-50 rounded-lg p-3 space-y-2">
-                        <div className="flex flex-wrap gap-1.5">
-                          {DIAS.map(d => (
-                            <button key={d.value} type="button" onClick={() => toggleDia(d.value)}
-                              className={`w-8 h-8 rounded-full text-xs font-semibold transition-colors ${horarioForm.dias.includes(d.value) ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'}`}>
-                              {d.label}
-                            </button>
-                          ))}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <input type="time" value={horarioForm.hora_apertura} onChange={(e) => setHorarioForm({ ...horarioForm, hora_apertura: e.target.value })}
-                            className="px-2 py-1 border border-gray-300 rounded text-xs" />
-                          <span className="text-gray-400 text-xs">a</span>
-                          <input type="time" value={horarioForm.hora_cierre} onChange={(e) => setHorarioForm({ ...horarioForm, hora_cierre: e.target.value })}
-                            className="px-2 py-1 border border-gray-300 rounded text-xs" />
-                          <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
-                            <input type="checkbox" checked={horarioForm.activo} onChange={(e) => setHorarioForm({ ...horarioForm, activo: e.target.checked })} className="accent-teal-600" />
-                            Visible para el bot
-                          </label>
-                        </div>
-                        {errorHorario && <p className="text-xs text-rose-600">{errorHorario}</p>}
-                        <div className="flex items-center gap-2">
-                          <button onClick={guardarHorario} disabled={savingHorario} className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 rounded text-xs font-medium disabled:opacity-50">
-                            {savingHorario ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Guardar
+                  {/* Horario */}
+                  {editingHorarioId === s.id ? (
+                    <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                      <div className="flex flex-wrap gap-1.5">
+                        {DIAS.map(d => (
+                          <button key={d.value} type="button" onClick={() => toggleDia(d.value)}
+                            className={`w-8 h-8 rounded-full text-xs font-semibold transition-colors ${horarioForm.dias.includes(d.value) ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'}`}>
+                            {d.label}
                           </button>
-                          <button onClick={cancelEditHorario} className="flex items-center gap-1 text-gray-500 hover:text-gray-700 text-xs">
-                            <X size={12} /> Cancelar
-                          </button>
-                        </div>
+                        ))}
                       </div>
-                    ) : (
-                      <div className="flex items-center justify-between">
-                        <div className="text-xs text-gray-500 flex items-center gap-1.5">
-                          <Clock size={12} />
-                          {DIAS.filter(d => config.dias.includes(d.value)).map(d => d.label).join(' ')} · {config.hora_apertura} a {config.hora_cierre}hs
-                        </div>
-                        <button onClick={() => startEditHorario(config)} className="text-xs font-medium text-teal-700 hover:text-teal-800">Editar horario</button>
+                      <div className="flex items-center gap-3">
+                        <input type="time" value={horarioForm.hora_apertura} onChange={(e) => setHorarioForm({ ...horarioForm, hora_apertura: e.target.value })}
+                          className="px-2 py-1 border border-gray-300 rounded text-xs" />
+                        <span className="text-gray-400 text-xs">a</span>
+                        <input type="time" value={horarioForm.hora_cierre} onChange={(e) => setHorarioForm({ ...horarioForm, hora_cierre: e.target.value })}
+                          className="px-2 py-1 border border-gray-300 rounded text-xs" />
+                        <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                          <input type="checkbox" checked={horarioForm.activo} onChange={(e) => setHorarioForm({ ...horarioForm, activo: e.target.checked })} className="accent-teal-600" />
+                          Visible para el bot
+                        </label>
                       </div>
-                    )}
-                  </div>
-                )}
+                      {errorHorario && <p className="text-xs text-rose-600">{errorHorario}</p>}
+                      <div className="flex items-center gap-2">
+                        <button onClick={guardarHorario} disabled={savingHorario} className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 rounded text-xs font-medium disabled:opacity-50">
+                          {savingHorario ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Guardar
+                        </button>
+                        <button onClick={cancelEditHorario} className="flex items-center gap-1 text-gray-500 hover:text-gray-700 text-xs">
+                          <X size={12} /> Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs text-gray-500 flex items-center gap-1.5">
+                        <Clock size={12} />
+                        {DIAS.filter(d => s.dias.includes(d.value)).map(d => d.label).join(' ')} · {s.hora_apertura} a {s.hora_cierre}hs
+                      </div>
+                      <button onClick={() => startEditHorario(s)} className="text-xs font-medium text-teal-700 hover:text-teal-800">Editar horario</button>
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -200,8 +212,16 @@ export default function SucursalesPanel() {
 
       {modalSucursal && (
         <SucursalConfigModal
-          sucursalPlex={modalSucursal}
+          sucursal={modalSucursal}
           onClose={() => setModalSucursal(null)}
+          onSaved={fetchSucursales}
+        />
+      )}
+
+      {mostrarModalNueva && (
+        <SucursalConfigModal
+          sucursal={null}
+          onClose={() => setMostrarModalNueva(false)}
           onSaved={fetchSucursales}
         />
       )}

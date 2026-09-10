@@ -66,36 +66,3 @@ export const setBotKeyword = async (keyword) => {
 
   if (error) throw error;
 };
-
-// Sucursal de Plex (plex_sucursales.id_sucursal) contra la que el bot y el
-// Cotizador del CRM consultan stock real. El cliente de WhatsApp no elige
-// sucursal explícitamente, así que se usa una sola de referencia para toda
-// la atención automática (configurable por el admin desde "Sincronización Plex").
-const SUCURSAL_STOCK_DEFAULT_KEY = 'plex_sucursal_stock_default';
-
-export const getSucursalStockPorDefecto = async () => {
-  const { data, error } = await supabase
-    .from('app_settings')
-    .select('value')
-    .eq('key', SUCURSAL_STOCK_DEFAULT_KEY)
-    .maybeSingle();
-
-  if (error) {
-    console.error('[APP CONFIG] Error leyendo plex_sucursal_stock_default:', error);
-    return null;
-  }
-
-  const idSucursal = typeof data?.value === 'string' ? data.value.trim() : '';
-  return idSucursal || null;
-};
-
-export const setSucursalStockPorDefecto = async (idSucursal) => {
-  const clean = (idSucursal ?? '').toString().trim();
-  if (!clean) throw new Error('Elegí una sucursal.');
-
-  const { error } = await supabase
-    .from('app_settings')
-    .upsert({ key: SUCURSAL_STOCK_DEFAULT_KEY, value: clean, updated_at: new Date().toISOString() }, { onConflict: 'key' });
-
-  if (error) throw error;
-};

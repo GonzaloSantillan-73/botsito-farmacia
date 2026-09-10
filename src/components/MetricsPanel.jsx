@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Star, ShoppingCart, Package, Bot, Headset, ShieldCheck, ShieldAlert, TrendingUp, CheckCircle2, XCircle } from 'lucide-react';
+import { Star, ShoppingCart, Bot, Headset, ShieldCheck, ShieldAlert, TrendingUp, CheckCircle2, XCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const formatMoney = (n) => `$${(Number(n) || 0).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
@@ -67,50 +67,11 @@ export default function MetricsPanel() {
     return <div className="text-sm text-rose-600 py-10 text-center">{error}</div>;
   }
 
-  const maxRanking = negocio?.ventas?.rankingProductos?.[0]?.cantidad || 1;
-
   return (
     <div>
       <Seccion
-        title="Ventas y rendimiento del carrito"
-        description="Basado en el histórico de pedidos confirmados desde el carrito del bot."
-      >
-        {!negocio || negocio.ventas.totalPedidos === 0 ? (
-          <div className="text-sm text-gray-400 py-6 text-center bg-gray-50 rounded-xl border border-gray-100">
-            Todavía no hay pedidos confirmados.
-          </div>
-        ) : (
-          <>
-            <div className="flex gap-3 mb-5">
-              <StatCard icon={ShoppingCart} value={formatMoney(negocio.ventas.ticketPromedio)} label="Ticket promedio" accent="text-teal-700" />
-              <StatCard icon={Package} value={negocio.ventas.volumenTotalItems} label="Ítems vendidos" />
-              <StatCard icon={Star} value={negocio.ventas.totalPedidos} label="Pedidos confirmados" />
-            </div>
-
-            {negocio.ventas.rankingProductos.length > 0 && (
-              <div>
-                <div className="text-xs font-semibold text-gray-600 uppercase mb-2">Productos más demandados</div>
-                <div className="space-y-2">
-                  {negocio.ventas.rankingProductos.map((p, idx) => (
-                    <div key={p.nombre} className="flex items-center gap-3 text-sm">
-                      <span className="w-5 text-gray-400 shrink-0 text-right">{idx + 1}.</span>
-                      <span className="w-40 truncate text-gray-700 shrink-0" title={p.nombre}>{p.nombre}</span>
-                      <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-teal-500 rounded-full transition-all" style={{ width: `${(p.cantidad / maxRanking) * 100}%` }} />
-                      </div>
-                      <span className="w-8 text-right text-gray-500 shrink-0">{p.cantidad}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </Seccion>
-
-      <Seccion
-        title="Conversión de ventas (gestión manual)"
-        description='Resultado que el vendedor marca a mano en el chat: "Venta Concretada" / "Venta No Concretada" (no requiere que el pedido haya pasado por el carrito del bot).'
+        title="Conversión de ventas"
+        description='Resultado que el vendedor marca a mano en el chat: "Venta Concretada" / "Venta No Concretada".'
       >
         {!negocio || negocio.conversion.totalGestionadas === 0 ? (
           <div className="text-sm text-gray-400 py-6 text-center bg-gray-50 rounded-xl border border-gray-100">

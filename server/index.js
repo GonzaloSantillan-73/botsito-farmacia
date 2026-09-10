@@ -5,8 +5,6 @@ import webhookRoutes from './routes/webhook.js';
 import apiRoutes from './routes/api.js';
 import adminAuthRoutes from './routes/adminAuth.js';
 import staffRoutes from './routes/staff.js';
-import plexRoutes from './routes/plex.js';
-import productosRoutes from './routes/productos.js';
 import { startSessionExpiryChecker } from './services/sessionExpiryChecker.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -32,8 +30,6 @@ app.use('/webhook', webhookRoutes);
 app.use('/api', apiRoutes);
 app.use('/api/admin', adminAuthRoutes);
 app.use('/api/admin/staff', staffRoutes);
-app.use('/api/admin/plex', plexRoutes);
-app.use('/api/productos', productosRoutes);
 
 // Servir estáticos de React (Vite build)
 app.use(express.static(path.join(__dirname, '../dist')));
