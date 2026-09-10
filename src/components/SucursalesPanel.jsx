@@ -3,16 +3,7 @@ import { Clock, Loader2, Check, X, EyeOff, MapPin, MessageCircle, Store, AlertTr
 import { supabase } from '../lib/supabase';
 import { adminFetch } from '../lib/adminAuth';
 import SucursalConfigModal from './SucursalConfigModal';
-
-const DIAS = [
-  { value: 1, label: 'Lun' },
-  { value: 2, label: 'Mar' },
-  { value: 3, label: 'Mié' },
-  { value: 4, label: 'Jue' },
-  { value: 5, label: 'Vie' },
-  { value: 6, label: 'Sáb' },
-  { value: 0, label: 'Dom' }
-];
+import { DIAS } from '../lib/dias';
 
 const normalizarWhatsappUrl = (valor) => {
   if (!valor) return null;
