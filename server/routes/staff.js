@@ -61,10 +61,10 @@ router.get('/sucursales', async (req, res) => {
 });
 
 router.post('/sucursales', async (req, res) => {
-  const { nombre, direccion, googleMapsUrl, whatsappUrl } = req.body;
+  const { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre } = req.body;
 
   try {
-    const sucursal = await crearSucursal({ nombre, direccion, googleMapsUrl, whatsappUrl });
+    const sucursal = await crearSucursal({ nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre });
     console.log(`[STAFF] Sucursal creada: ${sucursal.nombre}`);
     res.status(201).json({ success: true, sucursal });
   } catch (error) {
@@ -74,10 +74,10 @@ router.post('/sucursales', async (req, res) => {
 });
 
 router.put('/sucursales/:id', async (req, res) => {
-  const { nombre, direccion, googleMapsUrl, whatsappUrl } = req.body;
+  const { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre } = req.body;
 
   try {
-    const sucursal = await actualizarSucursal(req.params.id, { nombre, direccion, googleMapsUrl, whatsappUrl });
+    const sucursal = await actualizarSucursal(req.params.id, { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre });
     console.log(`[STAFF] Sucursal actualizada: ${sucursal.nombre}`);
     res.status(200).json({ success: true, sucursal });
   } catch (error) {
