@@ -3,21 +3,39 @@ import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileTe
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
+import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
 import HistoryPanel from './HistoryPanel';
-import { SALE_STATUS_BADGES } from './Sidebar';
+import { SALE_STATUS_BADGES, STATUS_BADGES } from './Sidebar';
 import CloseChatModal from './CloseChatModal';
 import MessageBubble from './MessageBubble';
-import FullChatModal from './FullChatModal';
 import MediaGalleryModal from './MediaGalleryModal';
 
 // Estados en los que la conversación ya está cerrada y no aplica el conteo de expiración.
 const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
+
+// Cuántos mensajes viejos se traen por tanda al hacer scroll hacia arriba
+// en la vista de "Ver todo el chat".
+const HISTORY_PAGE_SIZE = 30;
 
 const formatCountdown = (ms) => {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+};
+
+const mismoDia = (a, b) => a.toDateString() === b.toDateString();
+
+// "Hoy" / "Ayer" son mucho más legibles que la fecha completa para lo más
+// reciente; para el resto sí conviene la fecha larga, sin ambigüedad de año.
+const formatDateDivider = (iso) => {
+  const fecha = new Date(iso);
+  const hoy = new Date();
+  const ayer = new Date();
+  ayer.setDate(hoy.getDate() - 1);
+  if (mismoDia(fecha, hoy)) return 'Hoy';
+  if (mismoDia(fecha, ayer)) return 'Ayer';
+  return fecha.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
 };
 
 const getLastActivityTime = (conversation, messages) => {
@@ -59,12 +77,22 @@ export default function ChatArea({
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [showFullChat, setShowFullChat] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [downloadingId, setDownloadingId] = useState(null);
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
   const fileInputRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+
+  // "Ver todo el chat": en vez de un modal aparte, antepone mensajes de
+  // consultas anteriores del mismo cliente arriba de los de la conversación
+  // activa, dentro del mismo contenedor de scroll.
+  const [showFullHistory, setShowFullHistory] = useState(false);
+  const [historyMessages, setHistoryMessages] = useState([]); // ascendente, más viejo primero
+  const [historyConversationsById, setHistoryConversationsById] = useState({});
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
+  const [hasMoreHistory, setHasMoreHistory] = useState(true);
 
   // El nombre "bonito" del archivo (ej. "receta.pdf") viaja en message_text
   // para documentos/PDF; para fotos y videos no hay nombre real, así que
@@ -99,6 +127,107 @@ export default function ChatArea({
         if (!error) setQuickResponses(data || []);
       });
   }, [showQuickResponses]);
+
+  // Al cambiar de conversación activa, la vista de historial completo (y lo
+  // ya cargado) deja de tener sentido: arranca de nuevo, cerrada.
+  useEffect(() => {
+    setShowFullHistory(false);
+    setHistoryMessages([]);
+    setHistoryConversationsById({});
+    setHasMoreHistory(true);
+  }, [activeConversation?.id]);
+
+  // Trae una tanda de mensajes más viejos que el más antiguo ya visible
+  // (de cualquier consulta anterior del cliente, no la activa) y la antepone,
+  // preservando la posición de scroll para que la vista no salte.
+  const loadMoreHistory = async () => {
+    if (!activeConversation || loadingHistory || loadingMoreHistory || !hasMoreHistory) return;
+
+    const esPrimeraCarga = historyMessages.length === 0;
+    esPrimeraCarga ? setLoadingHistory(true) : setLoadingMoreHistory(true);
+
+    let convMap = historyConversationsById;
+    if (esPrimeraCarga) {
+      const { data: convs } = await supabase
+        .from('conversations')
+        .select('*')
+        .eq('client_phone', activeConversation.client_phone)
+        .neq('id', activeConversation.id);
+
+      const soyStaff = !isAdminRole();
+      const miSucursalId = getStaffSucursalId();
+      // Un empleado no debe ver, ni acá, las consultas de otra sucursal.
+      const visibles = (convs || []).filter(c => !soyStaff || !c.sucursal_id || c.sucursal_id === miSucursalId);
+      convMap = Object.fromEntries(visibles.map(c => [c.id, c]));
+      setHistoryConversationsById(convMap);
+    }
+
+    const idsPermitidos = Object.keys(convMap);
+    if (idsPermitidos.length === 0) {
+      setHasMoreHistory(false);
+      setLoadingHistory(false);
+      setLoadingMoreHistory(false);
+      return;
+    }
+
+    const cursor = esPrimeraCarga
+      ? (messages[0]?.created_at || activeConversation.created_at)
+      : historyMessages[0].created_at;
+
+    const { data: pagina, error } = await supabase
+      .from('messages')
+      .select('*')
+      .in('conversation_id', idsPermitidos)
+      .lt('created_at', cursor)
+      .order('created_at', { ascending: false })
+      .limit(HISTORY_PAGE_SIZE);
+
+    if (error || !pagina || pagina.length === 0) {
+      setHasMoreHistory(false);
+    } else {
+      const nuevosAsc = [...pagina].reverse();
+      const contenedor = messagesContainerRef.current;
+      const scrollHeightPrevio = contenedor?.scrollHeight ?? 0;
+      const scrollTopPrevio = contenedor?.scrollTop ?? 0;
+
+      setHistoryMessages(prev => [...nuevosAsc, ...prev]);
+      if (pagina.length < HISTORY_PAGE_SIZE) setHasMoreHistory(false);
+
+      // Esperamos a que React pinte los mensajes nuevos arriba y recién ahí
+      // corregimos el scroll, para que el usuario no vea saltar la vista.
+      requestAnimationFrame(() => {
+        if (contenedor) {
+          contenedor.scrollTop = contenedor.scrollHeight - scrollHeightPrevio + scrollTopPrevio;
+        }
+      });
+    }
+
+    setLoadingHistory(false);
+    setLoadingMoreHistory(false);
+  };
+
+  // Dispara la primera tanda apenas se activa "Ver todo el chat".
+  useEffect(() => {
+    if (showFullHistory && historyMessages.length === 0 && hasMoreHistory && !loadingHistory) {
+      loadMoreHistory();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showFullHistory]);
+
+  const handleMessagesScroll = () => {
+    if (!showFullHistory || loadingHistory || loadingMoreHistory || !hasMoreHistory) return;
+    const el = messagesContainerRef.current;
+    if (el && el.scrollTop < 80) {
+      loadMoreHistory();
+    }
+  };
+
+  const getConversacionDelMensaje = (msg) => {
+    if (msg.conversation_id === activeConversation?.id) return activeConversation;
+    return historyConversationsById[msg.conversation_id];
+  };
+
+  const displayedMessages = showFullHistory ? [...historyMessages, ...messages] : messages;
 
   const isConversacionCerrada = activeConversation && ESTADOS_CERRADOS.includes(activeConversation.status);
   let remainingMs = null;
@@ -231,9 +360,9 @@ export default function ChatArea({
                  <Images size={20} />
                </button>
                <button
-                 onClick={() => setShowFullChat(true)}
-                 title="Ver todo el chat: historial completo de mensajes con este cliente, de todas sus consultas"
-                 className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+                 onClick={() => setShowFullHistory(v => !v)}
+                 title={showFullHistory ? 'Volver a esta consulta' : 'Ver todo el chat: cargar acá mismo los mensajes de consultas anteriores con este cliente'}
+                 className={`p-2 rounded-full transition-colors ${showFullHistory ? 'bg-teal-50 text-teal-600' : 'text-gray-500 hover:bg-gray-100'}`}
                >
                  <MessagesSquare size={20} />
                </button>
@@ -265,21 +394,69 @@ export default function ChatArea({
           </div>
           
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#efeae2] scrollbar-hide">
-            {messages.length === 0 ? (
+          <div
+            ref={messagesContainerRef}
+            onScroll={handleMessagesScroll}
+            className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#efeae2] scrollbar-hide"
+          >
+            {showFullHistory && loadingHistory && (
+              <div className="flex items-center justify-center gap-2 py-2 text-gray-400 text-xs">
+                <Loader2 size={14} className="animate-spin" /> Cargando historial...
+              </div>
+            )}
+            {showFullHistory && loadingMoreHistory && (
+              <div className="flex items-center justify-center gap-2 py-2 text-gray-400 text-xs">
+                <Loader2 size={14} className="animate-spin" /> Cargando mensajes anteriores...
+              </div>
+            )}
+            {showFullHistory && !loadingHistory && !hasMoreHistory && historyMessages.length > 0 && (
+              <div className="flex items-center justify-center py-2 text-gray-400 text-[11px]">
+                — Inicio del historial con este cliente —
+              </div>
+            )}
+            {displayedMessages.length === 0 ? (
                <div className="flex items-center justify-center h-full text-gray-400">
                   No hay mensajes aún.
                </div>
-            ) : messages.map(msg => (
-              <MessageBubble
-                key={msg.id}
-                msg={msg}
-                onImageClick={(m) => setModalImage(m.media_url)}
-                onDownload={handleDownloadMedia}
-                downloadingId={downloadingId}
-                statusIcon={msg.sender_type !== 'client' && <MessageStatusIcon estado={msg.estado} />}
-              />
-            ))}
+            ) : displayedMessages.map((msg, i) => {
+              const anterior = displayedMessages[i - 1];
+              const cambioDeDia = showFullHistory && (!anterior || !mismoDia(new Date(anterior.created_at), new Date(msg.created_at)));
+              const cambioDeSesion = showFullHistory && !cambioDeDia && anterior && msg.conversation_id !== anterior.conversation_id;
+              const conv = showFullHistory ? getConversacionDelMensaje(msg) : null;
+
+              return (
+                <React.Fragment key={msg.id}>
+                  {cambioDeDia && (
+                    <div className="flex justify-center my-2">
+                      <span className="bg-white/90 text-gray-500 text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
+                        {formatDateDivider(msg.created_at)}
+                      </span>
+                    </div>
+                  )}
+                  {cambioDeSesion && (
+                    <div className="flex items-center gap-2 my-3">
+                      <div className="flex-1 h-px bg-gray-300/60" />
+                      <span className="text-[11px] text-gray-500 font-medium px-1 flex items-center gap-1.5 whitespace-nowrap">
+                        Nueva consulta
+                        {conv && STATUS_BADGES[conv.status] && (
+                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_BADGES[conv.status].className}`}>
+                            {STATUS_BADGES[conv.status].label}
+                          </span>
+                        )}
+                      </span>
+                      <div className="flex-1 h-px bg-gray-300/60" />
+                    </div>
+                  )}
+                  <MessageBubble
+                    msg={msg}
+                    onImageClick={(m) => setModalImage(m.media_url)}
+                    onDownload={handleDownloadMedia}
+                    downloadingId={downloadingId}
+                    statusIcon={msg.sender_type !== 'client' && <MessageStatusIcon estado={msg.estado} />}
+                  />
+                </React.Fragment>
+              );
+            })}
             <div ref={messagesEndRef} />
           </div>
 
@@ -390,15 +567,6 @@ export default function ChatArea({
               clientName={activeConversation.real_name || activeConversation.client_name}
               currentConversationId={activeConversation.id}
               onClose={() => setShowHistory(false)}
-            />
-          )}
-
-          {showFullChat && (
-            <FullChatModal
-              clientPhone={activeConversation.client_phone}
-              clientName={activeConversation.real_name || activeConversation.client_name}
-              setModalImage={setModalImage}
-              onClose={() => setShowFullChat(false)}
             />
           )}
 
