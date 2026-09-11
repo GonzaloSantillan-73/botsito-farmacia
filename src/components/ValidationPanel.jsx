@@ -254,8 +254,8 @@ export default function ValidationPanel({
                             </div>
                             <div className="flex justify-between items-center">
                               <span className="text-gray-500 flex items-center gap-1.5"><HeartPulse size={14} className="text-gray-400" /> Obra social</span>
-                              <span className="font-medium text-gray-800 truncate max-w-[140px]" title={clienteData?.obra_social || 'N/A'}>
-                                {clienteData?.obra_social || 'N/A'}
+                              <span className="font-medium text-gray-800 truncate max-w-[140px]" title={clienteData?.obra_social || 'Ninguna'}>
+                                {clienteData?.obra_social || 'Ninguna'}
                               </span>
                             </div>
                           </div>
