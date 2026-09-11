@@ -1,6 +1,6 @@
 import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from './whatsapp.js';
-import { getBotKeyword } from './appConfig.js';
+import { getBotKeyword, getWelcomeMessage } from './appConfig.js';
 import { getBotSchedule, getHumanSchedule, isWithinSchedule, renderScheduleMessage } from './scheduleConfig.js';
 import { getSucursalesActivas, formatearMensajeSucursales } from './sucursales.js';
 import { getCliente, tieneRegistroCompleto, guardarDatoCliente } from './clientes.js';
@@ -9,14 +9,23 @@ import { getCliente, tieneRegistroCompleto, guardarDatoCliente } from './cliente
 // (nada de botones/listas nativas de Meta). Cada mensaje separa con saltos de línea
 // el contenido de las instrucciones y de las opciones de navegación, para que nunca
 // quede todo amontonado en una sola oración.
-export const MENSAJE_BIENVENIDA = '¡Hola! Soy el bot de la Farmacia. 💊\n\n¿Qué querés hacer?\n\na. Hablar con un humano\nb. Horarios y sucursales\nc. Actualizar mis datos';
+//
+// El saludo es personalizable desde el CRM (ver appConfig.getWelcomeMessage /
+// BotKeywordPanel-style panel), pero el menú numerado queda fijo acá porque
+// los números están atados 1:1 a los manejadores de abajo (tLower === '1'/'2'/'3').
+const MENU_OPCIONES = '¿Qué querés hacer?\n\n1. Hablar con un humano\n2. Horarios y sucursales\n3. Actualizar mis datos';
+
+const construirMensajeBienvenida = async () => {
+  const saludo = await getWelcomeMessage();
+  return `${saludo}\n\n${MENU_OPCIONES}`;
+};
 
 const MENSAJE_ERROR_SUCURSALES = 'Tuvimos un problema consultando las sucursales.\n\nPor favor, intentá de nuevo en un momento.';
 const MENSAJE_ERROR_DERIVACION = 'Tuvimos un problema derivándote con un asesor.\n\nPor favor, intentá de nuevo en un momento.';
 
 // Registro de datos personales: se le pide al cliente la primera vez que
 // escribe (antes de mostrarle el menú) y puede volver a hacerse desde
-// "c. Actualizar mis datos". Cada dato se guarda apenas se confirma (no se
+// "3. Actualizar mis datos". Cada dato se guarda apenas se confirma (no se
 // espera a tener los tres), así que si el cliente abandona a mitad de
 // camino no se pierde lo ya cargado.
 const MENSAJE_PEDIR_NOMBRE = '¿Cuál es tu nombre completo?';
@@ -129,7 +138,7 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
 
     // Estado normal: menú principal
     const tLower = t.toLowerCase();
-    if (tLower === 'a') {
+    if (tLower === '1') {
       const humanSchedule = await getHumanSchedule();
       if (!isWithinSchedule(humanSchedule)) {
         console.log(`[BOT] Se pidió un humano fuera de su horario de atención para ${conversationId}.`);
@@ -156,12 +165,12 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
       }
 
       await enviarMensajeBot(conversationId, telefono, mensajeDerivacionHumano(botKeyword));
-    } else if (tLower === 'b') {
+    } else if (tLower === '2') {
       await mostrarSucursales(conversationId, telefono);
-    } else if (tLower === 'c') {
+    } else if (tLower === '3') {
       await iniciarRegistro(conversationId, telefono, true, null);
     } else {
-      await enviarMensajeBot(conversationId, telefono, MENSAJE_BIENVENIDA);
+      await enviarMensajeBot(conversationId, telefono, await construirMensajeBienvenida());
     }
   } catch (error) {
     console.error(`[BOT] Error procesando mensaje del bot:`, error);
@@ -190,12 +199,12 @@ const mostrarSucursales = async (conversationId, telefono) => {
 
   // Es una consulta informativa (no cambia el bot_state), pero igual reenviamos
   // el menú principal para que el cliente no quede sin saber cómo seguir.
-  await enviarMensajeBot(conversationId, telefono, MENSAJE_BIENVENIDA);
+  await enviarMensajeBot(conversationId, telefono, await construirMensajeBienvenida());
 };
 
 // Arranca (o retoma) el flujo de registro de datos personales. `esActualizacion`
 // distingue el registro inicial obligatorio (antes de mostrar el menú) de la
-// actualización voluntaria desde "c. Actualizar mis datos": en la actualización
+// actualización voluntaria desde "3. Actualizar mis datos": en la actualización
 // siempre se vuelve a pedir todo desde el nombre, para que el cliente pueda
 // corregir cualquier dato ya cargado.
 const iniciarRegistro = async (conversationId, telefono, esActualizacion, clienteActual) => {
@@ -270,7 +279,7 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado, botConte
   await enviarMensajeBot(
     conversationId,
     telefono,
-    `${esActualizacion ? '✅ ¡Listo! Actualizamos tus datos.' : '✅ ¡Gracias! Ya registramos tus datos.'}\n\n${MENSAJE_BIENVENIDA}`
+    `${esActualizacion ? '✅ ¡Listo! Actualizamos tus datos.' : '✅ ¡Gracias! Ya registramos tus datos.'}\n\n${await construirMensajeBienvenida()}`
   );
 };
 
@@ -278,7 +287,7 @@ const volverAlMenuPrincipal = async (conversationId, telefono) => {
   // 'open' saca a la conversación del modo humano ('esperando') y la vuelve a
   // dejar en la cola de "Entrantes" (bot respondiendo automáticamente).
   await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
-  await enviarMensajeBot(conversationId, telefono, MENSAJE_BIENVENIDA);
+  await enviarMensajeBot(conversationId, telefono, await construirMensajeBienvenida());
 };
 
 export const enviarMensajeBot = async (conversationId, telefono, mensaje) => {

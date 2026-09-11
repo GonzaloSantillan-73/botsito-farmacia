@@ -38,7 +38,6 @@ function App() {
   };
 
   const [activeTab, setActiveTab] = useState('atendiendo');
-  const [searchQuery, setSearchQuery] = useState('');
 
   const [conversations, setConversations] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
@@ -538,8 +537,6 @@ function App() {
         setActiveConversation={handleSelectConversation}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
         handleSeedData={handleSeedData}
         isSeeding={isSeeding}
         sessionTimeoutMs={sessionTimeoutMs}

@@ -67,6 +67,38 @@ export const setBotKeyword = async (keyword) => {
   if (error) throw error;
 };
 
+const WELCOME_MESSAGE_KEY = 'welcome_message';
+export const DEFAULT_WELCOME_MESSAGE = '¡Hola! Soy el bot de la Farmacia. 💊';
+
+export const getWelcomeMessage = async () => {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', WELCOME_MESSAGE_KEY)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[APP CONFIG] Error leyendo welcome_message, se usa el default:', error);
+    return DEFAULT_WELCOME_MESSAGE;
+  }
+
+  const mensaje = typeof data?.value === 'string' ? data.value.trim() : '';
+  return mensaje || DEFAULT_WELCOME_MESSAGE;
+};
+
+export const setWelcomeMessage = async (mensaje) => {
+  const clean = (mensaje ?? '').toString().trim();
+
+  if (!clean) throw new Error('El mensaje de bienvenida no puede estar vacío.');
+  if (clean.length > 500) throw new Error('El mensaje de bienvenida no puede tener más de 500 caracteres.');
+
+  const { error } = await supabase
+    .from('app_settings')
+    .upsert({ key: WELCOME_MESSAGE_KEY, value: clean, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+
+  if (error) throw error;
+};
+
 const CBU_ALIAS_KEY = 'cbu_alias';
 
 export const getCbuAlias = async () => {

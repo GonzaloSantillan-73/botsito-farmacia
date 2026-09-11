@@ -1,7 +1,7 @@
 import express from 'express';
 import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
-import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getBotKeyword, setBotKeyword } from '../services/appConfig.js';
+import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getBotKeyword, setBotKeyword, getWelcomeMessage, setWelcomeMessage } from '../services/appConfig.js';
 import { finalizarConversacion } from '../services/ratingSurvey.js';
 import { TERMINAL_STATUSES } from '../services/sessionManager.js';
 import { getBotSchedule, getHumanSchedule, setBotSchedule, setHumanSchedule } from '../services/scheduleConfig.js';
@@ -275,6 +275,27 @@ router.put('/bot-config', async (req, res) => {
     res.status(200).json({ success: true, botKeyword: botKeyword.toString().trim() });
   } catch (error) {
     console.error('[API] ❌ Error actualizando bot-config:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Mensaje de bienvenida que el bot manda al arrancar (o reiniciar) una consulta.
+// El menú numerado (1/2/3) que se agrega después es fijo: está atado a los
+// manejadores del bot, así que no forma parte de lo personalizable acá.
+router.get('/welcome-message', async (req, res) => {
+  const welcomeMessage = await getWelcomeMessage();
+  res.status(200).json({ welcomeMessage });
+});
+
+router.put('/welcome-message', async (req, res) => {
+  const { welcomeMessage } = req.body;
+
+  try {
+    await setWelcomeMessage(welcomeMessage);
+    console.log(`[API] -> Mensaje de bienvenida actualizado.`);
+    res.status(200).json({ success: true, welcomeMessage: welcomeMessage.toString().trim() });
+  } catch (error) {
+    console.error('[API] ❌ Error actualizando welcome-message:', error.message);
     res.status(400).json({ error: error.message });
   }
 });

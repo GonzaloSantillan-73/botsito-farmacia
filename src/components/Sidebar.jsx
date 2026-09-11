@@ -1,5 +1,5 @@
 import React, { useState, useEffect, memo } from 'react';
-import { Search, Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut } from 'lucide-react';
+import { Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut } from 'lucide-react';
 import SettingsModal from './SettingsModal';
 import { formatPhone } from '../lib/formatPhone';
 
@@ -112,8 +112,6 @@ export default function Sidebar({
   setActiveTab,
   handleSeedData,
   isSeeding,
-  searchQuery,
-  setSearchQuery,
   sessionTimeoutMs,
   onSessionTimeoutChange,
   showClientDirectory,
@@ -128,22 +126,12 @@ export default function Sidebar({
   // aplicar cualquier filtro o contador, para no arrastrar filas fantasma a ningún lado.
   const validConversations = conversations.filter(c => c?.id && c.created_at);
 
-  // Lógica de filtrado doble: por tab y por búsqueda
+  // Filtro por tab (BOT / En espera / Mis chats)
   const filteredConversations = validConversations.filter(c => {
-    // 1. Filtro por tab
-    let matchesTab = true;
-    if (activeTab === 'entrantes') matchesTab = esBotAutomatico(c.status);
-    else if (activeTab === 'atendiendo') matchesTab = necesitaHumano(c);
-    else if (activeTab === 'derivados') matchesTab = esDerivado(c);
-
-    // 2. Filtro por texto (búsqueda)
-    let matchesSearch = true;
-    if (searchQuery.trim() !== '') {
-      const q = searchQuery.toLowerCase();
-      matchesSearch = ((c.real_name || c.client_name)?.toLowerCase().includes(q) || c.client_phone?.toLowerCase().includes(q));
-    }
-
-    return matchesTab && matchesSearch;
+    if (activeTab === 'entrantes') return esBotAutomatico(c.status);
+    if (activeTab === 'atendiendo') return necesitaHumano(c);
+    if (activeTab === 'derivados') return esDerivado(c);
+    return true;
   });
 
   const botCount = validConversations.filter(c => esBotAutomatico(c.status)).length;
@@ -227,17 +215,6 @@ export default function Sidebar({
             </div>
             <span className="text-xl font-bold text-gray-900">{misChatsCount}</span>
           </button>
-        </div>
-
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Buscar por nombre o teléfono..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
-          />
-          <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
         </div>
 
         {/* Pestañas de filtrado */}
