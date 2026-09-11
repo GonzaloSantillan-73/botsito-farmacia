@@ -168,6 +168,7 @@ function App() {
             // ya teníamos, para detectar la transición "recién pasó a esperando".
             const previous = conversationsRef.current.find(c => c.id === payload.new.id);
             const empezoAEsperar = payload.new.status === 'esperando' && previous?.status !== 'esperando';
+            const nombreYaConocido = previous?.real_name;
 
             setConversations(prev => {
               const exists = prev.some(c => c.id === payload.new.id);
@@ -181,15 +182,28 @@ function App() {
               setActiveConversation(prev => ({ ...payload.new, real_name: prev.real_name }));
             }
 
-            if (empezoAEsperar) {
-              // Intenta recuperar el nombre completo en segundo plano para notificar
+            // El bot guarda el nombre completo del cliente directamente en la tabla
+            // `clientes` (ej. durante el registro), sin tocar esa columna acá, así que
+            // mientras no lo tengamos ya resuelto en memoria lo reintentamos en cada
+            // UPDATE de la conversación (no solo cuando pasa a "esperando").
+            if (empezoAEsperar || !nombreYaConocido) {
               supabase.from('clientes').select('nombre_completo').eq('client_phone', payload.new.client_phone).maybeSingle()
                 .then(({ data }) => {
-                  const nombre = data?.nombre_completo || payload.new.client_name || payload.new.client_phone || 'Un cliente';
-                  notifyNewEvent({
-                    title: 'Cliente esperando un asesor',
-                    body: `${nombre} quiere hablar con un humano.`
-                  });
+                  if (data?.nombre_completo && !nombreYaConocido) {
+                    setConversations(current => current.map(c =>
+                      c.id === payload.new.id ? { ...c, real_name: data.nombre_completo } : c
+                    ));
+                    if (activeConversationRef.current?.id === payload.new.id) {
+                      setActiveConversation(prev => prev ? { ...prev, real_name: data.nombre_completo } : prev);
+                    }
+                  }
+                  if (empezoAEsperar) {
+                    const nombre = data?.nombre_completo || payload.new.client_name || payload.new.client_phone || 'Un cliente';
+                    notifyNewEvent({
+                      title: 'Cliente esperando un asesor',
+                      body: `${nombre} quiere hablar con un humano.`
+                    });
+                  }
                 });
             }
           } else if (payload.eventType === 'INSERT') {
