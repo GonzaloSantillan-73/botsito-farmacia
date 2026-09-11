@@ -1,8 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator, Trash2, Plus, Send, ChevronDown, ChevronUp, Truck, Share2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator, Trash2, Plus, Send, ChevronDown, ChevronUp, Truck } from 'lucide-react';
 import { formatPhone } from '../lib/formatPhone';
-import { supabase } from '../lib/supabase';
-import { isAdminRole } from '../lib/adminAuth';
 import ClientNotesPanel from './ClientNotesPanel';
 import OrderStatusPanel from './OrderStatusPanel';
 import SaleStatusPanel from './SaleStatusPanel';
@@ -12,43 +10,6 @@ const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
 
 // Umbral de envío gratis que usa el Cotizador manual del operador.
 const FREE_SHIPPING_THRESHOLD = 20000;
-
-// Control manual (solo admin) para derivar un chat a la sucursal que lo va a
-// atender: fija conversations.sucursal_id, lo que además hace que esa
-// conversación pase a la pestaña "Derivados" y quede visible solo para el
-// personal de esa sucursal (más el admin).
-function SucursalAsignadaControl({ conversation }) {
-  const [sucursales, setSucursales] = useState([]);
-  const [guardando, setGuardando] = useState(false);
-
-  useEffect(() => {
-    supabase.from('sucursales').select('id, nombre').order('nombre').then(({ data }) => setSucursales(data || []));
-  }, []);
-
-  const handleChange = async (e) => {
-    setGuardando(true);
-    await supabase.from('conversations').update({ sucursal_id: e.target.value || null }).eq('id', conversation.id);
-    setGuardando(false);
-  };
-
-  return (
-    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-      <h5 className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1.5">
-        <Share2 size={12} /> Sucursal asignada
-      </h5>
-      <select
-        value={conversation.sucursal_id || ''}
-        onChange={handleChange}
-        disabled={guardando}
-        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 disabled:opacity-50"
-      >
-        <option value="">Sin asignar</option>
-        {sucursales.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-      </select>
-      <p className="text-[11px] text-gray-400 mt-1.5">Derivá manualmente este chat a la sucursal que lo va a atender.</p>
-    </div>
-  );
-}
 
 export default function ValidationPanel({
   activeConversation,
@@ -250,8 +211,6 @@ export default function ValidationPanel({
                      <h4 className="font-bold text-lg truncate">{activeConversation.client_name}</h4>
                      <span className="text-sm text-gray-500 flex items-center gap-1.5 mt-1.5"><Phone size={14}/> {formatPhone(activeConversation.client_phone)}</span>
                   </div>
-
-                  {isAdminRole() && <SucursalAsignadaControl conversation={activeConversation} />}
 
                   {activePrescription && activePrescription.status !== 'pending' && (
                     <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
