@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft } from 'lucide-react';
+import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
 import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
 import HistoryPanel from './HistoryPanel';
+import OrderHistoryPanel from './OrderHistoryPanel';
 import { SALE_STATUS_BADGES, STATUS_BADGES } from './Sidebar';
 import CloseChatModal from './CloseChatModal';
 import MessageBubble from './MessageBubble';
@@ -77,6 +78,7 @@ export default function ChatArea({
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showOrderHistory, setShowOrderHistory] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [downloadingId, setDownloadingId] = useState(null);
@@ -397,6 +399,13 @@ export default function ChatArea({
                  <History size={20} />
                </button>
                <button
+                 onClick={() => setShowOrderHistory(true)}
+                 title="Historial de pedidos del cliente"
+                 className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+               >
+                 <ShoppingBag size={20} />
+               </button>
+               <button
                  onClick={() => handleDeleteConversation && handleDeleteConversation(activeConversation.id)}
                  title="Eliminar esta conversación"
                  className="p-2 text-gray-500 hover:bg-rose-50 hover:text-rose-600 rounded-full transition-colors"
@@ -580,6 +589,14 @@ export default function ChatArea({
               clientName={activeConversation.real_name || activeConversation.client_name}
               currentConversationId={activeConversation.id}
               onClose={() => setShowHistory(false)}
+            />
+          )}
+
+          {showOrderHistory && (
+            <OrderHistoryPanel
+              clientPhone={activeConversation.client_phone}
+              clientName={activeConversation.real_name || activeConversation.client_name}
+              onClose={() => setShowOrderHistory(false)}
             />
           )}
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator, Trash2, Plus, Send, ChevronDown, ChevronUp, Truck, UserCircle, IdCard, HeartPulse, Pencil, Save, X, Loader2 } from 'lucide-react';
+import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator, Trash2, Plus, Send, ChevronDown, ChevronUp, Truck, UserCircle, IdCard, HeartPulse, Pencil, Save, X, Loader2, CalendarClock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { adminFetch } from '../lib/adminAuth';
 import { formatPhone } from '../lib/formatPhone';
@@ -38,7 +38,7 @@ export default function ValidationPanel({
     }
     supabase
       .from('clientes')
-      .select('nombre_completo, dni, obra_social')
+      .select('nombre_completo, dni, obra_social, created_at')
       .eq('client_phone', activeConversation.client_phone)
       .maybeSingle()
       .then(({ data }) => setClienteData(data));
@@ -160,10 +160,11 @@ export default function ValidationPanel({
   const finalShippingCost = envioGratis ? 0 : (parseFloat(shippingCost) || 0);
   const total = totalItems + finalShippingCost;
 
-  const handleSendQuote = () => {
+  const handleSendQuote = async () => {
     if (quoteItems.length === 0) return;
 
     let message = `📋 *Cotización de Receta*\n\n`;
+    const itemsParaGuardar = [];
     quoteItems.forEach(item => {
       const itemDiscount = item.price * item.quantity * (item.discount / 100);
       const itemFinal = (item.price * item.quantity) - itemDiscount;
@@ -173,6 +174,13 @@ export default function ValidationPanel({
         message += `  Desc. OS (${item.discount}%): -$${itemDiscount.toFixed(2)}\n`;
       }
       message += `  Total: $${itemFinal.toFixed(2)}\n\n`;
+      itemsParaGuardar.push({
+        nombre: item.name,
+        precio_unitario: item.price,
+        cantidad: item.quantity,
+        descuento_pct: item.discount,
+        total_item: itemFinal
+      });
     });
 
     message += `💰 *Subtotal:* $${subtotal.toFixed(2)}\n`;
@@ -191,6 +199,22 @@ export default function ValidationPanel({
 
     if (handleSendMessage) {
       handleSendMessage(message);
+    }
+
+    // Además del mensaje de texto al chat, guardamos la cotización de forma
+    // estructurada para poder listarla después en el Historial de Pedidos.
+    const { error } = await supabase.from('pedidos_cotizados').insert([{
+      conversation_id: activeConversation?.id || null,
+      client_phone: activeConversation?.client_phone,
+      items: itemsParaGuardar,
+      subtotal,
+      descuento_total: totalDiscount,
+      costo_envio: finalShippingCost,
+      envio_gratis: envioGratis,
+      total
+    }]);
+    if (error) {
+      console.error('Error guardando la cotización en el historial de pedidos:', error);
     }
   };
 
@@ -407,6 +431,14 @@ export default function ValidationPanel({
                                   {clienteData?.obra_social || 'Ninguna'}
                                 </span>
                               </div>
+                              {clienteData?.created_at && (
+                                <div className="flex justify-between items-center">
+                                  <span className="text-gray-500 flex items-center gap-1.5"><CalendarClock size={14} className="text-gray-400" /> Cliente desde</span>
+                                  <span className="font-medium text-gray-800">
+                                    {new Date(clienteData.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
