@@ -576,6 +576,7 @@ function App() {
           handleUpdatePrescription={handleUpdatePrescription}
           setModalImage={setModalImage}
           handleSendMessage={handleSendMessage}
+          isAdmin={!soyStaff}
         />
       )}
 

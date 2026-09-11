@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator, Trash2, Plus, Send, ChevronDown, ChevronUp, Truck, UserCircle, IdCard, HeartPulse } from 'lucide-react';
+import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator, Trash2, Plus, Send, ChevronDown, ChevronUp, Truck, UserCircle, IdCard, HeartPulse, Pencil, Save, X, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { adminFetch } from '../lib/adminAuth';
 import { formatPhone } from '../lib/formatPhone';
 import ClientNotesPanel from './ClientNotesPanel';
 import OrderStatusPanel from './OrderStatusPanel';
@@ -21,7 +22,8 @@ export default function ValidationPanel({
   setPrescriptionNotes,
   handleUpdatePrescription,
   setModalImage,
-  handleSendMessage
+  handleSendMessage,
+  isAdmin = true
 }) {
   const [showRejectOptions, setShowRejectOptions] = useState(false);
   const [rejectReason, setRejectReason] = useState('Ilegible');
@@ -41,6 +43,67 @@ export default function ValidationPanel({
       .maybeSingle()
       .then(({ data }) => setClienteData(data));
   }, [activeConversation?.client_phone]);
+
+  // Edición de la ficha del cliente (nombre, DNI, obra social y, sólo para el
+  // admin, el teléfono). Se guarda contra el backend (no directo a Supabase
+  // como el resto del panel) porque ahí es donde se valida el permiso y se
+  // re-vincula el historial si el teléfono cambia.
+  const [isEditingClient, setIsEditingClient] = useState(false);
+  const [editNombre, setEditNombre] = useState('');
+  const [editDni, setEditDni] = useState('');
+  const [editObraSocial, setEditObraSocial] = useState('');
+  const [editTelefono, setEditTelefono] = useState('');
+  const [savingClient, setSavingClient] = useState(false);
+  const [clientError, setClientError] = useState('');
+
+  const handleStartEditClient = () => {
+    setEditNombre(clienteData?.nombre_completo || activeConversation.real_name || activeConversation.client_name || '');
+    setEditDni(clienteData?.dni || '');
+    setEditObraSocial(clienteData?.obra_social || '');
+    setEditTelefono(activeConversation.client_phone || '');
+    setClientError('');
+    setIsEditingClient(true);
+  };
+
+  const handleCancelEditClient = () => {
+    setIsEditingClient(false);
+    setClientError('');
+  };
+
+  const handleSaveClient = async () => {
+    setSavingClient(true);
+    setClientError('');
+    try {
+      const body = {
+        nombreCompleto: editNombre,
+        dni: editDni,
+        obraSocial: editObraSocial
+      };
+      if (isAdmin && editTelefono.trim() !== activeConversation.client_phone) {
+        body.nuevoTelefono = editTelefono;
+      }
+
+      const res = await adminFetch(`/api/admin/clientes/${encodeURIComponent(activeConversation.client_phone)}`, {
+        method: 'PUT',
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudieron guardar los datos del cliente.');
+
+      setClienteData({
+        nombre_completo: data.cliente.nombre_completo,
+        dni: data.cliente.dni,
+        obra_social: data.cliente.obra_social
+      });
+      setIsEditingClient(false);
+      // Si cambió el teléfono, la conversación se actualiza sola vía Realtime
+      // (App.jsx escucha UPDATE de `conversations`), no hace falta tocarla acá.
+    } catch (err) {
+      setClientError(err.message || 'Error guardando los datos del cliente.');
+    } finally {
+      setSavingClient(false);
+    }
+  };
 
   // Quote State
   const [quoteItems, setQuoteItems] = useState([]);
@@ -246,30 +309,108 @@ export default function ValidationPanel({
                  {activeConversation ? (
                     <div className="space-y-4">
                         <div className="min-w-0">
-                          <div className="bg-gray-50 rounded-lg border border-gray-100 p-3 space-y-2.5 text-sm">
-                            <div className="flex justify-between items-center">
-                              <span className="text-gray-500 flex items-center gap-1.5"><User size={14} className="text-gray-400" /> Nombre</span>
-                              <span className="font-medium text-gray-900 truncate max-w-[140px]" title={activeConversation.real_name || activeConversation.client_name}>
-                                {activeConversation.real_name || activeConversation.client_name}
-                              </span>
+                          {!isEditingClient && (
+                            <div className="flex justify-end mb-1.5">
+                              <button
+                                onClick={handleStartEditClient}
+                                className="flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"
+                              >
+                                <Pencil size={12} /> Editar datos
+                              </button>
                             </div>
-                            <div className="flex justify-between items-center">
-                              <span className="text-gray-500 flex items-center gap-1.5"><Phone size={14} className="text-gray-400" /> Número</span>
-                              <span className="font-medium text-gray-800">{formatPhone(activeConversation.client_phone)}</span>
+                          )}
+
+                          {isEditingClient ? (
+                            <div className="bg-gray-50 rounded-lg border border-gray-100 p-3 space-y-2.5 text-sm">
+                              <div>
+                                <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Nombre completo</label>
+                                <input
+                                  type="text"
+                                  value={editNombre}
+                                  onChange={(e) => setEditNombre(e.target.value)}
+                                  className="w-full p-1.5 border border-gray-300 rounded text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Teléfono</label>
+                                <input
+                                  type="text"
+                                  value={editTelefono}
+                                  onChange={(e) => setEditTelefono(e.target.value)}
+                                  disabled={!isAdmin}
+                                  className="w-full p-1.5 border border-gray-300 rounded text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                                />
+                                <p className="text-[10px] text-gray-400 mt-1">
+                                  {isAdmin
+                                    ? 'Corrige el dato guardado; no cambia el WhatsApp real del cliente.'
+                                    : 'Sólo el administrador puede modificar el teléfono.'}
+                                </p>
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">DNI</label>
+                                <input
+                                  type="text"
+                                  value={editDni}
+                                  onChange={(e) => setEditDni(e.target.value)}
+                                  className="w-full p-1.5 border border-gray-300 rounded text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Obra social</label>
+                                <input
+                                  type="text"
+                                  value={editObraSocial}
+                                  onChange={(e) => setEditObraSocial(e.target.value)}
+                                  className="w-full p-1.5 border border-gray-300 rounded text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
+                                />
+                              </div>
+
+                              {clientError && <p className="text-xs text-rose-600">{clientError}</p>}
+
+                              <div className="flex gap-2 pt-1">
+                                <button
+                                  onClick={handleCancelEditClient}
+                                  disabled={savingClient}
+                                  className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs text-gray-600 hover:bg-gray-200 rounded font-medium transition-colors disabled:opacity-50"
+                                >
+                                  <X size={14} /> Cancelar
+                                </button>
+                                <button
+                                  onClick={handleSaveClient}
+                                  disabled={savingClient}
+                                  className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs bg-teal-600 hover:bg-teal-700 text-white rounded font-medium transition-colors disabled:opacity-50"
+                                >
+                                  {savingClient ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                                  {savingClient ? 'Guardando...' : 'Guardar'}
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex justify-between items-center">
-                              <span className="text-gray-500 flex items-center gap-1.5"><IdCard size={14} className="text-gray-400" /> DNI</span>
-                              <span className="font-medium text-gray-800">{clienteData?.dni || 'N/A'}</span>
+                          ) : (
+                            <div className="bg-gray-50 rounded-lg border border-gray-100 p-3 space-y-2.5 text-sm">
+                              <div className="flex justify-between items-center">
+                                <span className="text-gray-500 flex items-center gap-1.5"><User size={14} className="text-gray-400" /> Nombre</span>
+                                <span className="font-medium text-gray-900 truncate max-w-[140px]" title={clienteData?.nombre_completo || activeConversation.real_name || activeConversation.client_name}>
+                                  {clienteData?.nombre_completo || activeConversation.real_name || activeConversation.client_name}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-gray-500 flex items-center gap-1.5"><Phone size={14} className="text-gray-400" /> Número</span>
+                                <span className="font-medium text-gray-800">{formatPhone(activeConversation.client_phone)}</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-gray-500 flex items-center gap-1.5"><IdCard size={14} className="text-gray-400" /> DNI</span>
+                                <span className="font-medium text-gray-800">{clienteData?.dni || 'N/A'}</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-gray-500 flex items-center gap-1.5"><HeartPulse size={14} className="text-gray-400" /> Obra social</span>
+                                <span className="font-medium text-gray-800 truncate max-w-[140px]" title={clienteData?.obra_social || 'Ninguna'}>
+                                  {clienteData?.obra_social || 'Ninguna'}
+                                </span>
+                              </div>
                             </div>
-                            <div className="flex justify-between items-center">
-                              <span className="text-gray-500 flex items-center gap-1.5"><HeartPulse size={14} className="text-gray-400" /> Obra social</span>
-                              <span className="font-medium text-gray-800 truncate max-w-[140px]" title={clienteData?.obra_social || 'Ninguna'}>
-                                {clienteData?.obra_social || 'Ninguna'}
-                              </span>
-                            </div>
-                          </div>
+                          )}
                         </div>
-     
+
                        {activePrescription && activePrescription.status !== 'pending' && (
                          <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
                             <h5 className="text-xs font-bold text-gray-500 uppercase mb-3">Receta Actual</h5>
