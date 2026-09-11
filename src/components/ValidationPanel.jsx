@@ -236,33 +236,30 @@ export default function ValidationPanel({
                <div className="animate-fade-in-up mt-3">
                  {activeConversation ? (
                     <div className="space-y-4">
-                       <div className="min-w-0">
-                          <h4 className="font-bold text-lg text-gray-900 truncate">{activeConversation.real_name || activeConversation.client_name}</h4>
-                          <span className="text-sm text-gray-500 flex items-center gap-1.5 mt-1"><Phone size={14} className="text-gray-400"/> {formatPhone(activeConversation.client_phone)}</span>
-                          
-                          {(clienteData?.nombre_completo || clienteData?.dni || clienteData?.obra_social) && (
-                            <div className="mt-3 bg-gray-50 rounded-lg border border-gray-100 p-3 space-y-1.5 text-sm">
-                              {clienteData?.nombre_completo && (
-                                <div className="flex justify-between">
-                                  <span className="text-gray-500">Nombre</span>
-                                  <span className="font-medium text-gray-800">{clienteData.nombre_completo}</span>
-                                </div>
-                              )}
-                              {clienteData?.dni && (
-                                <div className="flex justify-between items-center">
-                                  <span className="text-gray-500 flex items-center gap-1"><IdCard size={12} /> DNI</span>
-                                  <span className="font-medium text-gray-800">{clienteData.dni}</span>
-                                </div>
-                              )}
-                              {clienteData?.obra_social && (
-                                <div className="flex justify-between items-center">
-                                  <span className="text-gray-500 flex items-center gap-1"><HeartPulse size={12} /> Obra social</span>
-                                  <span className="font-medium text-gray-800">{clienteData.obra_social}</span>
-                                </div>
-                              )}
+                        <div className="min-w-0">
+                          <div className="bg-gray-50 rounded-lg border border-gray-100 p-3 space-y-2.5 text-sm">
+                            <div className="flex justify-between items-center">
+                              <span className="text-gray-500 flex items-center gap-1.5"><User size={14} className="text-gray-400" /> Nombre</span>
+                              <span className="font-medium text-gray-900 truncate max-w-[140px]" title={activeConversation.real_name || activeConversation.client_name}>
+                                {activeConversation.real_name || activeConversation.client_name}
+                              </span>
                             </div>
-                          )}
-                       </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-gray-500 flex items-center gap-1.5"><Phone size={14} className="text-gray-400" /> Número</span>
+                              <span className="font-medium text-gray-800">{formatPhone(activeConversation.client_phone)}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-gray-500 flex items-center gap-1.5"><IdCard size={14} className="text-gray-400" /> DNI</span>
+                              <span className="font-medium text-gray-800">{clienteData?.dni || 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-gray-500 flex items-center gap-1.5"><HeartPulse size={14} className="text-gray-400" /> Obra social</span>
+                              <span className="font-medium text-gray-800 truncate max-w-[140px]" title={clienteData?.obra_social || 'N/A'}>
+                                {clienteData?.obra_social || 'N/A'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
      
                        {activePrescription && activePrescription.status !== 'pending' && (
                          <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
