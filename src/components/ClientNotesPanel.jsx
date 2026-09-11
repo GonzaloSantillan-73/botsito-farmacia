@@ -69,29 +69,6 @@ export default function ClientNotesPanel({ clientPhone }) {
             <div className="text-sm text-gray-400 py-4 text-center">Cargando...</div>
           ) : (
             <div className="space-y-3">
-              {(cliente?.nombre_completo || cliente?.dni || cliente?.obra_social) && (
-                <div className="bg-gray-50 rounded-lg border border-gray-100 p-3 space-y-1.5 text-sm">
-                  {cliente?.nombre_completo && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Nombre</span>
-                      <span className="font-medium text-gray-800">{cliente.nombre_completo}</span>
-                    </div>
-                  )}
-                  {cliente?.dni && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-500 flex items-center gap-1"><IdCard size={12} /> DNI</span>
-                      <span className="font-medium text-gray-800">{cliente.dni}</span>
-                    </div>
-                  )}
-                  {cliente?.obra_social && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-500 flex items-center gap-1"><HeartPulse size={12} /> Obra social</span>
-                      <span className="font-medium text-gray-800">{cliente.obra_social}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
               <textarea
                 value={notas}
                 onChange={(e) => setNotas(e.target.value)}

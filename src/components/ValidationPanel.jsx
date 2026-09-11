@@ -36,7 +36,7 @@ export default function ValidationPanel({
     }
     supabase
       .from('clientes')
-      .select('dni, obra_social')
+      .select('nombre_completo, dni, obra_social')
       .eq('client_phone', activeConversation.client_phone)
       .maybeSingle()
       .then(({ data }) => setClienteData(data));
@@ -240,20 +240,24 @@ export default function ValidationPanel({
                           <h4 className="font-bold text-lg text-gray-900 truncate">{activeConversation.real_name || activeConversation.client_name}</h4>
                           <span className="text-sm text-gray-500 flex items-center gap-1.5 mt-1"><Phone size={14} className="text-gray-400"/> {formatPhone(activeConversation.client_phone)}</span>
                           
-                          {(clienteData?.dni || clienteData?.obra_social) && (
-                            <div className="mt-3 bg-gray-50 rounded-lg p-3 border border-gray-100 text-sm space-y-2">
-                              {clienteData.dni && (
-                                <div className="flex items-center gap-2">
-                                  <IdCard size={14} className="text-gray-400" />
-                                  <span className="text-gray-500 font-medium">DNI:</span>
-                                  <span className="text-gray-800">{clienteData.dni}</span>
+                          {(clienteData?.nombre_completo || clienteData?.dni || clienteData?.obra_social) && (
+                            <div className="mt-3 bg-gray-50 rounded-lg border border-gray-100 p-3 space-y-1.5 text-sm">
+                              {clienteData?.nombre_completo && (
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Nombre</span>
+                                  <span className="font-medium text-gray-800">{clienteData.nombre_completo}</span>
                                 </div>
                               )}
-                              {clienteData.obra_social && (
-                                <div className="flex items-center gap-2">
-                                  <HeartPulse size={14} className="text-gray-400" />
-                                  <span className="text-gray-500 font-medium">Obra Social:</span>
-                                  <span className="text-gray-800">{clienteData.obra_social}</span>
+                              {clienteData?.dni && (
+                                <div className="flex justify-between items-center">
+                                  <span className="text-gray-500 flex items-center gap-1"><IdCard size={12} /> DNI</span>
+                                  <span className="font-medium text-gray-800">{clienteData.dni}</span>
+                                </div>
+                              )}
+                              {clienteData?.obra_social && (
+                                <div className="flex justify-between items-center">
+                                  <span className="text-gray-500 flex items-center gap-1"><HeartPulse size={12} /> Obra social</span>
+                                  <span className="font-medium text-gray-800">{clienteData.obra_social}</span>
                                 </div>
                               )}
                             </div>
