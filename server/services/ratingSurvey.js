@@ -11,6 +11,8 @@ const mensajeFinalizacion = (motivo) =>
 const MENSAJE_PEDIR_RATING_PRODUCTO =
   '¡Gracias! Una última pregunta: ¿qué tan satisfecho/a estás con el producto que recibiste? Respondé con un número del 1 (nada satisfecho) al 5 (muy satisfecho).';
 
+const MENSAJE_DESPEDIDA_ENCUESTA = '¡Gracias por tu calificación! Que tengas un buen día. 😊';
+
 // Cierra una consulta (por inactividad o manualmente) y le pide al cliente que
 // califique la atención recibida del 1 al 5. Queda a la espera de esa
 // respuesta vía bot_state; una vez respondida (ver guardarCalificacionAtencion)
@@ -46,15 +48,32 @@ export const getConversationAwaitingRating = async (clientPhone) => {
 };
 
 // Primera respuesta de la encuesta: calificación de la atención recibida.
-// Se guarda en `rating` y, en vez de cerrar la encuesta, se encadena la
-// pregunta sobre el producto.
+// Se guarda en `rating` y, dependiendo del estado de venta (sale_status),
+// se encadena la pregunta sobre el producto o se finaliza el flujo.
 export const guardarCalificacionAtencion = async (conversationId, clientPhone, rating) => {
-  await supabase
+  const { data: conv } = await supabase
     .from('conversations')
-    .update({ rating, bot_state: 'awaiting_product_rating' })
-    .eq('id', conversationId);
+    .select('sale_status')
+    .eq('id', conversationId)
+    .single();
 
-  await enviarMensajeBot(conversationId, clientPhone, MENSAJE_PEDIR_RATING_PRODUCTO);
+  if (conv && conv.sale_status === 'concretada') {
+    // Si la venta fue concretada, pedimos la calificación del producto
+    await supabase
+      .from('conversations')
+      .update({ rating, bot_state: 'awaiting_product_rating' })
+      .eq('id', conversationId);
+
+    await enviarMensajeBot(conversationId, clientPhone, MENSAJE_PEDIR_RATING_PRODUCTO);
+  } else {
+    // Si no hubo venta concretada, cerramos la encuesta agradeciendo por la atención
+    await supabase
+      .from('conversations')
+      .update({ rating, bot_state: null })
+      .eq('id', conversationId);
+
+    await enviarMensajeBot(conversationId, clientPhone, MENSAJE_DESPEDIDA_ENCUESTA);
+  }
 };
 
 // Segunda respuesta de la encuesta: satisfacción con el producto recibido.
@@ -65,7 +84,7 @@ export const guardarCalificacionProducto = async (conversationId, clientPhone, p
     .update({ product_rating: productRating, bot_state: null })
     .eq('id', conversationId);
 
-  await enviarMensajeBot(conversationId, clientPhone, '¡Gracias por tu calificación! Que tengas un buen día. 😊');
+  await enviarMensajeBot(conversationId, clientPhone, MENSAJE_DESPEDIDA_ENCUESTA);
 };
 
 // El cliente escribió algo que no era un número del 1 al 5: se descarta la encuesta
