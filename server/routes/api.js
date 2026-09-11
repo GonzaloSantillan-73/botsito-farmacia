@@ -67,7 +67,7 @@ router.get('/export/metrics', async (req, res) => {
 
     const { data, error } = await supabase
       .from('conversations')
-      .select('created_at, client_name, client_phone, status, rating')
+      .select('created_at, client_name, client_phone, status, rating, product_rating')
       .gte('created_at', from)
       .lte('created_at', to)
       .order('created_at');
@@ -80,9 +80,13 @@ router.get('/export/metrics', async (req, res) => {
     const phoneMap = {};
     clientes?.forEach(c => { if (c.nombre_completo) phoneMap[c.client_phone] = c.nombre_completo; });
 
-    const calificadas = conversations.filter(c => c.rating != null);
-    const promedio = calificadas.length > 0
-      ? (calificadas.reduce((acc, c) => acc + c.rating, 0) / calificadas.length).toFixed(2)
+    const calificadasAtencion = conversations.filter(c => c.rating != null);
+    const promedioAtencion = calificadasAtencion.length > 0
+      ? (calificadasAtencion.reduce((acc, c) => acc + c.rating, 0) / calificadasAtencion.length).toFixed(2)
+      : 'Sin datos';
+    const calificadasProducto = conversations.filter(c => c.product_rating != null);
+    const promedioProducto = calificadasProducto.length > 0
+      ? (calificadasProducto.reduce((acc, c) => acc + c.product_rating, 0) / calificadasProducto.length).toFixed(2)
       : 'Sin datos';
 
     const detailColumns = [
@@ -90,7 +94,8 @@ router.get('/export/metrics', async (req, res) => {
       { label: 'Cliente', value: r => phoneMap[r.client_phone] || r.client_name || '' },
       { label: 'Teléfono', value: r => r.client_phone || '' },
       { label: 'Estado', value: r => r.status || '' },
-      { label: 'Calificación (1-5)', value: r => (r.rating != null ? r.rating : '') }
+      { label: 'Calificación de atención (1-5)', value: r => (r.rating != null ? r.rating : '') },
+      { label: 'Calificación de producto (1-5)', value: r => (r.product_rating != null ? r.product_rating : '') }
     ];
 
     const summaryColumns = [
@@ -99,8 +104,10 @@ router.get('/export/metrics', async (req, res) => {
     ];
     const summaryRows = [
       { label: 'Total de consultas', value: conversations.length },
-      { label: 'Consultas calificadas', value: calificadas.length },
-      { label: 'Promedio de calificación', value: promedio }
+      { label: 'Consultas con calificación de atención', value: calificadasAtencion.length },
+      { label: 'Promedio de calificación de atención', value: promedioAtencion },
+      { label: 'Consultas con calificación de producto', value: calificadasProducto.length },
+      { label: 'Promedio de calificación de producto', value: promedioProducto }
     ];
 
     const csv = rowsToCsv(detailColumns, conversations) + '\r\n\r\n' + rowsToCsv(summaryColumns, summaryRows);
@@ -167,6 +174,49 @@ router.get('/metrics/negocio', async (req, res) => {
     const totalGestionadas = gestionVentas.length;
     const tasaConversion = totalGestionadas > 0 ? (concretadas.length / totalGestionadas) * 100 : 0;
 
+    // Calificaciones de satisfacción: atención (`rating`) y producto
+    // (`product_rating`) son independientes entre sí. Se calcula el promedio
+    // global y también desglosado por sucursal, para que cada local pueda ver
+    // cómo viene su propio puntaje (el frontend decide qué mostrarle a quién
+    // según el rol, esto solo calcula los números).
+    const { data: ratingsData, error: ratingsError } = await supabase
+      .from('conversations')
+      .select('rating, product_rating, sucursal_id')
+      .or('rating.not.is.null,product_rating.not.is.null');
+    if (ratingsError) throw ratingsError;
+
+    const { data: sucursalesData, error: sucursalesError } = await supabase
+      .from('sucursales')
+      .select('id, nombre')
+      .order('orden');
+    if (sucursalesError) throw sucursalesError;
+    const nombrePorSucursalId = Object.fromEntries((sucursalesData || []).map(s => [s.id, s.nombre]));
+
+    const resumenDe = (valores) => {
+      const limpios = valores.filter(v => v != null);
+      const total = limpios.length;
+      const promedio = total > 0 ? limpios.reduce((a, b) => a + b, 0) / total : 0;
+      const distribucion = [1, 2, 3, 4, 5].reduce((acc, n) => {
+        acc[n] = limpios.filter(v => v === n).length;
+        return acc;
+      }, {});
+      return { total, promedio, distribucion };
+    };
+
+    const filas = ratingsData || [];
+    const porSucursalMap = new Map();
+    for (const fila of filas) {
+      const clave = fila.sucursal_id || 'sin_sucursal';
+      if (!porSucursalMap.has(clave)) porSucursalMap.set(clave, []);
+      porSucursalMap.get(clave).push(fila);
+    }
+    const porSucursal = Array.from(porSucursalMap.entries()).map(([sucursalId, filasSucursal]) => ({
+      sucursalId: sucursalId === 'sin_sucursal' ? null : sucursalId,
+      nombre: sucursalId === 'sin_sucursal' ? 'Sin sucursal asignada' : (nombrePorSucursalId[sucursalId] || 'Sucursal eliminada'),
+      atencion: resumenDe(filasSucursal.map(f => f.rating)),
+      producto: resumenDe(filasSucursal.map(f => f.product_rating))
+    }));
+
     res.status(200).json({
       conversion: {
         totalGestionadas,
@@ -177,7 +227,12 @@ router.get('/metrics/negocio', async (req, res) => {
         ticketPromedioConcretadas
       },
       operacion: { totalCerradas, autonomas, derivadas, pctAutonoma },
-      seguridad: { pdfBloqueados: pdfBloqueados || 0, pdfAceptados: pdfAceptados || 0 }
+      seguridad: { pdfBloqueados: pdfBloqueados || 0, pdfAceptados: pdfAceptados || 0 },
+      calificaciones: {
+        atencion: resumenDe(filas.map(f => f.rating)),
+        producto: resumenDe(filas.map(f => f.product_rating)),
+        porSucursal
+      }
     });
   } catch (error) {
     console.error('[API] ❌ Error calculando métricas de negocio:', error.message);

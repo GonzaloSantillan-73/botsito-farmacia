@@ -3,7 +3,7 @@ import { supabase } from '../supabase.js';
 import { downloadWhatsAppMedia, normalizarTelefono } from '../services/whatsapp.js';
 import { procesarMensajeBot } from '../services/bot.js';
 import { findOrCreateSession } from '../services/sessionManager.js';
-import { getConversationAwaitingRating, isValidRatingReply, guardarCalificacion, descartarEncuestaPendiente } from '../services/ratingSurvey.js';
+import { getConversationAwaitingRating, isValidRatingReply, guardarCalificacionAtencion, guardarCalificacionProducto, descartarEncuestaPendiente } from '../services/ratingSurvey.js';
 import { analizarPdf, esDocumentoPdf } from '../services/pdfSecurity.js';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -297,8 +297,14 @@ router.post('/', async (req, res) => {
         console.log(`======================================================\n`);
         
         if (isRatingReply) {
-           console.log(`[WEBHOOK] -> Guardando calificación: ${messageText}`);
-           await guardarCalificacion(conversationId, clientPhone, Number(messageText.trim()));
+           const valor = Number(messageText.trim());
+           if (pendingRatingConv.bot_state === 'awaiting_rating') {
+             console.log(`[WEBHOOK] -> Guardando calificación de atención: ${valor}`);
+             await guardarCalificacionAtencion(conversationId, clientPhone, valor);
+           } else {
+             console.log(`[WEBHOOK] -> Guardando calificación de producto: ${valor}`);
+             await guardarCalificacionProducto(conversationId, clientPhone, valor);
+           }
         } else if (isNewSession || messageType === 'text' || messageType === 'interactive' || messageType === 'location') {
            // Si es sesión nueva, se manda la bienvenida sin importar el tipo de mensaje;
            // si la sesión ya estaba activa, se procesan mensajes de texto (menú 1/2),

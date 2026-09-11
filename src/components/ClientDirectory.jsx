@@ -11,7 +11,7 @@ const SORT_OPTIONS = [
   { value: 'recent', label: 'Fecha (más reciente)' },
   { value: 'name', label: 'Nombre (A-Z)' },
   { value: 'interactions', label: 'Interacciones (más primero)' },
-  { value: 'rating', label: 'Calificación (mejor primero)' }
+  { value: 'rating', label: 'Calificación (mejor primero)', adminOnly: true }
 ];
 
 const ordenarClientes = (clients, sortBy) => {
@@ -76,6 +76,10 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
 
   const soyStaff = !isAdminRole();
   const miSucursalId = getStaffSucursalId();
+  // La calificación individual de un cliente (o el promedio de sus consultas)
+  // es información sensible que solo un admin debe poder ver acá; un operador
+  // o sucursal común no la ve ni en la tabla ni en la ficha de detalle.
+  const sortOptions = soyStaff ? SORT_OPTIONS.filter(o => !o.adminOnly) : SORT_OPTIONS;
 
   useEffect(() => {
     let query = supabase.from('conversations').select('*');
@@ -133,18 +137,20 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
         </div>
 
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className={`grid ${soyStaff ? 'grid-cols-2' : 'grid-cols-3'} gap-3 mb-6`}>
             <div className="bg-white rounded-lg border border-gray-200 p-4">
               <div className="text-2xl font-bold text-gray-900">{selectedClient.total}</div>
               <div className="text-xs text-gray-500 uppercase font-medium mt-1">Interacciones</div>
             </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <div className="text-2xl font-bold text-gray-900 flex items-center gap-1">
-                {selectedClient.avgRating != null ? selectedClient.avgRating.toFixed(1) : '—'}
-                {selectedClient.avgRating != null && <Star size={16} className="text-amber-400 fill-amber-400" />}
+            {!soyStaff && (
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="text-2xl font-bold text-gray-900 flex items-center gap-1">
+                  {selectedClient.avgRating != null ? selectedClient.avgRating.toFixed(1) : '—'}
+                  {selectedClient.avgRating != null && <Star size={16} className="text-amber-400 fill-amber-400" />}
+                </div>
+                <div className="text-xs text-gray-500 uppercase font-medium mt-1">Calificación promedio</div>
               </div>
-              <div className="text-xs text-gray-500 uppercase font-medium mt-1">Calificación promedio</div>
-            </div>
+            )}
             <div className="bg-white rounded-lg border border-gray-200 p-4">
               <div className="text-sm font-bold text-gray-900">{formatDateTime(selectedClient.lastContact)}</div>
               <div className="text-xs text-gray-500 uppercase font-medium mt-1">Último contacto</div>
@@ -203,7 +209,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
                 onChange={(e) => setSortBy(e.target.value)}
                 className="pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 appearance-none"
               >
-                {SORT_OPTIONS.map(opt => (
+                {sortOptions.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
@@ -235,7 +241,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
                   <th className="px-4 py-3 font-medium">Teléfono</th>
                   <th className="px-4 py-3 font-medium">Último contacto</th>
                   <th className="px-4 py-3 font-medium text-center">Interacciones</th>
-                  <th className="px-4 py-3 font-medium text-center">Calificación</th>
+                  {!soyStaff && <th className="px-4 py-3 font-medium text-center">Calificación</th>}
                 </tr>
               </thead>
               <tbody>
@@ -249,15 +255,17 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{formatPhone(cl.client_phone)}</td>
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{new Date(cl.lastContact).toLocaleDateString('es-AR')}</td>
                     <td className="px-4 py-3 text-center text-gray-700">{cl.total}</td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
-                      {cl.avgRating != null ? (
-                        <span className="inline-flex items-center gap-1 text-amber-600 font-medium">
-                          {cl.avgRating.toFixed(1)} <Star size={12} className="text-amber-400 fill-amber-400" />
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">Sin datos</span>
-                      )}
-                    </td>
+                    {!soyStaff && (
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        {cl.avgRating != null ? (
+                          <span className="inline-flex items-center gap-1 text-amber-600 font-medium">
+                            {cl.avgRating.toFixed(1)} <Star size={12} className="text-amber-400 fill-amber-400" />
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">Sin datos</span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

@@ -3,6 +3,7 @@ import { Search, CalendarRange, ArrowUpDown, Loader2, Clock, Star } from 'lucide
 import { supabase } from '../lib/supabase';
 import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import { formatPhone } from '../lib/formatPhone';
+import { isAdminRole } from '../lib/adminAuth';
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -202,7 +203,10 @@ export default function ClientHistoryList({
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
-                  {conv.rating != null && (
+                  {/* La calificación individual de un cliente solo la ve un admin;
+                      a un operador/sucursal común no se le muestra (ver Métricas
+                      para el promedio agregado, que sí está disponible para todos). */}
+                  {isAdminRole() && conv.rating != null && (
                     <span className="flex items-center gap-0.5 text-xs text-amber-600 font-medium">
                       {conv.rating} <Star size={12} className="text-amber-400 fill-amber-400" />
                     </span>
