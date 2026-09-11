@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NotebookText, IdCard, HeartPulse, Loader2, Check } from 'lucide-react';
+import { NotebookText, IdCard, HeartPulse, Loader2, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 // Ficha del cliente (datos que el propio bot le pidió por WhatsApp) +
@@ -12,6 +12,7 @@ export default function ClientNotesPanel({ clientPhone }) {
   const [notas, setNotas] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
 
   useEffect(() => {
     if (!clientPhone) return;
@@ -46,55 +47,69 @@ export default function ClientNotesPanel({ clientPhone }) {
   };
 
   return (
-    <div className="p-6 border-t border-gray-200">
-      <h3 className="text-md font-bold text-gray-900 flex items-center gap-2 mb-3">
-        <NotebookText size={18} className="text-teal-600" />
-        Observaciones del Cliente
-      </h3>
+    <div className="p-6 border-t border-gray-200 bg-white">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between text-left mb-2 outline-none group"
+      >
+        <h3 className="text-md font-bold text-gray-900 flex items-center gap-2">
+          <NotebookText size={18} className="text-teal-600" />
+          Observaciones del Cliente
+        </h3>
+        {isOpen ? (
+          <ChevronUp size={18} className="text-gray-400 group-hover:text-teal-600 transition-colors" />
+        ) : (
+          <ChevronDown size={18} className="text-gray-400 group-hover:text-teal-600 transition-colors" />
+        )}
+      </button>
 
-      {loading ? (
-        <div className="text-sm text-gray-400 py-4 text-center">Cargando...</div>
-      ) : (
-        <div className="space-y-3">
-          {(cliente?.nombre_completo || cliente?.dni || cliente?.obra_social) && (
-            <div className="bg-gray-50 rounded-lg border border-gray-100 p-3 space-y-1.5 text-sm">
-              {cliente?.nombre_completo && (
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Nombre</span>
-                  <span className="font-medium text-gray-800">{cliente.nombre_completo}</span>
+      {isOpen && (
+        <div className="animate-fade-in-up mt-3">
+          {loading ? (
+            <div className="text-sm text-gray-400 py-4 text-center">Cargando...</div>
+          ) : (
+            <div className="space-y-3">
+              {(cliente?.nombre_completo || cliente?.dni || cliente?.obra_social) && (
+                <div className="bg-gray-50 rounded-lg border border-gray-100 p-3 space-y-1.5 text-sm">
+                  {cliente?.nombre_completo && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Nombre</span>
+                      <span className="font-medium text-gray-800">{cliente.nombre_completo}</span>
+                    </div>
+                  )}
+                  {cliente?.dni && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-500 flex items-center gap-1"><IdCard size={12} /> DNI</span>
+                      <span className="font-medium text-gray-800">{cliente.dni}</span>
+                    </div>
+                  )}
+                  {cliente?.obra_social && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-500 flex items-center gap-1"><HeartPulse size={12} /> Obra social</span>
+                      <span className="font-medium text-gray-800">{cliente.obra_social}</span>
+                    </div>
+                  )}
                 </div>
               )}
-              {cliente?.dni && (
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-500 flex items-center gap-1"><IdCard size={12} /> DNI</span>
-                  <span className="font-medium text-gray-800">{cliente.dni}</span>
-                </div>
-              )}
-              {cliente?.obra_social && (
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-500 flex items-center gap-1"><HeartPulse size={12} /> Obra social</span>
-                  <span className="font-medium text-gray-800">{cliente.obra_social}</span>
-                </div>
-              )}
+
+              <textarea
+                value={notas}
+                onChange={(e) => setNotas(e.target.value)}
+                rows={4}
+                placeholder="Notas internas sobre la atención de este cliente (no las ve el cliente)..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm resize-none"
+              />
+
+              <button
+                onClick={handleGuardarNotas}
+                disabled={saving}
+                className="w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white p-2 rounded-lg font-medium text-sm transition-colors disabled:opacity-50"
+              >
+                {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                {saving ? 'Guardando...' : saved ? 'Guardado' : 'Guardar observaciones'}
+              </button>
             </div>
           )}
-
-          <textarea
-            value={notas}
-            onChange={(e) => setNotas(e.target.value)}
-            rows={4}
-            placeholder="Notas internas sobre la atención de este cliente (no las ve el cliente)..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm resize-none"
-          />
-
-          <button
-            onClick={handleGuardarNotas}
-            disabled={saving}
-            className="w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white p-2 rounded-lg font-medium text-sm transition-colors disabled:opacity-50"
-          >
-            {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-            {saving ? 'Guardando...' : saved ? 'Guardado' : 'Guardar observaciones'}
-          </button>
         </div>
       )}
     </div>

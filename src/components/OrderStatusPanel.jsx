@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, CheckCircle2, PackageSearch, Truck, AlertTriangle } from 'lucide-react';
+import { CreditCard, CheckCircle2, PackageSearch, Truck, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
@@ -39,6 +39,7 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
   const [plantillas, setPlantillas] = useState({});
   const [updatingKey, setUpdatingKey] = useState(null);
   const [cbuAlias, setCbuAlias] = useState('');
+  const [isOpen, setIsOpen] = useState(true);
 
   useEffect(() => {
     supabase
@@ -91,42 +92,56 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
   const entregaBadge = ENTREGA_BADGES[activeConversation.order_status] || BADGE_VACIO;
 
   return (
-    <div className="p-6 border-t border-gray-200">
-      <h3 className="text-md font-bold text-gray-900 flex items-center gap-2 mb-3">
-        <Truck size={18} className="text-teal-600" />
-        Estado del Pedido
-      </h3>
-
-      <div className="flex items-center gap-2 mb-4 text-xs">
-        <span className={`px-2 py-1 rounded-full font-medium ${pagoBadge.className}`}>Pago: {pagoBadge.label}</span>
-        <span className={`px-2 py-1 rounded-full font-medium ${entregaBadge.className}`}>Entrega: {entregaBadge.label}</span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        {PASOS.map(paso => {
-          const Icon = paso.icon;
-          const activo = activeConversation[paso.campo] === paso.valor;
-          return (
-            <button
-              key={paso.key}
-              onClick={() => handlePaso(paso)}
-              disabled={updatingKey === paso.key}
-              className={`flex items-center gap-1.5 justify-center p-2.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-50 ${
-                activo ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <Icon size={14} /> {paso.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <button
-        onClick={handleDemora}
-        className="w-full mt-2 flex items-center justify-center gap-1.5 p-2 rounded-lg text-xs font-medium border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors"
+    <div className="p-6 border-t border-gray-200 bg-white">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between text-left mb-2 outline-none group"
       >
-        <AlertTriangle size={14} /> Avisar demora / inconveniente
+        <h3 className="text-md font-bold text-gray-900 flex items-center gap-2">
+          <Truck size={18} className="text-teal-600" />
+          Estado del Pedido
+        </h3>
+        {isOpen ? (
+          <ChevronUp size={18} className="text-gray-400 group-hover:text-teal-600 transition-colors" />
+        ) : (
+          <ChevronDown size={18} className="text-gray-400 group-hover:text-teal-600 transition-colors" />
+        )}
       </button>
+
+      {isOpen && (
+        <div className="animate-fade-in-up mt-3">
+          <div className="flex items-center gap-2 mb-4 text-xs">
+            <span className={`px-2 py-1 rounded-full font-medium ${pagoBadge.className}`}>Pago: {pagoBadge.label}</span>
+            <span className={`px-2 py-1 rounded-full font-medium ${entregaBadge.className}`}>Entrega: {entregaBadge.label}</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            {PASOS.map(paso => {
+              const Icon = paso.icon;
+              const activo = activeConversation[paso.campo] === paso.valor;
+              return (
+                <button
+                  key={paso.key}
+                  onClick={() => handlePaso(paso)}
+                  disabled={updatingKey === paso.key}
+                  className={`flex items-center gap-1.5 justify-center p-2.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-50 ${
+                    activo ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <Icon size={14} /> {paso.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={handleDemora}
+            className="w-full mt-2 flex items-center justify-center gap-1.5 p-2 rounded-lg text-xs font-medium border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors"
+          >
+            <AlertTriangle size={14} /> Avisar demora / inconveniente
+          </button>
+        </div>
+      )}
     </div>
   );
 }

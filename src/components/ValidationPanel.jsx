@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator, Trash2, Plus, Send, ChevronDown, ChevronUp, Truck } from 'lucide-react';
+import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator, Trash2, Plus, Send, ChevronDown, ChevronUp, Truck, UserCircle, IdCard, HeartPulse } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import ClientNotesPanel from './ClientNotesPanel';
 import OrderStatusPanel from './OrderStatusPanel';
@@ -25,6 +26,21 @@ export default function ValidationPanel({
   const [showRejectOptions, setShowRejectOptions] = useState(false);
   const [rejectReason, setRejectReason] = useState('Ilegible');
   const [isQuoteOpen, setIsQuoteOpen] = useState(true);
+  const [isClientDataOpen, setIsClientDataOpen] = useState(true);
+  const [clienteData, setClienteData] = useState(null);
+
+  React.useEffect(() => {
+    if (!activeConversation?.client_phone) {
+      setClienteData(null);
+      return;
+    }
+    supabase
+      .from('clientes')
+      .select('dni, obra_social')
+      .eq('client_phone', activeConversation.client_phone)
+      .maybeSingle()
+      .then(({ data }) => setClienteData(data));
+  }, [activeConversation?.client_phone]);
 
   // Quote State
   const [quoteItems, setQuoteItems] = useState([]);
@@ -201,41 +217,75 @@ export default function ValidationPanel({
           </div>
         ) : (
           <div className="p-6">
-             <h3 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2 flex items-center gap-2">
-               <Info size={20} className="text-gray-400"/>
-               Datos del Cliente
-            </h3>
-            {activeConversation ? (
-               <div className="space-y-6 mt-6">
-                  <div className="min-w-0 pb-1">
-                     <h4 className="font-bold text-lg truncate">{activeConversation.real_name || activeConversation.client_name}</h4>
-                     <span className="text-sm text-gray-500 flex items-center gap-1.5 mt-1.5"><Phone size={14}/> {formatPhone(activeConversation.client_phone)}</span>
-                  </div>
-
-                  {activePrescription && activePrescription.status !== 'pending' && (
-                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                       <h5 className="text-xs font-bold text-gray-500 uppercase mb-3">Receta Actual</h5>
-                       <div className="space-y-2 text-sm">
-                          <div className="flex justify-between border-b border-gray-200 pb-2">
-                             <span className="text-gray-600">Estado</span>
-                             <span className={`font-medium ${activePrescription.status === 'approved' ? 'text-green-600' : 'text-red-600'}`}>
-                               {activePrescription.status === 'approved' ? 'Aprobada' : 'Rechazada'}
-                             </span>
-                          </div>
-                          <div className="flex justify-between pb-1">
-                             <span className="text-gray-600">Obra Social</span>
-                             <span className="font-medium text-teal-600">{activePrescription.obra_social || 'N/A'}</span>
-                          </div>
+             <button 
+               onClick={() => setIsClientDataOpen(!isClientDataOpen)}
+               className="w-full flex items-center justify-between text-left mb-2 outline-none group"
+             >
+               <h3 className="text-md font-bold text-gray-900 flex items-center gap-2">
+                 <UserCircle size={18} className="text-teal-600"/>
+                 Datos del Cliente
+               </h3>
+               {isClientDataOpen ? (
+                 <ChevronUp size={18} className="text-gray-400 group-hover:text-teal-600 transition-colors" />
+               ) : (
+                 <ChevronDown size={18} className="text-gray-400 group-hover:text-teal-600 transition-colors" />
+               )}
+             </button>
+             
+             {isClientDataOpen && (
+               <div className="animate-fade-in-up mt-3">
+                 {activeConversation ? (
+                    <div className="space-y-4">
+                       <div className="min-w-0">
+                          <h4 className="font-bold text-lg text-gray-900 truncate">{activeConversation.real_name || activeConversation.client_name}</h4>
+                          <span className="text-sm text-gray-500 flex items-center gap-1.5 mt-1"><Phone size={14} className="text-gray-400"/> {formatPhone(activeConversation.client_phone)}</span>
+                          
+                          {(clienteData?.dni || clienteData?.obra_social) && (
+                            <div className="mt-3 bg-gray-50 rounded-lg p-3 border border-gray-100 text-sm space-y-2">
+                              {clienteData.dni && (
+                                <div className="flex items-center gap-2">
+                                  <IdCard size={14} className="text-gray-400" />
+                                  <span className="text-gray-500 font-medium">DNI:</span>
+                                  <span className="text-gray-800">{clienteData.dni}</span>
+                                </div>
+                              )}
+                              {clienteData.obra_social && (
+                                <div className="flex items-center gap-2">
+                                  <HeartPulse size={14} className="text-gray-400" />
+                                  <span className="text-gray-500 font-medium">Obra Social:</span>
+                                  <span className="text-gray-800">{clienteData.obra_social}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
                        </div>
+     
+                       {activePrescription && activePrescription.status !== 'pending' && (
+                         <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                            <h5 className="text-xs font-bold text-gray-500 uppercase mb-3">Receta Actual</h5>
+                            <div className="space-y-2 text-sm">
+                               <div className="flex justify-between border-b border-gray-200 pb-2">
+                                  <span className="text-gray-600">Estado</span>
+                                  <span className={`font-medium ${activePrescription.status === 'approved' ? 'text-green-600' : 'text-red-600'}`}>
+                                    {activePrescription.status === 'approved' ? 'Aprobada' : 'Rechazada'}
+                                  </span>
+                               </div>
+                               <div className="flex justify-between pb-1">
+                                  <span className="text-gray-600">Obra Social</span>
+                                  <span className="font-medium text-teal-600">{activePrescription.obra_social || 'N/A'}</span>
+                               </div>
+                            </div>
+                         </div>
+                       )}
                     </div>
-                  )}
+                 ) : (
+                    <div className="flex flex-col items-center justify-center h-48 text-gray-400">
+                       <User size={48} className="mb-2 text-gray-300" />
+                       <p className="text-sm text-center">Selecciona un chat para ver los detalles del cliente</p>
+                    </div>
+                 )}
                </div>
-            ) : (
-               <div className="flex flex-col items-center justify-center h-48 text-gray-400">
-                  <User size={48} className="mb-2 text-gray-300" />
-                  <p className="text-sm text-center">Selecciona un chat para ver los detalles del cliente</p>
-               </div>
-            )}
+             )}
           </div>
         )}
 
