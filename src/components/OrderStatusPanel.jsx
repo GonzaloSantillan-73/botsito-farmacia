@@ -38,6 +38,7 @@ const BADGE_VACIO = { label: 'Sin iniciar', className: 'bg-gray-100 text-gray-50
 export default function OrderStatusPanel({ activeConversation, handleSendMessage }) {
   const [plantillas, setPlantillas] = useState({});
   const [updatingKey, setUpdatingKey] = useState(null);
+  const [cbuAlias, setCbuAlias] = useState('');
 
   useEffect(() => {
     supabase
@@ -49,11 +50,31 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
         (data || []).forEach(r => { map[r.shortcut] = r.message_text; });
         setPlantillas(map);
       });
+
+    supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'cbu_alias')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setCbuAlias(data.value);
+      });
   }, []);
 
   if (!activeConversation || ESTADOS_CERRADOS.includes(activeConversation.status)) return null;
 
-  const textoDe = (shortcut) => plantillas[shortcut] || MENSAJES_DEFAULT[shortcut];
+  const textoDe = (shortcut) => {
+    let baseText = plantillas[shortcut] || MENSAJES_DEFAULT[shortcut];
+    if (shortcut === '/cbu' && cbuAlias) {
+      if (baseText === MENSAJES_DEFAULT['/cbu']) {
+        return `Para confirmar tu pedido, podés transferir a nuestro CBU/Alias: *${cbuAlias}*. Cuando hagas la transferencia, envianos el comprobante por acá. 🙂`;
+      }
+      if (baseText.includes('{{CBU}}')) {
+        return baseText.replace(/\{\{CBU\}\}/g, cbuAlias);
+      }
+    }
+    return baseText;
+  };
 
   const handlePaso = async (paso) => {
     setUpdatingKey(paso.key);

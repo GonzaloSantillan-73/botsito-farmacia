@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Settings, BarChart3, Sliders, Hash, Zap, CalendarClock, Download, Bell, Clock, Store, ShieldCheck, UserCog } from 'lucide-react';
+import { X, Settings, BarChart3, Sliders, Hash, Zap, CalendarClock, Download, Bell, Clock, Store, ShieldCheck, UserCog, CreditCard } from 'lucide-react';
 import Accordion from './Accordion';
 import SessionTimeoutPanel from './SessionTimeoutPanel';
 import BotKeywordPanel from './BotKeywordPanel';
@@ -11,6 +11,7 @@ import NotificationsPanel from './NotificationsPanel';
 import MetricsPanel from './MetricsPanel';
 import ExportPanel from './ExportPanel';
 import AdminCredentialsPanel from './AdminCredentialsPanel';
+import CbuAliasPanel from './CbuAliasPanel';
 
 export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdmin = true }) {
   // El apartado de Administración (credenciales del admin y sucursales, con
@@ -95,6 +96,9 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
 
                 <Accordion title="Sucursales" icon={Store}>
                   <SucursalesPanel />
+                </Accordion>
+                <Accordion title="CBU / Alias Institucional" icon={CreditCard}>
+                  <CbuAliasPanel />
                 </Accordion>
               </div>
             ) : (

@@ -66,3 +66,30 @@ export const setBotKeyword = async (keyword) => {
 
   if (error) throw error;
 };
+
+const CBU_ALIAS_KEY = 'cbu_alias';
+
+export const getCbuAlias = async () => {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', CBU_ALIAS_KEY)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[APP CONFIG] Error leyendo cbu_alias:', error);
+    return null;
+  }
+
+  return data?.value || null;
+};
+
+export const setCbuAlias = async (cbuAlias) => {
+  const clean = (cbuAlias ?? '').toString().trim();
+
+  const { error } = await supabase
+    .from('app_settings')
+    .upsert({ key: CBU_ALIAS_KEY, value: clean, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+
+  if (error) throw error;
+};
