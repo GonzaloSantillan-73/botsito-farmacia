@@ -18,10 +18,25 @@ const formatWaitTime = (ms) => {
   return `${pad(seconds)}s`;
 };
 
-// Contador en vivo del tiempo de espera de una tarjeta. Vive en su propio
+// Umbrales de "urgencia" de la espera: amarillo apenas entra a la cola,
+// naranja a partir del minuto, rojo a partir de los 3 minutos.
+const WAIT_URGENCY_CLASSES = {
+  low: 'bg-yellow-100 text-yellow-800',
+  mid: 'bg-orange-100 text-orange-800',
+  high: 'bg-red-100 text-red-800'
+};
+const getWaitUrgency = (ms) => {
+  if (ms >= 3 * 60 * 1000) return 'high';
+  if (ms >= 60 * 1000) return 'mid';
+  return 'low';
+};
+
+// Badges en vivo del estado "Esperando Humano": el label y el reloj comparten
+// el mismo color, que escala con el tiempo transcurrido (amarillo -> naranja
+// a partir del minuto -> rojo a partir de los 3 minutos). Viven en su propio
 // componente memoizado para que el "tick" de cada segundo sólo re-renderice
-// este badge chiquito y no toda la lista de conversaciones del Sidebar.
-const WaitTimeBadge = memo(function WaitTimeBadge({ since }) {
+// este par de badges chiquitos y no toda la lista de conversaciones del Sidebar.
+const EsperandoBadges = memo(function EsperandoBadges({ since }) {
   const [elapsed, setElapsed] = useState(() => Date.now() - new Date(since).getTime());
 
   useEffect(() => {
@@ -32,11 +47,18 @@ const WaitTimeBadge = memo(function WaitTimeBadge({ since }) {
     return () => clearInterval(interval);
   }, [since]);
 
+  const colorClassName = WAIT_URGENCY_CLASSES[getWaitUrgency(elapsed)];
+
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-800 tabular-nums">
-      <Clock size={11} />
-      {formatWaitTime(elapsed)}
-    </span>
+    <>
+      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${colorClassName}`}>
+        Esperando Humano
+      </span>
+      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold tabular-nums ${colorClassName}`}>
+        <Clock size={11} />
+        {formatWaitTime(elapsed)}
+      </span>
+    </>
   );
 });
 
@@ -276,7 +298,8 @@ export default function Sidebar({
            </div>
         ) : (
            filteredConversations.map(conv => {
-            const badge = STATUS_BADGES[conv.status];
+            const esperando = conv.status === 'esperando';
+            const badge = esperando ? null : STATUS_BADGES[conv.status];
             return (
             <div
               key={conv.id}
@@ -297,13 +320,13 @@ export default function Sidebar({
               <div className="text-sm text-gray-600 truncate mb-2">
                 {conv.last_message || <span className="italic text-gray-400">Nueva conversación</span>}
               </div>
-              {(badge || conv.status === 'esperando') && (
+              {(badge || esperando) && (
                 <div className="flex items-center gap-1 flex-wrap">
                   {badge && (
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${badge.className}`}>{badge.label}</span>
                   )}
-                  {conv.status === 'esperando' && (
-                    <WaitTimeBadge since={conv.waiting_since || conv.updated_at} />
+                  {esperando && (
+                    <EsperandoBadges since={conv.waiting_since || conv.updated_at} />
                   )}
                 </div>
               )}
