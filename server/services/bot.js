@@ -12,6 +12,7 @@ import { getCliente, tieneRegistroCompleto, guardarDatoCliente } from './cliente
 export const MENSAJE_BIENVENIDA = '¡Hola! Soy el bot de la Farmacia. 💊\n\n¿Qué querés hacer?\n\na. Hablar con un humano\nb. Horarios y sucursales\nc. Actualizar mis datos';
 
 const MENSAJE_ERROR_SUCURSALES = 'Tuvimos un problema consultando las sucursales.\n\nPor favor, intentá de nuevo en un momento.';
+const MENSAJE_ERROR_DERIVACION = 'Tuvimos un problema derivándote con un asesor.\n\nPor favor, intentá de nuevo en un momento.';
 
 // Registro de datos personales: se le pide al cliente la primera vez que
 // escribe (antes de mostrarle el menú) y puede volver a hacerse desde
@@ -39,6 +40,27 @@ const determinarEstadoRegistro = (cliente) => {
 
 const mensajeDerivacionHumano = (keyword) =>
   `Entendido, te estamos derivando con un asesor humano.\n\nEn breve se pondrán en contacto contigo. Si en cualquier momento querés volver a hablar con el bot, escribí la palabra "${keyword}".`;
+
+// Todos los cambios de estado de la conversación (pasar a 'esperando', volver
+// a 'open', etc.) pasan por acá. Antes cada .update() se disparaba "a ciegas"
+// sin mirar el resultado: si fallaba (ej. una columna que todavía no existe
+// en la base porque falta correr una migración, o una RLS que lo bloquea) el
+// error quedaba silencioso y la conversación se quedaba pegada en el estado
+// viejo sin que nada lo avisara. Acá lo logueamos siempre, fuerte y claro.
+const actualizarEstadoConversacion = async (conversationId, updates) => {
+  const { error } = await supabase
+    .from('conversations')
+    .update(updates)
+    .eq('id', conversationId);
+
+  if (error) {
+    console.error(`[BOT] ❌ ERROR actualizando conversación ${conversationId} con`, updates, '->', error);
+    return false;
+  }
+
+  console.log(`[BOT] ✅ Conversación ${conversationId} actualizada:`, updates);
+  return true;
+};
 
 export const procesarMensajeBot = async (texto, conversationId, telefono, isNewSession = false) => {
   console.log(`[BOT] Procesando mensaje: "${texto}" para conversación ${conversationId} (nueva sesión: ${isNewSession})`);
@@ -116,13 +138,24 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
       }
 
       const botKeyword = await getBotKeyword();
-      await enviarMensajeBot(conversationId, telefono, mensajeDerivacionHumano(botKeyword));
 
-      console.log(`[BOT] Actualizando estado de la conversación a 'esperando' para ID: ${conversationId}`);
-      await supabase
-        .from('conversations')
-        .update({ status: 'esperando', bot_state: null, bot_context: null, waiting_since: new Date().toISOString() })
-        .eq('id', conversationId);
+      console.log(`[BOT] Derivando a un asesor humano y actualizando estado a 'esperando' para ID: ${conversationId}`);
+      const actualizado = await actualizarEstadoConversacion(conversationId, {
+        status: 'esperando',
+        bot_state: null,
+        bot_context: null,
+        waiting_since: new Date().toISOString()
+      });
+
+      // Si el UPDATE a 'esperando' falló, no confirmamos la derivación al cliente:
+      // sería mentirle que ya lo estamos pasando a un asesor cuando en realidad
+      // la conversación se quedó pegada en el bot.
+      if (!actualizado) {
+        await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_DERIVACION);
+        return;
+      }
+
+      await enviarMensajeBot(conversationId, telefono, mensajeDerivacionHumano(botKeyword));
     } else if (tLower === 'b') {
       await mostrarSucursales(conversationId, telefono);
     } else if (tLower === 'c') {
@@ -233,7 +266,7 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado, botConte
   }
 
   const esActualizacion = !!botContext?.actualizando;
-  await supabase.from('conversations').update({ status: 'open', bot_state: null, bot_context: null, waiting_since: null }).eq('id', conversationId);
+  await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
   await enviarMensajeBot(
     conversationId,
     telefono,
@@ -244,7 +277,7 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado, botConte
 const volverAlMenuPrincipal = async (conversationId, telefono) => {
   // 'open' saca a la conversación del modo humano ('esperando') y la vuelve a
   // dejar en la cola de "Entrantes" (bot respondiendo automáticamente).
-  await supabase.from('conversations').update({ status: 'open', bot_state: null, bot_context: null, waiting_since: null }).eq('id', conversationId);
+  await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
   await enviarMensajeBot(conversationId, telefono, MENSAJE_BIENVENIDA);
 };
 
