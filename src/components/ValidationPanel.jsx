@@ -70,6 +70,7 @@ export default function ValidationPanel({
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
   const [newItemDiscount, setNewItemDiscount] = useState('0');
+  const [shippingCost, setShippingCost] = useState('');
 
   const discountOptions = ['0', '40', '70', '100'];
 
@@ -105,8 +106,10 @@ export default function ValidationPanel({
 
   const subtotal = quoteItems.reduce((acc, item) => acc + item.price, 0);
   const totalDiscount = quoteItems.reduce((acc, item) => acc + (item.price * (item.discount / 100)), 0);
-  const total = subtotal - totalDiscount;
-  const envioGratis = total >= FREE_SHIPPING_THRESHOLD;
+  const totalItems = subtotal - totalDiscount;
+  const envioGratis = totalItems > FREE_SHIPPING_THRESHOLD;
+  const finalShippingCost = envioGratis ? 0 : (parseFloat(shippingCost) || 0);
+  const total = totalItems + finalShippingCost;
 
   const handleSendQuote = () => {
     if (quoteItems.length === 0) return;
@@ -127,10 +130,15 @@ export default function ValidationPanel({
     if (totalDiscount > 0) {
       message += `📉 *Descuento Total:* -$${totalDiscount.toFixed(2)}\n`;
     }
+    if (envioGratis) {
+      message += `🚚 *Envío:* $0 (supera los $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')})\n`;
+    } else if (finalShippingCost > 0) {
+      message += `🛵 *Costo de envío:* $${finalShippingCost.toFixed(2)}\n`;
+    }
     message += `💲 *Total a Pagar:* $${total.toFixed(2)}\n`;
     message += envioGratis
       ? `🎉 *¡Envío gratis!* (supera los $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')})\n`
-      : `🚚 *Envío gratis* a partir de $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')} (faltan $${(FREE_SHIPPING_THRESHOLD - total).toFixed(2)})\n`;
+      : `🚚 *Envío gratis* a partir de $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')} (faltan $${(FREE_SHIPPING_THRESHOLD - totalItems).toFixed(2)})\n`;
 
     if (handleSendMessage) {
       handleSendMessage(message);
@@ -372,7 +380,24 @@ export default function ValidationPanel({
                         <span>-${totalDiscount.toFixed(2)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between font-bold text-lg text-gray-900 pt-1">
+                    <div className="flex justify-between items-center text-gray-600 py-1">
+                      <span>Costo de Envío:</span>
+                      {envioGratis ? (
+                        <span className="text-green-600 font-medium">Bonificado</span>
+                      ) : (
+                        <div className="flex items-center gap-1 w-24">
+                          <span className="text-gray-500">$</span>
+                          <input
+                            type="number"
+                            className="w-full p-1 text-right text-sm border border-gray-300 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
+                            value={shippingCost}
+                            onChange={e => setShippingCost(e.target.value)}
+                            placeholder="0.00"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex justify-between font-bold text-lg text-gray-900 pt-1 border-t border-gray-100">
                       <span>Total:</span>
                       <span>${total.toFixed(2)}</span>
                     </div>
@@ -381,7 +406,7 @@ export default function ValidationPanel({
                       <Truck size={14} className="shrink-0" />
                       {envioGratis
                         ? `¡Envío gratis! Supera los $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')}.`
-                        : `Faltan $${(FREE_SHIPPING_THRESHOLD - total).toFixed(2)} para envío gratis (a partir de $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')}).`
+                        : `Faltan $${(FREE_SHIPPING_THRESHOLD - totalItems).toFixed(2)} para envío gratis (a partir de $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')}).`
                       }
                     </div>
 
