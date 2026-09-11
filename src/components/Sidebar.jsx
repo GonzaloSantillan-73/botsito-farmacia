@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Database, Loader2, Clock, MessagesSquare, Inbox, Headset, Share2, Settings, Users, LogOut } from 'lucide-react';
+import { Search, Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut } from 'lucide-react';
 import SettingsModal from './SettingsModal';
 import { formatPhone } from '../lib/formatPhone';
 
@@ -38,9 +38,9 @@ const esDerivado = (conv) => conv.sucursal_id != null;
 const necesitaHumano = (conv) => conv.status === 'esperando' && !esDerivado(conv);
 
 const TABS = [
-  { id: 'entrantes', label: 'Entrantes', icon: Inbox },
-  { id: 'atendiendo', label: 'Atendiendo', icon: Headset },
-  { id: 'derivados', label: 'Derivados', icon: Share2 }
+  { id: 'entrantes', label: 'BOT', icon: Bot },
+  { id: 'atendiendo', label: 'En espera', icon: Clock },
+  { id: 'derivados', label: 'Mis chats', icon: MessageSquare }
 ];
 
 export default function Sidebar({
@@ -86,12 +86,13 @@ export default function Sidebar({
     return matchesTab && matchesSearch;
   });
 
-  const enEsperaCount = validConversations.filter(c => esBotAutomatico(c.status)).length;
-  const misChatsCount = validConversations.filter(necesitaHumano).length;
+  const botCount = validConversations.filter(c => esBotAutomatico(c.status)).length;
+  const enEsperaCount = validConversations.filter(necesitaHumano).length;
+  const misChatsCount = validConversations.filter(esDerivado).length;
   const tabCounts = {
-    entrantes: enEsperaCount,
-    atendiendo: misChatsCount,
-    derivados: validConversations.filter(esDerivado).length
+    entrantes: botCount,
+    atendiendo: enEsperaCount,
+    derivados: misChatsCount
   };
 
   return (
@@ -133,27 +134,38 @@ export default function Sidebar({
         )}
 
         {/* Tarjetas de contadores */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => setActiveTab('entrantes')}
-            className={`text-left p-3 rounded-xl border transition-colors ${activeTab === 'entrantes' ? 'bg-amber-50 border-amber-300' : 'bg-white border-gray-200 hover:border-amber-200 hover:bg-amber-50/50'}`}
+            className={`text-left p-2 rounded-xl border transition-colors ${activeTab === 'entrantes' ? 'bg-indigo-50 border-indigo-300' : 'bg-white border-gray-200 hover:border-indigo-200 hover:bg-indigo-50/50'}`}
           >
-            <div className="flex items-center gap-1.5 text-amber-600 mb-1">
-              <Clock size={14} />
-              <span className="text-[11px] font-bold uppercase tracking-wide">En espera</span>
+            <div className="flex items-center gap-1 text-indigo-600 mb-1">
+              <Bot size={14} />
+              <span className="text-[10px] font-bold uppercase tracking-wide truncate">BOT</span>
             </div>
-            <span className="text-2xl font-bold text-gray-900">{enEsperaCount}</span>
+            <span className="text-xl font-bold text-gray-900">{botCount}</span>
           </button>
 
           <button
             onClick={() => setActiveTab('atendiendo')}
-            className={`text-left p-3 rounded-xl border transition-colors ${activeTab === 'atendiendo' ? 'bg-teal-50 border-teal-300' : 'bg-white border-gray-200 hover:border-teal-200 hover:bg-teal-50/50'}`}
+            className={`text-left p-2 rounded-xl border transition-colors ${activeTab === 'atendiendo' ? 'bg-amber-50 border-amber-300' : 'bg-white border-gray-200 hover:border-amber-200 hover:bg-amber-50/50'}`}
           >
-            <div className="flex items-center gap-1.5 text-teal-600 mb-1">
-              <MessagesSquare size={14} />
-              <span className="text-[11px] font-bold uppercase tracking-wide">Mis chats</span>
+            <div className="flex items-center gap-1 text-amber-600 mb-1">
+              <Clock size={14} />
+              <span className="text-[10px] font-bold uppercase tracking-wide truncate">En espera</span>
             </div>
-            <span className="text-2xl font-bold text-gray-900">{misChatsCount}</span>
+            <span className="text-xl font-bold text-gray-900">{enEsperaCount}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('derivados')}
+            className={`text-left p-2 rounded-xl border transition-colors ${activeTab === 'derivados' ? 'bg-teal-50 border-teal-300' : 'bg-white border-gray-200 hover:border-teal-200 hover:bg-teal-50/50'}`}
+          >
+            <div className="flex items-center gap-1 text-teal-600 mb-1">
+              <MessageSquare size={14} />
+              <span className="text-[10px] font-bold uppercase tracking-wide truncate">Mis chats</span>
+            </div>
+            <span className="text-xl font-bold text-gray-900">{misChatsCount}</span>
           </button>
         </div>
 
