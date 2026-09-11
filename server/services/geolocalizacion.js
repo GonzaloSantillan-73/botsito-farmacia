@@ -27,10 +27,15 @@ const parseCoord = (valor) => (valor === null || valor === undefined || valor ==
 // Google Maps al crear/editar la sucursal, ver sucursalesAdmin.js), ordenadas
 // por cercanía al punto (lat, lng) del cliente. Una sucursal sin coordenadas
 // resueltas simplemente no entra en el cálculo: no hay con qué compararla.
-export const sucursalesMasCercanas = async (lat, lng, cantidad = 2) => {
+// `excluirIds` saca de la carrera a sucursales puntuales (ej. la que acaba de
+// devolver el chat a la cola, ver devolucionCola.js) para que no se le vuelva
+// a recomendar la misma que ya dijo que no podía atenderlo.
+export const sucursalesMasCercanas = async (lat, lng, cantidad = 2, excluirIds = []) => {
   const sucursales = await getSucursalesActivas();
+  const excluidos = new Set(excluirIds.filter(Boolean));
 
   const conCoordenadas = sucursales
+    .filter(s => !excluidos.has(s.id))
     .map(s => ({ ...s, latitud: parseCoord(s.latitud), longitud: parseCoord(s.longitud) }))
     .filter(s => Number.isFinite(s.latitud) && Number.isFinite(s.longitud));
 

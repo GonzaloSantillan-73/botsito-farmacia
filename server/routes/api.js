@@ -3,6 +3,7 @@ import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
 import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getBotKeyword, setBotKeyword, getWelcomeMessage, setWelcomeMessage } from '../services/appConfig.js';
 import { finalizarConversacion } from '../services/ratingSurvey.js';
+import { devolverConversacionAEspera } from '../services/devolucionCola.js';
 import { TERMINAL_STATUSES } from '../services/sessionManager.js';
 import { getBotSchedule, getHumanSchedule, setBotSchedule, setHumanSchedule } from '../services/scheduleConfig.js';
 import { rowsToCsv, sendCsv } from '../services/csvExport.js';
@@ -322,6 +323,30 @@ router.post('/conversations/:id/close', async (req, res) => {
   } catch (error) {
     console.error('[API] ❌ Error cerrando conversación manualmente:', error.message);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Un operador no puede seguir atendiendo (ej. sin stock) y devuelve el chat a
+// la cola general de "En espera": recalcula las sucursales recomendadas
+// excluyendo a la que lo devuelve y avisa al cliente por WhatsApp.
+router.post('/conversations/:id/return-to-queue', async (req, res) => {
+  const { id } = req.params;
+  const { motivo, motivoTexto } = req.body;
+
+  if (motivo !== 'stock' && motivo !== 'otra') {
+    return res.status(400).json({ error: 'Motivo inválido: debe ser "stock" u "otra".' });
+  }
+  if (motivo === 'otra' && !motivoTexto?.trim()) {
+    return res.status(400).json({ error: 'Ingresá el motivo por el cual se devuelve el chat.' });
+  }
+
+  try {
+    const { sucursalesRecomendadas } = await devolverConversacionAEspera(id, { motivo, motivoTexto });
+    console.log(`[API] -> Consulta ${id} devuelta a la cola de espera (motivo: ${motivo}).`);
+    res.status(200).json({ success: true, sucursalesRecomendadas });
+  } catch (error) {
+    console.error('[API] ❌ Error devolviendo la conversación a la cola:', error.message);
+    res.status(400).json({ error: error.message || 'No se pudo devolver el chat a la cola de espera.' });
   }
 });
 

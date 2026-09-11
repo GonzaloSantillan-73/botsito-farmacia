@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag } from 'lucide-react';
+import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag, Undo2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
@@ -8,6 +8,7 @@ import HistoryPanel from './HistoryPanel';
 import OrderHistoryPanel from './OrderHistoryPanel';
 import { SALE_STATUS_BADGES, STATUS_BADGES } from './Sidebar';
 import CloseChatModal from './CloseChatModal';
+import ReturnToQueueModal from './ReturnToQueueModal';
 import MessageBubble from './MessageBubble';
 import MediaGalleryModal from './MediaGalleryModal';
 
@@ -294,6 +295,20 @@ export default function ChatArea({
     }
   };
 
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+
+  const executeReturnToQueue = async ({ motivo, motivoTexto }) => {
+    if (!activeConversation) return;
+
+    const res = await fetch(`/api/conversations/${activeConversation.id}/return-to-queue`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ motivo, motivoTexto })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'No se pudo devolver el chat a la cola de espera.');
+  };
+
   const handleSendClick = async () => {
     if (!messageInput.trim() && !selectedFile) return;
 
@@ -389,6 +404,15 @@ export default function ChatArea({
                    className="p-2 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 rounded-full transition-colors disabled:opacity-50"
                  >
                    {closingChat ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle size={20} />}
+                 </button>
+               )}
+               {!isConversacionCerrada && activeConversation.status !== 'esperando' && (
+                 <button
+                   onClick={() => setIsReturnModalOpen(true)}
+                   title="Devolver este chat a la lista de espera general (ej. no hay stock)"
+                   className="p-2 text-gray-500 hover:bg-amber-50 hover:text-amber-600 rounded-full transition-colors"
+                 >
+                   <Undo2 size={20} />
                  </button>
                )}
                <button
@@ -614,6 +638,12 @@ export default function ChatArea({
             onClose={() => setIsCloseModalOpen(false)}
             activeConversation={activeConversation}
             onConfirmClose={executeCloseChat}
+          />
+
+          <ReturnToQueueModal
+            isOpen={isReturnModalOpen}
+            onClose={() => setIsReturnModalOpen(false)}
+            onConfirm={executeReturnToQueue}
           />
         </>
       ) : (
