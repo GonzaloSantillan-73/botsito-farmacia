@@ -12,7 +12,7 @@ export default function ClientNotesPanel({ clientPhone }) {
   const [notas, setNotas] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     if (!clientPhone) return;

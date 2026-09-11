@@ -39,7 +39,7 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
   const [plantillas, setPlantillas] = useState({});
   const [updatingKey, setUpdatingKey] = useState(null);
   const [cbuAlias, setCbuAlias] = useState('');
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     supabase

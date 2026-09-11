@@ -27,8 +27,8 @@ export default function ValidationPanel({
 }) {
   const [showRejectOptions, setShowRejectOptions] = useState(false);
   const [rejectReason, setRejectReason] = useState('Ilegible');
-  const [isQuoteOpen, setIsQuoteOpen] = useState(true);
-  const [isClientDataOpen, setIsClientDataOpen] = useState(true);
+  const [isQuoteOpen, setIsQuoteOpen] = useState(false);
+  const [isClientDataOpen, setIsClientDataOpen] = useState(false);
   const [clienteData, setClienteData] = useState(null);
 
   React.useEffect(() => {
