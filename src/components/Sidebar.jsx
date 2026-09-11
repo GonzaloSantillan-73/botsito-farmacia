@@ -1,7 +1,44 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { Search, Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut } from 'lucide-react';
 import SettingsModal from './SettingsModal';
 import { formatPhone } from '../lib/formatPhone';
+
+// Formatea milisegundos transcurridos con precisión progresiva: segundos
+// (00s) mientras dure menos de un minuto, minutos:segundos (01:00m) mientras
+// dure menos de una hora, y horas:minutos:segundos (01:00:00h) en adelante.
+const pad = (n) => String(n).padStart(2, '0');
+const formatWaitTime = (ms) => {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}h`;
+  if (minutes > 0) return `${pad(minutes)}:${pad(seconds)}m`;
+  return `${pad(seconds)}s`;
+};
+
+// Contador en vivo del tiempo de espera de una tarjeta. Vive en su propio
+// componente memoizado para que el "tick" de cada segundo sólo re-renderice
+// este badge chiquito y no toda la lista de conversaciones del Sidebar.
+const WaitTimeBadge = memo(function WaitTimeBadge({ since }) {
+  const [elapsed, setElapsed] = useState(() => Date.now() - new Date(since).getTime());
+
+  useEffect(() => {
+    setElapsed(Date.now() - new Date(since).getTime());
+    const interval = setInterval(() => {
+      setElapsed(Date.now() - new Date(since).getTime());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [since]);
+
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-orange-100 text-orange-800 tabular-nums">
+      <Clock size={11} />
+      {formatWaitTime(elapsed)}
+    </span>
+  );
+});
 
 export const STATUS_BADGES = {
   pending_validation: { label: 'Receta Pendiente', className: 'bg-amber-100 text-amber-800' },
@@ -260,9 +297,14 @@ export default function Sidebar({
               <div className="text-sm text-gray-600 truncate mb-2">
                 {conv.last_message || <span className="italic text-gray-400">Nueva conversación</span>}
               </div>
-              {badge && (
-                <div className="flex items-center gap-1">
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${badge.className}`}>{badge.label}</span>
+              {(badge || conv.status === 'esperando') && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  {badge && (
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${badge.className}`}>{badge.label}</span>
+                  )}
+                  {conv.status === 'esperando' && (
+                    <WaitTimeBadge since={conv.waiting_since || conv.updated_at} />
+                  )}
                 </div>
               )}
             </div>

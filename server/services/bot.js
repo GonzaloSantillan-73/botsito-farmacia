@@ -121,7 +121,7 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
       console.log(`[BOT] Actualizando estado de la conversación a 'esperando' para ID: ${conversationId}`);
       await supabase
         .from('conversations')
-        .update({ status: 'esperando', bot_state: null, bot_context: null })
+        .update({ status: 'esperando', bot_state: null, bot_context: null, waiting_since: new Date().toISOString() })
         .eq('id', conversationId);
     } else if (tLower === 'b') {
       await mostrarSucursales(conversationId, telefono);
@@ -233,7 +233,7 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado, botConte
   }
 
   const esActualizacion = !!botContext?.actualizando;
-  await supabase.from('conversations').update({ status: 'open', bot_state: null, bot_context: null }).eq('id', conversationId);
+  await supabase.from('conversations').update({ status: 'open', bot_state: null, bot_context: null, waiting_since: null }).eq('id', conversationId);
   await enviarMensajeBot(
     conversationId,
     telefono,
@@ -244,7 +244,7 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado, botConte
 const volverAlMenuPrincipal = async (conversationId, telefono) => {
   // 'open' saca a la conversación del modo humano ('esperando') y la vuelve a
   // dejar en la cola de "Entrantes" (bot respondiendo automáticamente).
-  await supabase.from('conversations').update({ status: 'open', bot_state: null, bot_context: null }).eq('id', conversationId);
+  await supabase.from('conversations').update({ status: 'open', bot_state: null, bot_context: null, waiting_since: null }).eq('id', conversationId);
   await enviarMensajeBot(conversationId, telefono, MENSAJE_BIENVENIDA);
 };
 
