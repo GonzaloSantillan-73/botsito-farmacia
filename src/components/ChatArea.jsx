@@ -227,7 +227,20 @@ export default function ChatArea({
     return historyConversationsById[msg.conversation_id];
   };
 
-  const displayedMessages = showFullHistory ? [...historyMessages, ...messages] : messages;
+  const soyAdmin = isAdminRole();
+  let displayedMessages = showFullHistory ? [...historyMessages, ...messages] : messages;
+
+  if (!soyAdmin) {
+    const encuestasVistas = new Set();
+    displayedMessages = displayedMessages.filter(msg => {
+      if (encuestasVistas.has(msg.conversation_id)) return false;
+      if (msg.sender_type === 'bot' && typeof msg.message_text === 'string' && msg.message_text.includes('Tu consulta ha finalizado')) {
+        encuestasVistas.add(msg.conversation_id);
+        return true;
+      }
+      return true;
+    });
+  }
 
   const isConversacionCerrada = activeConversation && ESTADOS_CERRADOS.includes(activeConversation.status);
   let remainingMs = null;

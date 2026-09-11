@@ -128,7 +128,21 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
               <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">Esta consulta no tiene mensajes.</div>
             ) : (
               <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
-                {selectedMessages.map(msg => (
+                {(() => {
+                  let displayMsgs = selectedMessages;
+                  if (soyStaff) {
+                    let surveyStarted = false;
+                    displayMsgs = selectedMessages.filter(msg => {
+                      if (surveyStarted) return false;
+                      if (msg.sender_type === 'bot' && typeof msg.message_text === 'string' && msg.message_text.includes('Tu consulta ha finalizado')) {
+                        surveyStarted = true;
+                        return true;
+                      }
+                      return true;
+                    });
+                  }
+                  return displayMsgs;
+                })().map(msg => (
                   <div key={msg.id} className={`flex ${msg.sender_type === 'client' ? 'justify-start' : 'justify-end'}`}>
                     <div className={`max-w-[70%] rounded-lg px-3 py-2 text-sm shadow-sm ${msg.sender_type === 'client' ? 'bg-white text-gray-800' : 'bg-teal-500 text-white'}`}>
                       {msg.sender_type === 'bot' && <div className="text-[10px] font-bold uppercase opacity-70 mb-1">BOT</div>}
