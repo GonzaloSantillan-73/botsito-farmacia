@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image as ImageIcon, FileText, Loader2, MapPin, Download, Eye, ShieldAlert } from 'lucide-react';
+import { renderWhatsAppText } from '../lib/whatsappFormat';
 
 // El webhook guarda las ubicaciones de WhatsApp como JSON en message_text
 // ({lat, lng, name?, address?}) con media_type 'location'. Acá lo parseamos
@@ -133,7 +134,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
             </div>
           </div>
         )}
-        {!location && msg.media_type !== 'pdf' && <p className="text-sm whitespace-pre-wrap">{msg.message_text}</p>}
+        {!location && msg.media_type !== 'pdf' && <p className="text-sm whitespace-pre-wrap">{renderWhatsAppText(msg.message_text)}</p>}
         <div className="flex items-center justify-end gap-1 mt-1">
           <span className={`text-[10px] ${msg.sender_type === 'client' ? 'text-gray-400' : 'text-teal-100'}`}>
             {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

@@ -46,6 +46,7 @@ export default function ValidationPanel({
   const [quoteItems, setQuoteItems] = useState([]);
   const [newItemName, setNewItemName] = useState('');
   const [newItemPrice, setNewItemPrice] = useState('');
+  const [newItemQuantity, setNewItemQuantity] = useState('1');
   const [newItemDiscount, setNewItemDiscount] = useState('0');
   const [shippingCost, setShippingCost] = useState('');
 
@@ -70,10 +71,12 @@ export default function ValidationPanel({
       id: crypto.randomUUID(),
       name: newItemName,
       price: parseFloat(newItemPrice),
+      quantity: Math.max(1, parseInt(newItemQuantity) || 1),
       discount: parseInt(newItemDiscount)
     }]);
     setNewItemName('');
     setNewItemPrice('');
+    setNewItemQuantity('1');
     setNewItemDiscount('0');
   };
 
@@ -81,8 +84,14 @@ export default function ValidationPanel({
     setQuoteItems(quoteItems.filter(item => item.id !== id));
   };
 
-  const subtotal = quoteItems.reduce((acc, item) => acc + item.price, 0);
-  const totalDiscount = quoteItems.reduce((acc, item) => acc + (item.price * (item.discount / 100)), 0);
+  const handleQuoteItemQuantityChange = (id, quantity) => {
+    setQuoteItems(quoteItems.map(item =>
+      item.id === id ? { ...item, quantity: Math.max(1, parseInt(quantity) || 1) } : item
+    ));
+  };
+
+  const subtotal = quoteItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  const totalDiscount = quoteItems.reduce((acc, item) => acc + (item.price * item.quantity * (item.discount / 100)), 0);
   const totalItems = subtotal - totalDiscount;
   const envioGratis = totalItems > FREE_SHIPPING_THRESHOLD;
   const finalShippingCost = envioGratis ? 0 : (parseFloat(shippingCost) || 0);
@@ -93,14 +102,14 @@ export default function ValidationPanel({
 
     let message = `📋 *Cotización de Receta*\n\n`;
     quoteItems.forEach(item => {
-      const itemDiscount = item.price * (item.discount / 100);
-      const itemFinal = item.price - itemDiscount;
-      message += `- ${item.name}:\n`;
-      message += `  Precio: $${item.price.toFixed(2)}\n`;
+      const itemDiscount = item.price * item.quantity * (item.discount / 100);
+      const itemFinal = (item.price * item.quantity) - itemDiscount;
+      message += `- ${item.name} (x${item.quantity}):\n`;
+      message += `  Precio unitario: $${item.price.toFixed(2)}\n`;
       if (item.discount > 0) {
         message += `  Desc. OS (${item.discount}%): -$${itemDiscount.toFixed(2)}\n`;
       }
-      message += `  Subtotal: $${itemFinal.toFixed(2)}\n\n`;
+      message += `  Total: $${itemFinal.toFixed(2)}\n\n`;
     });
 
     message += `💰 *Subtotal:* $${subtotal.toFixed(2)}\n`;
@@ -321,20 +330,31 @@ export default function ValidationPanel({
                       onChange={e => setNewItemName(e.target.value)}
                     />
                   </div>
-                  <div className="col-span-5">
+                  <div className="col-span-4">
                     <div className="relative">
                       <span className="absolute left-2 top-2 text-gray-500 text-sm">$</span>
-                      <input 
-                        type="number" 
-                        placeholder="Precio" 
+                      <input
+                        type="number"
+                        placeholder="Precio"
                         className="w-full text-sm pl-6 p-2 border border-gray-300 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                         value={newItemPrice}
                         onChange={e => setNewItemPrice(e.target.value)}
                       />
                     </div>
                   </div>
-                  <div className="col-span-5">
-                    <select 
+                  <div className="col-span-3">
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Cant."
+                      title="Cantidad"
+                      className="w-full text-sm p-2 border border-gray-300 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
+                      value={newItemQuantity}
+                      onChange={e => setNewItemQuantity(e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <select
                       className="w-full text-sm p-2 border border-gray-300 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none bg-white"
                       value={newItemDiscount}
                       onChange={e => setNewItemDiscount(e.target.value)}
@@ -362,11 +382,19 @@ export default function ValidationPanel({
                       <div key={item.id} className="flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-100 text-sm">
                         <div className="flex-1 truncate pr-2">
                           <span className="font-medium text-gray-800 block truncate">{item.name}</span>
-                          <span className="text-xs text-gray-500">${item.price.toFixed(2)} - {item.discount}% desc</span>
+                          <span className="text-xs text-gray-500">${item.price.toFixed(2)} c/u{item.discount > 0 ? ` - ${item.discount}% desc` : ''}</span>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-bold text-gray-900">
-                            ${(item.price - (item.price * item.discount / 100)).toFixed(2)}
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="1"
+                            title="Cantidad"
+                            className="w-14 text-sm text-center p-1 border border-gray-300 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
+                            value={item.quantity}
+                            onChange={e => handleQuoteItemQuantityChange(item.id, e.target.value)}
+                          />
+                          <span className="font-bold text-gray-900 whitespace-nowrap">
+                            ${((item.price * item.quantity) - (item.price * item.quantity * item.discount / 100)).toFixed(2)}
                           </span>
                           <button onClick={() => handleRemoveQuoteItem(item.id)} className="text-red-400 hover:text-red-600 transition-colors">
                             <Trash2 size={16} />
