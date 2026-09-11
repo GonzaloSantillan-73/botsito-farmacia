@@ -5,6 +5,7 @@ import { formatPhone } from '../lib/formatPhone';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
 import HistoryPanel from './HistoryPanel';
 import { SALE_STATUS_BADGES } from './Sidebar';
+import CloseChatModal from './CloseChatModal';
 
 // Estados en los que la conversación ya está cerrada y no aplica el conteo de expiración.
 const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
@@ -71,6 +72,7 @@ export default function ChatArea({
   const [showHistory, setShowHistory] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [downloadingId, setDownloadingId] = useState(null);
+  const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
   const fileInputRef = useRef(null);
 
   // El nombre "bonito" del archivo (ej. "receta.pdf") viaja en message_text
@@ -142,9 +144,8 @@ export default function ChatArea({
 
   const [closingChat, setClosingChat] = useState(false);
 
-  const handleCloseChat = async () => {
+  const executeCloseChat = async () => {
     if (!activeConversation) return;
-    if (!window.confirm('¿Finalizar esta consulta? Se le va a pedir al cliente que califique la atención recibida.')) return;
 
     setClosingChat(true);
     try {
@@ -233,7 +234,7 @@ export default function ChatArea({
             <div className="flex items-center gap-2">
                {!isConversacionCerrada && (
                  <button
-                   onClick={handleCloseChat}
+                   onClick={() => setIsCloseModalOpen(true)}
                    disabled={closingChat}
                    title="Finalizar esta consulta y pedirle al cliente que la califique"
                    className="p-2 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 rounded-full transition-colors disabled:opacity-50"
@@ -501,6 +502,13 @@ export default function ChatArea({
               onClose={() => setShowHistory(false)}
             />
           )}
+
+          <CloseChatModal
+            isOpen={isCloseModalOpen}
+            onClose={() => setIsCloseModalOpen(false)}
+            activeConversation={activeConversation}
+            onConfirmClose={executeCloseChat}
+          />
         </>
       ) : (
         <div className="flex-1 flex flex-col items-center justify-center text-gray-400">

@@ -4,3 +4,4 @@
 -- `status`: marcar el resultado de la venta no cierra ni finaliza el chat.
 ALTER TABLE public.conversations ADD COLUMN IF NOT EXISTS sale_status TEXT; -- 'concretada' | 'no_concretada'
 ALTER TABLE public.conversations ADD COLUMN IF NOT EXISTS sale_amount NUMERIC; -- monto cotizado al momento de marcar la venta como concretada
+ALTER TABLE public.conversations ADD COLUMN IF NOT EXISTS sale_reason TEXT; -- motivo cuando la venta es 'otra' o 'no_concretada'

@@ -3,7 +3,6 @@ import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator
 import { formatPhone } from '../lib/formatPhone';
 import ClientNotesPanel from './ClientNotesPanel';
 import OrderStatusPanel from './OrderStatusPanel';
-import SaleStatusPanel from './SaleStatusPanel';
 
 // Estados en los que la conversación ya está cerrada (mismo criterio que en ChatArea/Sidebar).
 const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
@@ -381,9 +380,7 @@ export default function ValidationPanel({
               </div>
             )}
 
-            {/* Resultado de la gestión comercial: independiente de que el
-                cotizador esté colapsado, y NUNCA cierra el chat. */}
-            <SaleStatusPanel activeConversation={activeConversation} total={total} />
+
           </div>
         )}
 
