@@ -3,6 +3,7 @@ import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator
 import { formatPhone } from '../lib/formatPhone';
 import ClientNotesPanel from './ClientNotesPanel';
 import OrderStatusPanel from './OrderStatusPanel';
+import { SALE_STATUS_BADGES } from './Sidebar';
 
 // Estados en los que la conversación ya está cerrada (mismo criterio que en ChatArea/Sidebar).
 const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
@@ -395,6 +396,21 @@ export default function ValidationPanel({
             haya un chat abierto, incluso en el Historial. */}
         {activeConversation && (
           <ClientNotesPanel clientPhone={activeConversation.client_phone} />
+        )}
+
+        {/* Muestra el motivo de cierre debajo de las observaciones si la conversación finalizó */}
+        {activeConversation && activeConversation.sale_status && ESTADOS_CERRADOS.includes(activeConversation.status) && (
+          <div className="p-6 border-t border-gray-200 bg-gray-50">
+            <h3 className="text-sm font-bold text-gray-900 mb-3">Resultado de la Gestión</h3>
+            <div className={`p-3 rounded-lg border ${SALE_STATUS_BADGES[activeConversation.sale_status]?.className.replace('bg-', 'border-').replace('text-', '')}`}>
+              <div className="font-semibold text-sm mb-1">{SALE_STATUS_BADGES[activeConversation.sale_status]?.label}</div>
+              {(activeConversation.sale_status === 'otra' || activeConversation.sale_reason) && (
+                <div className="text-xs text-gray-700 italic border-t border-black/10 mt-2 pt-2">
+                  "{activeConversation.sale_reason}"
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>

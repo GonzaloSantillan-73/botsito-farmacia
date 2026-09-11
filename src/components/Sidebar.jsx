@@ -19,7 +19,8 @@ export const STATUS_BADGES = {
 // del estado del chat en el Directorio, el Historial y la vista del chat.
 export const SALE_STATUS_BADGES = {
   concretada: { label: '✅ Venta Concretada', className: 'bg-emerald-100 text-emerald-800' },
-  no_concretada: { label: '❌ Venta No Concretada', className: 'bg-rose-100 text-rose-800' }
+  no_concretada: { label: '❌ Venta No Concretada', className: 'bg-rose-100 text-rose-800' },
+  otra: { label: '💬 Otra Razón', className: 'bg-amber-100 text-amber-800' }
 };
 
 // Estados "cerrados": la consulta ya terminó (por el operador o por inactividad).

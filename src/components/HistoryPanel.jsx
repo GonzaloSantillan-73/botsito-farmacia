@@ -107,8 +107,12 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
                   </span>
                 )}
                 {SALE_STATUS_BADGES[selectedConv.sale_status] && (
-                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${SALE_STATUS_BADGES[selectedConv.sale_status].className}`}>
+                  <span 
+                    className={`text-[11px] font-medium px-2 py-0.5 rounded ${SALE_STATUS_BADGES[selectedConv.sale_status].className} max-w-sm truncate block`}
+                    title={selectedConv.sale_reason}
+                  >
                     {SALE_STATUS_BADGES[selectedConv.sale_status].label}
+                    {selectedConv.sale_status === 'otra' && selectedConv.sale_reason ? `: ${selectedConv.sale_reason}` : ''}
                   </span>
                 )}
               </div>

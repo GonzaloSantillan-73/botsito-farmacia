@@ -150,6 +150,7 @@ router.get('/metrics/negocio', async (req, res) => {
 
     const concretadas = gestionVentas.filter(g => g.sale_status === 'concretada');
     const noConcretadas = gestionVentas.filter(g => g.sale_status === 'no_concretada');
+    const otras = gestionVentas.filter(g => g.sale_status === 'otra');
     const ticketPromedioConcretadas = concretadas.length > 0
       ? concretadas.reduce((acc, g) => acc + (Number(g.sale_amount) || 0), 0) / concretadas.length
       : 0;
@@ -161,6 +162,7 @@ router.get('/metrics/negocio', async (req, res) => {
         totalGestionadas,
         concretadas: concretadas.length,
         noConcretadas: noConcretadas.length,
+        otras: otras.length,
         tasaConversion,
         ticketPromedioConcretadas
       },

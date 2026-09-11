@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Star, ShoppingCart, Bot, Headset, ShieldCheck, ShieldAlert, TrendingUp, CheckCircle2, XCircle } from 'lucide-react';
+import { Star, ShoppingCart, Bot, Headset, ShieldCheck, ShieldAlert, TrendingUp, CheckCircle2, XCircle, MessageSquare } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const formatMoney = (n) => `$${(Number(n) || 0).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
@@ -71,7 +71,7 @@ export default function MetricsPanel() {
     <div>
       <Seccion
         title="Conversión de ventas"
-        description='Resultado que el vendedor marca a mano en el chat: "Venta Concretada" / "Venta No Concretada".'
+        description='Resultado que el vendedor marca a mano en el chat: "Venta Concretada", "Venta No Concretada" u "Otra razón".'
       >
         {!negocio || negocio.conversion.totalGestionadas === 0 ? (
           <div className="text-sm text-gray-400 py-6 text-center bg-gray-50 rounded-xl border border-gray-100">
@@ -88,16 +88,23 @@ export default function MetricsPanel() {
               <div className="flex items-center gap-3 text-sm">
                 <span className="w-32 text-gray-600 shrink-0 flex items-center gap-1.5"><CheckCircle2 size={14} /> Concretadas</span>
                 <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${negocio.conversion.tasaConversion}%` }} />
+                  <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${(negocio.conversion.concretadas / negocio.conversion.totalGestionadas) * 100}%` }} />
                 </div>
                 <span className="w-8 text-right text-gray-500 shrink-0">{negocio.conversion.concretadas}</span>
               </div>
               <div className="flex items-center gap-3 text-sm">
                 <span className="w-32 text-gray-600 shrink-0 flex items-center gap-1.5"><XCircle size={14} /> No concretadas</span>
                 <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-rose-400 rounded-full transition-all" style={{ width: `${100 - negocio.conversion.tasaConversion}%` }} />
+                  <div className="h-full bg-rose-400 rounded-full transition-all" style={{ width: `${(negocio.conversion.noConcretadas / negocio.conversion.totalGestionadas) * 100}%` }} />
                 </div>
                 <span className="w-8 text-right text-gray-500 shrink-0">{negocio.conversion.noConcretadas}</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <span className="w-32 text-gray-600 shrink-0 flex items-center gap-1.5"><MessageSquare size={14} /> Otra razón</span>
+                <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-amber-400 rounded-full transition-all" style={{ width: `${(negocio.conversion.otras / negocio.conversion.totalGestionadas) * 100}%` }} />
+                </div>
+                <span className="w-8 text-right text-gray-500 shrink-0">{negocio.conversion.otras}</span>
               </div>
             </div>
           </>
