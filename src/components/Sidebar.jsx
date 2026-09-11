@@ -276,7 +276,10 @@ export default function Sidebar({
         ) : (
            filteredConversations.map(conv => {
             const esperando = conv.status === 'esperando';
-            const badge = esperando ? null : STATUS_BADGES[conv.status];
+            const isDerivadoTab = activeTab === 'derivados';
+            const showEsperando = esperando && !isDerivadoTab;
+            const visualStatus = (esperando && isDerivadoTab) ? 'open' : conv.status;
+            const badge = showEsperando ? null : STATUS_BADGES[visualStatus];
             return (
             <div
               key={conv.id}
@@ -297,12 +300,12 @@ export default function Sidebar({
               <div className="text-sm text-gray-600 truncate mb-2">
                 {conv.last_message || <span className="italic text-gray-400">Nueva conversación</span>}
               </div>
-              {(badge || esperando) && (
+              {(badge || showEsperando) && (
                 <div className="flex items-center gap-1 flex-wrap">
                   {badge && (
                     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${badge.className}`}>{badge.label}</span>
                   )}
-                  {esperando && (
+                  {showEsperando && (
                     <EsperandoBadges since={conv.waiting_since || conv.updated_at} />
                   )}
                 </div>
