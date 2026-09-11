@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './lib/supabase';
 import { notifyNewEvent } from './lib/notifications';
+import { withClientNames } from './lib/clientUtils';
 
 // Components
 import Sidebar from './components/Sidebar';
@@ -171,21 +172,25 @@ function App() {
             setConversations(prev => {
               const exists = prev.some(c => c.id === payload.new.id);
               const next = exists
-                ? prev.map(c => c.id === payload.new.id ? payload.new : c)
+                ? prev.map(c => c.id === payload.new.id ? { ...payload.new, real_name: c.real_name } : c)
                 : [payload.new, ...prev];
               return next.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
             });
 
             if (activeConversationRef.current?.id === payload.new.id) {
-              setActiveConversation(payload.new);
+              setActiveConversation(prev => ({ ...payload.new, real_name: prev.real_name }));
             }
 
             if (empezoAEsperar) {
-              const nombre = payload.new.client_name || payload.new.client_phone || 'Un cliente';
-              notifyNewEvent({
-                title: 'Cliente esperando un asesor',
-                body: `${nombre} quiere hablar con un humano.`
-              });
+              // Intenta recuperar el nombre completo en segundo plano para notificar
+              supabase.from('clientes').select('nombre_completo').eq('client_phone', payload.new.client_phone).maybeSingle()
+                .then(({ data }) => {
+                  const nombre = data?.nombre_completo || payload.new.client_name || payload.new.client_phone || 'Un cliente';
+                  notifyNewEvent({
+                    title: 'Cliente esperando un asesor',
+                    body: `${nombre} quiere hablar con un humano.`
+                  });
+                });
             }
           } else if (payload.eventType === 'INSERT') {
             setConversations(prev => {
@@ -194,12 +199,23 @@ function App() {
               return [payload.new, ...prev].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
             });
 
-            // Toda conversación nueva arranca en 'open' (cola de Entrantes).
-            const nombre = payload.new.client_name || payload.new.client_phone || 'Un cliente';
-            notifyNewEvent({
-              title: 'Nuevo chat entrante',
-              body: `${nombre} inició una conversación.`
-            });
+            // Fetch real_name asynchronously and update both conversations list and notifications
+            supabase.from('clientes').select('nombre_completo').eq('client_phone', payload.new.client_phone).maybeSingle()
+              .then(({ data }) => {
+                const nombre = data?.nombre_completo || payload.new.client_name || payload.new.client_phone || 'Un cliente';
+                if (data?.nombre_completo) {
+                  setConversations(current => current.map(c => 
+                    c.id === payload.new.id ? { ...c, real_name: data.nombre_completo } : c
+                  ));
+                  if (activeConversationRef.current?.id === payload.new.id) {
+                    setActiveConversation(prev => ({ ...prev, real_name: data.nombre_completo }));
+                  }
+                }
+                notifyNewEvent({
+                  title: 'Nuevo chat entrante',
+                  body: `${nombre} inició una conversación.`
+                });
+              });
           }
         }
       )
@@ -271,7 +287,8 @@ function App() {
     const { data, error } = await query.order('updated_at', { ascending: false });
 
     if (!error && data) {
-      setConversations(data);
+      const enhanced = await withClientNames(data);
+      setConversations(enhanced);
     }
     setLoading(false);
   };

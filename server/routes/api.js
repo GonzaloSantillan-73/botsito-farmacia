@@ -35,9 +35,14 @@ router.get('/export/chats', async (req, res) => {
 
     if (error) throw error;
 
+    const phones = [...new Set((data || []).map(r => r.conversations?.client_phone).filter(Boolean))];
+    const { data: clientes } = await supabase.from('clientes').select('client_phone, nombre_completo').in('client_phone', phones);
+    const phoneMap = {};
+    clientes?.forEach(c => { if (c.nombre_completo) phoneMap[c.client_phone] = c.nombre_completo; });
+
     const columns = [
       { label: 'Fecha y hora', value: r => new Date(r.created_at).toLocaleString('es-AR') },
-      { label: 'Cliente', value: r => r.conversations?.client_name || '' },
+      { label: 'Cliente', value: r => phoneMap[r.conversations?.client_phone] || r.conversations?.client_name || '' },
       { label: 'Teléfono', value: r => r.conversations?.client_phone || '' },
       { label: 'Estado de la consulta', value: r => r.conversations?.status || '' },
       { label: 'Remitente', value: r => r.sender_type || '' },
@@ -70,6 +75,11 @@ router.get('/export/metrics', async (req, res) => {
     if (error) throw error;
 
     const conversations = data || [];
+    const phones = [...new Set(conversations.map(c => c.client_phone).filter(Boolean))];
+    const { data: clientes } = await supabase.from('clientes').select('client_phone, nombre_completo').in('client_phone', phones);
+    const phoneMap = {};
+    clientes?.forEach(c => { if (c.nombre_completo) phoneMap[c.client_phone] = c.nombre_completo; });
+
     const calificadas = conversations.filter(c => c.rating != null);
     const promedio = calificadas.length > 0
       ? (calificadas.reduce((acc, c) => acc + c.rating, 0) / calificadas.length).toFixed(2)
@@ -77,7 +87,7 @@ router.get('/export/metrics', async (req, res) => {
 
     const detailColumns = [
       { label: 'Fecha de creación', value: r => new Date(r.created_at).toLocaleString('es-AR') },
-      { label: 'Cliente', value: r => r.client_name || '' },
+      { label: 'Cliente', value: r => phoneMap[r.client_phone] || r.client_name || '' },
       { label: 'Teléfono', value: r => r.client_phone || '' },
       { label: 'Estado', value: r => r.status || '' },
       { label: 'Calificación (1-5)', value: r => (r.rating != null ? r.rating : '') }

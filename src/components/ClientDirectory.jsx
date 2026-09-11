@@ -5,6 +5,7 @@ import { formatPhone } from '../lib/formatPhone';
 import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
 import { ESTADOS_HISTORIAL } from './Sidebar';
 import ClientHistoryList from './ClientHistoryList';
+import { withClientNames } from '../lib/clientUtils';
 
 const SORT_OPTIONS = [
   { value: 'recent', label: 'Fecha (más reciente)' },
@@ -17,7 +18,7 @@ const ordenarClientes = (clients, sortBy) => {
   const sorted = [...clients];
   switch (sortBy) {
     case 'name':
-      return sorted.sort((a, b) => (a.client_name || '').localeCompare(b.client_name || ''));
+      return sorted.sort((a, b) => (a.real_name || a.client_name || '').localeCompare(b.real_name || b.client_name || ''));
     case 'interactions':
       return sorted.sort((a, b) => b.total - a.total);
     case 'rating':
@@ -39,10 +40,11 @@ const groupByClient = (conversations) => {
   for (const c of conversations) {
     if (!c.client_phone) continue;
     if (!map.has(c.client_phone)) {
-      map.set(c.client_phone, { client_phone: c.client_phone, client_name: c.client_name, conversations: [] });
+      map.set(c.client_phone, { client_phone: c.client_phone, client_name: c.client_name, real_name: c.real_name, conversations: [] });
     }
     const entry = map.get(c.client_phone);
     entry.conversations.push(c);
+    if (!entry.real_name && c.real_name) entry.real_name = c.real_name;
     if (!entry.client_name && c.client_name) entry.client_name = c.client_name;
   }
 
@@ -84,8 +86,11 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
     }
     query
       .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (!error) setConversations(data || []);
+      .then(async ({ data, error }) => {
+        if (!error) {
+          const enhanced = await withClientNames(data || []);
+          setConversations(enhanced);
+        }
         setLoading(false);
       });
   }, []);
@@ -98,7 +103,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
   const filteredClients = clients.filter(cl => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
-    return cl.client_name?.toLowerCase().includes(q) || cl.client_phone?.toLowerCase().includes(q);
+    return (cl.real_name || cl.client_name)?.toLowerCase().includes(q) || cl.client_phone?.toLowerCase().includes(q);
   });
 
   const sortedClients = ordenarClientes(filteredClients, sortBy);
@@ -122,7 +127,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
             <ArrowLeft size={20} />
           </button>
           <div className="min-w-0">
-            <h2 className="font-bold text-gray-900 truncate">{selectedClient.client_name || formatPhone(selectedClient.client_phone)}</h2>
+            <h2 className="font-bold text-gray-900 truncate">{selectedClient.real_name || selectedClient.client_name || formatPhone(selectedClient.client_phone)}</h2>
             <p className="text-xs text-gray-500">{formatPhone(selectedClient.client_phone)}</p>
           </div>
         </div>
@@ -240,7 +245,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
                     onClick={() => setSelectedPhone(cl.client_phone)}
                     className="border-b border-gray-100 last:border-0 hover:bg-teal-50/40 cursor-pointer transition-colors"
                   >
-                    <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{cl.client_name || '—'}</td>
+                    <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{cl.real_name || cl.client_name || '—'}</td>
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{formatPhone(cl.client_phone)}</td>
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{new Date(cl.lastContact).toLocaleDateString('es-AR')}</td>
                     <td className="px-4 py-3 text-center text-gray-700">{cl.total}</td>

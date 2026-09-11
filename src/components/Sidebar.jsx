@@ -81,7 +81,7 @@ export default function Sidebar({
     let matchesSearch = true;
     if (searchQuery.trim() !== '') {
       const q = searchQuery.toLowerCase();
-      matchesSearch = (c.client_name?.toLowerCase().includes(q) || c.client_phone?.toLowerCase().includes(q));
+      matchesSearch = ((c.real_name || c.client_name)?.toLowerCase().includes(q) || c.client_phone?.toLowerCase().includes(q));
     }
 
     return matchesTab && matchesSearch;
@@ -248,8 +248,8 @@ export default function Sidebar({
             >
               <div className="flex justify-between items-start mb-1">
                 <h3 className="font-semibold text-gray-900 truncate pr-2">
-                   {conv.client_name || formatPhone(conv.client_phone)}
-                   {conv.client_name && <span className="text-xs font-normal text-gray-400 ml-1">({formatPhone(conv.client_phone)})</span>}
+                   {conv.real_name || conv.client_name || formatPhone(conv.client_phone)}
+                   {(conv.real_name || conv.client_name) && <span className="text-xs font-normal text-gray-400 ml-1">({formatPhone(conv.client_phone)})</span>}
                 </h3>
                 <span className="text-xs text-gray-500 whitespace-nowrap">
                   {activeTab === 'derivados'

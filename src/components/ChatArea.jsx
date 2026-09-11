@@ -205,7 +205,7 @@ export default function ChatArea({
                 </button>
               )}
               <div>
-                <h2 className="font-bold text-gray-900">{activeConversation.client_name}</h2>
+                <h2 className="font-bold text-gray-900">{activeConversation.real_name || activeConversation.client_name}</h2>
                 <p className="text-xs text-gray-500">{formatPhone(activeConversation.client_phone)}</p>
               </div>
               {SALE_STATUS_BADGES[activeConversation.sale_status] && (
@@ -497,7 +497,7 @@ export default function ChatArea({
           {showHistory && (
             <HistoryPanel
               clientPhone={activeConversation.client_phone}
-              clientName={activeConversation.client_name}
+              clientName={activeConversation.real_name || activeConversation.client_name}
               currentConversationId={activeConversation.id}
               onClose={() => setShowHistory(false)}
             />

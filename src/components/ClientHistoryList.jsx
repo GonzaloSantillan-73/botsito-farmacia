@@ -186,8 +186,8 @@ export default function ClientHistoryList({
                 <div className="flex-1 min-w-0">
                   {showClient && (
                     <div className="text-sm font-medium text-gray-900 truncate">
-                      {conv.client_name || formatPhone(conv.client_phone)}
-                      {conv.client_name && <span className="text-xs font-normal text-gray-400 ml-1">({formatPhone(conv.client_phone)})</span>}
+                      {conv.real_name || conv.client_name || formatPhone(conv.client_phone)}
+                      {(conv.real_name || conv.client_name) && <span className="text-xs font-normal text-gray-400 ml-1">({formatPhone(conv.client_phone)})</span>}
                     </div>
                   )}
                   <div className="text-[11px] text-gray-500 mb-1">

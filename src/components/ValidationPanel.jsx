@@ -208,7 +208,7 @@ export default function ValidationPanel({
             {activeConversation ? (
                <div className="space-y-6 mt-6">
                   <div className="min-w-0 pb-1">
-                     <h4 className="font-bold text-lg truncate">{activeConversation.client_name}</h4>
+                     <h4 className="font-bold text-lg truncate">{activeConversation.real_name || activeConversation.client_name}</h4>
                      <span className="text-sm text-gray-500 flex items-center gap-1.5 mt-1.5"><Phone size={14}/> {formatPhone(activeConversation.client_phone)}</span>
                   </div>
 
