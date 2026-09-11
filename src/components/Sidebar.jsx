@@ -1,5 +1,5 @@
 import React, { useState, useEffect, memo } from 'react';
-import { Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut } from 'lucide-react';
+import { Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut, MapPin } from 'lucide-react';
 import SettingsModal from './SettingsModal';
 import { formatPhone } from '../lib/formatPhone';
 
@@ -31,11 +31,12 @@ const getWaitUrgency = (ms) => {
   return 'low';
 };
 
-// Badges en vivo del estado "Esperando Humano": el label y el reloj comparten
-// el mismo color, que escala con el tiempo transcurrido (amarillo -> naranja
-// a partir del minuto -> rojo a partir de los 3 minutos). Viven en su propio
+// Contador en vivo del tiempo de espera: color que escala con el tiempo
+// transcurrido (amarillo -> naranja a partir del minuto -> rojo a partir de
+// los 3 minutos). Ya no muestra el texto "Esperando Humano" (era redundante
+// con la pestaña "En espera" donde vive la tarjeta). Vive en su propio
 // componente memoizado para que el "tick" de cada segundo sólo re-renderice
-// este par de badges chiquitos y no toda la lista de conversaciones del Sidebar.
+// este badge chiquito y no toda la lista de conversaciones del Sidebar.
 const EsperandoBadges = memo(function EsperandoBadges({ since }) {
   const [elapsed, setElapsed] = useState(() => Date.now() - new Date(since).getTime());
 
@@ -50,17 +51,34 @@ const EsperandoBadges = memo(function EsperandoBadges({ since }) {
   const colorClassName = WAIT_URGENCY_CLASSES[getWaitUrgency(elapsed)];
 
   return (
-    <>
-      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${colorClassName}`}>
-        Esperando Humano
-      </span>
-      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold tabular-nums ${colorClassName}`}>
-        <Clock size={11} />
-        {formatWaitTime(elapsed)}
-      </span>
-    </>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold tabular-nums ${colorClassName}`}>
+      <Clock size={11} />
+      {formatWaitTime(elapsed)}
+    </span>
   );
 });
+
+// Etiquetas con las 2 sucursales más cercanas a la ubicación que el cliente
+// compartió al pedir un asesor (ver bot.js: manejarUbicacionHumano). Es sólo
+// una recomendación visual para el operador — cualquier sucursal puede
+// igual tomar el chat, no hay ninguna restricción de asignación acá.
+const SucursalesRecomendadas = ({ sucursales }) => {
+  if (!sucursales || sucursales.length === 0) return null;
+  return (
+    <div className="flex items-center gap-1 shrink-0">
+      {sucursales.slice(0, 2).map((s, i) => (
+        <span
+          key={s.id || i}
+          title={Number.isFinite(s.distancia_km) ? `${s.nombre} · ${s.distancia_km} km` : s.nombre}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-sky-100 text-sky-700 max-w-[110px] truncate"
+        >
+          <MapPin size={10} className="shrink-0" />
+          <span className="truncate">{s.nombre}</span>
+        </span>
+      ))}
+    </div>
+  );
+};
 
 export const STATUS_BADGES = {
   pending_validation: { label: 'Receta Pendiente', className: 'bg-amber-100 text-amber-800' },
@@ -301,13 +319,16 @@ export default function Sidebar({
                 {conv.last_message || <span className="italic text-gray-400">Nueva conversación</span>}
               </div>
               {(badge || showEsperando) && (
-                <div className="flex items-center gap-1 flex-wrap">
-                  {badge && (
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${badge.className}`}>{badge.label}</span>
-                  )}
-                  {showEsperando && (
-                    <EsperandoBadges since={conv.waiting_since || conv.updated_at} />
-                  )}
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {badge && (
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${badge.className}`}>{badge.label}</span>
+                    )}
+                    {showEsperando && (
+                      <EsperandoBadges since={conv.waiting_since || conv.updated_at} />
+                    )}
+                  </div>
+                  {showEsperando && <SucursalesRecomendadas sucursales={conv.sucursales_recomendadas} />}
                 </div>
               )}
             </div>

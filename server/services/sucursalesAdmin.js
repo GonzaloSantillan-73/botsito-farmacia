@@ -1,4 +1,5 @@
 import { supabase } from '../supabase.js';
+import { extraerCoordenadasDeUrl } from './mapsLocation.js';
 
 // CRUD clásico de sucursales: se dan de alta directamente desde el panel de
 // Administración, sin depender de ningún catálogo externo.
@@ -27,6 +28,17 @@ export const crearSucursal = async ({ nombre, direccion, googleMapsUrl, dias, ho
   if (horaApertura) payload.hora_apertura = horaApertura;
   if (horaCierre) payload.hora_cierre = horaCierre;
 
+  // Las coordenadas se resuelven solas a partir del link de Maps (que ya es
+  // obligatorio) para no pedirle al admin que cargue lat/lng a mano. Si no se
+  // pueden resolver (link sin coordenadas embebidas, sin conexión, etc.) la
+  // sucursal se crea igual; sólo que no va a entrar en las recomendaciones
+  // por cercanía hasta que se corrija el link.
+  const coords = await extraerCoordenadasDeUrl(googleMapsUrl.trim()).catch(() => null);
+  if (coords) {
+    payload.latitud = coords.lat;
+    payload.longitud = coords.lng;
+  }
+
   const { data, error } = await supabase
     .from('sucursales')
     .insert([payload])
@@ -49,6 +61,12 @@ export const actualizarSucursal = async (id, { nombre, direccion, googleMapsUrl,
   if (dias) updates.dias = dias;
   if (horaApertura) updates.hora_apertura = horaApertura;
   if (horaCierre) updates.hora_cierre = horaCierre;
+
+  const coords = await extraerCoordenadasDeUrl(googleMapsUrl.trim()).catch(() => null);
+  if (coords) {
+    updates.latitud = coords.lat;
+    updates.longitud = coords.lng;
+  }
 
   const { data, error } = await supabase
     .from('sucursales')

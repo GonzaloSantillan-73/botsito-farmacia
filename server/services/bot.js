@@ -4,6 +4,8 @@ import { getBotKeyword, getWelcomeMessage } from './appConfig.js';
 import { getBotSchedule, getHumanSchedule, isWithinSchedule, renderScheduleMessage } from './scheduleConfig.js';
 import { getSucursalesActivas, formatearMensajeSucursales } from './sucursales.js';
 import { getCliente, tieneRegistroCompleto, guardarDatoCliente } from './clientes.js';
+import { sucursalesMasCercanas } from './geolocalizacion.js';
+import { extraerCoordenadasDeMensaje } from './mapsLocation.js';
 
 // Todas las opciones del bot se muestran como texto plano dentro del propio chat
 // (nada de botones/listas nativas de Meta). Cada mensaje separa con saltos de línea
@@ -22,6 +24,13 @@ const construirMensajeBienvenida = async () => {
 
 const MENSAJE_ERROR_SUCURSALES = 'Tuvimos un problema consultando las sucursales.\n\nPor favor, intentá de nuevo en un momento.';
 const MENSAJE_ERROR_DERIVACION = 'Tuvimos un problema derivándote con un asesor.\n\nPor favor, intentá de nuevo en un momento.';
+
+// Antes de derivar a un humano le pedimos la ubicación al cliente, para poder
+// recomendarle (a él y al operador que lo atienda) la sucursal más cercana.
+// Acepta dos formas: el botón nativo "Ubicación" de WhatsApp, o pegar como
+// texto un link de Google Maps (largo o acortado tipo maps.app.goo.gl).
+const MENSAJE_PEDIR_UBICACION = 'Para poder recomendarte la sucursal más cercana, compartí tu ubicación 📍\n\nPodés usar el botón de "Ubicación" de WhatsApp (📎 → Ubicación → Ubicación actual), o pegar acá el link de Google Maps de dónde estás.';
+const MENSAJE_UBICACION_INVALIDA = 'No pude reconocer esa ubicación. 😕\n\nProbá compartiendo tu ubicación con el botón de WhatsApp, o pegando un link de Google Maps (por ejemplo: https://maps.app.goo.gl/...).';
 
 // Registro de datos personales: se le pide al cliente la primera vez que
 // escribe (antes de mostrarle el menú) y puede volver a hacerse desde
@@ -136,6 +145,11 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
       return;
     }
 
+    if (estado === 'esperando_ubicacion') {
+      await manejarUbicacionHumano(conversationId, telefono, t);
+      return;
+    }
+
     // Estado normal: menú principal
     const tLower = t.toLowerCase();
     if (tLower === '1') {
@@ -146,25 +160,9 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
         return;
       }
 
-      const botKeyword = await getBotKeyword();
-
-      console.log(`[BOT] Derivando a un asesor humano y actualizando estado a 'esperando' para ID: ${conversationId}`);
-      const actualizado = await actualizarEstadoConversacion(conversationId, {
-        status: 'esperando',
-        bot_state: null,
-        bot_context: null,
-        waiting_since: new Date().toISOString()
-      });
-
-      // Si el UPDATE a 'esperando' falló, no confirmamos la derivación al cliente:
-      // sería mentirle que ya lo estamos pasando a un asesor cuando en realidad
-      // la conversación se quedó pegada en el bot.
-      if (!actualizado) {
-        await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_DERIVACION);
-        return;
-      }
-
-      await enviarMensajeBot(conversationId, telefono, mensajeDerivacionHumano(botKeyword));
+      console.log(`[BOT] Pidiendo ubicación antes de derivar a un asesor humano para ID: ${conversationId}`);
+      await actualizarEstadoConversacion(conversationId, { bot_state: 'esperando_ubicacion', bot_context: null });
+      await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_UBICACION);
     } else if (tLower === '2') {
       await mostrarSucursales(conversationId, telefono);
     } else if (tLower === '3') {
@@ -200,6 +198,70 @@ const mostrarSucursales = async (conversationId, telefono) => {
   // Es una consulta informativa (no cambia el bot_state), pero igual reenviamos
   // el menú principal para que el cliente no quede sin saber cómo seguir.
   await enviarMensajeBot(conversationId, telefono, await construirMensajeBienvenida());
+};
+
+// Recibe la respuesta del cliente mientras el bot está esperando su
+// ubicación (bot_state 'esperando_ubicacion', ver arriba). Acepta dos
+// formatos:
+//  - Nativo: WhatsApp manda la ubicación como JSON { lat, lng, name?, address? }
+//    (ver webhook.js, media_type 'location').
+//  - Link de texto: el cliente pega un link de Google Maps (largo o
+//    acortado); se le sacan las coordenadas seguiendo la redirección si hace falta.
+// Con las coordenadas que sea, calcula las 2 sucursales más cercanas
+// (Haversine), las guarda junto con la ubicación en la conversación y recién
+// ahí deriva a un asesor humano.
+const manejarUbicacionHumano = async (conversationId, telefono, t) => {
+  let coords = null;
+
+  try {
+    const parsed = JSON.parse(t);
+    if (typeof parsed?.lat === 'number' && typeof parsed?.lng === 'number') {
+      coords = { lat: parsed.lat, lng: parsed.lng };
+    }
+  } catch {
+    // No era un JSON de ubicación nativa: puede ser un link de texto, se prueba abajo.
+  }
+
+  if (!coords) {
+    coords = await extraerCoordenadasDeMensaje(t);
+  }
+
+  if (!coords) {
+    await enviarMensajeBot(conversationId, telefono, MENSAJE_UBICACION_INVALIDA);
+    return;
+  }
+
+  let recomendadas = [];
+  try {
+    recomendadas = await sucursalesMasCercanas(coords.lat, coords.lng, 2);
+  } catch (err) {
+    // Si falla el cálculo de cercanía no bloqueamos la derivación: el
+    // operador puede recomendar la sucursal a mano igual.
+    console.error('[BOT] Error calculando sucursales más cercanas:', err);
+  }
+
+  const botKeyword = await getBotKeyword();
+
+  console.log(`[BOT] Ubicación recibida y sucursales recomendadas para ID: ${conversationId}`, recomendadas);
+  const actualizado = await actualizarEstadoConversacion(conversationId, {
+    status: 'esperando',
+    bot_state: null,
+    bot_context: null,
+    waiting_since: new Date().toISOString(),
+    client_lat: coords.lat,
+    client_lng: coords.lng,
+    sucursales_recomendadas: recomendadas
+  });
+
+  // Si el UPDATE a 'esperando' falló, no confirmamos la derivación al cliente:
+  // sería mentirle que ya lo estamos pasando a un asesor cuando en realidad
+  // la conversación se quedó pegada en el bot.
+  if (!actualizado) {
+    await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_DERIVACION);
+    return;
+  }
+
+  await enviarMensajeBot(conversationId, telefono, mensajeDerivacionHumano(botKeyword));
 };
 
 // Arranca (o retoma) el flujo de registro de datos personales. `esActualizacion`
