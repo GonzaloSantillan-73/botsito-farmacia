@@ -16,6 +16,13 @@ export const distanciaHaversineKm = (lat1, lng1, lat2, lng2) => {
   return R * c;
 };
 
+// `Number(null) === 0` en JS: si convertimos así nomás, una sucursal sin
+// coordenadas (columna en NULL) terminaría tratada como si estuviera en
+// (0,0) "Null Island" en vez de quedar excluida, ensuciando el ranking con
+// una distancia gigante pero "válida". Achicamos null/undefined/'' a NaN
+// para que el filtro de abajo las descarte de verdad.
+const parseCoord = (valor) => (valor === null || valor === undefined || valor === '' ? NaN : Number(valor));
+
 // Sucursales activas con coordenadas cargadas (se sacan solas del link de
 // Google Maps al crear/editar la sucursal, ver sucursalesAdmin.js), ordenadas
 // por cercanía al punto (lat, lng) del cliente. Una sucursal sin coordenadas
@@ -24,7 +31,7 @@ export const sucursalesMasCercanas = async (lat, lng, cantidad = 2) => {
   const sucursales = await getSucursalesActivas();
 
   const conCoordenadas = sucursales
-    .map(s => ({ ...s, latitud: Number(s.latitud), longitud: Number(s.longitud) }))
+    .map(s => ({ ...s, latitud: parseCoord(s.latitud), longitud: parseCoord(s.longitud) }))
     .filter(s => Number.isFinite(s.latitud) && Number.isFinite(s.longitud));
 
   return conCoordenadas
