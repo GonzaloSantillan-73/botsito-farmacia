@@ -120,8 +120,8 @@ router.post('/', async (req, res) => {
           isRatingReply = true;
         } else {
           if (pendingRatingConv) {
-            console.log(`[WEBHOOK] -> Había una encuesta pendiente en ${pendingRatingConv.id} pero no se respondió con un número válido (1-5); se descarta.`);
-            await descartarEncuestaPendiente(pendingRatingConv.id);
+            console.log(`[WEBHOOK] -> Había una encuesta pendiente en ${pendingRatingConv.id} pero no se respondió con un número válido (1-5); se descartan todas las encuestas pendientes de ${clientPhone}.`);
+            await descartarEncuestaPendiente(clientPhone);
           }
           const { conversation, isNewSession: isNew } = await findOrCreateSession(clientPhone, clientName);
           conversationId = conversation.id;

@@ -87,8 +87,22 @@ export const guardarCalificacionProducto = async (conversationId, clientPhone, p
   await enviarMensajeBot(conversationId, clientPhone, MENSAJE_DESPEDIDA_ENCUESTA);
 };
 
-// El cliente escribió algo que no era un número del 1 al 5: se descarta la encuesta
-// pendiente (sin bloquear que ese mismo mensaje arranque una consulta nueva).
-export const descartarEncuestaPendiente = async (conversationId) => {
-  await supabase.from('conversations').update({ bot_state: null }).eq('id', conversationId);
+// El cliente escribió algo que no era un número del 1 al 5: se descartan TODAS
+// las encuestas pendientes de ese teléfono (sin bloquear que ese mismo mensaje
+// arranque una consulta nueva). Antes sólo se descartaba la más reciente
+// (la que devuelve getConversationAwaitingRating): si por lo que sea quedaba
+// más de una consulta vieja con bot_state 'awaiting_rating'/'awaiting_product_rating'
+// colgada (el cliente nunca llegó a calificarlas), la siguiente sin descartar
+// podía "resucitar" y robarse una respuesta numérica que en realidad iba
+// dirigida al menú de la consulta nueva (ej. responder "2" pensando en
+// "2. Horarios y sucursales" y que en cambio se registre como calificación
+// de una consulta finalizada de días atrás).
+export const descartarEncuestaPendiente = async (clientPhone) => {
+  const last10 = clientPhone.slice(-10);
+  await supabase
+    .from('conversations')
+    .update({ bot_state: null })
+    .ilike('client_phone', `%${last10}%`)
+    .eq('status', 'finalizada')
+    .in('bot_state', ['awaiting_rating', 'awaiting_product_rating']);
 };
