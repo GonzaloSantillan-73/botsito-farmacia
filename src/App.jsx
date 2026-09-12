@@ -386,11 +386,9 @@ function App() {
         updated_at: new Date().toISOString(),
         last_message: previewText
       };
-      // Un empleado "toma" una conversación sin sucursal apenas le contesta:
-      // queda asignada a su sucursal para que otras sucursales dejen de verla.
-      if (soyStaff && !activeConversation.sucursal_id) {
-        updates.sucursal_id = miSucursalId;
-      }
+      // La asignación a una sucursal ya no es implícita al primer mensaje: el
+      // empleado tiene que tocar "Tomar" (Sidebar/ChatArea, ver src/lib/tomarConsulta.js)
+      // antes de poder responder una consulta de la cola general.
 
       await supabase
         .from('conversations')

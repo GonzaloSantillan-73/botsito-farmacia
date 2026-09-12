@@ -50,7 +50,10 @@ export const devolverConversacionAEspera = async (conversationId, { motivo, moti
       status: 'esperando',
       sucursal_id: null,
       waiting_since: new Date().toISOString(),
-      sucursales_recomendadas: sucursalesRecomendadas
+      sucursales_recomendadas: sucursalesRecomendadas,
+      // Queda registrado hasta que otra sucursal la tome (ver tomarConsulta.js),
+      // para mostrarle "Devolviste" a esta sucursal y "Devuelta" al resto.
+      devuelta_por_sucursal_id: sucursalQueDevuelve || null
     })
     .eq('id', conversationId);
 

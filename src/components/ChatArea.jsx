@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag, Undo2 } from 'lucide-react';
+import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag, Undo2, Hand } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
 import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
+import { tomarConsulta } from '../lib/tomarConsulta';
 import HistoryPanel from './HistoryPanel';
 import OrderHistoryPanel from './OrderHistoryPanel';
 import { SALE_STATUS_BADGES, STATUS_BADGES } from './Sidebar';
@@ -250,6 +251,11 @@ export default function ChatArea({
   // (lo que cambia al tomarlo es sucursal_id, no el status, ver App.jsx). La
   // cola general sin asignar es específicamente 'esperando' + sin sucursal_id.
   const estaEnColaGeneral = activeConversation?.status === 'esperando' && !activeConversation?.sucursal_id;
+  // El admin puede responder cualquier chat sin reclamarlo; un empleado de
+  // sucursal tiene que tocar "Tomar" primero (acá o desde el Sidebar) antes
+  // de poder escribirle a un cliente de la cola general.
+  const miSucursalId = getStaffSucursalId();
+  const requiereTomarParaResponder = estaEnColaGeneral && !soyAdmin;
   let remainingMs = null;
   if (activeConversation && !isConversacionCerrada && sessionTimeoutMs != null) {
     const lastActivity = getLastActivityTime(activeConversation, messages);
@@ -300,6 +306,23 @@ export default function ChatArea({
   };
 
   const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+
+  const [tomandoConsulta, setTomandoConsulta] = useState(false);
+
+  const handleTomarDesdeChat = async () => {
+    if (!activeConversation || !miSucursalId) return;
+    setTomandoConsulta(true);
+    try {
+      await tomarConsulta(activeConversation.id, miSucursalId);
+      // No hace falta actualizar el estado local a mano: la suscripción de
+      // Realtime en App.jsx va a traer el sucursal_id nuevo apenas Postgres
+      // confirme el UPDATE.
+    } catch (err) {
+      alert(err.message || 'No se pudo tomar la consulta.');
+    } finally {
+      setTomandoConsulta(false);
+    }
+  };
 
   const executeReturnToQueue = async ({ motivo, motivoTexto }) => {
     if (!activeConversation) return;
@@ -514,6 +537,20 @@ export default function ChatArea({
           {isConversacionCerrada ? (
             <div className="p-4 bg-gray-50 border-t border-gray-200 text-center text-sm text-gray-500">
               Esta consulta está cerrada. No se pueden enviar mensajes desde el Historial.
+            </div>
+          ) : requiereTomarParaResponder ? (
+            <div className="p-4 bg-amber-50 border-t border-amber-200 flex items-center justify-between gap-3">
+              <span className="text-sm text-amber-800">
+                Esta consulta todavía no fue tomada por ninguna sucursal. Tomala para poder responderle al cliente.
+              </span>
+              <button
+                onClick={handleTomarDesdeChat}
+                disabled={tomandoConsulta || !miSucursalId}
+                className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm disabled:opacity-50 shrink-0"
+              >
+                {tomandoConsulta ? <Loader2 size={16} className="animate-spin" /> : <Hand size={16} />}
+                {tomandoConsulta ? 'Tomando...' : 'Tomar esta consulta'}
+              </button>
             </div>
           ) : (
           <div className="p-4 bg-white border-t border-gray-200 relative flex flex-col gap-2">

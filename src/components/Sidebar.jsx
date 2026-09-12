@@ -1,7 +1,9 @@
 import React, { useState, useEffect, memo } from 'react';
-import { Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut, MapPin } from 'lucide-react';
+import { Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut, MapPin, Hand } from 'lucide-react';
 import SettingsModal from './SettingsModal';
 import { formatPhone } from '../lib/formatPhone';
+import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
+import { tomarConsulta } from '../lib/tomarConsulta';
 
 // Formatea milisegundos transcurridos con precisión progresiva: segundos
 // (00s) mientras dure menos de un minuto, minutos:segundos (01:00m) mientras
@@ -57,6 +59,24 @@ const EsperandoBadges = memo(function EsperandoBadges({ since }) {
     </span>
   );
 });
+
+// Marca que la consulta acaba de ser devuelta a la cola general (ver
+// server/services/devolucionCola.js). A la propia sucursal que la devolvió
+// se le muestra en rojo ("Devolviste", para que quede claro que fue ella);
+// al resto se le muestra en naranja ("Devuelta", como aviso de que ya un
+// asesor no pudo resolverla).
+const DevueltaBadge = ({ devueltaPorSucursalId }) => {
+  if (!devueltaPorSucursalId) return null;
+  const soyStaff = !isAdminRole();
+  const miSucursalId = getStaffSucursalId();
+  const fuiYo = soyStaff && miSucursalId === devueltaPorSucursalId;
+
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap ${fuiYo ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+      {fuiYo ? 'Devolviste' : 'Devuelta'}
+    </span>
+  );
+};
 
 // Etiquetas con las 2 sucursales más cercanas a la ubicación que el cliente
 // compartió al pedir un asesor (ver bot.js: manejarUbicacionHumano). Es sólo
@@ -139,6 +159,26 @@ export default function Sidebar({
   staffSucursalNombre
 }) {
   const [showSettings, setShowSettings] = useState(false);
+  const soyStaff = !isAdminRole();
+  const miSucursalId = getStaffSucursalId();
+  const [takingId, setTakingId] = useState(null);
+
+  // Sólo un empleado de sucursal "toma" consultas de la cola general (el
+  // admin ya las ve todas sin necesidad de reclamarlas). Deja la conversación
+  // abierta apenas se reclama, para que el operador pueda responder de una.
+  const handleTomar = async (e, conv) => {
+    e.stopPropagation();
+    if (!miSucursalId || takingId) return;
+    setTakingId(conv.id);
+    try {
+      const tomada = await tomarConsulta(conv.id, miSucursalId);
+      setActiveConversation({ ...conv, ...tomada });
+    } catch (err) {
+      alert(err.message || 'No se pudo tomar la consulta.');
+    } finally {
+      setTakingId(null);
+    }
+  };
 
   // Descarta cualquier entrada malformada (sin id o sin fecha de creación) antes de
   // aplicar cualquier filtro o contador, para no arrastrar filas fantasma a ningún lado.
@@ -318,6 +358,16 @@ export default function Sidebar({
               <div className="text-sm text-gray-600 truncate mb-2">
                 {conv.last_message || <span className="italic text-gray-400">Nueva conversación</span>}
               </div>
+              {showEsperando && soyStaff && miSucursalId && (
+                <button
+                  onClick={(e) => handleTomar(e, conv)}
+                  disabled={takingId === conv.id}
+                  className="w-full flex items-center justify-center gap-1.5 mb-2 py-1.5 rounded-lg text-xs font-semibold bg-teal-600 hover:bg-teal-700 text-white transition-colors disabled:opacity-50"
+                >
+                  {takingId === conv.id ? <Loader2 size={13} className="animate-spin" /> : <Hand size={13} />}
+                  {takingId === conv.id ? 'Tomando...' : 'Tomar'}
+                </button>
+              )}
               {(badge || showEsperando) && (
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-1 flex-wrap">
@@ -328,7 +378,12 @@ export default function Sidebar({
                       <EsperandoBadges since={conv.waiting_since || conv.updated_at} />
                     )}
                   </div>
-                  {showEsperando && <SucursalesRecomendadas sucursales={conv.sucursales_recomendadas} />}
+                  {showEsperando && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <DevueltaBadge devueltaPorSucursalId={conv.devuelta_por_sucursal_id} />
+                      <SucursalesRecomendadas sucursales={conv.sucursales_recomendadas} />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
