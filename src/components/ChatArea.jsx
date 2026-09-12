@@ -246,6 +246,10 @@ export default function ChatArea({
   }
 
   const isConversacionCerrada = activeConversation && ESTADOS_CERRADOS.includes(activeConversation.status);
+  // Ojo: un chat tomado por una sucursal sigue teniendo status 'esperando'
+  // (lo que cambia al tomarlo es sucursal_id, no el status, ver App.jsx). La
+  // cola general sin asignar es específicamente 'esperando' + sin sucursal_id.
+  const estaEnColaGeneral = activeConversation?.status === 'esperando' && !activeConversation?.sucursal_id;
   let remainingMs = null;
   if (activeConversation && !isConversacionCerrada && sessionTimeoutMs != null) {
     const lastActivity = getLastActivityTime(activeConversation, messages);
@@ -406,7 +410,7 @@ export default function ChatArea({
                    {closingChat ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle size={20} />}
                  </button>
                )}
-               {!isConversacionCerrada && activeConversation.status !== 'esperando' && (
+               {!isConversacionCerrada && !estaEnColaGeneral && (
                  <button
                    onClick={() => setIsReturnModalOpen(true)}
                    title="Devolver este chat a la lista de espera general (ej. no hay stock)"
