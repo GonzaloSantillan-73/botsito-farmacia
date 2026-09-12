@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Download, Loader2, Check } from 'lucide-react';
+import { adminFetch } from '../lib/adminAuth';
 
 const toISODate = (date) => date.toISOString().slice(0, 10);
 
@@ -11,7 +12,7 @@ const defaultStartDate = () => {
 };
 
 const downloadFile = async (url, fallbackName) => {
-  const res = await fetch(url);
+  const res = await adminFetch(url);
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));

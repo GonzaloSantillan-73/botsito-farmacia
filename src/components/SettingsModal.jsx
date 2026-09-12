@@ -15,22 +15,28 @@ import AdminCredentialsPanel from './AdminCredentialsPanel';
 import CbuAliasPanel from './CbuAliasPanel';
 
 export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdmin = true }) {
-  // El apartado de Administración (credenciales del admin y sucursales, con
-  // sus credenciales de empleado) es exclusivo del administrador: un
-  // empleado ni siquiera ve la pestaña, para que quede claro que no puede
-  // tocar nada de eso.
+  // "Métricas y Estadísticas", "Exportar Datos" y "Administración" son
+  // exclusivos del administrador (incluyen teléfonos, montos de venta y
+  // credenciales de todo el sistema): un empleado ni siquiera ve esas
+  // pestañas, para que quede claro que no puede tocar ni ver nada de eso.
   const TABS = [
     { id: 'chat', label: 'Ajustes de Chat', icon: Sliders },
-    { id: 'metrics', label: 'Métricas y Estadísticas', icon: BarChart3 },
-    { id: 'export', label: 'Exportar Datos', icon: Download },
-    ...(isAdmin ? [{ id: 'admin', label: 'Administración', icon: UserCog }] : [])
+    ...(isAdmin ? [
+      { id: 'metrics', label: 'Métricas y Estadísticas', icon: BarChart3 },
+      { id: 'export', label: 'Exportar Datos', icon: Download },
+      { id: 'admin', label: 'Administración', icon: UserCog }
+    ] : [])
   ];
 
   const [activeTab, setActiveTab] = useState('chat');
 
+  // La tabla de métricas necesita todo el ancho posible (muchas columnas);
+  // el resto de las pestañas se ve mejor acotado, como antes.
+  const anchoContenido = activeTab === 'metrics' ? 'max-w-none' : 'max-w-2xl mx-auto';
+
   return createPortal(
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-[80%] h-[90%] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+      <div className="bg-white w-full h-full flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
           <div className="flex items-center gap-2 text-gray-800 font-bold text-lg">
@@ -64,7 +70,7 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-2xl mx-auto">
+          <div className={anchoContenido}>
             {activeTab === 'chat' ? (
               <div className="space-y-3">
                 <Accordion title="Tiempo de inactividad para cerrar un chat" icon={Clock} defaultOpen>
@@ -91,9 +97,11 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
                   <NotificationsPanel />
                 </Accordion>
               </div>
-            ) : activeTab === 'export' ? (
+            ) : activeTab === 'metrics' && isAdmin ? (
+              <MetricsPanel />
+            ) : activeTab === 'export' && isAdmin ? (
               <ExportPanel />
-            ) : activeTab === 'admin' ? (
+            ) : activeTab === 'admin' && isAdmin ? (
               <div className="space-y-3">
                 <Accordion title="Administrador" icon={ShieldCheck} defaultOpen>
                   <AdminCredentialsPanel />
@@ -106,9 +114,7 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
                   <CbuAliasPanel />
                 </Accordion>
               </div>
-            ) : (
-              <MetricsPanel />
-            )}
+            ) : null}
           </div>
         </div>
       </div>

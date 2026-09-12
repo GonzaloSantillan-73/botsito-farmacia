@@ -1,0 +1,256 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { ArrowUpDown, ArrowUp, ArrowDown, Download, Loader2, Check, FileText, Filter, X } from 'lucide-react';
+import { adminFetch } from '../lib/adminAuth';
+import { STATUS_BADGES } from './Sidebar';
+
+const formatMoney = (n) => (n == null ? '—' : `$${Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`);
+
+const formatDuracion = (ms) => {
+  if (ms == null || ms < 0) return '—';
+  const totalMin = Math.round(ms / 60000);
+  if (totalMin < 1) return '<1m';
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+};
+
+const downloadFile = async (url, fallbackName) => {
+  const res = await adminFetch(url);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Error generando el archivo.');
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get('Content-Disposition') || '';
+  const match = disposition.match(/filename="([^"]+)"/);
+  const filename = match ? match[1] : fallbackName;
+
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(blobUrl);
+};
+
+// Columnas de la tabla: `key` identifica la columna (y se usa para el
+// ordenamiento), `sortValue` saca el valor comparable de la fila y `render`
+// decide cómo se ve. Todas son ordenables salvo "Comprobante" (es un link).
+const COLUMNS = [
+  { key: 'fecha', label: 'Fecha', sortValue: r => new Date(r.fecha).getTime(), render: r => new Date(r.fecha).toLocaleDateString('es-AR') },
+  { key: 'horaInicio', label: 'Hora Inicio', sortValue: r => new Date(r.fecha).getTime(), render: r => new Date(r.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) },
+  { key: 'cliente', label: 'Cliente', sortValue: r => (r.cliente || '').toLowerCase(), render: r => r.cliente || '—' },
+  { key: 'telefono', label: 'Teléfono', sortValue: r => r.telefono || '', render: r => r.telefono || '—' },
+  { key: 'demoraInicial', label: 'Demora Inicial', sortValue: r => (r.demoraInicialMs ?? Infinity), render: r => formatDuracion(r.demoraInicialMs) },
+  { key: 'duracionTotal', label: 'Duración Total', sortValue: r => (r.duracionTotalMs ?? Infinity), render: r => formatDuracion(r.duracionTotalMs) },
+  { key: 'msjsCliente', label: 'Msjs Cliente', sortValue: r => r.msjsCliente || 0, render: r => r.msjsCliente || 0 },
+  { key: 'sucursal', label: 'Sucursal', sortValue: r => (r.sucursal || '').toLowerCase(), render: r => r.sucursal || '—' },
+  {
+    key: 'status',
+    label: 'Estado del Contacto',
+    sortValue: r => r.status || '',
+    render: r => {
+      const badge = STATUS_BADGES[r.status];
+      return badge ? (
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium whitespace-nowrap ${badge.className}`}>{badge.label}</span>
+      ) : (r.status || '—');
+    }
+  },
+  { key: 'montoTotal', label: 'Monto Total', sortValue: r => (r.montoTotal ?? -1), render: r => formatMoney(r.montoTotal) },
+  { key: 'medioPago', label: 'Medio de Pago', sortValue: r => (r.medioPago || '').toLowerCase(), render: r => r.medioPago || '—' },
+  {
+    key: 'comprobante',
+    label: 'Comprobante',
+    sortable: false,
+    render: r => r.comprobanteUrl ? (
+      <a href={r.comprobanteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-800 hover:underline whitespace-nowrap">
+        <FileText size={13} /> Ver
+      </a>
+    ) : '—'
+  }
+];
+
+export default function MetricsTable() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [appliedRange, setAppliedRange] = useState({ startDate: '', endDate: '' });
+
+  const [sortKey, setSortKey] = useState('fecha');
+  const [sortDir, setSortDir] = useState('desc');
+
+  const [exporting, setExporting] = useState(false);
+  const [exported, setExported] = useState(false);
+  const [exportError, setExportError] = useState('');
+
+  const fetchDetalle = (range) => {
+    setLoading(true);
+    setError('');
+    const params = new URLSearchParams();
+    if (range.startDate) params.set('startDate', range.startDate);
+    if (range.endDate) params.set('endDate', range.endDate);
+
+    adminFetch(`/api/metrics/detalle${params.toString() ? `?${params}` : ''}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) throw new Error(data.error);
+        setRows(data.filas || []);
+      })
+      .catch(err => setError(err.message || 'Error cargando el detalle de consultas.'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { fetchDetalle(appliedRange); }, [appliedRange]);
+
+  const handleFiltrar = () => setAppliedRange({ startDate, endDate });
+  const handleLimpiarFiltro = () => {
+    setStartDate('');
+    setEndDate('');
+    setAppliedRange({ startDate: '', endDate: '' });
+  };
+
+  const handleSort = (col) => {
+    if (col.sortable === false) return;
+    if (sortKey === col.key) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(col.key);
+      setSortDir('asc');
+    }
+  };
+
+  const sortedRows = useMemo(() => {
+    const col = COLUMNS.find(c => c.key === sortKey);
+    if (!col) return rows;
+    const factor = sortDir === 'asc' ? 1 : -1;
+    return [...rows].sort((a, b) => {
+      const va = col.sortValue(a);
+      const vb = col.sortValue(b);
+      if (va < vb) return -1 * factor;
+      if (va > vb) return 1 * factor;
+      return 0;
+    });
+  }, [rows, sortKey, sortDir]);
+
+  const handleExportar = async () => {
+    setExporting(true);
+    setExportError('');
+    setExported(false);
+    try {
+      const params = new URLSearchParams();
+      if (appliedRange.startDate) params.set('startDate', appliedRange.startDate);
+      if (appliedRange.endDate) params.set('endDate', appliedRange.endDate);
+      await downloadFile(`/api/export/metrics${params.toString() ? `?${params}` : ''}`, 'metricas.csv');
+      setExported(true);
+      setTimeout(() => setExported(false), 2500);
+    } catch (err) {
+      setExportError(err.message || 'Error exportando la tabla.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="block text-[11px] text-gray-500 mb-1">Desde</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] text-gray-500 mb-1">Hasta</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+            />
+          </div>
+          <button
+            onClick={handleFiltrar}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-900 text-white rounded-lg text-xs font-medium transition-colors"
+          >
+            <Filter size={13} /> Filtrar
+          </button>
+          {(appliedRange.startDate || appliedRange.endDate) && (
+            <button
+              onClick={handleLimpiarFiltro}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg text-xs font-medium transition-colors"
+            >
+              <X size={13} /> Quitar filtro
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-col items-end gap-1">
+          <button
+            onClick={handleExportar}
+            disabled={exporting || rows.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50"
+          >
+            {exporting ? <Loader2 size={16} className="animate-spin" /> : exported ? <Check size={16} /> : <Download size={16} />}
+            {exporting ? 'Generando...' : exported ? 'Descargado' : 'Exportar CSV'}
+          </button>
+          {exportError && <p className="text-xs text-rose-600">{exportError}</p>}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="text-sm text-gray-400 py-10 text-center">Cargando detalle de consultas...</div>
+      ) : error ? (
+        <div className="text-sm text-rose-600 py-10 text-center">{error}</div>
+      ) : rows.length === 0 ? (
+        <div className="text-sm text-gray-400 py-10 text-center bg-gray-50 rounded-xl border border-gray-100">
+          No hay consultas en el rango elegido.
+        </div>
+      ) : (
+        <div className="overflow-x-auto border border-gray-200 rounded-xl">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                {COLUMNS.map(col => {
+                  const isSorted = sortKey === col.key;
+                  const Icon = !isSorted ? ArrowUpDown : (sortDir === 'asc' ? ArrowUp : ArrowDown);
+                  return (
+                    <th
+                      key={col.key}
+                      onClick={() => handleSort(col)}
+                      className={`px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap select-none ${col.sortable === false ? '' : 'cursor-pointer hover:text-gray-800'}`}
+                    >
+                      <span className="flex items-center gap-1">
+                        {col.label}
+                        {col.sortable !== false && <Icon size={12} className={isSorted ? 'text-teal-600' : 'text-gray-300'} />}
+                      </span>
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {sortedRows.map(row => (
+                <tr key={row.id} className="hover:bg-gray-50">
+                  {COLUMNS.map(col => (
+                    <td key={col.key} className="px-3 py-2.5 whitespace-nowrap text-gray-700">
+                      {col.render(row)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}

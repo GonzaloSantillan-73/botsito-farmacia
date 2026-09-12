@@ -7,6 +7,8 @@ import { devolverConversacionAEspera } from '../services/devolucionCola.js';
 import { TERMINAL_STATUSES } from '../services/sessionManager.js';
 import { getBotSchedule, getHumanSchedule, setBotSchedule, setHumanSchedule } from '../services/scheduleConfig.js';
 import { rowsToCsv, sendCsv } from '../services/csvExport.js';
+import { obtenerDetalleConsultas } from '../services/metricsDetalle.js';
+import { requireAuth, requireAdminRole } from './adminAuth.js';
 
 const router = express.Router();
 
@@ -20,6 +22,10 @@ const parseDateRange = (query) => {
     to: `${endDate}T23:59:59.999Z`
   };
 };
+
+// Exportación y métricas del negocio: sólo el administrador puede verlas o
+// descargarlas (incluyen teléfonos y montos de venta de todos los clientes).
+router.use(['/export/chats', '/export/metrics', '/metrics/negocio', '/metrics/detalle'], requireAuth, requireAdminRole);
 
 // Exporta el historial de mensajes (con datos del cliente y la consulta) en el rango de fechas dado.
 router.get('/export/chats', async (req, res) => {
@@ -60,43 +66,55 @@ router.get('/export/chats', async (req, res) => {
   }
 });
 
-// Exporta las consultas del rango de fechas con su calificación (1-5) y un resumen.
+// Detalle de consultas para la tabla interactiva de "Métricas y Estadísticas"
+// del CRM (ordenable/filtrable en el propio front). startDate/endDate son
+// opcionales acá: sin filtro, trae todo.
+router.get('/metrics/detalle', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const filas = await obtenerDetalleConsultas({ startDate, endDate });
+    res.status(200).json({ filas });
+  } catch (error) {
+    console.error('[API] ❌ Error obteniendo el detalle de consultas:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Exporta a CSV el mismo detalle que se ve en la tabla de "Métricas y
+// Estadísticas" (mismas columnas), más un resumen de calificaciones al final.
 router.get('/export/metrics', async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    const { from, to } = parseDateRange(req.query);
+    const filas = await obtenerDetalleConsultas({ startDate, endDate });
 
-    const { data, error } = await supabase
+    const { data: ratingsData, error: ratingsError } = await supabase
       .from('conversations')
-      .select('created_at, client_name, client_phone, status, rating, product_rating')
-      .gte('created_at', from)
-      .lte('created_at', to)
-      .order('created_at');
+      .select('rating, product_rating')
+      .in('id', filas.map(f => f.id).length ? filas.map(f => f.id) : ['__none__']);
+    if (ratingsError) throw ratingsError;
 
-    if (error) throw error;
-
-    const conversations = data || [];
-    const phones = [...new Set(conversations.map(c => c.client_phone).filter(Boolean))];
-    const { data: clientes } = await supabase.from('clientes').select('client_phone, nombre_completo').in('client_phone', phones);
-    const phoneMap = {};
-    clientes?.forEach(c => { if (c.nombre_completo) phoneMap[c.client_phone] = c.nombre_completo; });
-
-    const calificadasAtencion = conversations.filter(c => c.rating != null);
+    const calificadasAtencion = (ratingsData || []).filter(c => c.rating != null);
     const promedioAtencion = calificadasAtencion.length > 0
       ? (calificadasAtencion.reduce((acc, c) => acc + c.rating, 0) / calificadasAtencion.length).toFixed(2)
       : 'Sin datos';
-    const calificadasProducto = conversations.filter(c => c.product_rating != null);
+    const calificadasProducto = (ratingsData || []).filter(c => c.product_rating != null);
     const promedioProducto = calificadasProducto.length > 0
       ? (calificadasProducto.reduce((acc, c) => acc + c.product_rating, 0) / calificadasProducto.length).toFixed(2)
       : 'Sin datos';
 
     const detailColumns = [
-      { label: 'Fecha de creación', value: r => new Date(r.created_at).toLocaleString('es-AR') },
-      { label: 'Cliente', value: r => phoneMap[r.client_phone] || r.client_name || '' },
-      { label: 'Teléfono', value: r => r.client_phone || '' },
-      { label: 'Estado', value: r => r.status || '' },
-      { label: 'Calificación de atención (1-5)', value: r => (r.rating != null ? r.rating : '') },
-      { label: 'Calificación de producto (1-5)', value: r => (r.product_rating != null ? r.product_rating : '') }
+      { label: 'Fecha', value: r => new Date(r.fecha).toLocaleDateString('es-AR') },
+      { label: 'Hora Inicio', value: r => new Date(r.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) },
+      { label: 'Cliente', value: r => r.cliente },
+      { label: 'Teléfono', value: r => r.telefono },
+      { label: 'Demora Inicial (min)', value: r => (r.demoraInicialMs != null ? Math.round(r.demoraInicialMs / 60000) : '') },
+      { label: 'Duración Total (min)', value: r => (r.duracionTotalMs != null ? Math.round(r.duracionTotalMs / 60000) : '') },
+      { label: 'Msjs Cliente', value: r => r.msjsCliente },
+      { label: 'Sucursal', value: r => r.sucursal },
+      { label: 'Estado del Contacto', value: r => r.status },
+      { label: 'Monto Total', value: r => (r.montoTotal != null ? r.montoTotal : '') },
+      { label: 'Medio de Pago', value: r => r.medioPago },
+      { label: 'Comprobante', value: r => r.comprobanteUrl || '' }
     ];
 
     const summaryColumns = [
@@ -104,16 +122,17 @@ router.get('/export/metrics', async (req, res) => {
       { label: 'Valor', value: r => r.value }
     ];
     const summaryRows = [
-      { label: 'Total de consultas', value: conversations.length },
+      { label: 'Total de consultas', value: filas.length },
       { label: 'Consultas con calificación de atención', value: calificadasAtencion.length },
       { label: 'Promedio de calificación de atención', value: promedioAtencion },
       { label: 'Consultas con calificación de producto', value: calificadasProducto.length },
       { label: 'Promedio de calificación de producto', value: promedioProducto }
     ];
 
-    const csv = rowsToCsv(detailColumns, conversations) + '\r\n\r\n' + rowsToCsv(summaryColumns, summaryRows);
-    console.log(`[API] -> Exportando métricas (${conversations.length} consultas, ${startDate} a ${endDate}).`);
-    sendCsv(res, `metricas_${startDate}_a_${endDate}.csv`, csv);
+    const csv = rowsToCsv(detailColumns, filas) + '\r\n\r\n' + rowsToCsv(summaryColumns, summaryRows);
+    const sufijoNombre = startDate && endDate ? `_${startDate}_a_${endDate}` : '';
+    console.log(`[API] -> Exportando métricas (${filas.length} consultas${startDate && endDate ? `, ${startDate} a ${endDate}` : ', sin filtro de fecha'}).`);
+    sendCsv(res, `metricas${sufijoNombre}.csv`, csv);
   } catch (error) {
     console.error('[API] ❌ Error exportando métricas:', error.message);
     res.status(400).json({ error: error.message });

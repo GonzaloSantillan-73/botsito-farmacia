@@ -35,11 +35,21 @@ const ENTREGA_BADGES = {
 };
 const BADGE_VACIO = { label: 'Sin iniciar', className: 'bg-gray-100 text-gray-500' };
 
+// Se guarda en conversations.payment_method al confirmar el pago, para que
+// la tabla de "Métricas y Estadísticas" (y su export a CSV) sepan con qué
+// medio pagó cada cliente.
+const MEDIOS_PAGO = ['Efectivo', 'Transferencia', 'Tarjeta', 'Mercado Pago', 'Otro'];
+
 export default function OrderStatusPanel({ activeConversation, handleSendMessage }) {
   const [plantillas, setPlantillas] = useState({});
   const [updatingKey, setUpdatingKey] = useState(null);
   const [cbuAlias, setCbuAlias] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const [medioPago, setMedioPago] = useState(activeConversation?.payment_method || '');
+
+  useEffect(() => {
+    setMedioPago(activeConversation?.payment_method || '');
+  }, [activeConversation?.id]);
 
   useEffect(() => {
     supabase
@@ -78,8 +88,12 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
   };
 
   const handlePaso = async (paso) => {
+    if (paso.key === 'pagook' && !medioPago) return;
+
     setUpdatingKey(paso.key);
-    await supabase.from('conversations').update({ [paso.campo]: paso.valor }).eq('id', activeConversation.id);
+    const updates = { [paso.campo]: paso.valor };
+    if (paso.key === 'pagook') updates.payment_method = medioPago;
+    await supabase.from('conversations').update(updates).eq('id', activeConversation.id);
     handleSendMessage?.(textoDe(paso.shortcut));
     setUpdatingKey(null);
   };
@@ -115,15 +129,31 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
             <span className={`px-2 py-1 rounded-full font-medium ${entregaBadge.className}`}>Entrega: {entregaBadge.label}</span>
           </div>
 
+          {activeConversation.payment_status !== 'confirmado' && (
+            <div className="mb-3">
+              <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Medio de pago</label>
+              <select
+                value={medioPago}
+                onChange={(e) => setMedioPago(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none bg-white"
+              >
+                <option value="">Elegí un medio de pago...</option>
+                {MEDIOS_PAGO.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
             {PASOS.map(paso => {
               const Icon = paso.icon;
               const activo = activeConversation[paso.campo] === paso.valor;
+              const bloqueadoSinMedioPago = paso.key === 'pagook' && !medioPago && !activo;
               return (
                 <button
                   key={paso.key}
                   onClick={() => handlePaso(paso)}
-                  disabled={updatingKey === paso.key}
+                  disabled={updatingKey === paso.key || bloqueadoSinMedioPago}
+                  title={bloqueadoSinMedioPago ? 'Elegí primero el medio de pago' : undefined}
                   className={`flex items-center gap-1.5 justify-center p-2.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-50 ${
                     activo ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                   }`}
@@ -133,6 +163,10 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
               );
             })}
           </div>
+
+          {activeConversation.payment_method && (
+            <p className="text-[11px] text-gray-500 mt-2">Medio de pago registrado: <span className="font-medium text-gray-700">{activeConversation.payment_method}</span></p>
+          )}
 
           <button
             onClick={handleDemora}

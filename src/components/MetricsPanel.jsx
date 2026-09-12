@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Star, ShoppingCart, Bot, Headset, ShieldCheck, ShieldAlert, TrendingUp, CheckCircle2, XCircle, MessageSquare, Package, Store } from 'lucide-react';
-import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
+import { isAdminRole, getStaffSucursalId, adminFetch } from '../lib/adminAuth';
+import MetricsTable from './MetricsTable';
 
 const formatMoney = (n) => `$${(Number(n) || 0).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
 
@@ -81,7 +82,7 @@ export default function MetricsPanel() {
   const miSucursalId = getStaffSucursalId();
 
   useEffect(() => {
-    fetch('/api/metrics/negocio')
+    adminFetch('/api/metrics/negocio')
       .then(r => r.json())
       .then(negocioData => {
         if (negocioData.error) throw new Error(negocioData.error);
@@ -112,6 +113,13 @@ export default function MetricsPanel() {
 
   return (
     <div>
+      <Seccion
+        title="Detalle de consultas"
+        description="Una fila por consulta, con teléfono, tiempos de atención y datos del pago. Hacé clic en una columna para ordenar, filtrá por fecha y exportá todo a CSV."
+      >
+        <MetricsTable />
+      </Seccion>
+
       <Seccion
         title="Conversión de ventas"
         description='Resultado que el vendedor marca a mano en el chat: "Venta Concretada", "Venta No Concretada" u "Otra razón".'
