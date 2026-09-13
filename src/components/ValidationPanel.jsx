@@ -163,7 +163,11 @@ export default function ValidationPanel({
   const handleSendQuote = async () => {
     if (quoteItems.length === 0) return;
 
-    let message = `📋 *Cotización de Receta*\n\n`;
+    let message = `📋 *Cotización de Receta*\n`;
+    message += envioGratis
+      ? `🎉 *¡Envío gratis!* (supera los $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')})\n\n`
+      : `*Envío gratis* a partir de $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')} (faltan $${(FREE_SHIPPING_THRESHOLD - totalItems).toFixed(2)})\n\n`;
+
     const itemsParaGuardar = [];
     quoteItems.forEach(item => {
       const itemDiscount = item.price * item.quantity * (item.discount / 100);
@@ -193,9 +197,6 @@ export default function ValidationPanel({
       message += `🛵 *Costo de envío:* $${finalShippingCost.toFixed(2)}\n`;
     }
     message += `💲 *Total a Pagar:* $${total.toFixed(2)}\n`;
-    message += envioGratis
-      ? `🎉 *¡Envío gratis!* (supera los $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')})\n`
-      : `🚚 *Envío gratis* a partir de $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')} (faltan $${(FREE_SHIPPING_THRESHOLD - totalItems).toFixed(2)})\n`;
 
     if (handleSendMessage) {
       handleSendMessage(message);
