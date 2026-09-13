@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator, Trash2, Plus, Send, ChevronDown, ChevronUp, Truck, UserCircle, IdCard, HeartPulse, Pencil, Save, X, Loader2, CalendarClock } from 'lucide-react';
+import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator, Trash2, Plus, Send, ChevronDown, ChevronUp, Truck, UserCircle, IdCard, HeartPulse, Pencil, Save, X, Loader2, CalendarClock, Eraser } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { adminFetch } from '../lib/adminAuth';
 import { formatPhone } from '../lib/formatPhone';
@@ -151,6 +151,20 @@ export default function ValidationPanel({
     setQuoteItems(quoteItems.map(item =>
       item.id === id ? { ...item, quantity: Math.max(1, parseInt(quantity) || 1) } : item
     ));
+  };
+
+  // El cotizador NO se vacía solo al enviar (ver handleSendQuote): así el
+  // operador puede seguir sumando o corrigiendo ítems del mismo pedido sin
+  // rearmar el carrito de cero. Este botón es la forma explícita de arrancar
+  // de nuevo cuando ya se terminó por completo con ese cliente.
+  const handleLimpiarCotizacion = () => {
+    if (quoteItems.length > 0 && !window.confirm('¿Vaciar el cotizador? Se van a borrar los productos cargados.')) return;
+    setQuoteItems([]);
+    setShippingCost('');
+    setNewItemName('');
+    setNewItemPrice('');
+    setNewItemQuantity('1');
+    setNewItemDiscount('0');
   };
 
   const subtotal = quoteItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
@@ -622,13 +636,22 @@ export default function ValidationPanel({
                       }
                     </div>
 
-                    <button
-                      onClick={handleSendQuote}
-                      className="w-full mt-3 flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white p-2 rounded-lg font-medium transition-colors shadow-sm"
-                    >
-                      <Send size={16} />
-                      Enviar Cotización al Chat
-                    </button>
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={handleSendQuote}
+                        className="flex-1 flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white p-2 rounded-lg font-medium transition-colors shadow-sm"
+                      >
+                        <Send size={16} />
+                        Enviar Cotización al Chat
+                      </button>
+                      <button
+                        onClick={handleLimpiarCotizacion}
+                        title="Limpiar / Nuevo presupuesto"
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors"
+                      >
+                        <Eraser size={16} />
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
