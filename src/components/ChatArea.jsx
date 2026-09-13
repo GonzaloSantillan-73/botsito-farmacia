@@ -3,7 +3,7 @@ import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileTe
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
-import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
+import { isAdminRole, getStaffSucursalId, adminFetch } from '../lib/adminAuth';
 import { tomarConsulta } from '../lib/tomarConsulta';
 import HistoryPanel from './HistoryPanel';
 import OrderHistoryPanel from './OrderHistoryPanel';
@@ -295,7 +295,7 @@ export default function ChatArea({
 
     setClosingChat(true);
     try {
-      const res = await fetch(`/api/conversations/${activeConversation.id}/close`, { method: 'POST' });
+      const res = await adminFetch(`/api/conversations/${activeConversation.id}/close`, { method: 'POST' });
       if (!res.ok) throw new Error('No se pudo finalizar la consulta.');
     } catch (err) {
       console.error('Error finalizando la consulta:', err);
@@ -327,9 +327,8 @@ export default function ChatArea({
   const executeReturnToQueue = async ({ motivo, motivoTexto }) => {
     if (!activeConversation) return;
 
-    const res = await fetch(`/api/conversations/${activeConversation.id}/return-to-queue`, {
+    const res = await adminFetch(`/api/conversations/${activeConversation.id}/return-to-queue`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ motivo, motivoTexto })
     });
     const data = await res.json();
@@ -423,7 +422,7 @@ export default function ChatArea({
                >
                  <MessagesSquare size={20} />
                </button>
-               {!isConversacionCerrada && (
+               {!isConversacionCerrada && !soyAdmin && (
                  <button
                    onClick={() => setIsCloseModalOpen(true)}
                    disabled={closingChat}
@@ -433,7 +432,7 @@ export default function ChatArea({
                    {closingChat ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle size={20} />}
                  </button>
                )}
-               {!isConversacionCerrada && !estaEnColaGeneral && (
+               {!isConversacionCerrada && !estaEnColaGeneral && !soyAdmin && (
                  <button
                    onClick={() => setIsReturnModalOpen(true)}
                    title="Devolver este chat a la lista de espera general (ej. no hay stock)"
@@ -537,6 +536,10 @@ export default function ChatArea({
           {isConversacionCerrada ? (
             <div className="p-4 bg-gray-50 border-t border-gray-200 text-center text-sm text-gray-500">
               Esta consulta está cerrada. No se pueden enviar mensajes desde el Historial.
+            </div>
+          ) : soyAdmin ? (
+            <div className="p-4 bg-gray-50 border-t border-gray-200 text-center text-sm text-gray-500">
+              Modo supervisión: estás viendo este chat como espectador. El administrador no puede enviar mensajes ni intervenir en la atención.
             </div>
           ) : requiereTomarParaResponder ? (
             <div className="p-4 bg-amber-50 border-t border-amber-200 flex items-center justify-between gap-3">

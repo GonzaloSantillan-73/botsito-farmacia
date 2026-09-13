@@ -286,7 +286,11 @@ export default function ValidationPanel({
   return (
     <div className="w-1/4 bg-white border-l border-gray-200 flex flex-col shadow-sm z-10 overflow-hidden">
       <div className="flex-1 overflow-y-auto scrollbar-hide">
-        {activePrescription && activePrescription.status === 'pending' ? (
+        {/* La validación de receta dispara un mensaje automático al cliente
+            (aprobada/rechazada) por /api/messages/send, bloqueado para el
+            admin en el backend: por eso queda fuera de su vista, igual que
+            el resto de las acciones operativas de atención. */}
+        {!isAdmin && activePrescription && activePrescription.status === 'pending' ? (
           <div className="p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2 flex items-center gap-2">
                <span className="w-2 h-6 bg-amber-400 rounded-full inline-block"></span>
@@ -537,8 +541,9 @@ export default function ValidationPanel({
           </div>
         )}
 
-        {/* Cotizador / Preparación (oculto en conversaciones cerradas/Historial) */}
-        {activeConversation && !ESTADOS_CERRADOS.includes(activeConversation.status) && (
+        {/* Cotizador / Preparación (oculto en conversaciones cerradas/Historial,
+            y por completo para el admin: rol de solo supervisión, no cotiza). */}
+        {!isAdmin && activeConversation && !ESTADOS_CERRADOS.includes(activeConversation.status) && (
           <div className="p-6 border-t border-gray-200 bg-[#f8f9fa]">
             <button 
               onClick={() => setIsQuoteOpen(!isQuoteOpen)}
@@ -722,8 +727,11 @@ export default function ValidationPanel({
 
         {/* Estado del Pedido: seguimiento manual de pago/entrega que lleva el
             vendedor sobre lo cotizado a mano (oculto en conversaciones
-            cerradas/Historial, igual que el Cotizador). */}
-        <OrderStatusPanel activeConversation={activeConversation} handleSendMessage={handleSendMessage} onPaymentConfirmed={handlePagoConfirmado} />
+            cerradas/Historial, igual que el Cotizador; y por completo para
+            el admin, que no controla pagos ni envíos). */}
+        {!isAdmin && (
+          <OrderStatusPanel activeConversation={activeConversation} handleSendMessage={handleSendMessage} onPaymentConfirmed={handlePagoConfirmado} />
+        )}
 
         {/* Observaciones del cliente: notas internas del operador + su ficha
             de datos (nombre/DNI/obra social) cargada por el bot. Persiste

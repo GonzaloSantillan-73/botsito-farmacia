@@ -9,7 +9,7 @@ import { TERMINAL_STATUSES } from '../services/sessionManager.js';
 import { getBotSchedule, getHumanSchedule, setBotSchedule, setHumanSchedule } from '../services/scheduleConfig.js';
 import { rowsToCsv, sendCsv } from '../services/csvExport.js';
 import { obtenerDetalleConsultas } from '../services/metricsDetalle.js';
-import { requireAuth, requireAdminRole } from './adminAuth.js';
+import { requireAuth, requireAdminRole, blockAdminRole } from './adminAuth.js';
 
 const router = express.Router();
 
@@ -323,7 +323,7 @@ router.put('/welcome-message', async (req, res) => {
 
 // Cierre manual de una consulta desde el CRM: mismo cierre + encuesta que el
 // checker automático por inactividad, pero disparado por el operador.
-router.post('/conversations/:id/close', async (req, res) => {
+router.post('/conversations/:id/close', requireAuth, blockAdminRole, async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -349,7 +349,7 @@ router.post('/conversations/:id/close', async (req, res) => {
 // Un operador no puede seguir atendiendo (ej. sin stock) y devuelve el chat a
 // la cola general de "En espera": recalcula las sucursales recomendadas
 // excluyendo a la que lo devuelve y avisa al cliente por WhatsApp.
-router.post('/conversations/:id/return-to-queue', async (req, res) => {
+router.post('/conversations/:id/return-to-queue', requireAuth, blockAdminRole, async (req, res) => {
   const { id } = req.params;
   const { motivo, motivoTexto } = req.body;
 
@@ -373,7 +373,7 @@ router.post('/conversations/:id/return-to-queue', async (req, res) => {
 // Un empleado de sucursal reclama una conversación de la cola general: la
 // asigna a su sucursal y le avisa al cliente por WhatsApp qué sucursal lo va
 // a atender y dónde queda (ver tomaConsulta.js).
-router.post('/conversations/:id/take', async (req, res) => {
+router.post('/conversations/:id/take', requireAuth, blockAdminRole, async (req, res) => {
   const { id } = req.params;
   const { sucursalId } = req.body;
 
@@ -411,7 +411,7 @@ router.put('/session-config', async (req, res) => {
   }
 });
 
-router.post('/messages/send', async (req, res) => {
+router.post('/messages/send', requireAuth, blockAdminRole, async (req, res) => {
   console.log(`\n======================================================`);
   console.log(`[API - POST /messages/send] ==> INICIO DE ENVÍO DE MENSAJE (OUTBOUND)`);
   console.log(`[API - POST /messages/send] ==> Body recibido:`, JSON.stringify(req.body, null, 2));

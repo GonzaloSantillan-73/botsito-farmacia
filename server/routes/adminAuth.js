@@ -58,6 +58,17 @@ export const requireAdminRole = (req, res, next) => {
   next();
 };
 
+// El administrador es un rol de solo supervisión: ve todos los chats de
+// todas las sucursales en tiempo real pero no opera el flujo de atención.
+// Protege mensajería, cotizador y toma/cierre/devolución de chats (el staff
+// de sucursal es el único que puede ejecutar estas acciones).
+export const blockAdminRole = (req, res, next) => {
+  if (req.admin?.role === 'admin') {
+    return res.status(403).json({ error: 'El administrador tiene acceso de solo supervisión y no puede operar el flujo de atención al chat.' });
+  }
+  next();
+};
+
 router.put('/update-credentials', requireAuth, requireAdminRole, async (req, res) => {
   const { currentPassword, newUsername, newPassword } = req.body;
 

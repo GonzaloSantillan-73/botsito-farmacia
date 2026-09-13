@@ -137,10 +137,14 @@ const esDerivado = (conv) => conv.sucursal_id != null && !ESTADOS_HISTORIAL.incl
 // (antes se mostraba en las dos pestañas a la vez).
 const necesitaHumano = (conv) => conv.status === 'esperando' && !esDerivado(conv);
 
-const TABS = [
+// Para el admin (rol de solo supervisión), "Mis chats" pasa a llamarse
+// "Global": ahí ve, como espectador, todos los chats ya tomados por
+// cualquier sucursal (el propio fetch de App.jsx no le filtra por
+// sucursal_id, así que el contenido ya es global sin más cambios).
+const TABS = (isAdmin) => [
   { id: 'entrantes', label: 'BOT', icon: Bot },
   { id: 'atendiendo', label: 'En espera', icon: Clock },
-  { id: 'derivados', label: 'Mis chats', icon: MessageSquare }
+  { id: 'derivados', label: isAdmin ? 'Global' : 'Mis chats', icon: MessageSquare }
 ];
 
 export default function Sidebar({
@@ -289,7 +293,7 @@ export default function Sidebar({
           >
             <div className="flex items-center gap-1 text-teal-600 mb-1">
               <MessageSquare size={14} />
-              <span className="text-[10px] font-bold uppercase tracking-wide truncate">Mis chats</span>
+              <span className="text-[10px] font-bold uppercase tracking-wide truncate">{isAdmin ? 'Global' : 'Mis chats'}</span>
             </div>
             <span className="text-xl font-bold text-gray-900">{misChatsCount}</span>
           </button>
@@ -297,7 +301,7 @@ export default function Sidebar({
 
         {/* Pestañas de filtrado */}
         <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
-          {TABS.map(tab => {
+          {TABS(isAdmin).map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             const count = tabCounts[tab.id];

@@ -10,7 +10,7 @@ import ValidationPanel from './components/ValidationPanel';
 import ImageModal from './components/ImageModal';
 import ClientDirectory from './components/ClientDirectory';
 import LoginModal from './components/LoginModal';
-import { getAdminToken, clearAdminSession, isAdminRole, getStaffSucursalId, getStaffSucursalNombre } from './lib/adminAuth';
+import { getAdminToken, clearAdminSession, isAdminRole, getStaffSucursalId, getStaffSucursalNombre, adminFetch } from './lib/adminAuth';
 
 function App() {
   const [adminToken, setAdminToken] = useState(() => getAdminToken());
@@ -438,9 +438,8 @@ function App() {
       // guardar el wamid/estado de la entrega). Le pasamos el mismo id del mensaje
       // optimista para que, cuando llegue por Realtime, el dedup por id lo reconozca
       // como la misma fila en vez de duplicarla.
-      const res = await fetch('/api/messages/send', {
+      const res = await adminFetch('/api/messages/send', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: messageId,
           conversation_id: activeConversation.id,
@@ -532,9 +531,8 @@ function App() {
 
        // El backend inserta la fila real en 'messages' (así el wamid/estado se guarda ahí también,
        // sin duplicar la fila que antes insertábamos acá).
-       fetch('/api/messages/send', {
+       adminFetch('/api/messages/send', {
          method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({
            conversation_id: activeConversation.id,
            message_text: botMessage,
