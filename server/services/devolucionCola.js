@@ -2,12 +2,17 @@ import { supabase } from '../supabase.js';
 import { enviarMensajeBot } from './bot.js';
 import { sucursalesMasCercanas } from './geolocalizacion.js';
 
-const mensajeDevolucion = (motivo, motivoTexto) => {
+const mensajeDevolucion = (motivo, motivoTexto, sucursal) => {
   const razon = motivo === 'stock'
     ? 'no contamos con stock disponible para tu pedido en esta sucursal'
     : (motivoTexto?.trim() || 'no pudimos continuar la atención en esta sucursal');
 
-  return `Tu consulta fue retomada por la cola de espera: ${razon}.\n\nEn breve otro asesor se va a poner en contacto contigo. Perdón por la demora. 🙏`;
+  const ubicacion = sucursal?.direccion ? ` (${sucursal.direccion})` : '';
+  const origen = sucursal?.nombre
+    ? `La sucursal *${sucursal.nombre}*${ubicacion} te devolvió a la cola de espera: ${razon}.`
+    : `Tu consulta fue retomada por la cola de espera: ${razon}.`;
+
+  return `${origen}\n\nEn breve otro asesor se va a poner en contacto contigo. Perdón por la demora. 🙏`;
 };
 
 // Un operador que no puede seguir atendiendo (ej. sin stock) devuelve el chat
@@ -25,6 +30,18 @@ export const devolverConversacionAEspera = async (conversationId, { motivo, moti
   if (fetchError || !conv) throw new Error('Conversación no encontrada.');
 
   const sucursalQueDevuelve = conv.sucursal_id;
+
+  // Se usa tanto para el mensaje ("qué sucursal te devolvió y dónde queda")
+  // como para excluirla del recálculo de recomendadas más abajo.
+  let sucursalInfo = null;
+  if (sucursalQueDevuelve) {
+    const { data } = await supabase
+      .from('sucursales')
+      .select('nombre, direccion')
+      .eq('id', sucursalQueDevuelve)
+      .maybeSingle();
+    sucursalInfo = data;
+  }
 
   // Sólo tiene sentido recalcular si en su momento se guardó la ubicación del
   // cliente (ver bot.js: manejarUbicacionHumano). Si no la tenía, simplemente
@@ -64,7 +81,7 @@ export const devolverConversacionAEspera = async (conversationId, { motivo, moti
   if (updateError) throw updateError;
 
   if (conv.client_phone) {
-    await enviarMensajeBot(conversationId, conv.client_phone, mensajeDevolucion(motivo, motivoTexto));
+    await enviarMensajeBot(conversationId, conv.client_phone, mensajeDevolucion(motivo, motivoTexto, sucursalInfo));
   }
 
   return { sucursalesRecomendadas };

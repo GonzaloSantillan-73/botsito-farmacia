@@ -4,6 +4,7 @@ import { sendWhatsAppMessage } from '../services/whatsapp.js';
 import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getBotKeyword, setBotKeyword, getWelcomeMessage, setWelcomeMessage } from '../services/appConfig.js';
 import { finalizarConversacion } from '../services/ratingSurvey.js';
 import { devolverConversacionAEspera } from '../services/devolucionCola.js';
+import { tomarConsulta } from '../services/tomaConsulta.js';
 import { TERMINAL_STATUSES } from '../services/sessionManager.js';
 import { getBotSchedule, getHumanSchedule, setBotSchedule, setHumanSchedule } from '../services/scheduleConfig.js';
 import { rowsToCsv, sendCsv } from '../services/csvExport.js';
@@ -366,6 +367,27 @@ router.post('/conversations/:id/return-to-queue', async (req, res) => {
   } catch (error) {
     console.error('[API] ❌ Error devolviendo la conversación a la cola:', error.message);
     res.status(400).json({ error: error.message || 'No se pudo devolver el chat a la cola de espera.' });
+  }
+});
+
+// Un empleado de sucursal reclama una conversación de la cola general: la
+// asigna a su sucursal y le avisa al cliente por WhatsApp qué sucursal lo va
+// a atender y dónde queda (ver tomaConsulta.js).
+router.post('/conversations/:id/take', async (req, res) => {
+  const { id } = req.params;
+  const { sucursalId } = req.body;
+
+  if (!sucursalId) {
+    return res.status(400).json({ error: 'Falta indicar la sucursal que toma la consulta.' });
+  }
+
+  try {
+    const conversation = await tomarConsulta(id, sucursalId);
+    console.log(`[API] -> Consulta ${id} tomada por la sucursal ${sucursalId}.`);
+    res.status(200).json({ success: true, conversation });
+  } catch (error) {
+    console.error('[API] ❌ Error tomando la consulta:', error.message);
+    res.status(400).json({ error: error.message || 'No se pudo tomar la consulta.' });
   }
 });
 
