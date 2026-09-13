@@ -356,8 +356,7 @@ export default function Sidebar({
             const esperando = conv.status === 'esperando';
             const isDerivadoTab = activeTab === 'derivados';
             const showEsperando = esperando && !isDerivadoTab;
-            const visualStatus = (esperando && isDerivadoTab) ? 'open' : conv.status;
-            const badge = showEsperando ? null : STATUS_BADGES[visualStatus];
+            const noLeidos = conv.unreadCount || 0;
             return (
             <div
               key={conv.id}
@@ -369,11 +368,18 @@ export default function Sidebar({
                    {conv.real_name || conv.client_name || formatPhone(conv.client_phone)}
                    {(conv.real_name || conv.client_name) && <span className="text-xs font-normal text-gray-400 ml-1">({formatPhone(conv.client_phone)})</span>}
                 </h3>
-                <span className="text-xs text-gray-500 whitespace-nowrap">
-                  {activeTab === 'derivados'
-                    ? new Date(conv.updated_at).toLocaleString([], { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
-                    : new Date(conv.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <span className="text-xs text-gray-500 whitespace-nowrap">
+                    {activeTab === 'derivados'
+                      ? new Date(conv.updated_at).toLocaleString([], { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+                      : new Date(conv.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  {noLeidos > 0 && (
+                    <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-emerald-500 text-white text-[10px] font-bold leading-none">
+                      {noLeidos > 99 ? '99+' : noLeidos}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="text-sm text-gray-600 truncate mb-2">
                 {conv.last_message || <span className="italic text-gray-400">Nueva conversación</span>}
@@ -388,22 +394,15 @@ export default function Sidebar({
                   {takingId === conv.id ? 'Tomando...' : 'Tomar'}
                 </button>
               )}
-              {(badge || showEsperando) && (
+              {showEsperando && (
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-1 flex-wrap">
-                    {badge && (
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${badge.className}`}>{badge.label}</span>
-                    )}
-                    {showEsperando && (
-                      <EsperandoBadges since={conv.waiting_since || conv.updated_at} />
-                    )}
+                    <EsperandoBadges since={conv.waiting_since || conv.updated_at} />
                   </div>
-                  {showEsperando && (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <DevueltaBadge devueltaPorSucursalId={conv.devuelta_por_sucursal_id} />
-                      <SucursalesRecomendadas sucursales={conv.sucursales_recomendadas} />
-                    </div>
-                  )}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <DevueltaBadge devueltaPorSucursalId={conv.devuelta_por_sucursal_id} />
+                    <SucursalesRecomendadas sucursales={conv.sucursales_recomendadas} />
+                  </div>
                 </div>
               )}
             </div>

@@ -4,7 +4,7 @@ import { notifyNewEvent } from './lib/notifications';
 import { withClientNames } from './lib/clientUtils';
 
 // Components
-import Sidebar from './components/Sidebar';
+import Sidebar, { ESTADOS_HISTORIAL } from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import ValidationPanel from './components/ValidationPanel';
 import ImageModal from './components/ImageModal';
@@ -125,12 +125,22 @@ function App() {
                 return [...prev, payload.new];
               });
               scrollToBottom();
+              // Ya la está viendo: un mensaje entrante acá no debe sumar al
+              // contador de no leídos (por eso este branch no lo toca).
             } else if (payload.eventType === 'UPDATE') {
               // Actualiza el estado del mensaje (enviado/entregado/leído/error) que
               // llega vía el webhook de "statuses" de Meta, para que los checks del
               // chat cambien en vivo sin recargar la página.
               setMessages(prev => prev.map(m => (m.id === payload.new.id ? payload.new : m)));
             }
+          } else if (payload.eventType === 'INSERT' && payload.new?.sender_type === 'client') {
+            // Mensaje entrante de una conversación que el operador no tiene
+            // abierta ahora mismo: recontamos desde la base (no sumamos "+1"
+            // a mano) para no arriesgarnos a duplicar el conteo si esta
+            // conversación se acaba de crear y su evento de alta todavía no
+            // se procesó.
+            const conv = conversationsRef.current.find(c => c.id === payload.new.conversation_id);
+            recontarNoLeidos(payload.new.conversation_id, conv?.last_read_at);
           }
         }
       )
@@ -171,9 +181,13 @@ function App() {
 
             setConversations(prev => {
               const exists = prev.some(c => c.id === payload.new.id);
+              // unreadCount es un campo calculado en el cliente (no existe en la
+              // fila real): si no lo preservamos acá, cada UPDATE de la conversación
+              // (cambia last_message, sucursal_id, lo que sea) lo pisaría con
+              // "undefined" al reemplazar la fila entera por payload.new.
               const next = exists
-                ? prev.map(c => c.id === payload.new.id ? { ...payload.new, real_name: c.real_name } : c)
-                : [payload.new, ...prev];
+                ? prev.map(c => c.id === payload.new.id ? { ...payload.new, real_name: c.real_name, unreadCount: c.unreadCount } : c)
+                : [{ ...payload.new, unreadCount: 0 }, ...prev];
               return next.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
             });
 
@@ -209,8 +223,10 @@ function App() {
             setConversations(prev => {
               // Evita duplicar si ese id ya está en la lista (ej. un evento repetido).
               if (prev.some(c => c.id === payload.new.id)) return prev;
-              return [payload.new, ...prev].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+              return [{ ...payload.new, unreadCount: 0 }, ...prev].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
             });
+            // Cuenta real (normalmente 1: el mensaje que arrancó esta consulta nueva).
+            recontarNoLeidos(payload.new.id, payload.new.last_read_at);
 
             // Fetch real_name asynchronously and update both conversations list and notifications
             supabase.from('clientes').select('nombre_completo').eq('client_phone', payload.new.client_phone).maybeSingle()
@@ -264,6 +280,7 @@ function App() {
     setShowClientDirectory(false);
     setHistoryReturnPhone(null);
     setActiveConversation(conv);
+    marcarComoLeida(conv);
   };
 
   // Igual que handleSelectConversation, pero recordando de qué cliente venía
@@ -272,6 +289,7 @@ function App() {
     setHistoryReturnPhone(conv.client_phone);
     setShowClientDirectory(false);
     setActiveConversation(conv);
+    marcarComoLeida(conv);
   };
 
   // Volver desde el chat a la ficha del cliente en el Directorio (en vez de
@@ -301,9 +319,64 @@ function App() {
 
     if (!error && data) {
       const enhanced = await withClientNames(data);
-      setConversations(enhanced);
+      const conUnread = await withUnreadCounts(enhanced);
+      setConversations(conUnread);
     }
     setLoading(false);
+  };
+
+  // Cuenta, para cada conversación todavía activa (las cerradas no se
+  // muestran en ninguna bandeja, así que no vale la pena consultarlas acá),
+  // cuántos mensajes del cliente llegaron después de last_read_at. Se hace
+  // en un solo query bulk (no uno por conversación) para no golpear Supabase
+  // con N+1 consultas.
+  const withUnreadCounts = async (convs) => {
+    const activas = convs.filter(c => !ESTADOS_HISTORIAL.includes(c.status));
+    if (activas.length === 0) return convs.map(c => ({ ...c, unreadCount: 0 }));
+
+    const { data: clientMsgs } = await supabase
+      .from('messages')
+      .select('conversation_id, created_at')
+      .eq('sender_type', 'client')
+      .in('conversation_id', activas.map(c => c.id));
+
+    const lastReadMap = {};
+    activas.forEach(c => { lastReadMap[c.id] = c.last_read_at ? new Date(c.last_read_at).getTime() : 0; });
+
+    const unreadMap = {};
+    (clientMsgs || []).forEach(m => {
+      if (new Date(m.created_at).getTime() > (lastReadMap[m.conversation_id] || 0)) {
+        unreadMap[m.conversation_id] = (unreadMap[m.conversation_id] || 0) + 1;
+      }
+    });
+
+    return convs.map(c => ({ ...c, unreadCount: unreadMap[c.id] || 0 }));
+  };
+
+  // Cuenta real (no una suma manual) de mensajes de cliente sin leer para UNA
+  // conversación puntual: la usan los eventos de Realtime de abajo para no
+  // arriesgarse a duplicar el conteo si el alta de la conversación y su
+  // primer mensaje llegan casi al mismo tiempo.
+  const recontarNoLeidos = async (conversationId, lastReadAt) => {
+    const { count } = await supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('conversation_id', conversationId)
+      .eq('sender_type', 'client')
+      .gt('created_at', lastReadAt || '1970-01-01T00:00:00.000Z');
+
+    setConversations(prev => prev.map(c => c.id === conversationId ? { ...c, unreadCount: count || 0 } : c));
+  };
+
+  // Marca una conversación como leída: la limpia al toque en pantalla (sin
+  // esperar la vuelta de Supabase) y persiste el momento en la base para que
+  // sobreviva a un refresh de página.
+  const marcarComoLeida = (conv) => {
+    if (!conv?.id || !conv.unreadCount) return;
+    const ahora = new Date().toISOString();
+    setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unreadCount: 0, last_read_at: ahora } : c));
+    supabase.from('conversations').update({ last_read_at: ahora }).eq('id', conv.id)
+      .then(({ error }) => { if (error) console.error('Error marcando la consulta como leída:', error); });
   };
 
   const fetchMessages = async (convId) => {
@@ -384,7 +457,11 @@ function App() {
 
       const updates = {
         updated_at: new Date().toISOString(),
-        last_message: previewText
+        last_message: previewText,
+        // Responder implica haber visto todo lo anterior: sin esto, si la
+        // conversación queda abierta un buen rato, un refresh de página
+        // contaría como "no leídos" mensajes que el operador ya vio y contestó.
+        last_read_at: new Date().toISOString()
       };
       // La asignación a una sucursal ya no es implícita al primer mensaje: el
       // empleado tiene que tocar "Tomar" (Sidebar/ChatArea, ver src/lib/tomarConsulta.js)
