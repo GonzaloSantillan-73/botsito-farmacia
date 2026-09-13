@@ -125,11 +125,13 @@ export const ESTADOS_HISTORIAL = ['finalizada', 'resolved', 'rejected'];
 // El bot está respondiendo solo (menú, horarios, registro de datos) y todavía no se pidió un humano.
 const esBotAutomatico = (status) => status !== 'esperando' && !ESTADOS_HISTORIAL.includes(status);
 // El chat fue derivado a una sucursal puntual (a mano por el admin, o
-// automáticamente cuando un empleado sin sucursal asignada le contesta por
-// primera vez, ver App.jsx). El fetch de conversations en App.jsx ya excluye
-// para un empleado las de otra sucursal, así que este filtro alcanza para
-// que cada uno solo vea los derivados propios.
-const esDerivado = (conv) => conv.sucursal_id != null;
+// tomado por un empleado desde la cola general, ver src/lib/tomarConsulta.js).
+// El fetch de conversations en App.jsx ya excluye para un empleado las de
+// otra sucursal, así que este filtro alcanza para que cada uno solo vea los
+// derivados propios. Se excluyen los ya finalizados: una vez que el chat se
+// cierra (venta concretada/no concretada/otra razón, o por inactividad) debe
+// desaparecer de "Mis chats" y pasar a vivir sólo en el Historial.
+const esDerivado = (conv) => conv.sucursal_id != null && !ESTADOS_HISTORIAL.includes(conv.status);
 // El cliente pidió hablar con un humano y todavía NO fue derivado a ninguna
 // sucursal puntual: si ya tiene sucursal_id, pasa a "Derivados" en vez de acá
 // (antes se mostraba en las dos pestañas a la vez).
@@ -185,12 +187,30 @@ export default function Sidebar({
   const validConversations = conversations.filter(c => c?.id && c.created_at);
 
   // Filtro por tab (BOT / En espera / Mis chats)
-  const filteredConversations = validConversations.filter(c => {
-    if (activeTab === 'entrantes') return esBotAutomatico(c.status);
-    if (activeTab === 'atendiendo') return necesitaHumano(c);
-    if (activeTab === 'derivados') return esDerivado(c);
-    return true;
-  });
+  const filteredConversations = validConversations
+    .filter(c => {
+      if (activeTab === 'entrantes') return esBotAutomatico(c.status);
+      if (activeTab === 'atendiendo') return necesitaHumano(c);
+      if (activeTab === 'derivados') return esDerivado(c);
+      return true;
+    })
+    .sort((a, b) => {
+      // "BOT" y "En espera" son estrictamente FIFO: quien llegó primero (o
+      // lleva más tiempo esperando) va arriba. Si un chat fue devuelto a la
+      // cola (ver server/services/devolucionCola.js), waiting_since NO se
+      // reinicia a propósito, así que sigue ordenándose por su espera real
+      // desde que entró al sistema, por encima de los chats nuevos.
+      if (activeTab === 'entrantes') {
+        return new Date(a.created_at) - new Date(b.created_at);
+      }
+      if (activeTab === 'atendiendo') {
+        const desdeA = new Date(a.waiting_since || a.created_at);
+        const desdeB = new Date(b.waiting_since || b.created_at);
+        return desdeA - desdeB;
+      }
+      // "Mis chats": el más reciente en actividad arriba, como cualquier bandeja de chat.
+      return new Date(b.updated_at) - new Date(a.updated_at);
+    });
 
   const botCount = validConversations.filter(c => esBotAutomatico(c.status)).length;
   const enEsperaCount = validConversations.filter(necesitaHumano).length;

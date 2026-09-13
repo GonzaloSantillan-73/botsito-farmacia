@@ -49,7 +49,11 @@ export const devolverConversacionAEspera = async (conversationId, { motivo, moti
     .update({
       status: 'esperando',
       sucursal_id: null,
-      waiting_since: new Date().toISOString(),
+      // OJO: waiting_since NO se reinicia acá a propósito. El chat ya llevaba
+      // esperando desde que el cliente pidió un humano por primera vez, y
+      // devolverlo no lo "hace más nuevo" — al contrario, en la bandeja "En
+      // espera" (FIFO por waiting_since, ver Sidebar.jsx) tiene que quedar por
+      // encima de los chats que recién están entrando.
       sucursales_recomendadas: sucursalesRecomendadas,
       // Queda registrado hasta que otra sucursal la tome (ver tomarConsulta.js),
       // para mostrarle "Devolviste" a esta sucursal y "Devuelta" al resto.
