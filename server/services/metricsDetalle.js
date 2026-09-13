@@ -26,19 +26,32 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate } = {}) => {
   const ids = conversations.map(c => c.id);
   const phones = [...new Set(conversations.map(c => c.client_phone).filter(Boolean))];
 
-  const [{ data: clientes, error: clientesError }, { data: mensajes, error: msgError }] = await Promise.all([
+  const [{ data: clientes, error: clientesError }, { data: mensajes, error: msgError }, { data: pedidos, error: pedidosError }] = await Promise.all([
     phones.length
       ? supabase.from('clientes').select('client_phone, nombre_completo').in('client_phone', phones)
       : Promise.resolve({ data: [] }),
     ids.length
       ? supabase.from('messages').select('conversation_id, sender_type, media_type, media_url, created_at').in('conversation_id', ids).order('created_at', { ascending: true })
+      : Promise.resolve({ data: [] }),
+    ids.length
+      ? supabase.from('pedidos_confirmados').select('conversation_id, total').in('conversation_id', ids)
       : Promise.resolve({ data: [] })
   ]);
   if (clientesError) throw clientesError;
   if (msgError) throw msgError;
+  if (pedidosError) throw pedidosError;
 
   const phoneMap = {};
   (clientes || []).forEach(c => { if (c.nombre_completo) phoneMap[c.client_phone] = c.nombre_completo; });
+
+  // Una conversación puede tener varios pedidos confirmados (el Cotizador se
+  // vacía después de cada pago para que el próximo pedido del mismo cliente
+  // no se mezcle con el anterior), así que el Monto Total de la fila es la
+  // suma de todos ellos, no un valor único.
+  const montoPorConversacion = {};
+  (pedidos || []).forEach(p => {
+    montoPorConversacion[p.conversation_id] = (montoPorConversacion[p.conversation_id] || 0) + Number(p.total || 0);
+  });
 
   // Se agrega una sola pasada por todos los mensajes (en vez de una consulta
   // por conversación) para no hacer N+1 queries contra Supabase.
@@ -73,7 +86,9 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate } = {}) => {
       sucursal: c.sucursales?.nombre || '',
       status: c.status || '',
       saleStatus: c.sale_status || '',
-      montoTotal: c.sale_amount != null ? Number(c.sale_amount) : null,
+      montoTotal: montoPorConversacion[c.id] !== undefined
+        ? montoPorConversacion[c.id]
+        : (c.sale_amount != null ? Number(c.sale_amount) : null),
       medioPago: c.payment_method || '',
       comprobanteUrl: agg.comprobanteUrl,
       msjsCliente: agg.msgsCliente,

@@ -6,28 +6,47 @@ export default function CloseChatModal({
   isOpen,
   onClose,
   activeConversation,
-  total,
   onConfirmClose
 }) {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [reason, setReason] = useState('');
+  const [amount, setAmount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Al abrir el modal, precargamos el monto con la última cotización enviada
+  // desde el Cotizador para esta conversación (si existe), para que el
+  // operador no tenga que volver a tipearlo. Sigue siendo editable.
+  React.useEffect(() => {
+    if (!isOpen || !activeConversation?.id) return;
+    setAmount('');
+    supabase
+      .from('pedidos_cotizados')
+      .select('total')
+      .eq('conversation_id', activeConversation.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.total != null) setAmount(String(data.total));
+      });
+  }, [isOpen, activeConversation?.id]);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!selectedStatus) return;
     if (selectedStatus === 'otra' && !reason.trim()) return;
+    if (selectedStatus === 'concretada' && !amount.trim()) return;
 
     setIsSubmitting(true);
-    
+
     try {
       // 1. Guardar resultado/motivo en la base de datos
       const updateData = {
         sale_status: selectedStatus === 'otra' ? 'otra' : selectedStatus,
-        sale_amount: selectedStatus === 'concretada' ? (total || 0) : null,
+        sale_amount: selectedStatus === 'concretada' ? (parseFloat(amount) || 0) : null,
         sale_reason: selectedStatus === 'otra' ? reason.trim() : null
       };
 
@@ -54,7 +73,9 @@ export default function CloseChatModal({
     }
   };
 
-  const isFormValid = selectedStatus && (selectedStatus !== 'otra' || reason.trim().length > 0);
+  const isFormValid = selectedStatus
+    && (selectedStatus !== 'otra' || reason.trim().length > 0)
+    && (selectedStatus !== 'concretada' || amount.trim().length > 0);
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -90,7 +111,25 @@ export default function CloseChatModal({
                 <span className={`font-medium ${selectedStatus === 'concretada' ? 'text-emerald-800' : 'text-gray-700'}`}>Venta Concretada</span>
               </div>
             </label>
-            
+
+            {selectedStatus === 'concretada' && (
+              <div className="pl-1 animate-fade-in-up">
+                <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">
+                  Monto de la venta <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+                  required
+                />
+              </div>
+            )}
+
             <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedStatus === 'no_concretada' ? 'border-rose-500 bg-rose-50' : 'border-gray-200 hover:bg-gray-50'}`}>
               <input
                 type="radio"

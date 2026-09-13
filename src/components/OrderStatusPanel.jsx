@@ -39,7 +39,7 @@ const BADGE_VACIO = { label: 'Sin iniciar', className: 'bg-gray-100 text-gray-50
 // pago para elegir, así que este valor queda fijo al confirmar el pago.
 const MEDIO_PAGO_UNICO = 'Transferencia';
 
-export default function OrderStatusPanel({ activeConversation, handleSendMessage }) {
+export default function OrderStatusPanel({ activeConversation, handleSendMessage, onPaymentConfirmed }) {
   const [plantillas, setPlantillas] = useState({});
   const [updatingKey, setUpdatingKey] = useState(null);
   const [cbuAlias, setCbuAlias] = useState('');
@@ -87,6 +87,9 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
     if (paso.key === 'pagook') updates.payment_method = MEDIO_PAGO_UNICO;
     await supabase.from('conversations').update(updates).eq('id', activeConversation.id);
     handleSendMessage?.(textoDe(paso.shortcut));
+    // Al confirmar el pago se vacía el Cotizador: lo que compre el cliente
+    // de acá en adelante es un pedido nuevo, no debe sumarse al ya cobrado.
+    if (paso.key === 'pagook') onPaymentConfirmed?.();
     setUpdatingKey(null);
   };
 

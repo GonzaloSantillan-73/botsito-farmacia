@@ -153,12 +153,7 @@ export default function ValidationPanel({
     ));
   };
 
-  // El cotizador NO se vacía solo al enviar (ver handleSendQuote): así el
-  // operador puede seguir sumando o corrigiendo ítems del mismo pedido sin
-  // rearmar el carrito de cero. Este botón es la forma explícita de arrancar
-  // de nuevo cuando ya se terminó por completo con ese cliente.
-  const handleLimpiarCotizacion = () => {
-    if (quoteItems.length > 0 && !window.confirm('¿Vaciar el cotizador? Se van a borrar los productos cargados.')) return;
+  const resetCotizacion = () => {
     setQuoteItems([]);
     setShippingCost('');
     setNewItemName('');
@@ -167,12 +162,34 @@ export default function ValidationPanel({
     setNewItemDiscount('0');
   };
 
+  // El Cotizador es estado local del panel, no de la conversación: si no lo
+  // vaciáramos acá, al cambiar de chat sin recargar la página quedarían
+  // pegados los ítems del cliente anterior sobre la conversación nueva.
+  React.useEffect(() => {
+    resetCotizacion();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeConversation?.id]);
+
+  // El cotizador NO se vacía solo al enviar (ver handleSendQuote): así el
+  // operador puede seguir sumando o corrigiendo ítems del mismo pedido sin
+  // rearmar el carrito de cero. Este botón es la forma explícita de arrancar
+  // de nuevo cuando ya se terminó por completo con ese cliente.
+  const handleLimpiarCotizacion = () => {
+    if (quoteItems.length > 0 && !window.confirm('¿Vaciar el cotizador? Se van a borrar los productos cargados.')) return;
+    resetCotizacion();
+  };
+
   const subtotal = quoteItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const totalDiscount = quoteItems.reduce((acc, item) => acc + (item.price * item.quantity * (item.discount / 100)), 0);
   const totalItems = subtotal - totalDiscount;
   const envioGratis = totalItems > FREE_SHIPPING_THRESHOLD;
   const finalShippingCost = envioGratis ? 0 : (parseFloat(shippingCost) || 0);
   const total = totalItems + finalShippingCost;
+
+  // Con el pago ya confirmado no tiene sentido seguir cotizando en esta
+  // misma conversación: si el cliente quiere algo más, es un pedido nuevo y
+  // aparte (nueva conversación), no algo que se pueda sumar a lo ya cobrado.
+  const pagoConfirmado = activeConversation?.payment_status === 'confirmado';
 
   const handleSendQuote = async () => {
     if (quoteItems.length === 0) return;
@@ -231,6 +248,39 @@ export default function ValidationPanel({
     if (error) {
       console.error('Error guardando la cotización en el historial de pedidos:', error);
     }
+  };
+
+  // Se llama al marcar "Pago confirmado" en Estado del Pedido: deja una copia
+  // permanente de ESTE pedido puntual (ítems + total actuales del Cotizador)
+  // en pedidos_confirmados -para sumarlo en el Monto Total de Métricas- y
+  // recién ahí vacía el Cotizador para que un pedido nuevo del mismo cliente
+  // en la misma conversación no se mezcle con lo ya cobrado.
+  const handlePagoConfirmado = async () => {
+    if (quoteItems.length > 0) {
+      const items = quoteItems.map(item => {
+        const itemDiscount = item.price * item.quantity * (item.discount / 100);
+        return {
+          nombre: item.name,
+          precio_unitario: item.price,
+          cantidad: item.quantity,
+          descuento_pct: item.discount,
+          subtotal: (item.price * item.quantity) - itemDiscount
+        };
+      });
+
+      const { error } = await supabase.from('pedidos_confirmados').insert([{
+        conversation_id: activeConversation?.id || null,
+        client_phone: activeConversation?.client_phone,
+        items,
+        total,
+        sucursal_id: activeConversation?.sucursal_id || null
+      }]);
+      if (error) {
+        console.error('Error guardando el pedido confirmado en el historial:', error);
+      }
+    }
+
+    resetCotizacion();
   };
 
   return (
@@ -507,6 +557,13 @@ export default function ValidationPanel({
             
             {isQuoteOpen && (
               <div className="space-y-3 bg-white p-4 rounded-xl border border-gray-200 shadow-sm mt-3 animate-fade-in-up">
+                {pagoConfirmado ? (
+                  <div className="flex items-start gap-2 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <Info size={16} className="shrink-0 mt-0.5 text-gray-400" />
+                    <span>Ya se confirmó el pago de este pedido. Si el cliente quiere comprar algo más, iniciá una conversación nueva.</span>
+                  </div>
+                ) : (
+                <>
                 {/* Formulario para agregar item */}
                 <div className="grid grid-cols-12 gap-2">
                   <div className="col-span-12 relative">
@@ -654,6 +711,8 @@ export default function ValidationPanel({
                     </div>
                   </div>
                 )}
+                </>
+                )}
               </div>
             )}
 
@@ -664,7 +723,7 @@ export default function ValidationPanel({
         {/* Estado del Pedido: seguimiento manual de pago/entrega que lleva el
             vendedor sobre lo cotizado a mano (oculto en conversaciones
             cerradas/Historial, igual que el Cotizador). */}
-        <OrderStatusPanel activeConversation={activeConversation} handleSendMessage={handleSendMessage} />
+        <OrderStatusPanel activeConversation={activeConversation} handleSendMessage={handleSendMessage} onPaymentConfirmed={handlePagoConfirmado} />
 
         {/* Observaciones del cliente: notas internas del operador + su ficha
             de datos (nombre/DNI/obra social) cargada por el bot. Persiste
