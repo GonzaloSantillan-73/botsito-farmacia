@@ -22,11 +22,16 @@ const esHostPermitido = (url) => {
 
 // Patrones de coordenadas que aparecen en distintos formatos de URL de
 // Google Maps. Se prueban en orden de precisión: !3d/!4d es la coordenada
-// exacta del pin en links de "lugar" (más confiable); @lat,lng suele ser
-// sólo el centro del mapa; ?q=lat,lng es el formato viejo de "compartir ubicación".
+// exacta del pin en links de "lugar" (más confiable); /search/lat,+lng es el
+// formato que usa hoy el botón "Ubicación actual" de WhatsApp al compartirse
+// como link de Maps; @lat,lng suele ser sólo el centro del mapa; ?q=lat,lng
+// es el formato viejo de "compartir ubicación".
 const extraerCoordenadasDeTexto = (texto) => {
   const pinMatch = texto.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
   if (pinMatch) return { lat: parseFloat(pinMatch[1]), lng: parseFloat(pinMatch[2]) };
+
+  const searchMatch = texto.match(/\/search\/(-?\d+\.\d+),\+?(-?\d+\.\d+)/);
+  if (searchMatch) return { lat: parseFloat(searchMatch[1]), lng: parseFloat(searchMatch[2]) };
 
   const atMatch = texto.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
   if (atMatch) return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) };

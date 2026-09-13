@@ -102,7 +102,12 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
   const eliminarAcceso = async () => {
     if (!empleadoPrincipal) return;
     if (!window.confirm('¿Eliminar este acceso? El empleado ya no va a poder entrar al CRM.')) return;
-    await adminFetch(`/api/admin/staff/${empleadoPrincipal.id}`, { method: 'DELETE' });
+    const res = await adminFetch(`/api/admin/staff/${empleadoPrincipal.id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || 'No se pudo eliminar el acceso.');
+      return;
+    }
     setEmpleadoPrincipal(null);
     setUsername('');
     setPassword('');
@@ -111,7 +116,12 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
 
   const eliminarExtra = async (id) => {
     if (!window.confirm('¿Eliminar este acceso adicional?')) return;
-    await adminFetch(`/api/admin/staff/${id}`, { method: 'DELETE' });
+    const res = await adminFetch(`/api/admin/staff/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || 'No se pudo eliminar el acceso.');
+      return;
+    }
     setExtras(prev => prev.filter(e => e.id !== id));
     onSaved();
   };

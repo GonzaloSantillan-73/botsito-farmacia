@@ -44,7 +44,7 @@ router.delete('/:id', async (req, res) => {
     res.status(200).json({ success: true });
   } catch (error) {
     console.error('[STAFF] Error eliminando empleado:', error.message);
-    res.status(500).json({ error: 'No se pudo eliminar el empleado.' });
+    res.status(500).json({ error: error.message || 'No se pudo eliminar el empleado.' });
   }
 });
 
@@ -93,7 +93,10 @@ router.delete('/sucursales/:id', async (req, res) => {
     res.status(200).json({ success: true });
   } catch (error) {
     console.error('[STAFF] Error eliminando sucursal:', error.message);
-    res.status(500).json({ error: 'No se pudo eliminar la sucursal.' });
+    // Se expone el motivo real (ej. una restricción de la base) en vez de un
+    // mensaje genérico: un borrado que falla en silencio es lo que llevó a
+    // confundir "ya la borré" con "en la base seguía viva".
+    res.status(500).json({ error: error.message || 'No se pudo eliminar la sucursal.' });
   }
 });
 

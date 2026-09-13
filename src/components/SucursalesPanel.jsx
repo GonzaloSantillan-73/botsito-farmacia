@@ -40,7 +40,12 @@ export default function SucursalesPanel() {
 
   const eliminarSucursal = async (s) => {
     if (!window.confirm(`¿Eliminar la sucursal "${s.nombre}"? Se van a eliminar también sus accesos de personal.`)) return;
-    await adminFetch(`/api/admin/staff/sucursales/${s.id}`, { method: 'DELETE' });
+    const res = await adminFetch(`/api/admin/staff/sucursales/${s.id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || 'No se pudo eliminar la sucursal.');
+      return;
+    }
     await fetchSucursales();
   };
 
