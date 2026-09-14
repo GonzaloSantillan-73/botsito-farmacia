@@ -7,6 +7,7 @@ import adminAuthRoutes from './routes/adminAuth.js';
 import staffRoutes from './routes/staff.js';
 import clientesRoutes from './routes/clientes.js';
 import clientDirectoryRoutes from './routes/clientDirectory.js';
+import quickRepliesRoutes from './routes/quickReplies.js';
 import { startSessionExpiryChecker } from './services/sessionExpiryChecker.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -60,6 +61,8 @@ console.log('🔍 [DEBUG-INDEX] Montando ruta /api/admin/clientes');
 app.use('/api/admin/clientes', clientesRoutes);
 console.log('🔍 [DEBUG-INDEX] Montando ruta /api/admin/client-directory');
 app.use('/api/admin/client-directory', clientDirectoryRoutes);
+console.log('🔍 [DEBUG-INDEX] Montando ruta /api/admin/quick-replies');
+app.use('/api/admin/quick-replies', quickRepliesRoutes);
 
 // Servir estáticos de React (Vite build)
 console.log('🔍 [DEBUG-INDEX] Registrando static de React (Vite build) en:', path.join(__dirname, '../dist'));

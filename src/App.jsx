@@ -10,11 +10,19 @@ import ValidationPanel from './components/ValidationPanel';
 import ImageModal from './components/ImageModal';
 import ClientDirectory from './components/ClientDirectory';
 import LoginModal from './components/LoginModal';
-import { getAdminToken, clearAdminSession, isAdminRole, getStaffSucursalId, getStaffSucursalNombre, adminFetch } from './lib/adminAuth';
+import { getAdminToken, clearAdminSession, isAdminRole, getStaffSucursalId, getStaffSucursalNombre, adminFetch, getTheme, applyTheme } from './lib/adminAuth';
 
 function App() {
   console.log('🔍 [DEBUG-COMPONENT-App] Render');
   const [adminToken, setAdminToken] = useState(() => getAdminToken());
+
+  // Re-aplica la clase "dark" al recargar la página: applyTheme() sólo la
+  // prende en el login/toggle, y esa clase en <html> no sobrevive un F5 por
+  // sí sola (localStorage sí). Sin esto, la cuenta arrancaría siempre en
+  // claro hasta volver a tocar el toggle.
+  useEffect(() => {
+    applyTheme(getTheme());
+  }, []);
 
   // Un empleado solo ve conversaciones de su propia sucursal, más las que
   // todavía no tienen sucursal asignada (para poder "tomarlas"). El admin ve
@@ -757,7 +765,7 @@ function App() {
   console.log('🔍 [DEBUG-COMPONENT-App] Render — antes de devolver el JSX principal', { activeTab, conversationsCount: conversations.length, activeConversationId: activeConversation?.id, showClientDirectory, loading });
 
   return (
-    <div className="flex h-screen bg-gray-50 font-sans text-gray-800 overflow-x-auto">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-950 font-sans text-gray-800 dark:text-gray-100 overflow-x-auto">
 
       <Sidebar
         conversations={conversations}

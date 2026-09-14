@@ -1,5 +1,5 @@
 import express from 'express';
-import { verificarCredenciales, generarToken, verificarToken, actualizarCredenciales } from '../services/adminAuth.js';
+import { verificarCredenciales, generarToken, verificarToken, actualizarCredenciales, actualizarTema } from '../services/adminAuth.js';
 
 const router = express.Router();
 
@@ -41,7 +41,8 @@ router.post('/login', async (req, res) => {
       username: user.username,
       role: user.role,
       sucursalId: user.sucursalId,
-      sucursalNombre: user.sucursalNombre || null
+      sucursalNombre: user.sucursalNombre || null,
+      theme: user.theme || 'light'
     };
     console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] POST /login - respondiendo status 200:', { ...responseBody200, token: '[TOKEN OMITIDO EN LOG]' });
     res.status(200).json(responseBody200);
@@ -163,6 +164,34 @@ router.put('/update-credentials', requireAuth, requireAdminRole, async (req, res
     const responseBody400c = { error: mensaje };
     console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - respondiendo status 400:', responseBody400c);
     res.status(400).json(responseBody400c);
+  }
+});
+
+// Preferencia de tema: cualquier cuenta logueada (admin o staff) puede
+// cambiar la suya propia; no requiere requireAdminRole porque es una
+// preferencia personal, no una configuración global del sistema.
+router.put('/theme', requireAuth, async (req, res) => {
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] PUT /theme - req.body:', req.body, '| req.admin:', req.admin);
+  const { theme } = req.body;
+
+  if (theme !== 'light' && theme !== 'dark') {
+    const responseBody400 = { error: 'El tema debe ser "light" o "dark".' };
+    console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] PUT /theme - respondiendo status 400:', responseBody400);
+    return res.status(400).json(responseBody400);
+  }
+
+  try {
+    await actualizarTema(req.admin.sub, req.admin.role, theme);
+    console.log(`[ADMIN AUTH] Tema actualizado para ${req.admin.username} (${req.admin.role}): ${theme}`);
+    const responseBody200 = { success: true, theme };
+    console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] PUT /theme - respondiendo status 200:', responseBody200);
+    res.status(200).json(responseBody200);
+  } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-ADMINAUTH] PUT /theme - error:', error);
+    console.error('[ADMIN AUTH] Error actualizando el tema:', error.message);
+    const responseBody400 = { error: error.message || 'No se pudo guardar la preferencia de tema.' };
+    console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] PUT /theme - respondiendo status 400:', responseBody400);
+    res.status(400).json(responseBody400);
   }
 });
 

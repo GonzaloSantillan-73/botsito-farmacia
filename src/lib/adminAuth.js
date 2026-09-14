@@ -3,6 +3,7 @@ const USERNAME_KEY = 'botsito_admin_username';
 const ROLE_KEY = 'botsito_admin_role';
 const SUCURSAL_ID_KEY = 'botsito_admin_sucursal_id';
 const SUCURSAL_NOMBRE_KEY = 'botsito_admin_sucursal_nombre';
+const THEME_KEY = 'botsito_admin_theme';
 
 export const getAdminToken = () => {
   console.log('🔍 [DEBUG-LIB-ADMINAUTH] getAdminToken() — sin parámetros');
@@ -47,8 +48,21 @@ export const getStaffSucursalNombre = () => {
   return result;
 };
 
-export const setAdminSession = (token, username, role = 'admin', sucursalId = null, sucursalNombre = null) => {
-  console.log('🔍 [DEBUG-LIB-ADMINAUTH] setAdminSession() — username:', username, '| role:', role, '| sucursalId:', sucursalId, '| sucursalNombre:', sucursalNombre, '| token presente:', !!token, '| primeros 8 caracteres:', token ? token.slice(0, 8) + '...' : null);
+// Prende/apaga la clase "dark" en <html> (ver el @custom-variant en
+// src/index.css) y persiste la elección en localStorage, para que sobreviva
+// a un F5 sin depender de la red. Es la única función que realmente pinta el
+// modo oscuro; todo lo demás en este archivo es ida y vuelta con el backend
+// para que la preferencia quede atada a la cuenta, no al navegador.
+export const applyTheme = (theme) => {
+  const esOscuro = theme === 'dark';
+  document.documentElement.classList.toggle('dark', esOscuro);
+  localStorage.setItem(THEME_KEY, esOscuro ? 'dark' : 'light');
+};
+
+export const getTheme = () => localStorage.getItem(THEME_KEY) || 'light';
+
+export const setAdminSession = (token, username, role = 'admin', sucursalId = null, sucursalNombre = null, theme = 'light') => {
+  console.log('🔍 [DEBUG-LIB-ADMINAUTH] setAdminSession() — username:', username, '| role:', role, '| sucursalId:', sucursalId, '| sucursalNombre:', sucursalNombre, '| theme:', theme, '| token presente:', !!token, '| primeros 8 caracteres:', token ? token.slice(0, 8) + '...' : null);
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USERNAME_KEY, username);
   localStorage.setItem(ROLE_KEY, role);
@@ -56,6 +70,10 @@ export const setAdminSession = (token, username, role = 'admin', sucursalId = nu
   else localStorage.removeItem(SUCURSAL_ID_KEY);
   if (sucursalNombre) localStorage.setItem(SUCURSAL_NOMBRE_KEY, sucursalNombre);
   else localStorage.removeItem(SUCURSAL_NOMBRE_KEY);
+  // Se pisa el theme que hubiera quedado de una cuenta anterior en este
+  // mismo navegador (ver [[dark-mode-por-cuenta]]: la preferencia vive en la
+  // cuenta, no en el dispositivo) con la que trae esta cuenta desde la DB.
+  applyTheme(theme);
   console.log('✅ [DEBUG-LIB-ADMINAUTH] setAdminSession() — sesión guardada (return void)');
 };
 
@@ -66,6 +84,9 @@ export const clearAdminSession = () => {
   localStorage.removeItem(ROLE_KEY);
   localStorage.removeItem(SUCURSAL_ID_KEY);
   localStorage.removeItem(SUCURSAL_NOMBRE_KEY);
+  // El tema NO se borra: la próxima cuenta que loguee en este navegador va a
+  // pisarlo con el suyo propio vía setAdminSession -> applyTheme. Mientras
+  // tanto, no tiene sentido volver a claro apenas alguien cierra sesión.
   console.log('✅ [DEBUG-LIB-ADMINAUTH] clearAdminSession() — sesión limpiada (return void)');
 };
 

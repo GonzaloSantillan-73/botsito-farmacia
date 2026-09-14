@@ -31,7 +31,7 @@ export const verificarCredenciales = async (username, password) => {
     console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] verificarCredenciales() — se encontró admin, comparando contraseña (bcrypt.compare, hash no se loguea)');
     const passwordOk = await bcrypt.compare(password, admin.password_hash);
     console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] verificarCredenciales() — contraseña de admin correcta:', passwordOk);
-    const resultado = passwordOk ? { id: admin.id, username: admin.username, role: 'admin', sucursalId: null } : null;
+    const resultado = passwordOk ? { id: admin.id, username: admin.username, role: 'admin', sucursalId: null, theme: admin.theme || 'light' } : null;
     console.log('✅ [DEBUG-SERVICE-ADMINAUTH] verificarCredenciales() — valor de retorno (rama admin):', resultado);
     return resultado;
   }
@@ -56,7 +56,7 @@ export const verificarCredenciales = async (username, password) => {
   const passwordOk = await bcrypt.compare(password, staff.password_hash);
   console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] verificarCredenciales() — contraseña de staff correcta:', passwordOk);
   const resultado = passwordOk
-    ? { id: staff.id, username: staff.username, role: 'staff', sucursalId: staff.sucursal_id, sucursalNombre: staff.sucursales?.nombre || null }
+    ? { id: staff.id, username: staff.username, role: 'staff', sucursalId: staff.sucursal_id, sucursalNombre: staff.sucursales?.nombre || null, theme: staff.theme || 'light' }
     : null;
   console.log('✅ [DEBUG-SERVICE-ADMINAUTH] verificarCredenciales() — valor de retorno (rama staff):', resultado);
   return resultado;
@@ -144,4 +144,32 @@ export const actualizarCredenciales = async (adminId, { currentPassword, newUser
 
   console.log('✅ [DEBUG-SERVICE-ADMINAUTH] actualizarCredenciales() — valor de retorno:', updated ? { ...updated, password_hash: '[REDACTED]' } : updated);
   return updated;
+};
+
+// Guarda la preferencia de tema (claro/oscuro) de la cuenta logueada, en la
+// tabla que corresponda según su rol. Es la única preferencia por-cuenta que
+// existe hoy, así que no amerita una tabla genérica de "user_settings" (ver
+// [[dark-mode-por-cuenta]]).
+export const actualizarTema = async (userId, role, theme) => {
+  console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] actualizarTema() — parámetros recibidos:', { userId, role, theme });
+
+  if (theme !== 'light' && theme !== 'dark') {
+    console.error('❌ [DEBUG-SERVICE-ADMINAUTH] actualizarTema() — theme inválido:', theme);
+    throw new Error('El tema debe ser "light" o "dark".');
+  }
+
+  const tabla = role === 'admin' ? 'admin_users' : 'staff_users';
+  console.log('📡 [DEBUG-SERVICE-ADMINAUTH] Query Supabase → tabla:', tabla, ', operación: update, filtro: id =', userId, ', valores:', { theme });
+  const { error } = await supabase
+    .from(tabla)
+    .update({ theme, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+  console.log('📡 [DEBUG-SERVICE-ADMINAUTH] Resultado query', tabla, '(update theme) — error:', error);
+
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-ADMINAUTH] actualizarTema() — error guardando el tema:', error);
+    throw error;
+  }
+
+  console.log('✅ [DEBUG-SERVICE-ADMINAUTH] actualizarTema() — tema actualizado correctamente');
 };

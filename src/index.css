@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Modo oscuro activado por clase (no por prefers-color-scheme del SO): se
+   prende/apaga agregando/sacando la clase "dark" en <html>, según la
+   preferencia guardada por cada cuenta (ver src/lib/adminAuth.js). Así el
+   modo oscuro de una sucursal no depende ni afecta la config del sistema
+   operativo de la máquina del mostrador. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Scrollbar visible y estilizada acorde a la paleta teal del CRM: se usa en
    todos los contenedores con overflow-y-auto/overflow-x-auto de la app para
    que siempre haya una barra con la que arrastrar, sin depender de que la

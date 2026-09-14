@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Loader2, Check, X } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { Plus, Pencil, Trash2, Loader2, Check, X, Globe } from 'lucide-react';
+import { adminFetch, isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
 
+// Mismo componente para admin y sucursal: el backend (server/routes/
+// quickReplies.js) ya decide qué filas devuelve según el rol/sucursal del
+// JWT, así que acá sólo hace falta distinguir cuáles puede editar/borrar
+// quien está mirando. El admin siempre gestiona únicamente las globales
+// (sucursal_id null); una sucursal ve además las suyas propias, exclusivas
+// de ella, y las globales le llegan de sólo lectura (no puede tocarlas).
 export default function QuickRepliesPanel() {
   console.log('🔍 [DEBUG-COMPONENT-QuickRepliesPanel] Render — props: (ninguna)');
+
+  const soyAdmin = isAdminRole();
+  const miSucursalId = getStaffSucursalId();
 
   const [replies, setReplies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,14 +24,12 @@ export default function QuickRepliesPanel() {
   const [error, setError] = useState('');
 
   const fetchReplies = async () => {
-    console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] Supabase select — tabla: quick_replies, order: shortcut');
+    console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] adminFetch GET /api/admin/quick-replies');
     setLoading(true);
-    const { data, error: fetchError } = await supabase
-      .from('quick_replies')
-      .select('*')
-      .order('shortcut');
-    console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] Supabase select respuesta — data:', data, 'error:', fetchError);
-    if (!fetchError) setReplies(data || []);
+    const res = await adminFetch('/api/admin/quick-replies');
+    const data = await res.json();
+    console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] respuesta — ok:', res.ok, 'data:', data);
+    if (res.ok) setReplies(data.replies || []);
     setLoading(false);
   };
 
@@ -30,6 +37,8 @@ export default function QuickRepliesPanel() {
     console.log('🔍 [DEBUG-COMPONENT-QuickRepliesPanel] useEffect ejecutado — deps: []');
     fetchReplies();
   }, []);
+
+  const esPropia = (reply) => (soyAdmin ? reply.sucursal_id === null : reply.sucursal_id === miSucursalId);
 
   const startNew = () => {
     console.log('🖱️ [DEBUG-COMPONENT-QuickRepliesPanel] startNew');
@@ -70,23 +79,20 @@ export default function QuickRepliesPanel() {
     setError('');
 
     try {
-      if (editingId === 'new') {
-        console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] Supabase insert — tabla: quick_replies, payload:', { shortcut, message_text: text });
-        const { error: insertError } = await supabase.from('quick_replies').insert([{ shortcut, message_text: text }]);
-        console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] Supabase insert respuesta — error:', insertError);
-        if (insertError) throw insertError;
-      } else {
-        console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] Supabase update — tabla: quick_replies, id:', editingId, 'payload:', { shortcut, message_text: text });
-        const { error: updateError } = await supabase.from('quick_replies').update({ shortcut, message_text: text }).eq('id', editingId);
-        console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] Supabase update respuesta — error:', updateError);
-        if (updateError) throw updateError;
-      }
+      const url = editingId === 'new' ? '/api/admin/quick-replies' : `/api/admin/quick-replies/${editingId}`;
+      const method = editingId === 'new' ? 'POST' : 'PUT';
+      console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] adminFetch', method, url);
+      const res = await adminFetch(url, { method, body: JSON.stringify({ shortcut, messageText: text }) });
+      const data = await res.json();
+      console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] respuesta —', method, '— ok:', res.ok, 'data:', data);
+      if (!res.ok) throw new Error(data.error || 'Error guardando la plantilla.');
+
       console.log('✅ [DEBUG-COMPONENT-QuickRepliesPanel] Plantilla guardada correctamente');
       cancelEdit();
       await fetchReplies();
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-QuickRepliesPanel] Error guardando la plantilla:', err);
-      setError(err.code === '23505' ? 'Ya existe una plantilla con ese atajo.' : (err.message || 'Error guardando la plantilla.'));
+      setError(err.message || 'Error guardando la plantilla.');
     } finally {
       setSaving(false);
     }
@@ -95,17 +101,24 @@ export default function QuickRepliesPanel() {
   const handleDelete = async (id) => {
     console.log('🖱️ [DEBUG-COMPONENT-QuickRepliesPanel] handleDelete — id:', id);
     if (!window.confirm('¿Eliminar esta plantilla? Esta acción no se puede deshacer.')) return;
-    console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] Supabase delete — tabla: quick_replies, id:', id);
-    const { error: deleteError } = await supabase.from('quick_replies').delete().eq('id', id);
-    console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] Supabase delete respuesta — error:', deleteError);
+    console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] adminFetch DELETE /api/admin/quick-replies/:id', id);
+    const res = await adminFetch(`/api/admin/quick-replies/${id}`, { method: 'DELETE' });
+    const data = await res.json().catch(() => ({}));
+    console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] respuesta DELETE — ok:', res.ok, 'data:', data);
+    if (!res.ok) {
+      alert(data.error || 'No se pudo eliminar la plantilla.');
+      return;
+    }
     fetchReplies();
   };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <p className="text-xs text-gray-500">
-          El operador las usa escribiendo "/" o tocando el ícono de rayo en el chat.
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          {soyAdmin
+            ? 'El operador las usa escribiendo "/" o tocando el ícono de rayo en el chat. Estas son globales: las ve cualquier sucursal.'
+            : 'Las tuyas son exclusivas de esta sucursal: ninguna otra las ve. Las globales (con el ícono de mundo) las administra el admin y no se pueden editar ni borrar desde acá.'}
         </p>
         {editingId === null && (
           <button
@@ -118,25 +131,25 @@ export default function QuickRepliesPanel() {
       </div>
 
       {(editingId === 'new' || replies.some(r => r.id === editingId)) && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 space-y-3">
+        <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4 space-y-3">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Atajo</label>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Atajo</label>
             <input
               type="text"
               value={formShortcut}
               onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-QuickRepliesPanel] onChange formShortcut — nuevo valor:', e.target.value); setFormShortcut(e.target.value); }}
               placeholder="/horarios"
-              className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
+              className="w-full max-w-xs px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Mensaje</label>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Mensaje</label>
             <textarea
               value={formText}
               onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-QuickRepliesPanel] onChange formText — nuevo valor:', e.target.value); setFormText(e.target.value); }}
               rows={3}
               placeholder="Texto que se va a insertar en el chat..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm resize-none"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm resize-none"
             />
           </div>
           {error && <p className="text-xs text-rose-600">{error}</p>}
@@ -151,7 +164,7 @@ export default function QuickRepliesPanel() {
             </button>
             <button
               onClick={cancelEdit}
-              className="flex items-center gap-1.5 text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+              className="flex items-center gap-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
             >
               <X size={14} /> Cancelar
             </button>
@@ -166,30 +179,42 @@ export default function QuickRepliesPanel() {
       ) : (
         <div className="space-y-2">
           {console.log('🔍 [DEBUG-COMPONENT-QuickRepliesPanel] Renderizando lista de replies — cantidad:', replies.length)}
-          {replies.map(reply => (
-            <div key={reply.id} className="flex items-start justify-between gap-3 p-3 bg-white border border-gray-200 rounded-lg">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-teal-700">{reply.shortcut}</div>
-                <div className="text-xs text-gray-600 mt-0.5 line-clamp-2">{reply.message_text}</div>
+          {replies.map(reply => {
+            const propia = esPropia(reply);
+            return (
+              <div key={reply.id} className="flex items-start justify-between gap-3 p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-semibold text-teal-700 dark:text-teal-400">{reply.shortcut}</span>
+                    {!soyAdmin && reply.sucursal_id === null && (
+                      <span title="Plantilla global del administrador" className="flex items-center gap-0.5 text-[10px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">
+                        <Globe size={10} /> Global
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-300 mt-0.5 line-clamp-2">{reply.message_text}</div>
+                </div>
+                {propia && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => startEdit(reply)}
+                      title="Editar"
+                      className="p-1.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950 rounded-full transition-colors"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(reply.id)}
+                      title="Eliminar"
+                      className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-full transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  onClick={() => startEdit(reply)}
-                  title="Editar"
-                  className="p-1.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-full transition-colors"
-                >
-                  <Pencil size={16} />
-                </button>
-                <button
-                  onClick={() => handleDelete(reply.id)}
-                  title="Eliminar"
-                  className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-full transition-colors"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

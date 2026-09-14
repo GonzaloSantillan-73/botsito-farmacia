@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard, CheckCircle2, PackageSearch, Truck, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { adminFetch } from '../lib/adminAuth';
 
 const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
 
@@ -50,15 +51,17 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
 
   useEffect(() => {
     console.log('🔄 [DEBUG-COMPONENT-OrderStatusPanel] useEffect(carga plantillas + alias) disparado — deps: [] (solo al montar)');
-    console.log('📡 [DEBUG-COMPONENT-OrderStatusPanel] Supabase SELECT quick_replies — params:', { table: 'quick_replies', shortcuts: Object.keys(MENSAJES_DEFAULT) });
-    supabase
-      .from('quick_replies')
-      .select('shortcut, message_text')
-      .in('shortcut', Object.keys(MENSAJES_DEFAULT))
-      .then(({ data, error }) => {
-        console.log('📡 [DEBUG-COMPONENT-OrderStatusPanel] Supabase SELECT quick_replies — respuesta:', { data, error });
+    console.log('📡 [DEBUG-COMPONENT-OrderStatusPanel] adminFetch GET /api/admin/quick-replies');
+    adminFetch('/api/admin/quick-replies')
+      .then(res => res.json())
+      .then(data => {
+        console.log('📡 [DEBUG-COMPONENT-OrderStatusPanel] respuesta quick-replies —', data);
+        const relevantes = (data.replies || []).filter(r => Object.keys(MENSAJES_DEFAULT).includes(r.shortcut));
         const map = {};
-        (data || []).forEach(r => { map[r.shortcut] = r.message_text; });
+        // Primero las globales, después las propias de la sucursal (si las
+        // personalizó, pisan a la global para esta cuenta específicamente).
+        relevantes.filter(r => r.sucursal_id === null).forEach(r => { map[r.shortcut] = r.message_text; });
+        relevantes.filter(r => r.sucursal_id !== null).forEach(r => { map[r.shortcut] = r.message_text; });
         setPlantillas(map);
       });
 

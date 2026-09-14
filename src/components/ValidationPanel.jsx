@@ -423,7 +423,7 @@ export default function ValidationPanel({
   };
 
   return (
-    <div className="w-1/4 min-w-[280px] max-w-sm @container bg-white border-l border-gray-200 flex flex-col shadow-sm z-10 overflow-hidden">
+    <div className="w-1/4 min-w-[280px] max-w-sm @container bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 flex flex-col shadow-sm z-10 overflow-hidden">
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         {/* La validación de receta dispara un mensaje automático al cliente
             (aprobada/rechazada) por /api/messages/send, bloqueado para el

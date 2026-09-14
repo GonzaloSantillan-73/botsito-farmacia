@@ -246,34 +246,32 @@ export default function Sidebar({
   console.log('🔍 [DEBUG-COMPONENT-Sidebar] tabCounts:', tabCounts, 'filteredConversations.length:', filteredConversations.length);
 
   return (
-    <div className="w-1/4 min-w-[260px] max-w-sm border-r border-gray-200 bg-white flex flex-col shadow-sm z-10">
-      <div className="p-4 border-b border-gray-200 space-y-4">
-        <h1 className="text-xl font-bold text-teal-700 flex items-center justify-between gap-2">
+    <div className="w-1/4 min-w-[260px] max-w-sm border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col shadow-sm z-10">
+      <div className="p-4 border-b border-gray-200 dark:border-gray-800 space-y-4">
+        <h1 className="text-xl font-bold text-teal-700 dark:text-teal-400 flex items-center justify-between gap-2">
           <span>CRM</span>
           <div className="flex items-center gap-1">
             <button
               onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-Sidebar] click onShowClientDirectory — showClientDirectory actual:', showClientDirectory); onShowClientDirectory(); }}
               title="Directorio de clientes"
-              className={`p-2 rounded-full transition-colors ${showClientDirectory ? 'bg-teal-100 text-teal-700' : 'text-gray-400 hover:text-teal-600 hover:bg-gray-100'}`}
+              className={`p-2 rounded-full transition-colors ${showClientDirectory ? 'bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300' : 'text-gray-400 hover:text-teal-600 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
             >
               <Users size={20} />
             </button>
-            {isAdmin && (
-              <button
-                onClick={() => { console.log('🔄 [DEBUG-COMPONENT-Sidebar] setShowSettings -> true'); setShowSettings(true); }}
-                title="Configuración"
-                className="p-2 text-gray-400 hover:text-teal-600 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <Settings size={20} />
-              </button>
-            )}
+            <button
+              onClick={() => { console.log('🔄 [DEBUG-COMPONENT-Sidebar] setShowSettings -> true'); setShowSettings(true); }}
+              title="Configuración"
+              className="p-2 text-gray-400 hover:text-teal-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+            >
+              <Settings size={20} />
+            </button>
             <button
               onClick={() => {
                 console.log('🖱️ [DEBUG-COMPONENT-Sidebar] click onLogout');
                 if (window.confirm('¿Cerrar sesión del CRM?')) onLogout?.();
               }}
               title="Cerrar sesión"
-              className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-full transition-colors"
+              className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-full transition-colors"
             >
               <LogOut size={20} />
             </button>
@@ -281,7 +279,7 @@ export default function Sidebar({
         </h1>
 
         {!isAdmin && staffSucursalNombre && (
-          <div className="text-[11px] font-medium text-teal-700 bg-teal-50 border border-teal-100 rounded-lg px-2.5 py-1.5 -mt-1">
+          <div className="text-[11px] font-medium text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950 border border-teal-100 dark:border-teal-900 rounded-lg px-2.5 py-1.5 -mt-1">
             Sucursal: {staffSucursalNombre}
           </div>
         )}
@@ -290,40 +288,40 @@ export default function Sidebar({
         <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => { console.log('🔄 [DEBUG-COMPONENT-Sidebar] setActiveTab -> entrantes (tarjeta BOT)'); setActiveTab('entrantes'); }}
-            className={`text-left p-2 rounded-xl border transition-colors ${activeTab === 'entrantes' ? 'bg-indigo-50 border-indigo-300' : 'bg-white border-gray-200 hover:border-indigo-200 hover:bg-indigo-50/50'}`}
+            className={`text-left p-2 rounded-xl border transition-colors ${activeTab === 'entrantes' ? 'bg-indigo-50 dark:bg-indigo-950 border-indigo-300 dark:border-indigo-800' : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:border-indigo-200 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/50'}`}
           >
-            <div className="flex items-center gap-1 text-indigo-600 mb-1">
+            <div className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 mb-1">
               <Bot size={14} />
               <span className="text-[10px] font-bold uppercase tracking-wide truncate">BOT</span>
             </div>
-            <span className="text-xl font-bold text-gray-900">{botCount}</span>
+            <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{botCount}</span>
           </button>
 
           <button
             onClick={() => { console.log('🔄 [DEBUG-COMPONENT-Sidebar] setActiveTab -> atendiendo (tarjeta En espera)'); setActiveTab('atendiendo'); }}
-            className={`text-left p-2 rounded-xl border transition-colors ${activeTab === 'atendiendo' ? 'bg-amber-50 border-amber-300' : 'bg-white border-gray-200 hover:border-amber-200 hover:bg-amber-50/50'}`}
+            className={`text-left p-2 rounded-xl border transition-colors ${activeTab === 'atendiendo' ? 'bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-800' : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:border-amber-200 hover:bg-amber-50/50 dark:hover:bg-amber-950/50'}`}
           >
-            <div className="flex items-center gap-1 text-amber-600 mb-1">
+            <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400 mb-1">
               <Clock size={14} />
               <span className="text-[10px] font-bold uppercase tracking-wide truncate">En espera</span>
             </div>
-            <span className="text-xl font-bold text-gray-900">{enEsperaCount}</span>
+            <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{enEsperaCount}</span>
           </button>
 
           <button
             onClick={() => { console.log('🔄 [DEBUG-COMPONENT-Sidebar] setActiveTab -> derivados (tarjeta Global/Mis chats)'); setActiveTab('derivados'); }}
-            className={`text-left p-2 rounded-xl border transition-colors ${activeTab === 'derivados' ? 'bg-teal-50 border-teal-300' : 'bg-white border-gray-200 hover:border-teal-200 hover:bg-teal-50/50'}`}
+            className={`text-left p-2 rounded-xl border transition-colors ${activeTab === 'derivados' ? 'bg-teal-50 dark:bg-teal-950 border-teal-300 dark:border-teal-800' : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:border-teal-200 hover:bg-teal-50/50 dark:hover:bg-teal-950/50'}`}
           >
-            <div className="flex items-center gap-1 text-teal-600 mb-1">
+            <div className="flex items-center gap-1 text-teal-600 dark:text-teal-400 mb-1">
               <MessageSquare size={14} />
               <span className="text-[10px] font-bold uppercase tracking-wide truncate">{isAdmin ? 'Global' : 'Mis chats'}</span>
             </div>
-            <span className="text-xl font-bold text-gray-900">{misChatsCount}</span>
+            <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{misChatsCount}</span>
           </button>
         </div>
 
         {/* Pestañas de filtrado */}
-        <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
+        <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-1">
           {console.log('🔍 [DEBUG-COMPONENT-Sidebar] .map() TABS — cantidad:', TABS(isAdmin).length, 'tabs:', TABS(isAdmin))}
           {TABS(isAdmin).map(tab => {
             const Icon = tab.icon;
@@ -333,7 +331,7 @@ export default function Sidebar({
               <button
                 key={tab.id}
                 onClick={() => { console.log('🔄 [DEBUG-COMPONENT-Sidebar] setActiveTab (pestaña) ->', tab.id); setActiveTab(tab.id); }}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-semibold transition-colors ${isActive ? 'bg-white text-teal-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-semibold transition-colors ${isActive ? 'bg-white dark:bg-gray-900 text-teal-700 dark:text-teal-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
               >
                 <Icon size={14} />
                 {tab.label}
@@ -364,9 +362,9 @@ export default function Sidebar({
            </div>
         ) : validConversations.length === 0 ? (
            <div className="p-8 text-center flex flex-col items-center justify-center h-full">
-             <Database className="w-12 h-12 text-gray-300 mb-4" />
-             <h3 className="text-gray-900 font-semibold mb-2">No hay conversaciones</h3>
-             <p className="text-gray-500 text-sm mb-6">Tu base de datos está vacía. Carga los datos de prueba para comenzar.</p>
+             <Database className="w-12 h-12 text-gray-300 dark:text-gray-700 mb-4" />
+             <h3 className="text-gray-900 dark:text-gray-100 font-semibold mb-2">No hay conversaciones</h3>
+             <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Tu base de datos está vacía. Carga los datos de prueba para comenzar.</p>
              <button
                onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-Sidebar] click handleSeedData() — isSeeding:', isSeeding); handleSeedData(); }}
                disabled={isSeeding}
@@ -377,7 +375,7 @@ export default function Sidebar({
              </button>
            </div>
         ) : filteredConversations.length === 0 ? (
-           <div className="p-8 text-center text-gray-500 text-sm">
+           <div className="p-8 text-center text-gray-500 dark:text-gray-400 text-sm">
               No hay coincidencias con tu búsqueda o filtros.
            </div>
         ) : (
@@ -393,15 +391,15 @@ export default function Sidebar({
             <div
               key={conv.id}
               onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-Sidebar] click conversación — conv.id:', conv.id); console.log('🔄 [DEBUG-COMPONENT-Sidebar] setActiveConversation ->', conv); setActiveConversation(conv); }}
-              className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${activeConversation?.id === conv.id ? 'bg-teal-50/50 border-l-4 border-l-teal-500' : 'border-l-4 border-l-transparent'}`}
+              className={`p-4 border-b border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${activeConversation?.id === conv.id ? 'bg-teal-50/50 dark:bg-teal-950/50 border-l-4 border-l-teal-500' : 'border-l-4 border-l-transparent'}`}
             >
               <div className="flex justify-between items-start mb-1">
-                <h3 className="font-semibold text-gray-900 truncate pr-2">
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate pr-2">
                    {conv.real_name || conv.client_name || formatPhone(conv.client_phone)}
                    {(conv.real_name || conv.client_name) && <span className="text-xs font-normal text-gray-400 ml-1">({formatPhone(conv.client_phone)})</span>}
                 </h3>
                 <div className="flex flex-col items-end gap-1 shrink-0">
-                  <span className="text-xs text-gray-500 whitespace-nowrap">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                     {activeTab === 'derivados'
                       ? new Date(conv.updated_at).toLocaleString([], { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
                       : new Date(conv.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -413,7 +411,7 @@ export default function Sidebar({
                   )}
                 </div>
               </div>
-              <div className="text-sm text-gray-600 truncate mb-2">
+              <div className="text-sm text-gray-600 dark:text-gray-400 truncate mb-2">
                 {conv.last_message || <span className="italic text-gray-400">Nueva conversación</span>}
               </div>
               {showEsperando && soyStaff && miSucursalId && (
@@ -443,7 +441,7 @@ export default function Sidebar({
         )}
       </div>
 
-      {showSettings && isAdmin && (
+      {showSettings && (
         <SettingsModal
           sessionTimeoutMs={sessionTimeoutMs}
           onSave={(newMs) => { console.log('🖱️ [DEBUG-COMPONENT-Sidebar] SettingsModal onSave — newMs:', newMs); onSessionTimeoutChange && onSessionTimeoutChange(newMs); }}

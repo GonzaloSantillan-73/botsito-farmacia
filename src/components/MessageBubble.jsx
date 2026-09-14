@@ -26,7 +26,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
   console.log('🔍 [DEBUG-COMPONENT-MessageBubble] location parseada:', location, '— media_type:', msg.media_type);
   return (
     <div className={`flex ${msg.sender_type === 'client' ? 'justify-start' : 'justify-end'}`}>
-      <div className={`max-w-[75%] rounded-lg p-3 shadow-sm ${msg.sender_type === 'client' ? 'bg-white text-gray-800 rounded-tl-none' : 'bg-teal-500 text-white rounded-tr-none'}`}>
+      <div className={`max-w-[75%] rounded-lg p-3 shadow-sm ${msg.sender_type === 'client' ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-tl-none' : 'bg-teal-500 text-white rounded-tr-none'}`}>
         {msg.sender_type === 'bot' && <div className="text-[10px] font-bold uppercase opacity-70 mb-1">BOT</div>}
         {location && (
           <div

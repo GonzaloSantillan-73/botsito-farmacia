@@ -133,18 +133,16 @@ export default function ChatArea({
   useEffect(() => {
     console.log('🔍 [DEBUG-COMPONENT-ChatArea] useEffect (quick_replies) disparado — showQuickResponses:', showQuickResponses);
     if (!showQuickResponses) return;
-    console.log('📡 [DEBUG-COMPONENT-ChatArea] antes de supabase.from(quick_replies).select()');
-    supabase
-      .from('quick_replies')
-      .select('*')
-      .order('shortcut')
-      .then(({ data, error }) => {
-        console.log('📡 [DEBUG-COMPONENT-ChatArea] respuesta supabase quick_replies — data:', data, 'error:', error);
-        if (!error) {
-          console.log('🔄 [DEBUG-COMPONENT-ChatArea] setQuickResponses ->', data || []);
-          setQuickResponses(data || []);
+    console.log('📡 [DEBUG-COMPONENT-ChatArea] antes de adminFetch GET /api/admin/quick-replies');
+    adminFetch('/api/admin/quick-replies')
+      .then(res => res.json())
+      .then(data => {
+        console.log('📡 [DEBUG-COMPONENT-ChatArea] respuesta quick-replies — data:', data);
+        if (data.replies) {
+          console.log('🔄 [DEBUG-COMPONENT-ChatArea] setQuickResponses ->', data.replies);
+          setQuickResponses(data.replies);
         } else {
-          console.error('❌ [DEBUG-COMPONENT-ChatArea] error cargando quick_replies:', error);
+          console.error('❌ [DEBUG-COMPONENT-ChatArea] error cargando quick_replies:', data.error);
         }
       });
   }, [showQuickResponses]);
@@ -468,7 +466,7 @@ export default function ChatArea({
       {activeConversation ? (
         <>
           {/* Header */}
-          <div className="px-6 py-3 bg-white border-b border-gray-200 flex flex-wrap items-center justify-between gap-y-2 shadow-sm z-10">
+          <div className="px-6 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex flex-wrap items-center justify-between gap-y-2 shadow-sm z-10">
             <div className="flex items-center gap-3 min-w-0">
               {onBackToHistory && (
                 <button
@@ -480,8 +478,8 @@ export default function ChatArea({
                 </button>
               )}
               <div className="min-w-0">
-                <h2 className="font-bold text-gray-900 truncate">{activeConversation.real_name || activeConversation.client_name}</h2>
-                <p className="text-xs text-gray-500 truncate">{formatPhone(activeConversation.client_phone)}</p>
+                <h2 className="font-bold text-gray-900 dark:text-gray-100 truncate">{activeConversation.real_name || activeConversation.client_name}</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{formatPhone(activeConversation.client_phone)}</p>
               </div>
               {SALE_STATUS_BADGES[activeConversation.sale_status] && (
                 <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 ${SALE_STATUS_BADGES[activeConversation.sale_status].className}`}>
@@ -510,14 +508,14 @@ export default function ChatArea({
                <button
                  onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowGallery -> true'); setShowGallery(true); }}
                  title="Ver imágenes, videos, documentos y enlaces compartidos con el cliente"
-                 className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+                 className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
                >
                  <Images size={20} />
                </button>
                <button
                  onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowFullHistory -> toggle, valor actual:', showFullHistory); setShowFullHistory(v => !v); }}
                  title={showFullHistory ? 'Volver a esta consulta' : 'Ver todo el chat: cargar acá mismo los mensajes de consultas anteriores con este cliente'}
-                 className={`p-2 rounded-full transition-colors ${showFullHistory ? 'bg-teal-50 text-teal-600' : 'text-gray-500 hover:bg-gray-100'}`}
+                 className={`p-2 rounded-full transition-colors ${showFullHistory ? 'bg-teal-50 dark:bg-teal-950 text-teal-600 dark:text-teal-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                >
                  <MessagesSquare size={20} />
                </button>
@@ -543,14 +541,14 @@ export default function ChatArea({
                <button
                  onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowHistory -> true'); setShowHistory(true); }}
                  title="Historial de consultas del cliente"
-                 className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+                 className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
                >
                  <History size={20} />
                </button>
                <button
                  onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowOrderHistory -> true'); setShowOrderHistory(true); }}
                  title="Historial de pedidos del cliente"
-                 className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+                 className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
                >
                  <ShoppingBag size={20} />
                </button>
@@ -568,7 +566,7 @@ export default function ChatArea({
           <div
             ref={messagesContainerRef}
             onScroll={handleMessagesScroll}
-            className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#efeae2] scrollbar-thin"
+            className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#efeae2] dark:bg-[#0b141a] scrollbar-thin"
           >
             {showFullHistory && loadingHistory && (
               <div className="flex items-center justify-center gap-2 py-2 text-gray-400 text-xs">
@@ -633,11 +631,11 @@ export default function ChatArea({
 
           {/* Input Area (oculta en conversaciones cerradas/Historial: no se puede escribir ahí) */}
           {isConversacionCerrada ? (
-            <div className="p-4 bg-gray-50 border-t border-gray-200 text-center text-sm text-gray-500">
+            <div className="p-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 text-center text-sm text-gray-500 dark:text-gray-400">
               Esta consulta está cerrada. No se pueden enviar mensajes desde el Historial.
             </div>
           ) : soyAdmin ? (
-            <div className="p-4 bg-gray-50 border-t border-gray-200 text-center text-sm text-gray-500">
+            <div className="p-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 text-center text-sm text-gray-500 dark:text-gray-400">
               Modo supervisión: estás viendo este chat como espectador. El administrador no puede enviar mensajes ni intervenir en la atención.
             </div>
           ) : requiereTomarParaResponder ? (
@@ -655,13 +653,13 @@ export default function ChatArea({
               </button>
             </div>
           ) : (
-          <div className="p-4 bg-white border-t border-gray-200 relative flex flex-col gap-2">
+          <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 relative flex flex-col gap-2">
             {showQuickResponses && (
-              <div className="absolute bottom-[100%] mb-2 left-4 bg-white border border-gray-200 shadow-xl rounded-xl w-[350px] overflow-hidden z-20">
-                <div className="bg-gray-50 px-3 py-2 border-b border-gray-200 flex items-center justify-between">
+              <div className="absolute bottom-[100%] mb-2 left-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl rounded-xl w-[350px] overflow-hidden z-20">
+                <div className="bg-gray-50 dark:bg-gray-900 px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Zap size={16} className="text-amber-500" />
-                    <span className="text-xs font-bold text-gray-700 uppercase">Respuestas Rápidas</span>
+                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase">Respuestas Rápidas</span>
                   </div>
                   <button onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowQuickResponses -> false (botón cerrar)'); setShowQuickResponses(false); }} className="text-gray-400 hover:text-gray-600">
                     <Check size={16} className="opacity-0" />
@@ -678,36 +676,36 @@ export default function ChatArea({
                       <button
                         key={qr.id}
                         onClick={() => insertQuickResponse(qr.message_text)}
-                        className="w-full text-left p-3 hover:bg-teal-50 border-b border-gray-100 last:border-0 transition-colors flex flex-col gap-1"
+                        className="w-full text-left p-3 hover:bg-teal-50 dark:hover:bg-teal-950 border-b border-gray-100 dark:border-gray-700 last:border-0 transition-colors flex flex-col gap-1"
                       >
-                        <span className="text-sm font-semibold text-teal-800">{qr.shortcut}</span>
-                        <span className="text-xs text-gray-500 line-clamp-2">{qr.message_text}</span>
+                        <span className="text-sm font-semibold text-teal-800 dark:text-teal-400">{qr.shortcut}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{qr.message_text}</span>
                       </button>
                     ))
                   )}
                 </div>
               </div>
             )}
-            
+
             {/* File Preview */}
             {selectedFile && (
-              <div className="self-start px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between gap-4 max-w-sm">
+              <div className="self-start px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg flex items-center justify-between gap-4 max-w-sm">
                  <div className="flex items-center gap-2 overflow-hidden">
                     {selectedFile.type.startsWith('image/') ? (
                        <img src={URL.createObjectURL(selectedFile)} alt="preview" className="h-10 w-10 object-cover rounded shadow-sm" />
                     ) : (
-                       <div className="h-10 w-10 bg-gray-200 flex items-center justify-center rounded shadow-sm"><FileText size={20} className="text-gray-500"/></div>
+                       <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 flex items-center justify-center rounded shadow-sm"><FileText size={20} className="text-gray-500"/></div>
                     )}
-                    <span className="text-xs font-medium text-gray-700 truncate">{selectedFile.name}</span>
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{selectedFile.name}</span>
                  </div>
-                 <button onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setSelectedFile -> null (quitar preview)'); setSelectedFile(null); }} className="p-1 text-gray-400 hover:text-rose-500 bg-white rounded-full shadow-sm"><X size={16}/></button>
+                 <button onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setSelectedFile -> null (quitar preview)'); setSelectedFile(null); }} className="p-1 text-gray-400 hover:text-rose-500 bg-white dark:bg-gray-900 rounded-full shadow-sm"><X size={16}/></button>
               </div>
             )}
 
-            <div className="flex items-end gap-2 bg-gray-50 border border-gray-300 rounded-xl p-2 focus-within:border-teal-500 focus-within:ring-1 focus-within:ring-teal-500 transition-shadow">
+            <div className="flex items-end gap-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl p-2 focus-within:border-teal-500 focus-within:ring-1 focus-within:ring-teal-500 transition-shadow">
               <button
                 onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowQuickResponses -> toggle, valor actual:', showQuickResponses); setShowQuickResponses(!showQuickResponses); }}
-                className={`p-2 transition-colors rounded-lg ${showQuickResponses ? 'bg-amber-100 text-amber-600' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50'}`}
+                className={`p-2 transition-colors rounded-lg ${showQuickResponses ? 'bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950'}`}
                 title="Respuestas Rápidas (/)"
               >
                 <Zap size={20} />
@@ -729,7 +727,7 @@ export default function ChatArea({
               </button>
 
               <textarea
-                className="flex-1 bg-transparent max-h-32 min-h-[40px] resize-none outline-none py-2 px-2 text-sm scrollbar-thin"
+                className="flex-1 bg-transparent max-h-32 min-h-[40px] resize-none outline-none py-2 px-2 text-sm scrollbar-thin dark:text-gray-100"
                 placeholder="Escribe un mensaje... (Usa '/' para plantillas)"
                 value={messageInput}
                 onChange={handleInputChange}
@@ -794,9 +792,9 @@ export default function ChatArea({
           />
         </>
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
-          <MessageSquare size={64} className="mb-4 text-gray-300" />
-          <p className="text-lg font-medium text-gray-500">Selecciona una conversación</p>
+        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-white dark:bg-gray-900">
+          <MessageSquare size={64} className="mb-4 text-gray-300 dark:text-gray-700" />
+          <p className="text-lg font-medium text-gray-500 dark:text-gray-400">Selecciona una conversación</p>
         </div>
       )}
     </div>
