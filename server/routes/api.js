@@ -72,8 +72,15 @@ router.get('/export/chats', async (req, res) => {
 // opcionales acá: sin filtro, trae todo.
 router.get('/metrics/detalle', async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
-    const filas = await obtenerDetalleConsultas({ startDate, endDate });
+    const { startDate, endDate, saleStatus, rating, productRating, derivada } = req.query;
+    const filas = await obtenerDetalleConsultas({
+      startDate,
+      endDate,
+      saleStatus,
+      rating: rating != null && rating !== '' ? Number(rating) : undefined,
+      productRating: productRating != null && productRating !== '' ? Number(productRating) : undefined,
+      derivada: derivada != null && derivada !== '' ? derivada === 'true' : undefined
+    });
     res.status(200).json({ filas });
   } catch (error) {
     console.error('[API] ❌ Error obteniendo el detalle de consultas:', error.message);
@@ -145,10 +152,23 @@ router.get('/export/metrics', async (req, res) => {
 // derivación a humanos, y efectividad del filtro de seguridad de PDFs.
 router.get('/metrics/negocio', async (req, res) => {
   try {
-    const { data: cerradas, error: cerradasError } = await supabase
-      .from('conversations')
-      .select('id')
-      .in('status', TERMINAL_STATUSES);
+    // Rango de fechas opcional (igual que /metrics/detalle): sin él, trae
+    // todo el histórico. Se aplica sobre conversations.created_at en cada
+    // consulta, para que las 4 secciones (resolución, seguridad, conversión y
+    // satisfacción) queden consistentes entre sí con el mismo período.
+    const { startDate, endDate } = req.query;
+    const from = startDate ? `${startDate}T00:00:00.000Z` : null;
+    const to = endDate ? `${endDate}T23:59:59.999Z` : null;
+    const conRango = (query, campo = 'created_at') => {
+      let q = query;
+      if (from) q = q.gte(campo, from);
+      if (to) q = q.lte(campo, to);
+      return q;
+    };
+
+    const { data: cerradas, error: cerradasError } = await conRango(
+      supabase.from('conversations').select('id').in('status', TERMINAL_STATUSES)
+    );
     if (cerradasError) throw cerradasError;
 
     const idsCerradas = cerradas.map(c => c.id);
@@ -166,44 +186,36 @@ router.get('/metrics/negocio', async (req, res) => {
     const autonomas = totalCerradas - derivadas;
     const pctAutonoma = totalCerradas > 0 ? (autonomas / totalCerradas) * 100 : 0;
 
-    const { count: pdfBloqueados, error: bloqError } = await supabase
-      .from('messages')
-      .select('id', { count: 'exact', head: true })
-      .eq('media_type', 'blocked_pdf');
+    const { count: pdfBloqueados, error: bloqError } = await conRango(
+      supabase.from('messages').select('id', { count: 'exact', head: true }).eq('media_type', 'blocked_pdf')
+    );
     if (bloqError) throw bloqError;
 
-    const { count: pdfAceptados, error: acepError } = await supabase
-      .from('messages')
-      .select('id', { count: 'exact', head: true })
-      .eq('media_type', 'pdf');
+    const { count: pdfAceptados, error: acepError } = await conRango(
+      supabase.from('messages').select('id', { count: 'exact', head: true }).eq('media_type', 'pdf')
+    );
     if (acepError) throw acepError;
 
     // Conversión de ventas: resultado que el vendedor marca a mano (Venta
-    // Concretada / No Concretada) sobre lo cotizado en el chat.
-    const { data: gestionVentas, error: gestionError } = await supabase
-      .from('conversations')
-      .select('sale_status, sale_amount')
-      .not('sale_status', 'is', null);
+    // Concretada / No Concretada / Otra razón) sobre lo cotizado en el chat.
+    const { data: gestionVentas, error: gestionError } = await conRango(
+      supabase.from('conversations').select('sale_status').not('sale_status', 'is', null)
+    );
     if (gestionError) throw gestionError;
 
     const concretadas = gestionVentas.filter(g => g.sale_status === 'concretada');
     const noConcretadas = gestionVentas.filter(g => g.sale_status === 'no_concretada');
     const otras = gestionVentas.filter(g => g.sale_status === 'otra');
-    const ticketPromedioConcretadas = concretadas.length > 0
-      ? concretadas.reduce((acc, g) => acc + (Number(g.sale_amount) || 0), 0) / concretadas.length
-      : 0;
     const totalGestionadas = gestionVentas.length;
-    const tasaConversion = totalGestionadas > 0 ? (concretadas.length / totalGestionadas) * 100 : 0;
 
     // Calificaciones de satisfacción: atención (`rating`) y producto
     // (`product_rating`) son independientes entre sí. Se calcula el promedio
     // global y también desglosado por sucursal, para que cada local pueda ver
     // cómo viene su propio puntaje (el frontend decide qué mostrarle a quién
     // según el rol, esto solo calcula los números).
-    const { data: ratingsData, error: ratingsError } = await supabase
-      .from('conversations')
-      .select('rating, product_rating, sucursal_id')
-      .or('rating.not.is.null,product_rating.not.is.null');
+    const { data: ratingsData, error: ratingsError } = await conRango(
+      supabase.from('conversations').select('rating, product_rating, sucursal_id').or('rating.not.is.null,product_rating.not.is.null')
+    );
     if (ratingsError) throw ratingsError;
 
     const { data: sucursalesData, error: sucursalesError } = await supabase
@@ -243,9 +255,7 @@ router.get('/metrics/negocio', async (req, res) => {
         totalGestionadas,
         concretadas: concretadas.length,
         noConcretadas: noConcretadas.length,
-        otras: otras.length,
-        tasaConversion,
-        ticketPromedioConcretadas
+        otras: otras.length
       },
       operacion: { totalCerradas, autonomas, derivadas, pctAutonoma },
       seguridad: { pdfBloqueados: pdfBloqueados || 0, pdfAceptados: pdfAceptados || 0 },
