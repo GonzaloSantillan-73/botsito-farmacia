@@ -6,9 +6,13 @@ import React from 'react';
 const FORMAT_REGEX = /(\*[^*\n]+\*|_[^_\n]+_|~[^~\n]+~)/g;
 
 export function renderWhatsAppText(text) {
-  if (!text) return text;
+  console.log('🔍 [DEBUG-LIB-WHATSAPPFORMAT] renderWhatsAppText() — input:', text);
+  if (!text) {
+    console.log('✅ [DEBUG-LIB-WHATSAPPFORMAT] renderWhatsAppText() — return (input vacío):', text);
+    return text;
+  }
 
-  return text.split('\n').map((line, lineIndex, lines) => {
+  const result = text.split('\n').map((line, lineIndex, lines) => {
     const parts = line.split(FORMAT_REGEX).filter(part => part !== '');
 
     const rendered = parts.map((part, i) => {
@@ -31,4 +35,7 @@ export function renderWhatsAppText(text) {
       </React.Fragment>
     );
   });
+
+  console.log('✅ [DEBUG-LIB-WHATSAPPFORMAT] renderWhatsAppText() — texto de entrada:', text, '| resultado formateado (array de nodos React):', result);
+  return result;
 }

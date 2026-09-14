@@ -2,13 +2,18 @@ import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 export default function Accordion({ title, description, icon: Icon, defaultOpen = false, children }) {
+  console.log('🔍 [DEBUG-COMPONENT-Accordion] Accordion() — props:', { title, description, defaultOpen });
   const [open, setOpen] = useState(defaultOpen);
 
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => setOpen(o => {
+          const nuevoValor = !o;
+          console.log('🖱️ [DEBUG-COMPONENT-Accordion] toggle open — nuevo valor:', nuevoValor);
+          return nuevoValor;
+        })}
         aria-expanded={open}
         className="w-full flex items-center justify-between gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
       >
