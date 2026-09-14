@@ -3,18 +3,9 @@ import { Star, ShoppingCart, Bot, Headset, ShieldCheck, ShieldAlert, TrendingUp,
 import { isAdminRole, getStaffSucursalId, adminFetch } from '../lib/adminAuth';
 import StarRating, { coloresRating } from './StarRating';
 import MetricsTable from './MetricsTable';
+import Accordion from './Accordion';
 
 const formatMoney = (n) => `$${(Number(n) || 0).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
-
-function Seccion({ title, description, children }) {
-  return (
-    <div className="mb-8">
-      <h3 className="text-sm font-semibold text-gray-800 mb-1">{title}</h3>
-      {description && <p className="text-xs text-gray-500 mb-4">{description}</p>}
-      {children}
-    </div>
-  );
-}
 
 function StatCard({ icon: Icon, value, label, accent = 'text-gray-900' }) {
   return (
@@ -114,16 +105,24 @@ export default function MetricsPanel() {
 
   return (
     <div>
-      <Seccion
-        title="Detalle de consultas"
-        description="Una fila por consulta, con teléfono, tiempos de atención y datos del pago. Hacé clic en una columna para ordenar, filtrá por fecha y exportá todo a CSV."
-      >
+      {/* Única sección de ancho completo y siempre visible: es una tabla con
+          muchas columnas, no una tarjeta de resumen, así que no tiene sentido
+          acotarla ni poder ocultarla. */}
+      <div className="mb-8">
+        <h3 className="text-sm font-semibold text-gray-800 mb-1">Detalle de consultas</h3>
+        <p className="text-xs text-gray-500 mb-4">Una fila por consulta, con teléfono, tiempos de atención y datos del pago. Hacé clic en una columna para ordenar, filtrá por fecha y exportá todo a CSV.</p>
         <MetricsTable />
-      </Seccion>
+      </div>
 
-      <Seccion
+      {/* El resto son tarjetas de resumen: se acotan a un ancho legible,
+          centradas, y son colapsables para que el admin achique lo que no
+          esté mirando en el momento. */}
+      <div className="max-w-2xl mx-auto space-y-3">
+      <Accordion
         title="Conversión de ventas"
         description='Resultado que el vendedor marca a mano en el chat: "Venta Concretada", "Venta No Concretada" u "Otra razón".'
+        icon={TrendingUp}
+        defaultOpen
       >
         {!negocio || negocio.conversion.totalGestionadas === 0 ? (
           <div className="text-sm text-gray-400 py-6 text-center bg-gray-50 rounded-xl border border-gray-100">
@@ -161,11 +160,13 @@ export default function MetricsPanel() {
             </div>
           </>
         )}
-      </Seccion>
+      </Accordion>
 
-      <Seccion
+      <Accordion
         title="Resolución autónoma del bot"
         description="De las consultas ya cerradas, cuántas se resolvieron sin intervención humana."
+        icon={Bot}
+        defaultOpen
       >
         {!negocio || negocio.operacion.totalCerradas === 0 ? (
           <div className="text-sm text-gray-400 py-6 text-center bg-gray-50 rounded-xl border border-gray-100">
@@ -203,31 +204,35 @@ export default function MetricsPanel() {
             </div>
           </>
         )}
-      </Seccion>
+      </Accordion>
 
-      <Seccion
+      <Accordion
         title="Seguridad: filtro de PDFs"
         description="Efectividad del análisis de seguridad sobre los documentos PDF recibidos por WhatsApp."
+        icon={ShieldCheck}
+        defaultOpen
       >
         <div className="flex gap-3">
           <StatCard icon={ShieldAlert} value={negocio?.seguridad?.pdfBloqueados ?? 0} label="PDFs bloqueados" accent="text-rose-600" />
           <StatCard icon={ShieldCheck} value={negocio?.seguridad?.pdfAceptados ?? 0} label="PDFs aceptados" accent="text-emerald-600" />
         </div>
-      </Seccion>
+      </Accordion>
 
-      <Seccion title="Satisfacción con la atención" description="Resumen de las calificaciones (1 a 5) que dejan los clientes sobre cómo fueron atendidos al finalizar una consulta.">
+      <Accordion title="Satisfacción con la atención" description="Resumen de las calificaciones (1 a 5) que dejan los clientes sobre cómo fueron atendidos al finalizar una consulta." icon={Headset} defaultOpen>
         <RatingSummary resumen={negocio?.calificaciones?.atencion} label="atención" type="atencion" />
-      </Seccion>
+      </Accordion>
 
-      <Seccion title="Satisfacción con el producto" description="Resumen de las calificaciones (1 a 5) que dejan los clientes sobre el producto recibido, independiente de la atención.">
+      <Accordion title="Satisfacción con el producto" description="Resumen de las calificaciones (1 a 5) que dejan los clientes sobre el producto recibido, independiente de la atención." icon={ShoppingCart} defaultOpen>
         <RatingSummary resumen={negocio?.calificaciones?.producto} label="producto" type="producto" />
-      </Seccion>
+      </Accordion>
 
-      <Seccion
+      <Accordion
         title="Promedio por sucursal"
         description={soyAdmin
           ? 'Puntaje promedio de atención y producto que dejó cada sucursal, comparado con el promedio general del sistema.'
           : 'Puntaje promedio de tu sucursal, comparado con el promedio general del sistema.'}
+        icon={Store}
+        defaultOpen
       >
         <div className="space-y-2">
           <div className="flex items-center gap-3 p-3 rounded-xl bg-teal-50 border border-teal-100">
@@ -272,7 +277,8 @@ export default function MetricsPanel() {
             ))
           )}
         </div>
-      </Seccion>
+      </Accordion>
+      </div>
     </div>
   );
 }
