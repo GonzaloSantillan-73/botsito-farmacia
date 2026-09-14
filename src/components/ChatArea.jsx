@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag, Undo2, Hand, Mic } from 'lucide-react';
+import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag, Undo2, Hand } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
@@ -88,16 +88,6 @@ export default function ChatArea({
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
   const fileInputRef = useRef(null);
   const messagesContainerRef = useRef(null);
-
-  // Notas de voz grabadas desde el CRM: mismo circuito de subida que un
-  // archivo adjunto (Storage bucket 'media' + media_type 'audio'), sólo que
-  // el archivo se genera con MediaRecorder en vez de venir de un <input file>.
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingMs, setRecordingMs] = useState(0);
-  const mediaRecorderRef = useRef(null);
-  const recordedChunksRef = useRef([]);
-  const recordingStreamRef = useRef(null);
-  const recordingIntervalRef = useRef(null);
 
   // "Ver todo el chat": en vez de un modal aparte, antepone mensajes de
   // consultas anteriores del mismo cliente arriba de los de la conversación
@@ -428,9 +418,9 @@ export default function ChatArea({
     return 'document';
   };
 
-  // Sube un archivo o blob (adjunto del operador o nota de voz grabada) al
-  // mismo bucket de Storage que usa el webhook para la media entrante, y
-  // dispara el mensaje saliente con la URL pública resultante.
+  // Sube un archivo adjunto del operador al mismo bucket de Storage que usa
+  // el webhook para la media entrante, y dispara el mensaje saliente con la
+  // URL pública resultante.
   const uploadAndSendMedia = async (fileOrBlob, extension, mediaType) => {
     console.log('📡 [DEBUG-COMPONENT-ChatArea] uploadAndSendMedia() — extension:', extension, 'mediaType:', mediaType, 'size:', fileOrBlob?.size);
     console.log('🔄 [DEBUG-COMPONENT-ChatArea] setIsUploading -> true');
@@ -471,82 +461,6 @@ export default function ChatArea({
     } else {
       handleSendMessage();
     }
-  };
-
-  const stopRecordingStream = () => {
-    console.log('🖱️ [DEBUG-COMPONENT-ChatArea] stopRecordingStream()');
-    clearInterval(recordingIntervalRef.current);
-    recordingIntervalRef.current = null;
-    recordingStreamRef.current?.getTracks().forEach(track => track.stop());
-    recordingStreamRef.current = null;
-  };
-
-  // Cancela cualquier grabación en curso al cambiar de conversación o
-  // desmontar el componente: una nota de voz no debe terminar mandándose a
-  // un chat distinto del que estaba activo cuando se empezó a grabar.
-  useEffect(() => {
-    console.log('🔍 [DEBUG-COMPONENT-ChatArea] useEffect (cleanup grabación) disparado — activeConversation?.id:', activeConversation?.id);
-    return () => {
-      console.log('🔍 [DEBUG-COMPONENT-ChatArea] cleanup useEffect (grabación) — activeConversation?.id:', activeConversation?.id, 'mediaRecorder.state:', mediaRecorderRef.current?.state);
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        mediaRecorderRef.current.onstop = null;
-        mediaRecorderRef.current.stop();
-      }
-      stopRecordingStream();
-      console.log('🔄 [DEBUG-COMPONENT-ChatArea] setIsRecording -> false (cleanup)');
-      setIsRecording(false);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeConversation?.id]);
-
-  const handleStartRecording = async () => {
-    console.log('🖱️ [DEBUG-COMPONENT-ChatArea] handleStartRecording()');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      recordingStreamRef.current = stream;
-      recordedChunksRef.current = [];
-
-      const mimeType = ['audio/webm', 'audio/ogg'].find(t => window.MediaRecorder?.isTypeSupported?.(t)) || '';
-      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) recordedChunksRef.current.push(e.data);
-      };
-      mediaRecorderRef.current = recorder;
-      recorder.start();
-
-      console.log('🔄 [DEBUG-COMPONENT-ChatArea] setRecordingMs -> 0');
-      setRecordingMs(0);
-      console.log('🔄 [DEBUG-COMPONENT-ChatArea] setIsRecording -> true');
-      setIsRecording(true);
-      recordingIntervalRef.current = setInterval(() => setRecordingMs(ms => ms + 1000), 1000);
-    } catch (err) {
-      console.error('❌ [DEBUG-COMPONENT-ChatArea] No se pudo acceder al micrófono:', err);
-      alert('No se pudo acceder al micrófono. Revisá los permisos del navegador para este sitio.');
-    }
-  };
-
-  // `shouldSend=false` descarta la grabación (botón de tacho); `true` la sube
-  // y la manda como mensaje de audio, igual que un archivo adjunto.
-  const handleStopRecording = (shouldSend) => {
-    console.log('🖱️ [DEBUG-COMPONENT-ChatArea] handleStopRecording() — shouldSend:', shouldSend);
-    const recorder = mediaRecorderRef.current;
-    if (!recorder) return;
-
-    recorder.onstop = async () => {
-      stopRecordingStream();
-      console.log('🔄 [DEBUG-COMPONENT-ChatArea] setIsRecording -> false');
-      setIsRecording(false);
-
-      const blob = new Blob(recordedChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
-      recordedChunksRef.current = [];
-
-      if (shouldSend && blob.size > 0) {
-        const extension = (recorder.mimeType || '').includes('ogg') ? 'ogg' : 'webm';
-        console.log('✅ [DEBUG-COMPONENT-ChatArea] nota de voz grabada, subiendo — extension:', extension, 'size:', blob.size);
-        await uploadAndSendMedia(blob, extension, 'audio');
-      }
-    };
-    recorder.stop();
   };
 
   return (
@@ -790,29 +704,6 @@ export default function ChatArea({
               </div>
             )}
 
-            {isRecording ? (
-              <div className="flex items-center gap-3 bg-rose-50 border border-rose-200 rounded-xl p-2 pl-3">
-                <button
-                  onClick={() => handleStopRecording(false)}
-                  title="Cancelar grabación"
-                  className="p-2 text-rose-500 hover:bg-rose-100 rounded-full transition-colors shrink-0"
-                >
-                  <Trash2 size={18} />
-                </button>
-                <span className="flex-1 flex items-center gap-2 text-sm font-medium text-rose-700">
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
-                  Grabando nota de voz... {formatCountdown(recordingMs)}
-                </span>
-                <button
-                  onClick={() => handleStopRecording(true)}
-                  disabled={isUploading}
-                  title="Enviar nota de voz"
-                  className="p-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center w-10 h-10 shrink-0"
-                >
-                  {isUploading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
-                </button>
-              </div>
-            ) : (
             <div className="flex items-end gap-2 bg-gray-50 border border-gray-300 rounded-xl p-2 focus-within:border-teal-500 focus-within:ring-1 focus-within:ring-teal-500 transition-shadow">
               <button
                 onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowQuickResponses -> toggle, valor actual:', showQuickResponses); setShowQuickResponses(!showQuickResponses); }}
@@ -827,7 +718,7 @@ export default function ChatArea({
                 ref={fileInputRef}
                 className="hidden"
                 onChange={handleFileChange}
-                accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
+                accept="image/*,video/*,.pdf,.doc,.docx"
               />
               <button
                 onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ChatArea] click abrir selector de archivo (Paperclip)'); fileInputRef.current?.click(); }}
@@ -850,26 +741,14 @@ export default function ChatArea({
                   }
                 }}
               />
-              {messageInput.trim() || selectedFile ? (
-                <button
-                  onClick={handleSendClick}
-                  disabled={isUploading}
-                  className="p-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center w-10 h-10"
-                >
-                  {isUploading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
-                </button>
-              ) : (
-                <button
-                  onClick={handleStartRecording}
-                  disabled={isUploading}
-                  title="Grabar nota de voz"
-                  className="p-2 text-gray-400 hover:text-teal-600 transition-colors disabled:opacity-50 flex items-center justify-center w-10 h-10"
-                >
-                  <Mic size={20} />
-                </button>
-              )}
+              <button
+                onClick={handleSendClick}
+                disabled={(!messageInput.trim() && !selectedFile) || isUploading}
+                className="p-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center w-10 h-10"
+              >
+                {isUploading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
+              </button>
             </div>
-            )}
           </div>
           )}
 
