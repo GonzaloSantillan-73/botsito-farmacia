@@ -38,7 +38,7 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
       setLoading(true);
       const { data, error } = await supabase
         .from('conversations')
-        .select('*')
+        .select('*, sucursal_actual:sucursales!sucursal_id(nombre), sucursal_primera:sucursales!primera_sucursal_id(nombre)')
         .eq('client_phone', clientPhone)
         .order('created_at', { ascending: false });
 

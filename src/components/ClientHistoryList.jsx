@@ -1,11 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Search, CalendarRange, ArrowUpDown, Loader2, Clock, Star } from 'lucide-react';
+import { Search, CalendarRange, ArrowUpDown, Loader2, Clock, Store } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import { formatPhone } from '../lib/formatPhone';
 import { isAdminRole } from '../lib/adminAuth';
+import StarRating from './StarRating';
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Nombre(s) de la o las sucursales que intervinieron en la consulta:
+// primera_sucursal_id (quien la tomó por primera vez) y sucursal_id (la
+// actual/final). Suelen ser la misma; si difieren es porque hubo una
+// devolución y otra sucursal la retomó, y se muestran ambas en el orden en
+// que intervinieron. Requiere que el fetch haya pedido el join (ver
+// HistoryPanel.jsx / ClientDirectory.jsx) — si no vino, no se muestra nada.
+const nombresSucursales = (conv) => {
+  const primera = conv.sucursal_primera?.nombre;
+  const actual = conv.sucursal_actual?.nombre;
+  return [...new Set([primera, actual].filter(Boolean))];
+};
 
 // Resalta todas las apariciones del término buscado dentro de un texto, para
 // que el operador ubique de un vistazo por qué esa consulta apareció.
@@ -176,6 +189,7 @@ export default function ClientHistoryList({
           visibleConversations.map(conv => {
             const badge = STATUS_BADGES[conv.status];
             const saleBadge = SALE_STATUS_BADGES[conv.sale_status];
+            const sucursales = nombresSucursales(conv);
             return (
               <button
                 key={conv.id}
@@ -201,15 +215,24 @@ export default function ClientHistoryList({
                         ? (searchQuery.trim() ? highlightMatches(conv.last_message, searchQuery) : conv.last_message)
                         : <span className="italic text-gray-400">Sin mensajes</span>}
                   </div>
+                  {sucursales.length > 0 && (
+                    <div className="flex items-center gap-1 mt-1 text-[11px] text-gray-500">
+                      <Store size={11} className="text-gray-400 shrink-0" />
+                      <span className="truncate">
+                        {sucursales.length === 2 ? `${sucursales[0]} → ${sucursales[1]}` : sucursales[0]}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
                   {/* La calificación individual de un cliente solo la ve un admin;
                       a un operador/sucursal común no se le muestra (ver Métricas
                       para el promedio agregado, que sí está disponible para todos). */}
                   {isAdminRole() && conv.rating != null && (
-                    <span className="flex items-center gap-0.5 text-xs text-amber-600 font-medium">
-                      {conv.rating} <Star size={12} className="text-amber-400 fill-amber-400" />
-                    </span>
+                    <StarRating value={conv.rating} type="atencion" size={12} className="text-xs font-medium" />
+                  )}
+                  {isAdminRole() && conv.product_rating != null && (
+                    <StarRating value={conv.product_rating} type="producto" size={12} className="text-xs font-medium" />
                   )}
                   {badge && <span className={`text-[10px] font-medium px-2 py-0.5 rounded whitespace-nowrap ${badge.className}`}>{badge.label}</span>}
                   {saleBadge && <span className={`text-[10px] font-medium px-2 py-0.5 rounded whitespace-nowrap ${saleBadge.className}`}>{saleBadge.label}</span>}

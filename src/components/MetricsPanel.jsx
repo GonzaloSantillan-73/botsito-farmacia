@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Star, ShoppingCart, Bot, Headset, ShieldCheck, ShieldAlert, TrendingUp, CheckCircle2, XCircle, MessageSquare, Package, Store } from 'lucide-react';
+import { Star, ShoppingCart, Bot, Headset, ShieldCheck, ShieldAlert, TrendingUp, CheckCircle2, XCircle, MessageSquare, Store } from 'lucide-react';
 import { isAdminRole, getStaffSucursalId, adminFetch } from '../lib/adminAuth';
+import StarRating, { coloresRating } from './StarRating';
 import MetricsTable from './MetricsTable';
 
 const formatMoney = (n) => `$${(Number(n) || 0).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`;
@@ -29,7 +30,10 @@ function StatCard({ icon: Icon, value, label, accent = 'text-gray-900' }) {
 
 // Promedio + distribución 1-5 de una sola dimensión (atención o producto).
 // La reusan tanto el resumen global como, potencialmente, cualquier corte.
-function RatingSummary({ resumen, label }) {
+// `type` fija el color según la convención global (amarillo atención / azul
+// producto, ver StarRating.jsx).
+function RatingSummary({ resumen, label, type = 'atencion' }) {
+  const colores = coloresRating(type);
   if (!resumen || resumen.total === 0) {
     return (
       <div className="text-sm text-gray-400 py-6 text-center bg-gray-50 rounded-xl border border-gray-100">
@@ -41,10 +45,7 @@ function RatingSummary({ resumen, label }) {
     <>
       <div className="flex items-center gap-8 mb-6 bg-gray-50 rounded-xl p-5 border border-gray-100">
         <div>
-          <div className="text-3xl font-bold text-gray-900 flex items-center gap-1.5">
-            {resumen.promedio.toFixed(1)}
-            <Star size={20} className="text-amber-400 fill-amber-400" />
-          </div>
+          <StarRating value={resumen.promedio.toFixed(1)} type={type} size={20} className="text-3xl font-bold" />
           <div className="text-xs text-gray-500 uppercase font-medium mt-1">Promedio general</div>
         </div>
         <div className="w-px h-12 bg-gray-200" />
@@ -60,9 +61,9 @@ function RatingSummary({ resumen, label }) {
           const pct = resumen.total > 0 ? (count / resumen.total) * 100 : 0;
           return (
             <div key={n} className="flex items-center gap-3 text-sm">
-              <span className="w-10 text-gray-600 shrink-0 flex items-center gap-0.5">{n}<Star size={12} className="text-amber-400 fill-amber-400" /></span>
+              <span className="w-10 text-gray-600 shrink-0 flex items-center gap-0.5">{n}<Star size={12} className={colores.estrella} /></span>
               <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-amber-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                <div className={`h-full ${colores.barra} rounded-full transition-all`} style={{ width: `${pct}%` }} />
               </div>
               <span className="w-8 text-right text-gray-500 shrink-0">{count}</span>
             </div>
@@ -215,11 +216,11 @@ export default function MetricsPanel() {
       </Seccion>
 
       <Seccion title="Satisfacción con la atención" description="Resumen de las calificaciones (1 a 5) que dejan los clientes sobre cómo fueron atendidos al finalizar una consulta.">
-        <RatingSummary resumen={negocio?.calificaciones?.atencion} label="atención" />
+        <RatingSummary resumen={negocio?.calificaciones?.atencion} label="atención" type="atencion" />
       </Seccion>
 
       <Seccion title="Satisfacción con el producto" description="Resumen de las calificaciones (1 a 5) que dejan los clientes sobre el producto recibido, independiente de la atención.">
-        <RatingSummary resumen={negocio?.calificaciones?.producto} label="producto" />
+        <RatingSummary resumen={negocio?.calificaciones?.producto} label="producto" type="producto" />
       </Seccion>
 
       <Seccion
@@ -232,14 +233,18 @@ export default function MetricsPanel() {
           <div className="flex items-center gap-3 p-3 rounded-xl bg-teal-50 border border-teal-100">
             <div className="p-2 rounded-lg bg-white text-teal-600 shrink-0"><Store size={16} /></div>
             <span className="flex-1 text-sm font-semibold text-teal-800">Promedio general (todas las sucursales)</span>
-            <span className="flex items-center gap-1 text-sm font-bold text-gray-800">
-              {negocio?.calificaciones?.atencion?.total > 0 ? negocio.calificaciones.atencion.promedio.toFixed(1) : '—'}
-              <Star size={14} className="text-amber-400 fill-amber-400" />
-            </span>
-            <span className="flex items-center gap-1 text-sm font-bold text-gray-800">
-              {negocio?.calificaciones?.producto?.total > 0 ? negocio.calificaciones.producto.promedio.toFixed(1) : '—'}
-              <Package size={14} className="text-sky-500" />
-            </span>
+            <StarRating
+              value={negocio?.calificaciones?.atencion?.total > 0 ? negocio.calificaciones.atencion.promedio.toFixed(1) : '—'}
+              type="atencion"
+              size={14}
+              className="text-sm font-bold"
+            />
+            <StarRating
+              value={negocio?.calificaciones?.producto?.total > 0 ? negocio.calificaciones.producto.promedio.toFixed(1) : '—'}
+              type="producto"
+              size={14}
+              className="text-sm font-bold"
+            />
           </div>
 
           {sucursalesVisibles.length === 0 ? (
@@ -251,14 +256,18 @@ export default function MetricsPanel() {
               <div key={s.sucursalId || 'sin_sucursal'} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
                 <div className="p-2 rounded-lg bg-white text-gray-500 shrink-0"><Store size={16} /></div>
                 <span className="flex-1 text-sm font-medium text-gray-800 truncate">{s.nombre}</span>
-                <span className="flex items-center gap-1 text-sm font-semibold text-gray-700" title="Promedio de atención">
-                  {s.atencion.total > 0 ? s.atencion.promedio.toFixed(1) : '—'}
-                  <Star size={14} className="text-amber-400 fill-amber-400" />
-                </span>
-                <span className="flex items-center gap-1 text-sm font-semibold text-gray-700" title="Promedio de producto">
-                  {s.producto.total > 0 ? s.producto.promedio.toFixed(1) : '—'}
-                  <Package size={14} className="text-sky-500" />
-                </span>
+                <StarRating
+                  value={s.atencion.total > 0 ? s.atencion.promedio.toFixed(1) : '—'}
+                  type="atencion"
+                  size={14}
+                  className="text-sm font-semibold"
+                />
+                <StarRating
+                  value={s.producto.total > 0 ? s.producto.promedio.toFixed(1) : '—'}
+                  type="producto"
+                  size={14}
+                  className="text-sm font-semibold"
+                />
               </div>
             ))
           )}

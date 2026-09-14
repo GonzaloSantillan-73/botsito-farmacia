@@ -22,9 +22,22 @@ export const tomarConsulta = async (conversationId, sucursalId) => {
   if (sucursalError) throw sucursalError;
   if (!sucursal) throw new Error('Sucursal no encontrada.');
 
+  // primera_sucursal_id no se pisa nunca: solo se completa la primera vez que
+  // alguien toma la consulta, para poder saber después (aunque haya habido
+  // una devolución y otra sucursal la haya retomado) si intervino una sola
+  // sucursal o dos.
+  const { data: actual } = await supabase
+    .from('conversations')
+    .select('primera_sucursal_id')
+    .eq('id', conversationId)
+    .maybeSingle();
+
+  const updates = { sucursal_id: sucursalId, devuelta_por_sucursal_id: null };
+  if (!actual?.primera_sucursal_id) updates.primera_sucursal_id = sucursalId;
+
   const { data: conv, error: updateError } = await supabase
     .from('conversations')
-    .update({ sucursal_id: sucursalId, devuelta_por_sucursal_id: null })
+    .update(updates)
     .eq('id', conversationId)
     .eq('status', 'esperando')
     .is('sucursal_id', null)
