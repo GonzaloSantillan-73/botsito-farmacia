@@ -67,6 +67,7 @@ const groupByClient = (conversations) => {
 };
 
 export default function ClientDirectory({ onOpenConversation, initialSelectedPhone = null }) {
+  console.log('🔍 [DEBUG-COMPONENT-ClientDirectory] Render — props:', { onOpenConversation, initialSelectedPhone });
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -83,17 +84,29 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
   const sortOptions = soyStaff ? SORT_OPTIONS.filter(o => !o.adminOnly) : SORT_OPTIONS;
 
   useEffect(() => {
+    console.log('🔄 [DEBUG-COMPONENT-ClientDirectory] useEffect (fetch conversations) disparado — deps: [] (solo al montar)');
     // El filtrado por sucursal para el staff lo aplica el backend a partir
     // del sucursalId del JWT (ver server/routes/clientDirectory.js): acá no
     // se manda ni se puede forzar ninguna sucursal, evitando fugas entre
     // sucursales aunque se manipule el request.
+    console.log('📡 [DEBUG-COMPONENT-ClientDirectory] adminFetch → GET /api/admin/client-directory/conversations');
     adminFetch('/api/admin/client-directory/conversations')
       .then(res => res.json())
       .then(({ conversations: data, error }) => {
-        if (!error) setConversations(data || []);
+        console.log('📡 [DEBUG-COMPONENT-ClientDirectory] respuesta /api/admin/client-directory/conversations:', { cantidad: data?.length, error });
+        if (!error) {
+          console.log('🔄 [DEBUG-COMPONENT-ClientDirectory] setConversations — nuevo valor (cantidad):', (data || []).length);
+          setConversations(data || []);
+        } else {
+          console.error('❌ [DEBUG-COMPONENT-ClientDirectory] error recibido del backend:', error);
+        }
+        console.log('🔄 [DEBUG-COMPONENT-ClientDirectory] setLoading — nuevo valor: false');
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err) => {
+        console.error('❌ [DEBUG-COMPONENT-ClientDirectory] excepción en fetch conversations:', err);
+        setLoading(false);
+      });
   }, []);
 
   const historialConsultas = conversations
@@ -121,10 +134,11 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
 
   // --- Vista de detalle de un cliente ---
   if (selectedClient) {
+    console.log('🔍 [DEBUG-COMPONENT-ClientDirectory] Abriendo ficha de cliente — client_phone:', selectedClient.client_phone, 'total:', selectedClient.total);
     return (
       <div className="flex-1 flex flex-col bg-[#f0f2f5] overflow-hidden">
         <div className="px-6 py-4 bg-white border-b border-gray-200 flex items-center gap-3 shrink-0">
-          <button onClick={() => setSelectedPhone(null)} className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
+          <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ClientDirectory] handleBack() — volviendo a la lista general'); setSelectedPhone(null); }} className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
             <ArrowLeft size={20} />
           </button>
           <div className="min-w-0">
@@ -172,7 +186,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
           <h3 className="text-sm font-semibold text-gray-700 mb-3">Historial de consultas</h3>
           <ClientHistoryList
             conversations={selectedClient.conversations}
-            onSelect={(conv) => onOpenConversation && onOpenConversation(conv)}
+            onSelect={(conv) => { console.log('🖱️ [DEBUG-COMPONENT-ClientDirectory] onSelect (ficha cliente) — conversation id:', conv?.id); onOpenConversation && onOpenConversation(conv); }}
             emptyMessage="Este cliente todavía no tiene consultas."
           />
         </div>
@@ -190,13 +204,13 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
 
         <div className="flex bg-gray-100 rounded-lg p-1 gap-1 w-fit mb-3">
           <button
-            onClick={() => setVista('historial')}
+            onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ClientDirectory] handleVista — cambiando vista a: historial'); setVista('historial'); }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${vista === 'historial' ? 'bg-white text-teal-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <History size={14} /> Historial de Consultas
           </button>
           <button
-            onClick={() => setVista('lista')}
+            onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ClientDirectory] handleVista — cambiando vista a: lista'); setVista('lista'); }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${vista === 'lista' ? 'bg-white text-teal-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
             <List size={14} /> Lista de Clientes
@@ -209,7 +223,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
               <input
                 type="text"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { console.log('🖱️ [DEBUG-COMPONENT-ClientDirectory] handleSearchChange — nuevo texto:', e.target.value); setSearch(e.target.value); }}
                 placeholder="Buscar por nombre o teléfono..."
                 className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               />
@@ -218,9 +232,10 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
             <div className="relative shrink-0">
               <select
                 value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
+                onChange={(e) => { console.log('🖱️ [DEBUG-COMPONENT-ClientDirectory] handleSortChange — nuevo sortBy:', e.target.value); setSortBy(e.target.value); }}
                 className="pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 appearance-none"
               >
+                {console.log('🔍 [DEBUG-COMPONENT-ClientDirectory] render sortOptions.map — cantidad:', sortOptions.length)}
                 {sortOptions.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
@@ -235,7 +250,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
         {vista === 'historial' ? (
           <ClientHistoryList
             conversations={historialConsultas}
-            onSelect={(conv) => onOpenConversation && onOpenConversation(conv)}
+            onSelect={(conv) => { console.log('🖱️ [DEBUG-COMPONENT-ClientDirectory] onSelect (historial general) — conversation id:', conv?.id); onOpenConversation && onOpenConversation(conv); }}
             emptyMessage="Todavía no hay consultas finalizadas."
             showClient
           />
@@ -258,10 +273,11 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
                 </tr>
               </thead>
               <tbody>
+                {console.log('🔍 [DEBUG-COMPONENT-ClientDirectory] render sortedClients.map — cantidad:', sortedClients.length)}
                 {sortedClients.map(cl => (
                   <tr
                     key={cl.client_phone}
-                    onClick={() => setSelectedPhone(cl.client_phone)}
+                    onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ClientDirectory] handleRowClick — client_phone:', cl.client_phone); setSelectedPhone(cl.client_phone); }}
                     className="border-b border-gray-100 last:border-0 hover:bg-teal-50/40 cursor-pointer transition-colors"
                   >
                     <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{cl.real_name || cl.client_name || '—'}</td>

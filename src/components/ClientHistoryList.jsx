@@ -55,6 +55,7 @@ export default function ClientHistoryList({
   // cada fila puede ser de un cliente distinto y hace falta identificarlo.
   showClient = false
 }) {
+  console.log('🔍 [DEBUG-COMPONENT-ClientHistoryList] Render — props:', { conversationsCount: conversations?.length, selectedId, loading, emptyMessage, fillHeight, searchQuery: controlledQuery, showClient });
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   // El término de búsqueda puede vivir acá adentro (Directorio) o ser
@@ -63,6 +64,7 @@ export default function ClientHistoryList({
   const [internalQuery, setInternalQuery] = useState('');
   const searchQuery = controlledQuery !== undefined ? controlledQuery : internalQuery;
   const setSearchQuery = (value) => {
+    console.log('🔄 [DEBUG-COMPONENT-ClientHistoryList] setSearchQuery — nuevo valor:', value);
     if (onSearchQueryChange) onSearchQueryChange(value);
     if (controlledQuery === undefined) setInternalQuery(value);
   };
@@ -72,8 +74,10 @@ export default function ClientHistoryList({
   const [sortAsc, setSortAsc] = useState(false);
 
   useEffect(() => {
+    console.log('🔄 [DEBUG-COMPONENT-ClientHistoryList] useEffect (búsqueda de mensajes) disparado — searchQuery:', searchQuery, 'conversations.length:', conversations.length);
     const q = searchQuery.trim();
     if (!q || conversations.length === 0) {
+      console.log('🔄 [DEBUG-COMPONENT-ClientHistoryList] sin query o sin conversaciones — reseteando matchingIds/snippets/searchLoading');
       setMatchingIds(null);
       setSnippets({});
       setSearchLoading(false);
@@ -86,21 +90,28 @@ export default function ClientHistoryList({
     // conversation_id a la sucursal del usuario antes de buscar: aunque este
     // componente reciba conversaciones de otra sucursal no debería pasar,
     // ningún empleado puede leer mensajes ajenos a la suya.
+    console.log('📡 [DEBUG-COMPONENT-ClientHistoryList] adminFetch → POST /api/admin/client-directory/messages-search', { conversationIds: conversations.map(c => c.id), q });
     adminFetch('/api/admin/client-directory/messages-search', {
       method: 'POST',
       body: JSON.stringify({ conversationIds: conversations.map(c => c.id), q })
     })
       .then(res => res.json())
       .then(({ matchingIds, snippets: snip, error }) => {
+        console.log('📡 [DEBUG-COMPONENT-ClientHistoryList] respuesta messages-search:', { matchingIds, snip, error, cancelled });
         if (cancelled) return;
         if (!error) {
           setMatchingIds(new Set(matchingIds || []));
           setSnippets(snip || {});
+        } else {
+          console.error('❌ [DEBUG-COMPONENT-ClientHistoryList] error recibido del backend en messages-search:', error);
         }
         setSearchLoading(false);
       })
-      .catch(() => { if (!cancelled) setSearchLoading(false); });
-    return () => { cancelled = true; };
+      .catch((err) => { console.error('❌ [DEBUG-COMPONENT-ClientHistoryList] excepción en messages-search:', err); if (!cancelled) setSearchLoading(false); });
+    return () => {
+      console.log('🔄 [DEBUG-COMPONENT-ClientHistoryList] cleanup useEffect (búsqueda de mensajes) — cancelando request para searchQuery:', searchQuery);
+      cancelled = true;
+    };
   }, [searchQuery, conversations]);
 
   const dentroDeFecha = (conv) => {
@@ -112,7 +123,12 @@ export default function ClientHistoryList({
   };
 
   const hayFiltrosActivos = Boolean(dateFrom || dateTo || searchQuery.trim());
-  const limpiarFiltros = () => { setDateFrom(''); setDateTo(''); setSearchQuery(''); };
+  const limpiarFiltros = () => {
+    console.log('🖱️ [DEBUG-COMPONENT-ClientHistoryList] limpiarFiltros() — reseteando dateFrom, dateTo y searchQuery');
+    setDateFrom('');
+    setDateTo('');
+    setSearchQuery('');
+  };
 
   const visibleConversations = conversations
     .filter(dentroDeFecha)
@@ -128,7 +144,7 @@ export default function ClientHistoryList({
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { console.log('🖱️ [DEBUG-COMPONENT-ClientHistoryList] handleSearchInputChange — texto:', e.target.value); setSearchQuery(e.target.value); }}
             placeholder="Buscar en los mensajes..."
             className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
           />
@@ -144,21 +160,21 @@ export default function ClientHistoryList({
           <input
             type="date"
             value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
+            onChange={(e) => { console.log('🖱️ [DEBUG-COMPONENT-ClientHistoryList] handleDateFromChange — valor:', e.target.value); setDateFrom(e.target.value); }}
             className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 rounded-lg text-[11px] focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
           />
           <span className="text-gray-300 text-xs">–</span>
           <input
             type="date"
             value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
+            onChange={(e) => { console.log('🖱️ [DEBUG-COMPONENT-ClientHistoryList] handleDateToChange — valor:', e.target.value); setDateTo(e.target.value); }}
             className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 rounded-lg text-[11px] focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
           />
         </div>
 
         <div className="flex items-center justify-between">
           <button
-            onClick={() => setSortAsc(v => !v)}
+            onClick={() => setSortAsc(v => { console.log('🔄 [DEBUG-COMPONENT-ClientHistoryList] setSortAsc — de', v, 'a', !v); return !v; })}
             className="flex items-center gap-1 text-[11px] font-medium text-gray-500 hover:text-teal-700 transition-colors"
           >
             <ArrowUpDown size={12} /> {sortAsc ? 'Más antiguas primero' : 'Más recientes primero'}
@@ -184,6 +200,7 @@ export default function ClientHistoryList({
             Ninguna consulta coincide con el filtro aplicado.
           </div>
         ) : (
+          console.log('🔍 [DEBUG-COMPONENT-ClientHistoryList] render visibleConversations.map — cantidad:', visibleConversations.length),
           visibleConversations.map(conv => {
             const badge = STATUS_BADGES[conv.status];
             const saleBadge = SALE_STATUS_BADGES[conv.sale_status];
@@ -191,7 +208,7 @@ export default function ClientHistoryList({
             return (
               <button
                 key={conv.id}
-                onClick={() => onSelect && onSelect(conv)}
+                onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ClientHistoryList] handleSelectConversation — conversation id:', conv.id); onSelect && onSelect(conv); }}
                 className={`w-full text-left p-3 border-b border-gray-100 last:border-0 transition-colors flex items-start justify-between gap-2 ${
                   selectedId === conv.id ? 'bg-teal-50' : 'bg-white hover:bg-teal-50/50'
                 }`}

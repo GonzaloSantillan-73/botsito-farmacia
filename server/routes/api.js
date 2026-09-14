@@ -13,6 +13,15 @@ import { requireAuth, requireAdminRole, blockAdminRole } from './adminAuth.js';
 
 const router = express.Router();
 
+// [DEBUG-ROUTES-API] Clona un body para loguearlo sin exponer contraseñas en texto plano.
+const redactBodyForLog = (body) => {
+  const bodyParaLog = { ...(body || {}) };
+  if (bodyParaLog.password) bodyParaLog.password = '[REDACTED]';
+  if (bodyParaLog.currentPassword) bodyParaLog.currentPassword = '[REDACTED]';
+  if (bodyParaLog.newPassword) bodyParaLog.newPassword = '[REDACTED]';
+  return bodyParaLog;
+};
+
 const parseDateRange = (query) => {
   const { startDate, endDate } = query;
   if (!startDate || !endDate) {
@@ -30,10 +39,18 @@ router.use(['/export/chats', '/export/metrics', '/metrics/negocio', '/metrics/de
 
 // Exporta el historial de mensajes (con datos del cliente y la consulta) en el rango de fechas dado.
 router.get('/export/chats', async (req, res) => {
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a GET /export/chats:', {
+    method: req.method,
+    url: req.originalUrl,
+    query: req.query,
+    params: req.params,
+    admin: req.admin || null
+  });
   try {
     const { startDate, endDate } = req.query;
     const { from, to } = parseDateRange(req.query);
 
+    console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(messages) select en /export/chats:', { operacion: 'select', from, to });
     const { data, error } = await supabase
       .from('messages')
       .select('created_at, sender_type, message_text, media_type, conversation_id, conversations(client_name, client_phone, status)')
@@ -41,10 +58,13 @@ router.get('/export/chats', async (req, res) => {
       .lte('created_at', to)
       .order('created_at');
 
+    console.log('📡 [DEBUG-ROUTES-API] Resultado supabase.from(messages) select en /export/chats:', { cantidad: (data || []).length, error });
     if (error) throw error;
 
     const phones = [...new Set((data || []).map(r => r.conversations?.client_phone).filter(Boolean))];
-    const { data: clientes } = await supabase.from('clientes').select('client_phone, nombre_completo').in('client_phone', phones);
+    console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(clientes) select en /export/chats:', { operacion: 'select', phones });
+    const { data: clientes, error: clientesError } = await supabase.from('clientes').select('client_phone, nombre_completo').in('client_phone', phones);
+    console.log('📡 [DEBUG-ROUTES-API] Resultado supabase.from(clientes) select en /export/chats:', { clientes, error: clientesError });
     const phoneMap = {};
     clientes?.forEach(c => { if (c.nombre_completo) phoneMap[c.client_phone] = c.nombre_completo; });
 
@@ -60,8 +80,10 @@ router.get('/export/chats', async (req, res) => {
 
     const csv = rowsToCsv(columns, data || []);
     console.log(`[API] -> Exportando historial de chats (${(data || []).length} mensajes, ${startDate} a ${endDate}).`);
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /export/chats:', { status: 200, tipo: 'text/csv', nombreArchivo: `historial-chats_${startDate}_a_${endDate}.csv` });
     sendCsv(res, `historial-chats_${startDate}_a_${endDate}.csv`, csv);
   } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en GET /export/chats:', { error, message: error.message, stack: error.stack });
     console.error('[API] ❌ Error exportando historial de chats:', error.message);
     res.status(400).json({ error: error.message });
   }
@@ -71,18 +93,30 @@ router.get('/export/chats', async (req, res) => {
 // del CRM (ordenable/filtrable en el propio front). startDate/endDate son
 // opcionales acá: sin filtro, trae todo.
 router.get('/metrics/detalle', async (req, res) => {
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a GET /metrics/detalle:', {
+    method: req.method,
+    url: req.originalUrl,
+    query: req.query,
+    params: req.params,
+    admin: req.admin || null
+  });
   try {
     const { startDate, endDate, saleStatus, rating, productRating, derivada } = req.query;
-    const filas = await obtenerDetalleConsultas({
+    const paramsDetalle = {
       startDate,
       endDate,
       saleStatus,
       rating: rating != null && rating !== '' ? Number(rating) : undefined,
       productRating: productRating != null && productRating !== '' ? Number(productRating) : undefined,
       derivada: derivada != null && derivada !== '' ? derivada === 'true' : undefined
-    });
+    };
+    console.log('📡 [DEBUG-ROUTES-API] Llamando obtenerDetalleConsultas en /metrics/detalle:', paramsDetalle);
+    const filas = await obtenerDetalleConsultas(paramsDetalle);
+    console.log('📡 [DEBUG-ROUTES-API] Resultado obtenerDetalleConsultas en /metrics/detalle:', { cantidad: filas?.length });
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /metrics/detalle:', { status: 200, cantidadFilas: filas?.length });
     res.status(200).json({ filas });
   } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en GET /metrics/detalle:', { error, message: error.message, stack: error.stack });
     console.error('[API] ❌ Error obteniendo el detalle de consultas:', error.message);
     res.status(400).json({ error: error.message });
   }
@@ -91,14 +125,26 @@ router.get('/metrics/detalle', async (req, res) => {
 // Exporta a CSV el mismo detalle que se ve en la tabla de "Métricas y
 // Estadísticas" (mismas columnas), más un resumen de calificaciones al final.
 router.get('/export/metrics', async (req, res) => {
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a GET /export/metrics:', {
+    method: req.method,
+    url: req.originalUrl,
+    query: req.query,
+    params: req.params,
+    admin: req.admin || null
+  });
   try {
     const { startDate, endDate } = req.query;
+    console.log('📡 [DEBUG-ROUTES-API] Llamando obtenerDetalleConsultas en /export/metrics:', { startDate, endDate });
     const filas = await obtenerDetalleConsultas({ startDate, endDate });
+    console.log('📡 [DEBUG-ROUTES-API] Resultado obtenerDetalleConsultas en /export/metrics:', { cantidad: filas?.length });
 
+    const idsParaRatings = filas.map(f => f.id).length ? filas.map(f => f.id) : ['__none__'];
+    console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(conversations) select en /export/metrics:', { operacion: 'select', ids: idsParaRatings });
     const { data: ratingsData, error: ratingsError } = await supabase
       .from('conversations')
       .select('rating, product_rating')
-      .in('id', filas.map(f => f.id).length ? filas.map(f => f.id) : ['__none__']);
+      .in('id', idsParaRatings);
+    console.log('📡 [DEBUG-ROUTES-API] Resultado supabase.from(conversations) select en /export/metrics:', { ratingsData, error: ratingsError });
     if (ratingsError) throw ratingsError;
 
     const calificadasAtencion = (ratingsData || []).filter(c => c.rating != null);
@@ -140,8 +186,10 @@ router.get('/export/metrics', async (req, res) => {
     const csv = rowsToCsv(detailColumns, filas) + '\r\n\r\n' + rowsToCsv(summaryColumns, summaryRows);
     const sufijoNombre = startDate && endDate ? `_${startDate}_a_${endDate}` : '';
     console.log(`[API] -> Exportando métricas (${filas.length} consultas${startDate && endDate ? `, ${startDate} a ${endDate}` : ', sin filtro de fecha'}).`);
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /export/metrics:', { status: 200, tipo: 'text/csv', nombreArchivo: `metricas${sufijoNombre}.csv` });
     sendCsv(res, `metricas${sufijoNombre}.csv`, csv);
   } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en GET /export/metrics:', { error, message: error.message, stack: error.stack });
     console.error('[API] ❌ Error exportando métricas:', error.message);
     res.status(400).json({ error: error.message });
   }
@@ -151,6 +199,13 @@ router.get('/export/metrics', async (req, res) => {
 // conversión de ventas gestionada a mano, resolución autónoma del bot vs
 // derivación a humanos, y efectividad del filtro de seguridad de PDFs.
 router.get('/metrics/negocio', async (req, res) => {
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a GET /metrics/negocio:', {
+    method: req.method,
+    url: req.originalUrl,
+    query: req.query,
+    params: req.params,
+    admin: req.admin || null
+  });
   try {
     // Rango de fechas opcional (igual que /metrics/detalle): sin él, trae
     // todo el histórico. Se aplica sobre conversations.created_at en cada
@@ -166,19 +221,23 @@ router.get('/metrics/negocio', async (req, res) => {
       return q;
     };
 
+    console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(conversations) select en /metrics/negocio (cerradas):', { operacion: 'select', statuses: TERMINAL_STATUSES, from, to });
     const { data: cerradas, error: cerradasError } = await conRango(
       supabase.from('conversations').select('id').in('status', TERMINAL_STATUSES)
     );
+    console.log('📡 [DEBUG-ROUTES-API] Resultado supabase.from(conversations) select en /metrics/negocio (cerradas):', { cantidad: cerradas?.length, error: cerradasError });
     if (cerradasError) throw cerradasError;
 
     const idsCerradas = cerradas.map(c => c.id);
     let derivadas = 0;
     if (idsCerradas.length > 0) {
+      console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(messages) select en /metrics/negocio (conAgente):', { operacion: 'select', senderType: 'agent', idsCerradas });
       const { data: conAgente, error: agenteError } = await supabase
         .from('messages')
         .select('conversation_id')
         .eq('sender_type', 'agent')
         .in('conversation_id', idsCerradas);
+      console.log('📡 [DEBUG-ROUTES-API] Resultado supabase.from(messages) select en /metrics/negocio (conAgente):', { cantidad: conAgente?.length, error: agenteError });
       if (agenteError) throw agenteError;
       derivadas = new Set(conAgente.map(m => m.conversation_id)).size;
     }
@@ -186,21 +245,27 @@ router.get('/metrics/negocio', async (req, res) => {
     const autonomas = totalCerradas - derivadas;
     const pctAutonoma = totalCerradas > 0 ? (autonomas / totalCerradas) * 100 : 0;
 
+    console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(messages) count en /metrics/negocio (pdfBloqueados):', { operacion: 'select-count', mediaType: 'blocked_pdf' });
     const { count: pdfBloqueados, error: bloqError } = await conRango(
       supabase.from('messages').select('id', { count: 'exact', head: true }).eq('media_type', 'blocked_pdf')
     );
+    console.log('📡 [DEBUG-ROUTES-API] Resultado supabase.from(messages) count en /metrics/negocio (pdfBloqueados):', { pdfBloqueados, error: bloqError });
     if (bloqError) throw bloqError;
 
+    console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(messages) count en /metrics/negocio (pdfAceptados):', { operacion: 'select-count', mediaType: 'pdf' });
     const { count: pdfAceptados, error: acepError } = await conRango(
       supabase.from('messages').select('id', { count: 'exact', head: true }).eq('media_type', 'pdf')
     );
+    console.log('📡 [DEBUG-ROUTES-API] Resultado supabase.from(messages) count en /metrics/negocio (pdfAceptados):', { pdfAceptados, error: acepError });
     if (acepError) throw acepError;
 
     // Conversión de ventas: resultado que el vendedor marca a mano (Venta
     // Concretada / No Concretada / Otra razón) sobre lo cotizado en el chat.
+    console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(conversations) select en /metrics/negocio (gestionVentas):', { operacion: 'select' });
     const { data: gestionVentas, error: gestionError } = await conRango(
       supabase.from('conversations').select('sale_status').not('sale_status', 'is', null)
     );
+    console.log('📡 [DEBUG-ROUTES-API] Resultado supabase.from(conversations) select en /metrics/negocio (gestionVentas):', { cantidad: gestionVentas?.length, error: gestionError });
     if (gestionError) throw gestionError;
 
     const concretadas = gestionVentas.filter(g => g.sale_status === 'concretada');
@@ -213,15 +278,19 @@ router.get('/metrics/negocio', async (req, res) => {
     // global y también desglosado por sucursal, para que cada local pueda ver
     // cómo viene su propio puntaje (el frontend decide qué mostrarle a quién
     // según el rol, esto solo calcula los números).
+    console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(conversations) select en /metrics/negocio (ratingsData):', { operacion: 'select' });
     const { data: ratingsData, error: ratingsError } = await conRango(
       supabase.from('conversations').select('rating, product_rating, sucursal_id').or('rating.not.is.null,product_rating.not.is.null')
     );
+    console.log('📡 [DEBUG-ROUTES-API] Resultado supabase.from(conversations) select en /metrics/negocio (ratingsData):', { cantidad: ratingsData?.length, error: ratingsError });
     if (ratingsError) throw ratingsError;
 
+    console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(sucursales) select en /metrics/negocio:', { operacion: 'select' });
     const { data: sucursalesData, error: sucursalesError } = await supabase
       .from('sucursales')
       .select('id, nombre')
       .order('orden');
+    console.log('📡 [DEBUG-ROUTES-API] Resultado supabase.from(sucursales) select en /metrics/negocio:', { sucursalesData, error: sucursalesError });
     if (sucursalesError) throw sucursalesError;
     const nombrePorSucursalId = Object.fromEntries((sucursalesData || []).map(s => [s.id, s.nombre]));
 
@@ -250,7 +319,7 @@ router.get('/metrics/negocio', async (req, res) => {
       producto: resumenDe(filasSucursal.map(f => f.product_rating))
     }));
 
-    res.status(200).json({
+    const responseBody = {
       conversion: {
         totalGestionadas,
         concretadas: concretadas.length,
@@ -264,8 +333,11 @@ router.get('/metrics/negocio', async (req, res) => {
         producto: resumenDe(filas.map(f => f.product_rating)),
         porSucursal
       }
-    });
+    };
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /metrics/negocio:', { status: 200, body: responseBody });
+    res.status(200).json(responseBody);
   } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en GET /metrics/negocio:', { error, message: error.message, stack: error.stack });
     console.error('[API] ❌ Error calculando métricas de negocio:', error.message);
     res.status(500).json({ error: error.message });
   }
@@ -273,19 +345,44 @@ router.get('/metrics/negocio', async (req, res) => {
 
 // Horarios de atención del bot y de los asesores humanos.
 router.get('/schedules', async (req, res) => {
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a GET /schedules:', {
+    method: req.method,
+    url: req.originalUrl,
+    query: req.query,
+    params: req.params,
+    admin: req.admin || null
+  });
   const [bot, human] = await Promise.all([getBotSchedule(), getHumanSchedule()]);
+  console.log('✅ [DEBUG-ROUTES-API] Horarios obtenidos en GET /schedules:', { bot, human });
+  console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /schedules:', { status: 200, body: { bot, human } });
   res.status(200).json({ bot, human });
 });
 
 router.put('/schedules', async (req, res) => {
   const { bot, human } = req.body;
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a PUT /schedules:', {
+    method: req.method,
+    url: req.originalUrl,
+    body: redactBodyForLog(req.body),
+    query: req.query,
+    params: req.params,
+    admin: req.admin || null
+  });
 
   try {
-    if (bot) await setBotSchedule(bot);
-    if (human) await setHumanSchedule(human);
+    if (bot) {
+      console.log('📡 [DEBUG-ROUTES-API] Actualizando horario de bot en PUT /schedules:', { bot });
+      await setBotSchedule(bot);
+    }
+    if (human) {
+      console.log('📡 [DEBUG-ROUTES-API] Actualizando horario humano en PUT /schedules:', { human });
+      await setHumanSchedule(human);
+    }
     console.log('[API] -> Horarios de atención actualizados.');
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo PUT /schedules:', { status: 200, body: { success: true } });
     res.status(200).json({ success: true });
   } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en PUT /schedules:', { error, message: error.message, stack: error.stack });
     console.error('[API] ❌ Error actualizando horarios:', error.message);
     res.status(400).json({ error: error.message });
   }
@@ -293,18 +390,37 @@ router.put('/schedules', async (req, res) => {
 
 // Palabra clave con la que un cliente reactiva al bot en modo humano.
 router.get('/bot-config', async (req, res) => {
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a GET /bot-config:', {
+    method: req.method,
+    url: req.originalUrl,
+    query: req.query,
+    params: req.params,
+    admin: req.admin || null
+  });
   const botKeyword = await getBotKeyword();
+  console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /bot-config:', { status: 200, body: { botKeyword } });
   res.status(200).json({ botKeyword });
 });
 
 router.put('/bot-config', async (req, res) => {
   const { botKeyword } = req.body;
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a PUT /bot-config:', {
+    method: req.method,
+    url: req.originalUrl,
+    body: redactBodyForLog(req.body),
+    query: req.query,
+    params: req.params,
+    admin: req.admin || null
+  });
 
   try {
     await setBotKeyword(botKeyword);
     console.log(`[API] -> Palabra clave del bot actualizada a "${botKeyword}".`);
-    res.status(200).json({ success: true, botKeyword: botKeyword.toString().trim() });
+    const respBody = { success: true, botKeyword: botKeyword.toString().trim() };
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo PUT /bot-config:', { status: 200, body: respBody });
+    res.status(200).json(respBody);
   } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en PUT /bot-config:', { error, message: error.message, stack: error.stack });
     console.error('[API] ❌ Error actualizando bot-config:', error.message);
     res.status(400).json({ error: error.message });
   }
@@ -314,18 +430,37 @@ router.put('/bot-config', async (req, res) => {
 // El menú numerado (1/2/3) que se agrega después es fijo: está atado a los
 // manejadores del bot, así que no forma parte de lo personalizable acá.
 router.get('/welcome-message', async (req, res) => {
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a GET /welcome-message:', {
+    method: req.method,
+    url: req.originalUrl,
+    query: req.query,
+    params: req.params,
+    admin: req.admin || null
+  });
   const welcomeMessage = await getWelcomeMessage();
+  console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /welcome-message:', { status: 200, body: { welcomeMessage } });
   res.status(200).json({ welcomeMessage });
 });
 
 router.put('/welcome-message', async (req, res) => {
   const { welcomeMessage } = req.body;
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a PUT /welcome-message:', {
+    method: req.method,
+    url: req.originalUrl,
+    body: redactBodyForLog(req.body),
+    query: req.query,
+    params: req.params,
+    admin: req.admin || null
+  });
 
   try {
     await setWelcomeMessage(welcomeMessage);
     console.log(`[API] -> Mensaje de bienvenida actualizado.`);
-    res.status(200).json({ success: true, welcomeMessage: welcomeMessage.toString().trim() });
+    const respBody = { success: true, welcomeMessage: welcomeMessage.toString().trim() };
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo PUT /welcome-message:', { status: 200, body: respBody });
+    res.status(200).json(respBody);
   } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en PUT /welcome-message:', { error, message: error.message, stack: error.stack });
     console.error('[API] ❌ Error actualizando welcome-message:', error.message);
     res.status(400).json({ error: error.message });
   }
@@ -335,22 +470,35 @@ router.put('/welcome-message', async (req, res) => {
 // checker automático por inactividad, pero disparado por el operador.
 router.post('/conversations/:id/close', requireAuth, blockAdminRole, async (req, res) => {
   const { id } = req.params;
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a POST /conversations/:id/close:', {
+    method: req.method,
+    url: req.originalUrl,
+    body: redactBodyForLog(req.body),
+    query: req.query,
+    params: req.params,
+    admin: req.admin || null
+  });
 
   try {
+    console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(conversations) select en /conversations/:id/close:', { operacion: 'select', id });
     const { data: conv, error } = await supabase
       .from('conversations')
       .select('id, client_phone, status')
       .eq('id', id)
       .single();
+    console.log('📡 [DEBUG-ROUTES-API] Resultado supabase.from(conversations) select en /conversations/:id/close:', { conv, error });
 
     if (error || !conv) {
+      console.log('🔚 [DEBUG-ROUTES-API] Respondiendo POST /conversations/:id/close:', { status: 404, body: { error: 'Conversación no encontrada' } });
       return res.status(404).json({ error: 'Conversación no encontrada' });
     }
 
     await finalizarConversacion(conv.id, conv.client_phone, '');
     console.log(`[API] -> Consulta ${id} cerrada manualmente desde el CRM.`);
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo POST /conversations/:id/close:', { status: 200, body: { success: true } });
     res.status(200).json({ success: true });
   } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en POST /conversations/:id/close:', { error, message: error.message, stack: error.stack });
     console.error('[API] ❌ Error cerrando conversación manualmente:', error.message);
     res.status(500).json({ error: error.message });
   }
@@ -362,19 +510,33 @@ router.post('/conversations/:id/close', requireAuth, blockAdminRole, async (req,
 router.post('/conversations/:id/return-to-queue', requireAuth, blockAdminRole, async (req, res) => {
   const { id } = req.params;
   const { motivo, motivoTexto } = req.body;
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a POST /conversations/:id/return-to-queue:', {
+    method: req.method,
+    url: req.originalUrl,
+    body: redactBodyForLog(req.body),
+    query: req.query,
+    params: req.params,
+    admin: req.admin || null
+  });
 
   if (motivo !== 'stock' && motivo !== 'otra') {
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo POST /conversations/:id/return-to-queue:', { status: 400, body: { error: 'Motivo inválido: debe ser "stock" u "otra".' } });
     return res.status(400).json({ error: 'Motivo inválido: debe ser "stock" u "otra".' });
   }
   if (motivo === 'otra' && !motivoTexto?.trim()) {
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo POST /conversations/:id/return-to-queue:', { status: 400, body: { error: 'Ingresá el motivo por el cual se devuelve el chat.' } });
     return res.status(400).json({ error: 'Ingresá el motivo por el cual se devuelve el chat.' });
   }
 
   try {
+    console.log('📡 [DEBUG-ROUTES-API] Llamando devolverConversacionAEspera en /conversations/:id/return-to-queue:', { id, motivo, motivoTexto });
     const { sucursalesRecomendadas } = await devolverConversacionAEspera(id, { motivo, motivoTexto });
+    console.log('📡 [DEBUG-ROUTES-API] Resultado devolverConversacionAEspera en /conversations/:id/return-to-queue:', { sucursalesRecomendadas });
     console.log(`[API] -> Consulta ${id} devuelta a la cola de espera (motivo: ${motivo}).`);
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo POST /conversations/:id/return-to-queue:', { status: 200, body: { success: true, sucursalesRecomendadas } });
     res.status(200).json({ success: true, sucursalesRecomendadas });
   } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en POST /conversations/:id/return-to-queue:', { error, message: error.message, stack: error.stack });
     console.error('[API] ❌ Error devolviendo la conversación a la cola:', error.message);
     res.status(400).json({ error: error.message || 'No se pudo devolver el chat a la cola de espera.' });
   }
@@ -386,16 +548,29 @@ router.post('/conversations/:id/return-to-queue', requireAuth, blockAdminRole, a
 router.post('/conversations/:id/take', requireAuth, blockAdminRole, async (req, res) => {
   const { id } = req.params;
   const { sucursalId } = req.body;
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a POST /conversations/:id/take:', {
+    method: req.method,
+    url: req.originalUrl,
+    body: redactBodyForLog(req.body),
+    query: req.query,
+    params: req.params,
+    admin: req.admin || null
+  });
 
   if (!sucursalId) {
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo POST /conversations/:id/take:', { status: 400, body: { error: 'Falta indicar la sucursal que toma la consulta.' } });
     return res.status(400).json({ error: 'Falta indicar la sucursal que toma la consulta.' });
   }
 
   try {
+    console.log('📡 [DEBUG-ROUTES-API] Llamando tomarConsulta en /conversations/:id/take:', { id, sucursalId });
     const conversation = await tomarConsulta(id, sucursalId);
+    console.log('📡 [DEBUG-ROUTES-API] Resultado tomarConsulta en /conversations/:id/take:', { conversation });
     console.log(`[API] -> Consulta ${id} tomada por la sucursal ${sucursalId}.`);
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo POST /conversations/:id/take:', { status: 200, body: { success: true, conversation } });
     res.status(200).json({ success: true, conversation });
   } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en POST /conversations/:id/take:', { error, message: error.message, stack: error.stack });
     console.error('[API] ❌ Error tomando la consulta:', error.message);
     res.status(400).json({ error: error.message || 'No se pudo tomar la consulta.' });
   }
@@ -404,18 +579,38 @@ router.post('/conversations/:id/take', requireAuth, blockAdminRole, async (req, 
 // Config expuesta al frontend para que el contador de expiración del CRM
 // siempre calcule contra el mismo límite real que usa el backend.
 router.get('/session-config', async (req, res) => {
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a GET /session-config:', {
+    method: req.method,
+    url: req.originalUrl,
+    query: req.query,
+    params: req.params,
+    admin: req.admin || null
+  });
   const sessionTimeoutMs = await getSessionTimeoutMs();
-  res.status(200).json({ sessionTimeoutMs, minSessionTimeoutMs: MIN_SESSION_TIMEOUT_MS, maxSessionTimeoutMs: MAX_SESSION_TIMEOUT_MS });
+  const respBody = { sessionTimeoutMs, minSessionTimeoutMs: MIN_SESSION_TIMEOUT_MS, maxSessionTimeoutMs: MAX_SESSION_TIMEOUT_MS };
+  console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /session-config:', { status: 200, body: respBody });
+  res.status(200).json(respBody);
 });
 
 router.put('/session-config', async (req, res) => {
   const { sessionTimeoutMs } = req.body;
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a PUT /session-config:', {
+    method: req.method,
+    url: req.originalUrl,
+    body: redactBodyForLog(req.body),
+    query: req.query,
+    params: req.params,
+    admin: req.admin || null
+  });
 
   try {
     await setSessionTimeoutMs(Number(sessionTimeoutMs));
     console.log(`[API] -> Límite de expiración de sesión actualizado a ${sessionTimeoutMs} ms.`);
-    res.status(200).json({ success: true, sessionTimeoutMs: Number(sessionTimeoutMs) });
+    const respBody = { success: true, sessionTimeoutMs: Number(sessionTimeoutMs) };
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo PUT /session-config:', { status: 200, body: respBody });
+    res.status(200).json(respBody);
   } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en PUT /session-config:', { error, message: error.message, stack: error.stack });
     console.error('[API] ❌ Error actualizando session-config:', error.message);
     res.status(400).json({ error: error.message });
   }
@@ -425,6 +620,7 @@ router.post('/messages/send', requireAuth, blockAdminRole, async (req, res) => {
   console.log(`\n======================================================`);
   console.log(`[API - POST /messages/send] ==> INICIO DE ENVÍO DE MENSAJE (OUTBOUND)`);
   console.log(`[API - POST /messages/send] ==> Body recibido:`, JSON.stringify(req.body, null, 2));
+  console.log('🔍 [DEBUG-ROUTES-API] req.admin en POST /messages/send:', req.admin || null);
 
   const { conversation_id, message_text, phone, message, media_url, media_type, id, sender_type } = req.body;
 

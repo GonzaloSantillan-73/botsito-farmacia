@@ -40,14 +40,21 @@ const getWaitUrgency = (ms) => {
 // componente memoizado para que el "tick" de cada segundo sólo re-renderice
 // este badge chiquito y no toda la lista de conversaciones del Sidebar.
 const EsperandoBadges = memo(function EsperandoBadges({ since }) {
+  console.log('🔍 [DEBUG-COMPONENT-Sidebar] Render EsperandoBadges — props: { since:', since, '}');
   const [elapsed, setElapsed] = useState(() => Date.now() - new Date(since).getTime());
 
   useEffect(() => {
+    console.log('🔍 [DEBUG-COMPONENT-Sidebar] useEffect EsperandoBadges disparado — since:', since);
+    console.log('🔄 [DEBUG-COMPONENT-Sidebar] setElapsed ->', Date.now() - new Date(since).getTime());
     setElapsed(Date.now() - new Date(since).getTime());
     const interval = setInterval(() => {
+      console.log('🔄 [DEBUG-COMPONENT-Sidebar] setElapsed (tick) ->', Date.now() - new Date(since).getTime());
       setElapsed(Date.now() - new Date(since).getTime());
     }, 1000);
-    return () => clearInterval(interval);
+    return () => {
+      console.log('🔍 [DEBUG-COMPONENT-Sidebar] cleanup useEffect EsperandoBadges — since:', since);
+      clearInterval(interval);
+    };
   }, [since]);
 
   const colorClassName = WAIT_URGENCY_CLASSES[getWaitUrgency(elapsed)];
@@ -66,6 +73,7 @@ const EsperandoBadges = memo(function EsperandoBadges({ since }) {
 // al resto se le muestra en naranja ("Devuelta", como aviso de que ya un
 // asesor no pudo resolverla).
 const DevueltaBadge = ({ devueltaPorSucursalId }) => {
+  console.log('🔍 [DEBUG-COMPONENT-Sidebar] Render DevueltaBadge — props: { devueltaPorSucursalId:', devueltaPorSucursalId, '}');
   if (!devueltaPorSucursalId) return null;
   const soyStaff = !isAdminRole();
   const miSucursalId = getStaffSucursalId();
@@ -83,9 +91,11 @@ const DevueltaBadge = ({ devueltaPorSucursalId }) => {
 // una recomendación visual para el operador — cualquier sucursal puede
 // igual tomar el chat, no hay ninguna restricción de asignación acá.
 const SucursalesRecomendadas = ({ sucursales }) => {
+  console.log('🔍 [DEBUG-COMPONENT-Sidebar] Render SucursalesRecomendadas — props: { sucursales:', sucursales, '}');
   if (!sucursales || sucursales.length === 0) return null;
   return (
     <div className="flex items-center gap-1 shrink-0">
+      {console.log('🔍 [DEBUG-COMPONENT-Sidebar] .map() sucursales recomendadas — cantidad:', sucursales.slice(0, 2).length, 'sucursales:', sucursales.slice(0, 2))}
       {sucursales.slice(0, 2).map((s, i) => (
         <span
           key={s.id || i}
@@ -164,6 +174,7 @@ export default function Sidebar({
   isAdmin = true,
   staffSucursalNombre
 }) {
+  console.log('🔍 [DEBUG-COMPONENT-Sidebar] Render — props:', { conversations, loading, activeConversation, activeTab, handleSeedData, isSeeding, sessionTimeoutMs, onSessionTimeoutChange, showClientDirectory, onShowClientDirectory, onLogout, isAdmin, staffSucursalNombre });
   const [showSettings, setShowSettings] = useState(false);
   const soyStaff = !isAdminRole();
   const miSucursalId = getStaffSucursalId();
@@ -173,15 +184,22 @@ export default function Sidebar({
   // admin ya las ve todas sin necesidad de reclamarlas). Deja la conversación
   // abierta apenas se reclama, para que el operador pueda responder de una.
   const handleTomar = async (e, conv) => {
+    console.log('🖱️ [DEBUG-COMPONENT-Sidebar] handleTomar() — conv.id:', conv?.id, 'miSucursalId:', miSucursalId);
     e.stopPropagation();
     if (!miSucursalId || takingId) return;
+    console.log('🔄 [DEBUG-COMPONENT-Sidebar] setTakingId ->', conv.id);
     setTakingId(conv.id);
     try {
+      console.log('📡 [DEBUG-COMPONENT-Sidebar] antes de tomarConsulta() — conv.id:', conv.id, 'miSucursalId:', miSucursalId);
       const tomada = await tomarConsulta(conv.id, miSucursalId);
+      console.log('✅ [DEBUG-COMPONENT-Sidebar] respuesta de tomarConsulta():', tomada);
+      console.log('🔄 [DEBUG-COMPONENT-Sidebar] setActiveConversation ->', { ...conv, ...tomada });
       setActiveConversation({ ...conv, ...tomada });
     } catch (err) {
+      console.error('❌ [DEBUG-COMPONENT-Sidebar] error en tomarConsulta():', err);
       alert(err.message || 'No se pudo tomar la consulta.');
     } finally {
+      console.log('🔄 [DEBUG-COMPONENT-Sidebar] setTakingId -> null');
       setTakingId(null);
     }
   };
@@ -189,6 +207,7 @@ export default function Sidebar({
   // Descarta cualquier entrada malformada (sin id o sin fecha de creación) antes de
   // aplicar cualquier filtro o contador, para no arrastrar filas fantasma a ningún lado.
   const validConversations = conversations.filter(c => c?.id && c.created_at);
+  console.log('🔍 [DEBUG-COMPONENT-Sidebar] validConversations.length:', validConversations.length, 'activeTab:', activeTab);
 
   // Filtro por tab (BOT / En espera / Mis chats)
   const filteredConversations = validConversations
@@ -224,6 +243,7 @@ export default function Sidebar({
     atendiendo: enEsperaCount,
     derivados: misChatsCount
   };
+  console.log('🔍 [DEBUG-COMPONENT-Sidebar] tabCounts:', tabCounts, 'filteredConversations.length:', filteredConversations.length);
 
   return (
     <div className="w-1/4 min-w-[260px] max-w-sm border-r border-gray-200 bg-white flex flex-col shadow-sm z-10">
@@ -232,7 +252,7 @@ export default function Sidebar({
           <span>CRM</span>
           <div className="flex items-center gap-1">
             <button
-              onClick={onShowClientDirectory}
+              onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-Sidebar] click onShowClientDirectory — showClientDirectory actual:', showClientDirectory); onShowClientDirectory(); }}
               title="Directorio de clientes"
               className={`p-2 rounded-full transition-colors ${showClientDirectory ? 'bg-teal-100 text-teal-700' : 'text-gray-400 hover:text-teal-600 hover:bg-gray-100'}`}
             >
@@ -240,7 +260,7 @@ export default function Sidebar({
             </button>
             {isAdmin && (
               <button
-                onClick={() => setShowSettings(true)}
+                onClick={() => { console.log('🔄 [DEBUG-COMPONENT-Sidebar] setShowSettings -> true'); setShowSettings(true); }}
                 title="Configuración"
                 className="p-2 text-gray-400 hover:text-teal-600 hover:bg-gray-100 rounded-full transition-colors"
               >
@@ -249,6 +269,7 @@ export default function Sidebar({
             )}
             <button
               onClick={() => {
+                console.log('🖱️ [DEBUG-COMPONENT-Sidebar] click onLogout');
                 if (window.confirm('¿Cerrar sesión del CRM?')) onLogout?.();
               }}
               title="Cerrar sesión"
@@ -268,7 +289,7 @@ export default function Sidebar({
         {/* Tarjetas de contadores */}
         <div className="grid grid-cols-3 gap-2">
           <button
-            onClick={() => setActiveTab('entrantes')}
+            onClick={() => { console.log('🔄 [DEBUG-COMPONENT-Sidebar] setActiveTab -> entrantes (tarjeta BOT)'); setActiveTab('entrantes'); }}
             className={`text-left p-2 rounded-xl border transition-colors ${activeTab === 'entrantes' ? 'bg-indigo-50 border-indigo-300' : 'bg-white border-gray-200 hover:border-indigo-200 hover:bg-indigo-50/50'}`}
           >
             <div className="flex items-center gap-1 text-indigo-600 mb-1">
@@ -279,7 +300,7 @@ export default function Sidebar({
           </button>
 
           <button
-            onClick={() => setActiveTab('atendiendo')}
+            onClick={() => { console.log('🔄 [DEBUG-COMPONENT-Sidebar] setActiveTab -> atendiendo (tarjeta En espera)'); setActiveTab('atendiendo'); }}
             className={`text-left p-2 rounded-xl border transition-colors ${activeTab === 'atendiendo' ? 'bg-amber-50 border-amber-300' : 'bg-white border-gray-200 hover:border-amber-200 hover:bg-amber-50/50'}`}
           >
             <div className="flex items-center gap-1 text-amber-600 mb-1">
@@ -290,7 +311,7 @@ export default function Sidebar({
           </button>
 
           <button
-            onClick={() => setActiveTab('derivados')}
+            onClick={() => { console.log('🔄 [DEBUG-COMPONENT-Sidebar] setActiveTab -> derivados (tarjeta Global/Mis chats)'); setActiveTab('derivados'); }}
             className={`text-left p-2 rounded-xl border transition-colors ${activeTab === 'derivados' ? 'bg-teal-50 border-teal-300' : 'bg-white border-gray-200 hover:border-teal-200 hover:bg-teal-50/50'}`}
           >
             <div className="flex items-center gap-1 text-teal-600 mb-1">
@@ -303,6 +324,7 @@ export default function Sidebar({
 
         {/* Pestañas de filtrado */}
         <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
+          {console.log('🔍 [DEBUG-COMPONENT-Sidebar] .map() TABS — cantidad:', TABS(isAdmin).length, 'tabs:', TABS(isAdmin))}
           {TABS(isAdmin).map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -310,7 +332,7 @@ export default function Sidebar({
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => { console.log('🔄 [DEBUG-COMPONENT-Sidebar] setActiveTab (pestaña) ->', tab.id); setActiveTab(tab.id); }}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-xs font-semibold transition-colors ${isActive ? 'bg-white text-teal-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
               >
                 <Icon size={14} />
@@ -329,6 +351,7 @@ export default function Sidebar({
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         {loading ? (
            <div className="p-6 space-y-4">
+             {console.log('🔍 [DEBUG-COMPONENT-Sidebar] .map() skeleton de loading — cantidad: 3')}
              {[1,2,3].map(i => (
                <div key={i} className="animate-pulse flex items-start gap-3">
                  <div className="w-10 h-10 bg-gray-200 rounded-full shrink-0"></div>
@@ -345,7 +368,7 @@ export default function Sidebar({
              <h3 className="text-gray-900 font-semibold mb-2">No hay conversaciones</h3>
              <p className="text-gray-500 text-sm mb-6">Tu base de datos está vacía. Carga los datos de prueba para comenzar.</p>
              <button
-               onClick={handleSeedData}
+               onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-Sidebar] click handleSeedData() — isSeeding:', isSeeding); handleSeedData(); }}
                disabled={isSeeding}
                className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
              >
@@ -358,15 +381,18 @@ export default function Sidebar({
               No hay coincidencias con tu búsqueda o filtros.
            </div>
         ) : (
-           filteredConversations.map(conv => {
+           <>
+           {console.log('🔍 [DEBUG-COMPONENT-Sidebar] .map() filteredConversations — cantidad:', filteredConversations.length, 'activeTab:', activeTab)}
+           {filteredConversations.map(conv => {
             const esperando = conv.status === 'esperando';
             const isDerivadoTab = activeTab === 'derivados';
             const showEsperando = esperando && !isDerivadoTab;
             const noLeidos = conv.unreadCount || 0;
+            console.log('🔍 [DEBUG-COMPONENT-Sidebar] item conversación:', conv.id, 'status:', conv.status, 'showEsperando:', showEsperando, 'noLeidos:', noLeidos);
             return (
             <div
               key={conv.id}
-              onClick={() => setActiveConversation(conv)}
+              onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-Sidebar] click conversación — conv.id:', conv.id); console.log('🔄 [DEBUG-COMPONENT-Sidebar] setActiveConversation ->', conv); setActiveConversation(conv); }}
               className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${activeConversation?.id === conv.id ? 'bg-teal-50/50 border-l-4 border-l-teal-500' : 'border-l-4 border-l-transparent'}`}
             >
               <div className="flex justify-between items-start mb-1">
@@ -412,15 +438,16 @@ export default function Sidebar({
                 </div>
               )}
             </div>
-          )})
+          )})}
+           </>
         )}
       </div>
 
       {showSettings && isAdmin && (
         <SettingsModal
           sessionTimeoutMs={sessionTimeoutMs}
-          onSave={(newMs) => onSessionTimeoutChange && onSessionTimeoutChange(newMs)}
-          onClose={() => setShowSettings(false)}
+          onSave={(newMs) => { console.log('🖱️ [DEBUG-COMPONENT-Sidebar] SettingsModal onSave — newMs:', newMs); onSessionTimeoutChange && onSessionTimeoutChange(newMs); }}
+          onClose={() => { console.log('🔄 [DEBUG-COMPONENT-Sidebar] setShowSettings -> false (cierre modal)'); setShowSettings(false); }}
           isAdmin={isAdmin}
         />
       )}

@@ -4,31 +4,55 @@ import { verificarCredenciales, generarToken, verificarToken, actualizarCredenci
 const router = express.Router();
 
 router.post('/login', async (req, res) => {
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] POST /login - req.method:', req.method, '| req.originalUrl:', req.originalUrl, '| req.path:', req.path);
+  const bodyParaLog = { ...req.body };
+  if (bodyParaLog.password) bodyParaLog.password = '[REDACTED]';
+  if (bodyParaLog.currentPassword) bodyParaLog.currentPassword = '[REDACTED]';
+  if (bodyParaLog.newPassword) bodyParaLog.newPassword = '[REDACTED]';
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] POST /login - req.body:', bodyParaLog);
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] POST /login - req.query:', req.query);
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] POST /login - req.params:', req.params);
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] POST /login - req.admin (no aplica en este endpoint, es previo a requireAuth):', req.admin);
+
   const { username, password } = req.body;
 
   if (!username?.trim() || !password) {
-    return res.status(400).json({ error: 'Ingresá el usuario y la contraseña.' });
+    const responseBody400 = { error: 'Ingresá el usuario y la contraseña.' };
+    console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] POST /login - respondiendo status 400:', responseBody400);
+    return res.status(400).json(responseBody400);
   }
 
   try {
+    console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] POST /login - llamando a verificarCredenciales (servicio, no es supabase.from directo) con username:', username.trim());
     const user = await verificarCredenciales(username.trim(), password);
+    console.log('✅ [DEBUG-ROUTES-ADMINAUTH] POST /login - resultado verificarCredenciales:', user);
     if (!user) {
-      return res.status(401).json({ error: 'Usuario o contraseña incorrectos.' });
+      const responseBody401 = { error: 'Usuario o contraseña incorrectos.' };
+      console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] POST /login - respondiendo status 401:', responseBody401);
+      return res.status(401).json(responseBody401);
     }
 
     const token = generarToken(user);
+    console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] POST /login - token generado (longitud, no se loguea el valor completo por seguridad):', token?.length);
     console.log(`[ADMIN AUTH] Login exitoso: ${user.username} (${user.role})`);
-    res.status(200).json({
+    const responseBody200 = {
       success: true,
       token,
       username: user.username,
       role: user.role,
       sucursalId: user.sucursalId,
       sucursalNombre: user.sucursalNombre || null
-    });
+    };
+    console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] POST /login - respondiendo status 200:', { ...responseBody200, token: '[TOKEN OMITIDO EN LOG]' });
+    res.status(200).json(responseBody200);
   } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-ADMINAUTH] POST /login - error capturado en catch:', error);
+    console.error('❌ [DEBUG-ROUTES-ADMINAUTH] POST /login - error.message:', error.message);
+    console.error('❌ [DEBUG-ROUTES-ADMINAUTH] POST /login - error.stack:', error.stack);
     console.error('[ADMIN AUTH] Error en login:', error.message);
-    res.status(500).json({ error: 'Error interno verificando las credenciales.' });
+    const responseBody500 = { error: 'Error interno verificando las credenciales.' };
+    console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] POST /login - respondiendo status 500:', responseBody500);
+    res.status(500).json(responseBody500);
   }
 });
 
@@ -36,15 +60,26 @@ router.post('/login', async (req, res) => {
 // exporta para que otras rutas de administración (ej. gestión de empleados)
 // puedan protegerse con el mismo middleware.
 export const requireAuth = (req, res, next) => {
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] requireAuth - req.method:', req.method, '| req.originalUrl:', req.originalUrl, '| req.path:', req.path);
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] requireAuth - req.body:', req.body);
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] requireAuth - req.query:', req.query);
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] requireAuth - req.params:', req.params);
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] requireAuth - req.admin (todavia no asignado en este punto):', req.admin);
+
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] requireAuth - authHeader presente:', !!authHeader, '| token extraido:', !!token);
   const payload = token && verificarToken(token);
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] requireAuth - payload decodificado del JWT:', payload);
 
   if (!payload) {
-    return res.status(401).json({ error: 'Sesión inválida o expirada. Volvé a iniciar sesión.' });
+    const responseBody401 = { error: 'Sesión inválida o expirada. Volvé a iniciar sesión.' };
+    console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] requireAuth - respondiendo status 401:', responseBody401);
+    return res.status(401).json(responseBody401);
   }
 
   req.admin = payload;
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] requireAuth - req.admin asignado (role, sucursalId, username, sub):', req.admin);
   next();
 };
 
@@ -52,8 +87,15 @@ export const requireAuth = (req, res, next) => {
 // administrador (no un empleado). Protege gestión de empleados, sucursales
 // y las propias credenciales de admin.
 export const requireAdminRole = (req, res, next) => {
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] requireAdminRole - req.method:', req.method, '| req.originalUrl:', req.originalUrl, '| req.path:', req.path);
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] requireAdminRole - req.body:', req.body);
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] requireAdminRole - req.query:', req.query);
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] requireAdminRole - req.params:', req.params);
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] requireAdminRole - req.admin (role, sucursalId, username, sub):', req.admin);
   if (req.admin?.role !== 'admin') {
-    return res.status(403).json({ error: 'Esta acción es solo para el administrador.' });
+    const responseBody403 = { error: 'Esta acción es solo para el administrador.' };
+    console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] requireAdminRole - respondiendo status 403:', responseBody403);
+    return res.status(403).json(responseBody403);
   }
   next();
 };
@@ -63,33 +105,64 @@ export const requireAdminRole = (req, res, next) => {
 // Protege mensajería, cotizador y toma/cierre/devolución de chats (el staff
 // de sucursal es el único que puede ejecutar estas acciones).
 export const blockAdminRole = (req, res, next) => {
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] blockAdminRole - req.method:', req.method, '| req.originalUrl:', req.originalUrl, '| req.path:', req.path);
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] blockAdminRole - req.body:', req.body);
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] blockAdminRole - req.query:', req.query);
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] blockAdminRole - req.params:', req.params);
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] blockAdminRole - req.admin (role, sucursalId, username, sub):', req.admin);
   if (req.admin?.role === 'admin') {
-    return res.status(403).json({ error: 'El administrador tiene acceso de solo supervisión y no puede operar el flujo de atención al chat.' });
+    const responseBody403 = { error: 'El administrador tiene acceso de solo supervisión y no puede operar el flujo de atención al chat.' };
+    console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] blockAdminRole - respondiendo status 403:', responseBody403);
+    return res.status(403).json(responseBody403);
   }
   next();
 };
 
 router.put('/update-credentials', requireAuth, requireAdminRole, async (req, res) => {
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - req.method:', req.method, '| req.originalUrl:', req.originalUrl, '| req.path:', req.path);
+  const bodyParaLog = { ...req.body };
+  if (bodyParaLog.password) bodyParaLog.password = '[REDACTED]';
+  if (bodyParaLog.currentPassword) bodyParaLog.currentPassword = '[REDACTED]';
+  if (bodyParaLog.newPassword) bodyParaLog.newPassword = '[REDACTED]';
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - req.body:', bodyParaLog);
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - req.query:', req.query);
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - req.params:', req.params);
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - req.admin (role, sucursalId, username, sub):', req.admin);
+
   const { currentPassword, newUsername, newPassword } = req.body;
 
   if (!currentPassword) {
-    return res.status(400).json({ error: 'Ingresá tu contraseña actual para confirmar el cambio.' });
+    const responseBody400a = { error: 'Ingresá tu contraseña actual para confirmar el cambio.' };
+    console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - respondiendo status 400:', responseBody400a);
+    return res.status(400).json(responseBody400a);
   }
   if (!newUsername?.trim() && !newPassword?.trim()) {
-    return res.status(400).json({ error: 'Indicá un nuevo usuario y/o una nueva contraseña.' });
+    const responseBody400b = { error: 'Indicá un nuevo usuario y/o una nueva contraseña.' };
+    console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - respondiendo status 400:', responseBody400b);
+    return res.status(400).json(responseBody400b);
   }
 
   try {
+    console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - llamando a actualizarCredenciales (servicio, no es supabase.from directo) con req.admin.sub:', req.admin.sub, '| newUsername:', newUsername, '| newPassword:', newPassword ? '[REDACTED]' : newPassword);
     const updated = await actualizarCredenciales(req.admin.sub, { currentPassword, newUsername, newPassword });
+    console.log('✅ [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - resultado actualizarCredenciales:', updated);
     // Reemitimos el token con el username actualizado (el JWT no lleva la
     // contraseña, así que un cambio de solo contraseña no invalida la sesión).
     const token = generarToken({ id: updated.id, username: updated.username, role: 'admin', sucursalId: null });
+    console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - token generado (longitud, no se loguea el valor completo por seguridad):', token?.length);
     console.log(`[ADMIN AUTH] Credenciales actualizadas para el admin ${updated.id}.`);
-    res.status(200).json({ success: true, username: updated.username, token });
+    const responseBody200 = { success: true, username: updated.username, token };
+    console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - respondiendo status 200:', { ...responseBody200, token: '[TOKEN OMITIDO EN LOG]' });
+    res.status(200).json(responseBody200);
   } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - error capturado en catch:', error);
+    console.error('❌ [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - error.message:', error.message);
+    console.error('❌ [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - error.stack:', error.stack);
     console.error('[ADMIN AUTH] Error actualizando credenciales:', error.message);
     const mensaje = error.code === '23505' ? 'Ese nombre de usuario ya está en uso.' : (error.message || 'No se pudieron actualizar las credenciales.');
-    res.status(400).json({ error: mensaje });
+    const responseBody400c = { error: mensaje };
+    console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - respondiendo status 400:', responseBody400c);
+    res.status(400).json(responseBody400c);
   }
 });
 

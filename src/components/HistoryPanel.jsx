@@ -23,6 +23,7 @@ const highlightMatches = (text, query) => {
 };
 
 export default function HistoryPanel({ clientPhone, clientName, currentConversationId, onClose }) {
+  console.log('🔍 [DEBUG-COMPONENT-HistoryPanel] Render — props:', { clientPhone, clientName, currentConversationId });
   const soyStaff = !isAdminRole();
   const miSucursalId = getStaffSucursalId();
 
@@ -34,21 +35,30 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
+    console.log('🔄 [DEBUG-COMPONENT-HistoryPanel] useEffect (fetchHistory) disparado — clientPhone:', clientPhone, 'currentConversationId:', currentConversationId);
     const fetchHistory = async () => {
+      console.log('🔍 [DEBUG-COMPONENT-HistoryPanel] fetchHistory() — clientPhone:', clientPhone);
       setLoading(true);
+      console.log('📡 [DEBUG-COMPONENT-HistoryPanel] supabase.from("conversations").select — filtro client_phone:', clientPhone);
       const { data, error } = await supabase
         .from('conversations')
         .select('*, sucursal_actual:sucursales!sucursal_id(nombre), sucursal_primera:sucursales!primera_sucursal_id(nombre)')
         .eq('client_phone', clientPhone)
         .order('created_at', { ascending: false });
 
+      console.log('📡 [DEBUG-COMPONENT-HistoryPanel] respuesta supabase "conversations":', { cantidad: data?.length, error });
+
       if (!error && data) {
         // Un empleado no debe ver, ni siquiera acá, las consultas de otra sucursal.
         const visibles = data.filter(c =>
           c.id !== currentConversationId && (!soyStaff || !c.sucursal_id || c.sucursal_id === miSucursalId)
         );
+        console.log('🔄 [DEBUG-COMPONENT-HistoryPanel] setPastConversations — nuevo valor (cantidad):', visibles.length);
         setPastConversations(visibles);
+      } else if (error) {
+        console.error('❌ [DEBUG-COMPONENT-HistoryPanel] error de supabase en "conversations":', error);
       }
+      console.log('🔄 [DEBUG-COMPONENT-HistoryPanel] setLoading — nuevo valor: false');
       setLoading(false);
     };
 
@@ -56,15 +66,27 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
   }, [clientPhone, currentConversationId]);
 
   const openConversation = async (conv) => {
+    console.log('🖱️ [DEBUG-COMPONENT-HistoryPanel] openConversation() — conversation id:', conv?.id);
+    console.log('🔄 [DEBUG-COMPONENT-HistoryPanel] setSelectedConv — nuevo valor id:', conv?.id);
     setSelectedConv(conv);
+    console.log('🔄 [DEBUG-COMPONENT-HistoryPanel] setLoadingMessages — nuevo valor: true');
     setLoadingMessages(true);
+    console.log('📡 [DEBUG-COMPONENT-HistoryPanel] supabase.from("messages").select — filtro conversation_id:', conv.id);
     const { data, error } = await supabase
       .from('messages')
       .select('*')
       .eq('conversation_id', conv.id)
       .order('created_at', { ascending: true });
 
-    if (!error && data) setSelectedMessages(data);
+    console.log('📡 [DEBUG-COMPONENT-HistoryPanel] respuesta supabase "messages":', { cantidad: data?.length, error });
+
+    if (!error && data) {
+      console.log('🔄 [DEBUG-COMPONENT-HistoryPanel] setSelectedMessages — nuevo valor (cantidad):', data.length);
+      setSelectedMessages(data);
+    } else if (error) {
+      console.error('❌ [DEBUG-COMPONENT-HistoryPanel] error de supabase en "messages":', error);
+    }
+    console.log('🔄 [DEBUG-COMPONENT-HistoryPanel] setLoadingMessages — nuevo valor: false');
     setLoadingMessages(false);
   };
 
@@ -76,7 +98,7 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
             <History size={20} className="text-teal-600" />
             Historial de consultas{clientName ? ` — ${clientName}` : ''}
           </div>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
+          <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-HistoryPanel] handleClose() — cerrando panel de historial'); onClose(); }} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -95,7 +117,7 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
               loading={loading}
               fillHeight
               searchQuery={searchQuery}
-              onSearchQueryChange={setSearchQuery}
+              onSearchQueryChange={(value) => { console.log('🔄 [DEBUG-COMPONENT-HistoryPanel] setSearchQuery — nuevo valor:', value); setSearchQuery(value); }}
             />
           </div>
 
@@ -143,6 +165,7 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
                       return true;
                     });
                   }
+                  console.log('🔍 [DEBUG-COMPONENT-HistoryPanel] render mensajes.map — cantidad:', displayMsgs.length);
                   return displayMsgs;
                 })().map(msg => (
                   <div key={msg.id} className={`flex ${msg.sender_type === 'client' ? 'justify-start' : 'justify-end'}`}>

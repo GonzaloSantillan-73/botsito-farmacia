@@ -21,14 +21,16 @@ export const parseLocationMessage = (msg) => {
 // cliente y la galería multimedia, para que los tres lugares se vean y se
 // comporten de forma idéntica.
 export default function MessageBubble({ msg, onImageClick, onDownload, downloadingId, statusIcon }) {
+  console.log('🔍 [DEBUG-COMPONENT-MessageBubble] Render — props:', { msg, onImageClick: typeof onImageClick, onDownload: typeof onDownload, downloadingId, statusIcon });
   const location = parseLocationMessage(msg);
+  console.log('🔍 [DEBUG-COMPONENT-MessageBubble] location parseada:', location, '— media_type:', msg.media_type);
   return (
     <div className={`flex ${msg.sender_type === 'client' ? 'justify-start' : 'justify-end'}`}>
       <div className={`max-w-[75%] rounded-lg p-3 shadow-sm ${msg.sender_type === 'client' ? 'bg-white text-gray-800 rounded-tl-none' : 'bg-teal-500 text-white rounded-tr-none'}`}>
         {msg.sender_type === 'bot' && <div className="text-[10px] font-bold uppercase opacity-70 mb-1">BOT</div>}
         {location && (
           <div
-            onClick={() => window.open(`https://www.google.com/maps?q=${location.lat},${location.lng}`, '_blank', 'noopener,noreferrer')}
+            onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-MessageBubble] onClick ubicación — abrir Google Maps:', { lat: location.lat, lng: location.lng }); window.open(`https://www.google.com/maps?q=${location.lat},${location.lng}`, '_blank', 'noopener,noreferrer'); }}
             className="mb-2 rounded-lg overflow-hidden border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity w-64 max-w-full"
             title="Abrir ubicación en Google Maps"
           >
@@ -55,7 +57,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
         {msg.media_url && msg.media_type === 'image' && (
           <div
             className="mb-2 rounded overflow-hidden relative cursor-pointer group"
-            onClick={() => onImageClick && onImageClick(msg)}
+            onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-MessageBubble] onClick imagen — onImageClick msg.id:', msg.id); onImageClick && onImageClick(msg); }}
           >
             <img src={msg.media_url} alt="Media" className="max-w-full h-auto object-cover rounded bg-gray-100" />
             <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -64,7 +66,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
               </span>
             </div>
             <button
-              onClick={(e) => { e.stopPropagation(); onDownload && onDownload(msg); }}
+              onClick={(e) => { e.stopPropagation(); console.log('🖱️ [DEBUG-COMPONENT-MessageBubble] onClick descargar imagen — msg.id:', msg.id); onDownload && onDownload(msg); }}
               disabled={downloadingId === msg.id}
               title="Descargar imagen"
               className="absolute top-1.5 right-1.5 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors disabled:opacity-50"
@@ -77,7 +79,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
           <div className="mb-2 rounded overflow-hidden relative">
             <video src={msg.media_url} controls className="max-w-full max-h-64 rounded bg-black" />
             <button
-              onClick={() => onDownload && onDownload(msg)}
+              onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-MessageBubble] onClick descargar video — msg.id:', msg.id); onDownload && onDownload(msg); }}
               disabled={downloadingId === msg.id}
               title="Descargar video"
               className="absolute top-1.5 right-1.5 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors disabled:opacity-50"
@@ -88,7 +90,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
         )}
         {msg.media_url && msg.media_type === 'document' && (
            <button
-              onClick={() => onDownload && onDownload(msg)}
+              onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-MessageBubble] onClick descargar documento — msg.id:', msg.id); onDownload && onDownload(msg); }}
               disabled={downloadingId === msg.id}
               className={`mb-2 w-full flex items-center gap-2 p-2 rounded-lg text-sm transition-colors disabled:opacity-50 ${msg.sender_type === 'client' ? 'bg-gray-100 text-teal-700 hover:bg-gray-200' : 'bg-teal-600 text-white hover:bg-teal-700'}`}
            >
@@ -110,13 +112,14 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
                 href={msg.media_url}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => console.log('🖱️ [DEBUG-COMPONENT-MessageBubble] onClick visualizar PDF — msg.id:', msg.id)}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${msg.sender_type === 'client' ? 'text-teal-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
               >
                 <Eye size={14} /> Visualizar
               </a>
               <div className={`w-px ${msg.sender_type === 'client' ? 'bg-gray-200' : 'bg-teal-400/50'}`} />
               <button
-                onClick={() => onDownload && onDownload(msg)}
+                onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-MessageBubble] onClick descargar PDF — msg.id:', msg.id); onDownload && onDownload(msg); }}
                 disabled={downloadingId === msg.id}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors disabled:opacity-50 ${msg.sender_type === 'client' ? 'text-teal-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
               >
@@ -129,7 +132,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
           <div className="mb-2 flex items-center gap-1.5">
             <audio controls preload="metadata" src={msg.media_url} className="max-w-full h-10" style={{ width: 230 }} />
             <button
-              onClick={() => onDownload && onDownload(msg)}
+              onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-MessageBubble] onClick descargar audio — msg.id:', msg.id); onDownload && onDownload(msg); }}
               disabled={downloadingId === msg.id}
               title="Descargar audio"
               className={`p-2 rounded-full transition-colors disabled:opacity-50 shrink-0 ${msg.sender_type === 'client' ? 'text-gray-500 hover:bg-gray-100' : 'text-white/90 hover:bg-white/10'}`}

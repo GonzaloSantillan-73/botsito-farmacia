@@ -3,6 +3,7 @@ import { Lock, User, Loader2, LogIn } from 'lucide-react';
 import { setAdminSession } from '../lib/adminAuth';
 
 export default function LoginModal({ onLoginSuccess }) {
+  console.log('🔍 [DEBUG-COMPONENT-LoginModal] Render — props:', { onLoginSuccess: typeof onLoginSuccess });
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -10,29 +11,40 @@ export default function LoginModal({ onLoginSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('🖱️ [DEBUG-COMPONENT-LoginModal] handleSubmit() — username:', username, 'password presente:', !!password, 'password length:', password?.length || 0);
     if (!username.trim() || !password) {
+      console.log('❌ [DEBUG-COMPONENT-LoginModal] validación fallida — falta usuario o contraseña');
+      console.log('🔄 [DEBUG-COMPONENT-LoginModal] setError — nuevo valor: "Completá el usuario y la contraseña."');
       setError('Completá el usuario y la contraseña.');
       return;
     }
 
+    console.log('🔄 [DEBUG-COMPONENT-LoginModal] setLoading — nuevo valor: true');
     setLoading(true);
+    console.log('🔄 [DEBUG-COMPONENT-LoginModal] setError — nuevo valor: "" (limpiando error previo)');
     setError('');
 
     try {
+      console.log('📡 [DEBUG-COMPONENT-LoginModal] fetch → POST /api/admin/login', { username: username.trim(), password_presente: !!password });
       const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username.trim(), password })
       });
       const data = await res.json();
+      console.log('📡 [DEBUG-COMPONENT-LoginModal] respuesta /api/admin/login:', { ok: res.ok, status: res.status, token_presente: !!data.token, username: data.username, role: data.role, sucursalId: data.sucursalId, sucursalNombre: data.sucursalNombre, error: data.error });
 
       if (!res.ok) throw new Error(data.error || 'No se pudo iniciar sesión.');
 
+      console.log('✅ [DEBUG-COMPONENT-LoginModal] login exitoso — token:', data.token?.slice(0, 8) + '...', 'username:', data.username, 'role:', data.role);
       setAdminSession(data.token, data.username, data.role, data.sucursalId, data.sucursalNombre);
       onLoginSuccess(data.token, data.username);
     } catch (err) {
+      console.error('❌ [DEBUG-COMPONENT-LoginModal] error en login:', err.message || err);
+      console.log('🔄 [DEBUG-COMPONENT-LoginModal] setError — nuevo valor:', err.message || 'No se pudo iniciar sesión.');
       setError(err.message || 'No se pudo iniciar sesión.');
     } finally {
+      console.log('🔄 [DEBUG-COMPONENT-LoginModal] setLoading — nuevo valor: false');
       setLoading(false);
     }
   };
@@ -57,7 +69,7 @@ export default function LoginModal({ onLoginSuccess }) {
                 type="text"
                 autoFocus
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e) => { console.log('🖱️ [DEBUG-COMPONENT-LoginModal] handleUsernameChange — valor:', e.target.value); setUsername(e.target.value); }}
                 className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
                 placeholder="admin"
               />
@@ -71,7 +83,7 @@ export default function LoginModal({ onLoginSuccess }) {
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => { console.log('🖱️ [DEBUG-COMPONENT-LoginModal] handlePasswordChange — password presente:', !!e.target.value, 'length:', e.target.value.length); setPassword(e.target.value); }}
                 className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
                 placeholder="••••••••"
               />

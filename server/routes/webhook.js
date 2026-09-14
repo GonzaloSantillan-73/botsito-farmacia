@@ -27,20 +27,25 @@ router.get('/', (req, res) => {
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
+  console.log(`🔍 [DEBUG-WEBHOOK] Verificación GET - mode: ${mode}, token presente: ${!!token}, token coincide con VERIFY_TOKEN: ${token === VERIFY_TOKEN}, challenge presente: ${!!challenge}`);
+
   if (mode && token) {
     console.log(`[WEBHOOK - GET /] -> Condición: Mode y token presentes. Mode: ${mode}`);
     if (mode === 'subscribe' && token === VERIFY_TOKEN) {
       console.log(`[WEBHOOK - GET /] ==> ✅ WEBHOOK VERIFICADO CORRECTAMENTE`);
       console.log(`======================================================\n`);
+      console.log(`🔍 [DEBUG-WEBHOOK] 🔚 Respondiendo a Meta con status code: 200 (challenge devuelto)`);
       res.status(200).send(challenge);
     } else {
       console.warn(`[WEBHOOK - GET /] ==> ❌ FALLO DE VERIFICACIÓN: Token no coincide o mode inválido`);
       console.log(`======================================================\n`);
+      console.log(`🔍 [DEBUG-WEBHOOK] 🔚 Respondiendo a Meta con status code: 403`);
       res.sendStatus(403);
     }
   } else {
     console.warn(`[WEBHOOK - GET /] ==> ❌ FALTAN PARÁMETROS: mode o token no enviados`);
     console.log(`======================================================\n`);
+    console.log(`🔍 [DEBUG-WEBHOOK] 🔚 Respondiendo a Meta con status code: 400`);
     res.sendStatus(400);
   }
 });
@@ -75,11 +80,14 @@ router.post('/', async (req, res) => {
       else if (metaStatus === 'sent') estadoDB = 'enviado';
 
       console.log(`[WEBHOOK - POST /] -> Actualizando mensaje con wamid: ${wamid} al estado: ${estadoDB}`);
+      console.log(`🔍 [DEBUG-WEBHOOK] 📡 Consulta Supabase - tabla: messages, operación: update, filtros: { wamid: "${wamid}" }, payload: { estado: "${estadoDB}" }`);
       try {
-        await supabase.from('messages').update({ estado: estadoDB }).eq('wamid', wamid);
+        const { data: statusUpdateData, error: statusUpdateError } = await supabase.from('messages').update({ estado: estadoDB }).eq('wamid', wamid);
+        console.log(`🔍 [DEBUG-WEBHOOK] 📡 Resultado consulta Supabase (update estado) - data:`, statusUpdateData, '| error:', statusUpdateError);
         console.log(`[WEBHOOK - POST /] ==> ✅ ESTADO ACTUALIZADO CON ÉXITO`);
       } catch (error) {
         console.error(`[WEBHOOK - POST /] ❌ ERROR ACTUALIZANDO ESTADO:`, error);
+        console.error(`🔍 [DEBUG-WEBHOOK] ❌ Error completo - message: ${error.message}, stack:`, error.stack);
       }
       
     } else if (
@@ -102,6 +110,7 @@ router.post('/', async (req, res) => {
       console.log(`   - Nombre: ${clientName}`);
       console.log(`   - Tipo de mensaje: ${messageType}`);
       console.log(`   - ID Mensaje: ${messageId}`);
+      console.log(`🔍 [DEBUG-WEBHOOK] Rama de filtrado tomada: MENSAJE (changes.value.messages[0] presente) | tipo detectado: ${messageType}`);
 
       try {
         console.log(`\n------------------------------------------------------`);
@@ -273,7 +282,8 @@ router.post('/', async (req, res) => {
           estado: 'recibido'
         };
         console.log(`[WEBHOOK] -> Payload insert 'messages':`, messagePayload);
-        
+        console.log(`🔍 [DEBUG-WEBHOOK] 📡 Consulta Supabase - tabla: messages, operación: insert, filtros: N/A (insert simple)`);
+
         const { data: insertData, error: insertError } = await supabase.from('messages').insert([messagePayload]).select();
 
         if (insertError) {
@@ -285,7 +295,8 @@ router.post('/', async (req, res) => {
         console.log(`\n------------------------------------------------------`);
         console.log(`[WEBHOOK] ==> D. ACTUALIZACIÓN DE ÚLTIMO MENSAJE EN CONVERSACIÓN`);
         console.log(`[WEBHOOK] -> Payload update 'conversations': { last_message: "${previewText}" } para ID: ${conversationId}`);
-        
+        console.log(`🔍 [DEBUG-WEBHOOK] 📡 Consulta Supabase - tabla: conversations, operación: update, filtros: { id: "${conversationId}" }`);
+
         const { data: updateData, error: updateError } = await supabase.from('conversations')
           .update({ last_message: previewText })
           .eq('id', conversationId)
@@ -322,6 +333,7 @@ router.post('/', async (req, res) => {
         console.error(`\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!`);
         console.error(`[WEBHOOK] ❌ ERROR FATAL CAPTURADO EN EL CATCH PRINCIPAL:`);
         console.error(error.stack || error);
+        console.error(`🔍 [DEBUG-WEBHOOK] ❌ Error completo - message: ${error?.message}, name: ${error?.name}, stack:`, error?.stack);
         console.error(`!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n`);
       }
     } else {
