@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Search, ArrowLeft, ArrowUpDown, History, List } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
-import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
+import { isAdminRole, adminFetch } from '../lib/adminAuth';
 import { ESTADOS_HISTORIAL } from './Sidebar';
 import ClientHistoryList from './ClientHistoryList';
 import StarRating from './StarRating';
-import { withClientNames } from '../lib/clientUtils';
 
 const SORT_OPTIONS = [
   { value: 'recent', label: 'Fecha (más reciente)' },
@@ -79,28 +77,23 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
   const [vista, setVista] = useState('historial');
 
   const soyStaff = !isAdminRole();
-  const miSucursalId = getStaffSucursalId();
   // La calificación individual de un cliente (o el promedio de sus consultas)
   // es información sensible que solo un admin debe poder ver acá; un operador
   // o sucursal común no la ve ni en la tabla ni en la ficha de detalle.
   const sortOptions = soyStaff ? SORT_OPTIONS.filter(o => !o.adminOnly) : SORT_OPTIONS;
 
   useEffect(() => {
-    let query = supabase.from('conversations').select('*, sucursal_actual:sucursales!sucursal_id(nombre), sucursal_primera:sucursales!primera_sucursal_id(nombre)');
-    // Mismo criterio que el fetch principal de App.jsx: un empleado no debe
-    // ver acá clientes ni consultas de otra sucursal.
-    if (soyStaff) {
-      query = query.or(`sucursal_id.eq.${miSucursalId},sucursal_id.is.null`);
-    }
-    query
-      .order('created_at', { ascending: false })
-      .then(async ({ data, error }) => {
-        if (!error) {
-          const enhanced = await withClientNames(data || []);
-          setConversations(enhanced);
-        }
+    // El filtrado por sucursal para el staff lo aplica el backend a partir
+    // del sucursalId del JWT (ver server/routes/clientDirectory.js): acá no
+    // se manda ni se puede forzar ninguna sucursal, evitando fugas entre
+    // sucursales aunque se manipule el request.
+    adminFetch('/api/admin/client-directory/conversations')
+      .then(res => res.json())
+      .then(({ conversations: data, error }) => {
+        if (!error) setConversations(data || []);
         setLoading(false);
-      });
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   const historialConsultas = conversations

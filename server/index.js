@@ -6,6 +6,7 @@ import apiRoutes from './routes/api.js';
 import adminAuthRoutes from './routes/adminAuth.js';
 import staffRoutes from './routes/staff.js';
 import clientesRoutes from './routes/clientes.js';
+import clientDirectoryRoutes from './routes/clientDirectory.js';
 import { startSessionExpiryChecker } from './services/sessionExpiryChecker.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -32,6 +33,7 @@ app.use('/api', apiRoutes);
 app.use('/api/admin', adminAuthRoutes);
 app.use('/api/admin/staff', staffRoutes);
 app.use('/api/admin/clientes', clientesRoutes);
+app.use('/api/admin/client-directory', clientDirectoryRoutes);
 
 // Servir estáticos de React (Vite build)
 app.use(express.static(path.join(__dirname, '../dist')));

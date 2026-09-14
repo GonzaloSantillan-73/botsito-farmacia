@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Search, CalendarRange, ArrowUpDown, Loader2, Clock, Store } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import { formatPhone } from '../lib/formatPhone';
-import { isAdminRole } from '../lib/adminAuth';
+import { isAdminRole, adminFetch } from '../lib/adminAuth';
 import StarRating from './StarRating';
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -82,26 +81,25 @@ export default function ClientHistoryList({
     }
     setSearchLoading(true);
     let cancelled = false;
-    supabase
-      .from('messages')
-      .select('conversation_id, message_text, created_at')
-      .in('conversation_id', conversations.map(c => c.id))
-      .ilike('message_text', `%${q}%`)
-      .order('created_at', { ascending: true })
-      .then(({ data, error }) => {
+    // La búsqueda se resuelve en el backend (ver
+    // server/routes/clientDirectory.js), que vuelve a acotar estos
+    // conversation_id a la sucursal del usuario antes de buscar: aunque este
+    // componente reciba conversaciones de otra sucursal no debería pasar,
+    // ningún empleado puede leer mensajes ajenos a la suya.
+    adminFetch('/api/admin/client-directory/messages-search', {
+      method: 'POST',
+      body: JSON.stringify({ conversationIds: conversations.map(c => c.id), q })
+    })
+      .then(res => res.json())
+      .then(({ matchingIds, snippets: snip, error }) => {
         if (cancelled) return;
         if (!error) {
-          const ids = new Set();
-          const snip = {};
-          for (const m of data || []) {
-            ids.add(m.conversation_id);
-            if (!snip[m.conversation_id]) snip[m.conversation_id] = m.message_text;
-          }
-          setMatchingIds(ids);
-          setSnippets(snip);
+          setMatchingIds(new Set(matchingIds || []));
+          setSnippets(snip || {});
         }
         setSearchLoading(false);
-      });
+      })
+      .catch(() => { if (!cancelled) setSearchLoading(false); });
     return () => { cancelled = true; };
   }, [searchQuery, conversations]);
 
