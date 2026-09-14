@@ -6,6 +6,7 @@ const toRad = (deg) => (deg * Math.PI) / 180;
 // en kilómetros. Suficiente para "cuál sucursal está más cerca": no hace
 // falta ruteo real por calles para una simple recomendación.
 export const distanciaHaversineKm = (lat1, lng1, lat2, lng2) => {
+  console.log('🔍 [DEBUG-SERVICE-GEOLOCALIZACION] distanciaHaversineKm() — lat1:', lat1, 'lng1:', lng1, 'lat2:', lat2, 'lng2:', lng2);
   const R = 6371; // radio de la Tierra en km
   const dLat = toRad(lat2 - lat1);
   const dLng = toRad(lng2 - lng1);
@@ -13,7 +14,9 @@ export const distanciaHaversineKm = (lat1, lng1, lat2, lng2) => {
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+  const resultado = R * c;
+  console.log('✅ [DEBUG-SERVICE-GEOLOCALIZACION] distanciaHaversineKm() — resultado (km):', resultado);
+  return resultado;
 };
 
 // `Number(null) === 0` en JS: si convertimos así nomás, una sucursal sin
@@ -21,7 +24,12 @@ export const distanciaHaversineKm = (lat1, lng1, lat2, lng2) => {
 // (0,0) "Null Island" en vez de quedar excluida, ensuciando el ranking con
 // una distancia gigante pero "válida". Achicamos null/undefined/'' a NaN
 // para que el filtro de abajo las descarte de verdad.
-const parseCoord = (valor) => (valor === null || valor === undefined || valor === '' ? NaN : Number(valor));
+const parseCoord = (valor) => {
+  console.log('🔍 [DEBUG-SERVICE-GEOLOCALIZACION] parseCoord() — valor:', valor);
+  const resultado = (valor === null || valor === undefined || valor === '' ? NaN : Number(valor));
+  console.log('✅ [DEBUG-SERVICE-GEOLOCALIZACION] parseCoord() — resultado:', resultado);
+  return resultado;
+};
 
 // Sucursales activas con coordenadas cargadas (se sacan solas del link de
 // Google Maps al crear/editar la sucursal, ver sucursalesAdmin.js), ordenadas
@@ -31,15 +39,22 @@ const parseCoord = (valor) => (valor === null || valor === undefined || valor ==
 // devolver el chat a la cola, ver devolucionCola.js) para que no se le vuelva
 // a recomendar la misma que ya dijo que no podía atenderlo.
 export const sucursalesMasCercanas = async (lat, lng, cantidad = 2, excluirIds = []) => {
+  console.log('🔍 [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesMasCercanas() — lat:', lat, 'lng:', lng, 'cantidad:', cantidad, 'excluirIds:', excluirIds);
+
+  console.log('📡 [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesMasCercanas() — llamando a getSucursalesActivas()');
   const sucursales = await getSucursalesActivas();
+  console.log('📡 [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesMasCercanas() — sucursales activas obtenidas:', sucursales);
+
   const excluidos = new Set(excluirIds.filter(Boolean));
+  console.log('🔍 [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesMasCercanas() — set de excluidos:', excluidos);
 
   const conCoordenadas = sucursales
     .filter(s => !excluidos.has(s.id))
     .map(s => ({ ...s, latitud: parseCoord(s.latitud), longitud: parseCoord(s.longitud) }))
     .filter(s => Number.isFinite(s.latitud) && Number.isFinite(s.longitud));
+  console.log('🔍 [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesMasCercanas() — sucursales con coordenadas válidas:', conCoordenadas);
 
-  return conCoordenadas
+  const resultado = conCoordenadas
     .map(s => ({
       id: s.id,
       nombre: s.nombre,
@@ -47,4 +62,7 @@ export const sucursalesMasCercanas = async (lat, lng, cantidad = 2, excluirIds =
     }))
     .sort((a, b) => a.distancia_km - b.distancia_km)
     .slice(0, cantidad);
+
+  console.log('✅ [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesMasCercanas() — resultado a devolver:', resultado);
+  return resultado;
 };
