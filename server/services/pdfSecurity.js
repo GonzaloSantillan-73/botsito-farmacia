@@ -24,32 +24,54 @@ const PATRONES_PELIGROSOS = [
 // Analiza el buffer crudo del archivo. Devuelve { seguro, motivos } — si
 // seguro es false, motivos siempre tiene al menos una entrada legible.
 export const analizarPdf = (buffer) => {
-  const motivos = [];
+  console.log('🔍 [DEBUG-SERVICE-PDFSECURITY] analizarPdf() — tamaño del buffer recibido (bytes):', buffer?.length);
+  try {
+    const motivos = [];
 
-  // 1. Firma binaria real: un PDF legítimo empieza con "%PDF-" (dentro de los
-  // primeros bytes; algunos generadores agregan un pequeño preámbulo). Esto
-  // atrapa ejecutables o scripts renombrados con extensión/mime falso.
-  const inicio = buffer.subarray(0, 1024).toString('latin1');
-  if (!inicio.includes(FIRMA_PDF)) {
-    motivos.push('El archivo no tiene la firma binaria de un PDF real (falta "%PDF-" en la cabecera).');
-    return { seguro: false, motivos };
-  }
-
-  // 2. Validación estructural básica: buscamos los tokens peligrosos como
-  // texto latin1 (preserva byte a byte, sin perder los caracteres de control
-  // propios del formato PDF) en todo el contenido del archivo.
-  const contenido = buffer.toString('latin1');
-  for (const { patron, motivo } of PATRONES_PELIGROSOS) {
-    if (patron.test(contenido)) {
-      motivos.push(motivo);
+    // 1. Firma binaria real: un PDF legítimo empieza con "%PDF-" (dentro de los
+    // primeros bytes; algunos generadores agregan un pequeño preámbulo). Esto
+    // atrapa ejecutables o scripts renombrados con extensión/mime falso.
+    const inicio = buffer.subarray(0, 1024).toString('latin1');
+    console.log('🔍 [DEBUG-SERVICE-PDFSECURITY] analizarPdf() — análisis 1/2: verificación de firma binaria "%PDF-" en los primeros 1024 bytes');
+    if (!inicio.includes(FIRMA_PDF)) {
+      motivos.push('El archivo no tiene la firma binaria de un PDF real (falta "%PDF-" en la cabecera).');
+      const resultado = { seguro: false, motivos };
+      console.log('❌ [DEBUG-SERVICE-PDFSECURITY] analizarPdf() — BLOQUEADO — falta firma "%PDF-". resultado:', resultado);
+      return resultado;
     }
-  }
+    console.log('✅ [DEBUG-SERVICE-PDFSECURITY] analizarPdf() — firma "%PDF-" encontrada, el archivo es un PDF real');
 
-  return { seguro: motivos.length === 0, motivos };
+    // 2. Validación estructural básica: buscamos los tokens peligrosos como
+    // texto latin1 (preserva byte a byte, sin perder los caracteres de control
+    // propios del formato PDF) en todo el contenido del archivo.
+    console.log('🔍 [DEBUG-SERVICE-PDFSECURITY] analizarPdf() — análisis 2/2: búsqueda de patrones peligrosos (', PATRONES_PELIGROSOS.length, 'patrones) en todo el contenido del archivo');
+    const contenido = buffer.toString('latin1');
+    for (const { patron, motivo } of PATRONES_PELIGROSOS) {
+      if (patron.test(contenido)) {
+        console.log('⚠️ [DEBUG-SERVICE-PDFSECURITY] analizarPdf() — patrón peligroso detectado:', patron, '— motivo:', motivo);
+        motivos.push(motivo);
+      }
+    }
+
+    const resultado = { seguro: motivos.length === 0, motivos };
+    if (resultado.seguro) {
+      console.log('✅ [DEBUG-SERVICE-PDFSECURITY] analizarPdf() — SEGURO — sin patrones peligrosos detectados. resultado:', resultado);
+    } else {
+      console.log('❌ [DEBUG-SERVICE-PDFSECURITY] analizarPdf() — BLOQUEADO — motivos:', motivos, '. resultado:', resultado);
+    }
+    return resultado;
+  } catch (err) {
+    console.error('❌ [DEBUG-SERVICE-PDFSECURITY] analizarPdf() — error:', err?.message, err?.stack);
+    throw err;
+  }
 };
 
 // Determina si un documento entrante de WhatsApp debe tratarse como PDF,
 // mirando tanto el mime type real (del header de descarga) como el nombre
 // de archivo declarado por Meta.
-export const esDocumentoPdf = (mimeType, filename) =>
-  mimeType === 'application/pdf' || (filename || '').toLowerCase().endsWith('.pdf');
+export const esDocumentoPdf = (mimeType, filename) => {
+  console.log('🔍 [DEBUG-SERVICE-PDFSECURITY] esDocumentoPdf() — mimeType:', mimeType, 'filename:', filename);
+  const resultado = mimeType === 'application/pdf' || (filename || '').toLowerCase().endsWith('.pdf');
+  console.log('✅ [DEBUG-SERVICE-PDFSECURITY] esDocumentoPdf() — resultado:', resultado);
+  return resultado;
+};
