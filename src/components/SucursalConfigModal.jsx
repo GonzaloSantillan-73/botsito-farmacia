@@ -164,10 +164,10 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
 
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 shrink-0">
-          <h3 className="font-bold text-gray-800">{sucursal ? sucursal.nombre : 'Nueva sucursal'}</h3>
-          <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-SucursalConfigModal] click botón cerrar (X)'); onClose(); }} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
+          <h3 className="font-bold text-gray-800 dark:text-gray-100">{sucursal ? sucursal.nombre : 'Nueva sucursal'}</h3>
+          <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-SucursalConfigModal] click botón cerrar (X)'); onClose(); }} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-800 rounded-full transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -175,40 +175,40 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
         <div className="flex-1 overflow-y-auto scrollbar-thin p-5 space-y-4">
           <div className="space-y-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Nombre de la sucursal</label>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Nombre de la sucursal</label>
               <input
                 type="text"
                 value={nombre}
                 onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SucursalConfigModal] setNombre ->', e.target.value); setNombre(e.target.value); }}
                 placeholder="Sucursal Centro"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Dirección</label>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Dirección</label>
               <input
                 type="text"
                 value={direccion}
                 onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SucursalConfigModal] setDireccion ->', e.target.value); setDireccion(e.target.value); }}
                 placeholder="Av. Siempre Viva 123"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Link de Google Maps</label>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Link de Google Maps</label>
               <input
                 type="text"
                 value={googleMapsUrl}
                 onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SucursalConfigModal] setGoogleMapsUrl ->', e.target.value); setGoogleMapsUrl(e.target.value); }}
                 placeholder="https://maps.app.goo.gl/..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               />
             </div>
 
           </div>
 
-          <div className="pt-4 border-t border-gray-100 space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase">
+          <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
               <Clock size={13} /> Horario de atención
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -217,7 +217,7 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
                   key={d.value}
                   type="button"
                   onClick={() => toggleDia(d.value)}
-                  className={`w-8 h-8 rounded-full text-xs font-semibold transition-colors ${dias.includes(d.value) ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'}`}
+                  className={`w-8 h-8 rounded-full text-xs font-semibold transition-colors ${dias.includes(d.value) ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-500 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600'}`}
                 >
                   {d.label}
                 </button>
@@ -228,34 +228,34 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
                 type="time"
                 value={horaApertura}
                 onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SucursalConfigModal] setHoraApertura ->', e.target.value); setHoraApertura(e.target.value); }}
-                className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+                className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm"
               />
               <span className="text-gray-400 text-xs">a</span>
               <input
                 type="time"
                 value={horaCierre}
                 onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SucursalConfigModal] setHoraCierre ->', e.target.value); setHoraCierre(e.target.value); }}
-                className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm"
+                className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm"
               />
             </div>
           </div>
 
-          <div className="pt-4 border-t border-gray-100 space-y-3">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase">
+          <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-3">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
               <KeyRound size={13} /> Credenciales de acceso del personal
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Usuario</label>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Usuario</label>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SucursalConfigModal] setUsername ->', e.target.value); setUsername(e.target.value); }}
                 placeholder="Usuario para iniciar sesión en el CRM"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                 Contraseña{empleadoPrincipal ? ' (dejar vacío para no cambiarla)' : ''}
               </label>
               <input
@@ -263,11 +263,11 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
                 value={password}
                 onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SucursalConfigModal] setPassword -> (longitud):', e.target.value.length); setPassword(e.target.value); }}
                 placeholder={empleadoPrincipal ? '••••••••' : 'Mínimo 6 caracteres'}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               />
             </div>
             {empleadoPrincipal && (
-              <button onClick={eliminarAcceso} className="flex items-center gap-1 text-xs font-medium text-rose-600 hover:text-rose-800">
+              <button onClick={eliminarAcceso} className="flex items-center gap-1 text-xs font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300">
                 <Trash2 size={13} /> Eliminar este acceso
               </button>
             )}
@@ -276,9 +276,9 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
               <div className="space-y-1 pt-1">
                 <p className="text-[11px] text-gray-400">Otros accesos de esta sucursal:</p>
                 {extras.map(emp => (
-                  <div key={emp.id} className="flex items-center justify-between gap-2 px-2 py-1.5 bg-gray-50 rounded text-xs">
-                    <span className="text-gray-700">{emp.username}</span>
-                    <button onClick={() => eliminarExtra(emp.id)} className="text-gray-400 hover:text-rose-600">
+                  <div key={emp.id} className="flex items-center justify-between gap-2 px-2 py-1.5 bg-gray-50 dark:bg-gray-800 rounded text-xs">
+                    <span className="text-gray-700 dark:text-gray-300">{emp.username}</span>
+                    <button onClick={() => eliminarExtra(emp.id)} className="text-gray-400 hover:text-rose-600 dark:hover:text-rose-400">
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -287,10 +287,10 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
             )}
           </div>
 
-          {error && <p className="text-xs text-rose-600">{error}</p>}
+          {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
         </div>
 
-        <div className="px-5 py-4 border-t border-gray-200 shrink-0">
+        <div className="px-5 py-4 border-t border-gray-200 dark:border-gray-700 shrink-0">
           <button
             onClick={handleGuardar}
             disabled={saving}

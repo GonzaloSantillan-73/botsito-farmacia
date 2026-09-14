@@ -22,13 +22,13 @@ function ScheduleEditor({ title, description, schedule, onChange, showPlaceholde
   };
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4">
+    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
       <div className="flex items-start justify-between mb-3 gap-3">
         <div>
-          <h4 className="font-semibold text-sm text-gray-800">{title}</h4>
-          {description && <p className="text-xs text-gray-500 mt-0.5">{description}</p>}
+          <h4 className="font-semibold text-sm text-gray-800 dark:text-gray-100">{title}</h4>
+          {description && <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{description}</p>}
         </div>
-        <label className="flex items-center gap-2 text-xs text-gray-600 whitespace-nowrap shrink-0 cursor-pointer">
+        <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap shrink-0 cursor-pointer">
           <input
             type="checkbox"
             checked={schedule.enabled}
@@ -40,7 +40,7 @@ function ScheduleEditor({ title, description, schedule, onChange, showPlaceholde
       </div>
 
       {!schedule.enabled ? (
-        <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3">Disponible las 24 horas, los 7 días de la semana.</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg p-3">Disponible las 24 horas, los 7 días de la semana.</p>
       ) : (
         <>
           <div className="flex flex-wrap gap-1.5 mb-3">
@@ -50,7 +50,7 @@ function ScheduleEditor({ title, description, schedule, onChange, showPlaceholde
                 type="button"
                 onClick={() => toggleDay(d.value)}
                 className={`w-9 h-9 rounded-full text-xs font-semibold transition-colors ${
-                  schedule.days.includes(d.value) ? 'bg-teal-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  schedule.days.includes(d.value) ? 'bg-teal-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700'
                 }`}
               >
                 {d.label}
@@ -60,34 +60,34 @@ function ScheduleEditor({ title, description, schedule, onChange, showPlaceholde
 
           <div className="flex items-center gap-4 mb-3">
             <div>
-              <label className="block text-[11px] text-gray-500 mb-1">Desde</label>
+              <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">Desde</label>
               <input
                 type="time"
                 value={schedule.startTime}
                 onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SchedulePanel] onChange startTime — nuevo valor:', e.target.value); onChange({ ...schedule, startTime: e.target.value }); }}
-                className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               />
             </div>
             <div>
-              <label className="block text-[11px] text-gray-500 mb-1">Hasta</label>
+              <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">Hasta</label>
               <input
                 type="time"
                 value={schedule.endTime}
                 onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SchedulePanel] onChange endTime — nuevo valor:', e.target.value); onChange({ ...schedule, endTime: e.target.value }); }}
-                className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[11px] text-gray-500 mb-1">
+            <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">
               Mensaje de fuera de horario{showPlaceholderHint && ' (usá {horario} para insertar los días y el rango configurado)'}
             </label>
             <textarea
               value={schedule.message}
               onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SchedulePanel] onChange message — nuevo valor:', e.target.value); onChange({ ...schedule, message: e.target.value }); }}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm resize-none"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm resize-none"
             />
           </div>
         </>
@@ -155,7 +155,7 @@ export default function SchedulePanel() {
 
   return (
     <div className="space-y-5">
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-gray-500 dark:text-gray-400">
         Configurá cuándo responde el bot automáticamente y cuándo están disponibles los asesores humanos.
       </p>
 
@@ -174,7 +174,7 @@ export default function SchedulePanel() {
         showPlaceholderHint
       />
 
-      {error && <p className="text-sm text-rose-600">{error}</p>}
+      {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
 
       <button
         onClick={handleSave}

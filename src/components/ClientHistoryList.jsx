@@ -28,7 +28,7 @@ const highlightMatches = (text, query) => {
   if (parts.length === 1) return text;
   return parts.map((part, i) =>
     part.toLowerCase() === q.toLowerCase()
-      ? <mark key={i} className="bg-amber-200 text-gray-900 rounded px-0.5">{part}</mark>
+      ? <mark key={i} className="bg-amber-200 dark:bg-amber-950 text-gray-900 dark:text-gray-100 rounded px-0.5">{part}</mark>
       : <React.Fragment key={i}>{part}</React.Fragment>
   );
 };
@@ -138,49 +138,49 @@ export default function ClientHistoryList({
       : new Date(b.created_at) - new Date(a.created_at));
 
   return (
-    <div className={fillHeight ? 'h-full flex flex-col overflow-hidden' : 'flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden'}>
-      <div className="p-3 border-b border-gray-200 bg-white space-y-2 shrink-0">
+    <div className={fillHeight ? 'h-full flex flex-col overflow-hidden' : 'flex flex-col bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden'}>
+      <div className="p-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 space-y-2 shrink-0">
         <div className="relative">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => { console.log('🖱️ [DEBUG-COMPONENT-ClientHistoryList] handleSearchInputChange — texto:', e.target.value); setSearchQuery(e.target.value); }}
             placeholder="Buscar en los mensajes..."
-            className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+            className="w-full pl-8 pr-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-xs bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
           />
           {searchLoading ? (
-            <Loader2 size={14} className="absolute left-2.5 top-2 text-gray-400 animate-spin" />
+            <Loader2 size={14} className="absolute left-2.5 top-2 text-gray-400 dark:text-gray-500 animate-spin" />
           ) : (
-            <Search size={14} className="absolute left-2.5 top-2 text-gray-400" />
+            <Search size={14} className="absolute left-2.5 top-2 text-gray-400 dark:text-gray-500" />
           )}
         </div>
 
         <div className="flex items-center gap-1.5">
-          <CalendarRange size={14} className="text-gray-400 shrink-0" />
+          <CalendarRange size={14} className="text-gray-400 dark:text-gray-500 shrink-0" />
           <input
             type="date"
             value={dateFrom}
             onChange={(e) => { console.log('🖱️ [DEBUG-COMPONENT-ClientHistoryList] handleDateFromChange — valor:', e.target.value); setDateFrom(e.target.value); }}
-            className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 rounded-lg text-[11px] focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+            className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-[11px] bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
           />
           <span className="text-gray-300 text-xs">–</span>
           <input
             type="date"
             value={dateTo}
             onChange={(e) => { console.log('🖱️ [DEBUG-COMPONENT-ClientHistoryList] handleDateToChange — valor:', e.target.value); setDateTo(e.target.value); }}
-            className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 rounded-lg text-[11px] focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+            className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-[11px] bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
           />
         </div>
 
         <div className="flex items-center justify-between">
           <button
             onClick={() => setSortAsc(v => { console.log('🔄 [DEBUG-COMPONENT-ClientHistoryList] setSortAsc — de', v, 'a', !v); return !v; })}
-            className="flex items-center gap-1 text-[11px] font-medium text-gray-500 hover:text-teal-700 transition-colors"
+            className="flex items-center gap-1 text-[11px] font-medium text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-400 transition-colors"
           >
             <ArrowUpDown size={12} /> {sortAsc ? 'Más antiguas primero' : 'Más recientes primero'}
           </button>
           {hayFiltrosActivos && (
-            <button onClick={limpiarFiltros} className="text-[11px] font-medium text-teal-700 hover:text-teal-800">
+            <button onClick={limpiarFiltros} className="text-[11px] font-medium text-teal-700 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300">
               Limpiar filtros
             </button>
           )}
@@ -189,14 +189,14 @@ export default function ClientHistoryList({
 
       <div className={fillHeight ? 'flex-1 overflow-y-auto scrollbar-thin' : ''}>
         {loading ? (
-          <div className="text-center text-gray-400 py-10 text-sm">Cargando historial...</div>
+          <div className="text-center text-gray-400 dark:text-gray-500 py-10 text-sm">Cargando historial...</div>
         ) : conversations.length === 0 ? (
-          <div className="text-center text-gray-400 py-10 flex flex-col items-center gap-2 px-4">
+          <div className="text-center text-gray-400 dark:text-gray-500 py-10 flex flex-col items-center gap-2 px-4">
             <Clock size={32} className="text-gray-300" />
             <span className="text-sm">{emptyMessage}</span>
           </div>
         ) : visibleConversations.length === 0 ? (
-          <div className="text-center text-gray-400 py-10 text-sm px-4">
+          <div className="text-center text-gray-400 dark:text-gray-500 py-10 text-sm px-4">
             Ninguna consulta coincide con el filtro aplicado.
           </div>
         ) : (
@@ -209,30 +209,30 @@ export default function ClientHistoryList({
               <button
                 key={conv.id}
                 onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ClientHistoryList] handleSelectConversation — conversation id:', conv.id); onSelect && onSelect(conv); }}
-                className={`w-full text-left p-3 border-b border-gray-100 last:border-0 transition-colors flex items-start justify-between gap-2 ${
-                  selectedId === conv.id ? 'bg-teal-50' : 'bg-white hover:bg-teal-50/50'
+                className={`w-full text-left p-3 border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors flex items-start justify-between gap-2 ${
+                  selectedId === conv.id ? 'bg-teal-50 dark:bg-teal-950' : 'bg-white dark:bg-gray-900 hover:bg-teal-50/50 dark:hover:bg-teal-950/50'
                 }`}
               >
                 <div className="flex-1 min-w-0">
                   {showClient && (
-                    <div className="text-sm font-medium text-gray-900 truncate">
+                    <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                       {conv.real_name || conv.client_name || formatPhone(conv.client_phone)}
-                      {(conv.real_name || conv.client_name) && <span className="text-xs font-normal text-gray-400 ml-1">({formatPhone(conv.client_phone)})</span>}
+                      {(conv.real_name || conv.client_name) && <span className="text-xs font-normal text-gray-400 dark:text-gray-500 ml-1">({formatPhone(conv.client_phone)})</span>}
                     </div>
                   )}
-                  <div className="text-[11px] text-gray-500 mb-1">
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400 mb-1">
                     {new Date(conv.created_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </div>
-                  <div className="text-sm text-gray-700 truncate">
+                  <div className="text-sm text-gray-700 dark:text-gray-300 truncate">
                     {searchQuery.trim() && snippets[conv.id]
                       ? highlightMatches(snippets[conv.id], searchQuery)
                       : conv.last_message
                         ? (searchQuery.trim() ? highlightMatches(conv.last_message, searchQuery) : conv.last_message)
-                        : <span className="italic text-gray-400">Sin mensajes</span>}
+                        : <span className="italic text-gray-400 dark:text-gray-500">Sin mensajes</span>}
                   </div>
                   {sucursales.length > 0 && (
-                    <div className="flex items-center gap-1 mt-1 text-[11px] text-gray-500">
-                      <Store size={11} className="text-gray-400 shrink-0" />
+                    <div className="flex items-center gap-1 mt-1 text-[11px] text-gray-500 dark:text-gray-400">
+                      <Store size={11} className="text-gray-400 dark:text-gray-500 shrink-0" />
                       <span className="truncate">
                         {sucursales.length === 2 ? `${sucursales[0]} → ${sucursales[1]}` : sucursales[0]}
                       </span>

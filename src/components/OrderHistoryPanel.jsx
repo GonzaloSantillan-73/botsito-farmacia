@@ -37,43 +37,43 @@ export default function OrderHistoryPanel({ clientPhone, clientName, onClose }) 
 
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl h-[82vh] flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 shrink-0">
-          <div className="flex items-center gap-2 text-gray-800 font-bold">
-            <ShoppingBag size={20} className="text-teal-600" />
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-2xl h-[82vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
+          <div className="flex items-center gap-2 text-gray-800 dark:text-gray-100 font-bold">
+            <ShoppingBag size={20} className="text-teal-600 dark:text-teal-400" />
             Historial de pedidos{clientName ? ` — ${clientName}` : ''}
           </div>
-          <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-OrderHistoryPanel] click botón cerrar (X)'); onClose(); }} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
+          <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-OrderHistoryPanel] click botón cerrar (X)'); onClose(); }} className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
             <X size={18} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-thin p-5 bg-[#f8f9fa]">
+        <div className="flex-1 overflow-y-auto scrollbar-thin p-5 bg-[#f8f9fa] dark:bg-gray-900">
           {loading ? (
-            <div className="flex items-center justify-center h-full text-gray-400 text-sm">Cargando...</div>
+            <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500 text-sm">Cargando...</div>
           ) : pedidos.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-400">
+            <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500">
               <ShoppingBag size={40} className="mb-3 text-gray-300" />
               <p className="text-sm text-center">Este cliente todavía no tiene pedidos cotizados registrados.</p>
             </div>
           ) : (
             <div className="space-y-4">
               {pedidos.map(pedido => (
-                <div key={pedido.id} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
-                    <span className="text-sm font-semibold text-gray-800">
+                <div key={pedido.id} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4">
+                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100 dark:border-gray-800">
+                    <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">
                       {new Date(pedido.created_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </span>
                     {pedido.envio_gratis ? (
-                      <span className="flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 whitespace-nowrap">
+                      <span className="flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
                         <Truck size={12} /> Envío gratis
                       </span>
                     ) : pedido.costo_envio > 0 ? (
-                      <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-amber-100 text-amber-700 whitespace-nowrap">
+                      <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 whitespace-nowrap">
                         Envío: {formatMoney(pedido.costo_envio)}
                       </span>
                     ) : (
-                      <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-500 whitespace-nowrap">
+                      <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 whitespace-nowrap">
                         Sin envío
                       </span>
                     )}
@@ -82,27 +82,27 @@ export default function OrderHistoryPanel({ clientPhone, clientName, onClose }) 
                   <div className="space-y-1.5 mb-3">
                     {(pedido.items || []).map((item, i) => (
                       <div key={i} className="flex justify-between items-center text-sm gap-3">
-                        <span className="text-gray-700 truncate">
-                          {item.nombre} <span className="text-gray-400">x{item.cantidad}</span>
+                        <span className="text-gray-700 dark:text-gray-300 truncate">
+                          {item.nombre} <span className="text-gray-400 dark:text-gray-500">x{item.cantidad}</span>
                           {item.descuento_pct > 0 && (
-                            <span className="text-emerald-600 text-xs ml-1">(-{item.descuento_pct}%)</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 text-xs ml-1">(-{item.descuento_pct}%)</span>
                           )}
                         </span>
-                        <span className="font-medium text-gray-900 whitespace-nowrap">
+                        <span className="font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
                           {formatMoney(item.precio_unitario)} c/u · {formatMoney(item.total_item)}
                         </span>
                       </div>
                     ))}
                   </div>
 
-                  <div className="flex justify-between items-center pt-2 border-t border-gray-100 text-sm">
-                    <span className="text-gray-500">
+                  <div className="flex justify-between items-center pt-2 border-t border-gray-100 dark:border-gray-800 text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">
                       Subtotal: {formatMoney(pedido.subtotal)}
                       {pedido.descuento_total > 0 && (
-                        <span className="text-emerald-600"> · Desc: -{formatMoney(pedido.descuento_total)}</span>
+                        <span className="text-emerald-600 dark:text-emerald-400"> · Desc: -{formatMoney(pedido.descuento_total)}</span>
                       )}
                     </span>
-                    <span className="font-bold text-gray-900">Total: {formatMoney(pedido.total)}</span>
+                    <span className="font-bold text-gray-900 dark:text-gray-100">Total: {formatMoney(pedido.total)}</span>
                   </div>
                 </div>
               ))}

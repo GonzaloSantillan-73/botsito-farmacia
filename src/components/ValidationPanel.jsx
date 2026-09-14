@@ -431,14 +431,14 @@ export default function ValidationPanel({
             el resto de las acciones operativas de atención. */}
         {!isAdmin && activePrescription && activePrescription.status === 'pending' ? (
           <div className="p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2 flex items-center gap-2">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 border-b dark:border-gray-700 pb-2 flex items-center gap-2">
                <span className="w-2 h-6 bg-amber-400 rounded-full inline-block"></span>
                Validación de Receta
             </h3>
 
-            <div className="bg-gray-50 rounded-xl p-2 mb-6 border border-gray-100">
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-2 mb-6 border border-gray-100 dark:border-gray-700">
                <div
-                 className="relative rounded-lg overflow-hidden border border-gray-200 bg-white min-h-[150px] flex items-center justify-center cursor-zoom-in group"
+                 className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 min-h-[150px] flex items-center justify-center cursor-zoom-in group"
                  onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ValidationPanel] onClick Ampliar receta — image_url:', activePrescription.image_url); setModalImage(activePrescription.image_url); }}
                >
                   <img
@@ -446,7 +446,7 @@ export default function ValidationPanel({
                     alt="Receta Ampliada"
                     className="w-full h-auto object-contain max-h-64 transition-transform duration-300 group-hover:scale-105"
                   />
-                  <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm p-1.5 rounded-md shadow-sm text-xs font-medium text-gray-600 flex items-center gap-1">
+                  <div className="absolute top-2 right-2 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm p-1.5 rounded-md shadow-sm text-xs font-medium text-gray-600 dark:text-gray-300 flex items-center gap-1">
                      <ImageIcon size={14}/> Ampliar
                   </div>
                </div>
@@ -454,22 +454,22 @@ export default function ValidationPanel({
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Obra Social / Prepaga</label>
+                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase mb-1">Obra Social / Prepaga</label>
                 <input
                   type="text"
                   value={prescriptionObraSocial}
                   onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setPrescriptionObraSocial — nuevo valor:', e.target.value); setPrescriptionObraSocial(e.target.value); }}
-                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none text-sm"
+                  className="w-full p-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none text-sm"
                   placeholder="Ej: OSDE, IOMA..."
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Notas del Farmacéutico</label>
+                <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase mb-1">Notas del Farmacéutico</label>
                 <textarea
                   value={prescriptionNotes}
                   onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setPrescriptionNotes — nuevo valor:', e.target.value); setPrescriptionNotes(e.target.value); }}
-                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none h-24 resize-none text-sm"
+                  className="w-full p-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none h-24 resize-none text-sm"
                   placeholder="Anotaciones internas (si se rechaza por 'Otro', escribe aquí el motivo)..."
                 ></textarea>
               </div>
@@ -490,12 +490,12 @@ export default function ValidationPanel({
                   </button>
                 </div>
               ) : (
-                <div className="pt-4 p-3 border border-red-200 bg-red-50 rounded-lg space-y-3">
-                  <label className="block text-xs font-semibold text-red-800 uppercase">Motivo del rechazo</label>
+                <div className="pt-4 p-3 border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950 rounded-lg space-y-3">
+                  <label className="block text-xs font-semibold text-red-800 dark:text-red-400 uppercase">Motivo del rechazo</label>
                   <select
                     value={rejectReason}
                     onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setRejectReason — nuevo valor:', e.target.value); setRejectReason(e.target.value); }}
-                    className="w-full p-2 border border-red-300 rounded text-sm text-gray-800 outline-none focus:border-red-500"
+                    className="w-full p-2 border border-red-300 dark:border-red-800 dark:bg-gray-800 rounded text-sm text-gray-800 dark:text-gray-100 outline-none focus:border-red-500"
                   >
                     {console.log('🔍 [DEBUG-COMPONENT-ValidationPanel] .map() rejectionReasons — cantidad:', rejectionReasons.length, rejectionReasons) || null}
                     {rejectionReasons.map(reason => (
@@ -505,7 +505,7 @@ export default function ValidationPanel({
                   <div className="flex gap-2">
                     <button
                       onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setShowRejectOptions — nuevo valor: false'); setShowRejectOptions(false); }}
-                      className="flex-1 py-2 text-sm text-gray-600 hover:bg-gray-200 rounded font-medium transition-colors"
+                      className="flex-1 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded font-medium transition-colors"
                     >
                       Cancelar
                     </button>
@@ -526,8 +526,8 @@ export default function ValidationPanel({
                onClick={() => { const nuevoValor = !isClientDataOpen; console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setIsClientDataOpen — nuevo valor:', nuevoValor); setIsClientDataOpen(nuevoValor); }}
                className="w-full flex items-center justify-between text-left mb-2 outline-none group"
              >
-               <h3 className="text-md font-bold text-gray-900 flex items-center gap-2">
-                 <UserCircle size={18} className="text-teal-600"/>
+               <h3 className="text-md font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                 <UserCircle size={18} className="text-teal-600 dark:text-teal-400"/>
                  Datos del Cliente
                </h3>
                {isClientDataOpen ? (
@@ -554,24 +554,24 @@ export default function ValidationPanel({
                           )}
 
                           {isEditingClient ? (
-                            <div className="bg-gray-50 rounded-lg border border-gray-100 p-3 space-y-2.5 text-sm">
+                            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 p-3 space-y-2.5 text-sm">
                               <div>
-                                <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Nombre completo</label>
+                                <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Nombre completo</label>
                                 <input
                                   type="text"
                                   value={editNombre}
                                   onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setEditNombre — nuevo valor:', e.target.value); setEditNombre(e.target.value); }}
-                                  className="w-full p-1.5 border border-gray-300 rounded text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
+                                  className="w-full p-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                                 />
                               </div>
                               <div>
-                                <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Teléfono</label>
+                                <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Teléfono</label>
                                 <input
                                   type="text"
                                   value={editTelefono}
                                   onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setEditTelefono — nuevo valor:', e.target.value); setEditTelefono(e.target.value); }}
                                   disabled={!isAdmin}
-                                  className="w-full p-1.5 border border-gray-300 rounded text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                                  className="w-full p-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400"
                                 />
                                 <p className="text-[10px] text-gray-400 mt-1">
                                   {isAdmin
@@ -580,21 +580,21 @@ export default function ValidationPanel({
                                 </p>
                               </div>
                               <div>
-                                <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">DNI</label>
+                                <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">DNI</label>
                                 <input
                                   type="text"
                                   value={editDni}
                                   onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setEditDni — nuevo valor:', e.target.value); setEditDni(e.target.value); }}
-                                  className="w-full p-1.5 border border-gray-300 rounded text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
+                                  className="w-full p-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                                 />
                               </div>
                               <div>
-                                <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Obra social</label>
+                                <label className="block text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Obra social</label>
                                 <input
                                   type="text"
                                   value={editObraSocial}
                                   onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setEditObraSocial — nuevo valor:', e.target.value); setEditObraSocial(e.target.value); }}
-                                  className="w-full p-1.5 border border-gray-300 rounded text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
+                                  className="w-full p-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                                 />
                               </div>
 
@@ -604,7 +604,7 @@ export default function ValidationPanel({
                                 <button
                                   onClick={handleCancelEditClient}
                                   disabled={savingClient}
-                                  className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs text-gray-600 hover:bg-gray-200 rounded font-medium transition-colors disabled:opacity-50"
+                                  className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded font-medium transition-colors disabled:opacity-50"
                                 >
                                   <X size={14} /> Cancelar
                                 </button>
@@ -619,31 +619,31 @@ export default function ValidationPanel({
                               </div>
                             </div>
                           ) : (
-                            <div className="bg-gray-50 rounded-lg border border-gray-100 p-3 space-y-2.5 text-sm">
+                            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-100 dark:border-gray-700 p-3 space-y-2.5 text-sm">
                               <div className="flex justify-between items-center">
-                                <span className="text-gray-500 flex items-center gap-1.5"><User size={14} className="text-gray-400" /> Nombre</span>
-                                <span className="font-medium text-gray-900 truncate max-w-[140px]" title={clienteData?.nombre_completo || activeConversation.real_name || activeConversation.client_name}>
+                                <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1.5"><User size={14} className="text-gray-400" /> Nombre</span>
+                                <span className="font-medium text-gray-900 dark:text-gray-100 truncate max-w-[140px]" title={clienteData?.nombre_completo || activeConversation.real_name || activeConversation.client_name}>
                                   {clienteData?.nombre_completo || activeConversation.real_name || activeConversation.client_name}
                                 </span>
                               </div>
                               <div className="flex justify-between items-center">
-                                <span className="text-gray-500 flex items-center gap-1.5"><Phone size={14} className="text-gray-400" /> Número</span>
-                                <span className="font-medium text-gray-800">{formatPhone(activeConversation.client_phone)}</span>
+                                <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1.5"><Phone size={14} className="text-gray-400" /> Número</span>
+                                <span className="font-medium text-gray-800 dark:text-gray-200">{formatPhone(activeConversation.client_phone)}</span>
                               </div>
                               <div className="flex justify-between items-center">
-                                <span className="text-gray-500 flex items-center gap-1.5"><IdCard size={14} className="text-gray-400" /> DNI</span>
-                                <span className="font-medium text-gray-800">{clienteData?.dni || 'N/A'}</span>
+                                <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1.5"><IdCard size={14} className="text-gray-400" /> DNI</span>
+                                <span className="font-medium text-gray-800 dark:text-gray-200">{clienteData?.dni || 'N/A'}</span>
                               </div>
                               <div className="flex justify-between items-center">
-                                <span className="text-gray-500 flex items-center gap-1.5"><HeartPulse size={14} className="text-gray-400" /> Obra social</span>
-                                <span className="font-medium text-gray-800 truncate max-w-[140px]" title={clienteData?.obra_social || 'Ninguna'}>
+                                <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1.5"><HeartPulse size={14} className="text-gray-400" /> Obra social</span>
+                                <span className="font-medium text-gray-800 dark:text-gray-200 truncate max-w-[140px]" title={clienteData?.obra_social || 'Ninguna'}>
                                   {clienteData?.obra_social || 'Ninguna'}
                                 </span>
                               </div>
                               {clienteData?.created_at && (
                                 <div className="flex justify-between items-center">
-                                  <span className="text-gray-500 flex items-center gap-1.5"><CalendarClock size={14} className="text-gray-400" /> Cliente desde</span>
-                                  <span className="font-medium text-gray-800">
+                                  <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1.5"><CalendarClock size={14} className="text-gray-400" /> Cliente desde</span>
+                                  <span className="font-medium text-gray-800 dark:text-gray-200">
                                     {new Date(clienteData.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                                   </span>
                                 </div>
@@ -653,18 +653,18 @@ export default function ValidationPanel({
                         </div>
 
                        {activePrescription && activePrescription.status !== 'pending' && (
-                         <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                            <h5 className="text-xs font-bold text-gray-500 uppercase mb-3">Receta Actual</h5>
+                         <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
+                            <h5 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mb-3">Receta Actual</h5>
                             <div className="space-y-2 text-sm">
-                               <div className="flex justify-between border-b border-gray-200 pb-2">
-                                  <span className="text-gray-600">Estado</span>
-                                  <span className={`font-medium ${activePrescription.status === 'approved' ? 'text-green-600' : 'text-red-600'}`}>
+                               <div className="flex justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
+                                  <span className="text-gray-600 dark:text-gray-400">Estado</span>
+                                  <span className={`font-medium ${activePrescription.status === 'approved' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                     {activePrescription.status === 'approved' ? 'Aprobada' : 'Rechazada'}
                                   </span>
                                </div>
                                <div className="flex justify-between pb-1">
-                                  <span className="text-gray-600">Obra Social</span>
-                                  <span className="font-medium text-teal-600">{activePrescription.obra_social || 'N/A'}</span>
+                                  <span className="text-gray-600 dark:text-gray-400">Obra Social</span>
+                                  <span className="font-medium text-teal-600 dark:text-teal-400">{activePrescription.obra_social || 'N/A'}</span>
                                </div>
                             </div>
                          </div>
@@ -672,7 +672,7 @@ export default function ValidationPanel({
                     </div>
                  ) : (
                     <div className="flex flex-col items-center justify-center h-48 text-gray-400">
-                       <User size={48} className="mb-2 text-gray-300" />
+                       <User size={48} className="mb-2 text-gray-300 dark:text-gray-700" />
                        <p className="text-sm text-center">Selecciona un chat para ver los detalles del cliente</p>
                     </div>
                  )}
@@ -684,13 +684,13 @@ export default function ValidationPanel({
         {/* Cotizador / Preparación (oculto en conversaciones cerradas/Historial,
             y por completo para el admin: rol de solo supervisión, no cotiza). */}
         {!isAdmin && activeConversation && !ESTADOS_CERRADOS.includes(activeConversation.status) && (
-          <div className="p-6 border-t border-gray-200 bg-[#f8f9fa]">
+          <div className="p-6 border-t border-gray-200 dark:border-gray-800 bg-[#f8f9fa] dark:bg-gray-900">
             <button
               onClick={() => { const nuevoValor = !isQuoteOpen; console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setIsQuoteOpen — nuevo valor:', nuevoValor); setIsQuoteOpen(nuevoValor); }}
               className="w-full flex items-center justify-between text-left mb-2 outline-none group"
             >
-              <h3 className="text-md font-bold text-gray-900 flex items-center gap-2">
-                <Calculator size={18} className="text-teal-600" />
+              <h3 className="text-md font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <Calculator size={18} className="text-teal-600 dark:text-teal-400" />
                 Cotizador / Preparación
               </h3>
               {isQuoteOpen ? (
@@ -701,9 +701,9 @@ export default function ValidationPanel({
             </button>
 
             {isQuoteOpen && (
-              <div className="space-y-3 bg-white p-4 rounded-xl border border-gray-200 shadow-sm mt-3 animate-fade-in-up">
+              <div className="space-y-3 bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm mt-3 animate-fade-in-up">
                 {pagoConfirmado ? (
-                  <div className="flex items-start gap-2 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
                     <Info size={16} className="shrink-0 mt-0.5 text-gray-400" />
                     <span>Ya se confirmó el pago de este pedido. Si el cliente quiere comprar algo más, iniciá una conversación nueva.</span>
                   </div>
@@ -715,7 +715,7 @@ export default function ValidationPanel({
                     <input
                       type="text"
                       placeholder="Medicamento / Producto"
-                      className="w-full text-sm p-2 border border-gray-300 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
+                      className="w-full text-sm p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                       value={newItemName}
                       onChange={e => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemName — nuevo valor:', e.target.value); setNewItemName(e.target.value); }}
                     />
@@ -726,7 +726,7 @@ export default function ValidationPanel({
                       <input
                         type="number"
                         placeholder="Precio"
-                        className="w-full text-sm pl-6 p-2 border border-gray-300 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
+                        className="w-full text-sm pl-6 p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                         value={newItemPrice}
                         onChange={e => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemPrice — nuevo valor:', e.target.value); setNewItemPrice(e.target.value); }}
                       />
@@ -738,14 +738,14 @@ export default function ValidationPanel({
                       min="1"
                       placeholder="Cant."
                       title="Cantidad"
-                      className="w-full text-sm p-2 border border-gray-300 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
+                      className="w-full text-sm p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                       value={newItemQuantity}
                       onChange={e => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemQuantity — nuevo valor:', e.target.value); setNewItemQuantity(e.target.value); }}
                     />
                   </div>
                   <div className="col-span-8 @sm:col-span-3">
                     <select
-                      className="w-full text-sm p-2 border border-gray-300 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none bg-white"
+                      className="w-full text-sm p-2 border border-gray-300 dark:border-gray-600 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none bg-white dark:bg-gray-900 dark:text-gray-100"
                       value={newItemDiscount}
                       onChange={e => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemDiscount — nuevo valor:', e.target.value); setNewItemDiscount(e.target.value); }}
                     >
@@ -771,21 +771,21 @@ export default function ValidationPanel({
                   <div className="mt-4 space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-thin">
                     {console.log('🔍 [DEBUG-COMPONENT-ValidationPanel] .map() quoteItems — cantidad:', quoteItems.length, quoteItems) || null}
                     {quoteItems.map(item => (
-                      <div key={item.id} className="flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-100 text-sm">
+                      <div key={item.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-900 p-2 rounded border border-gray-100 dark:border-gray-700 text-sm">
                         <div className="flex-1 truncate pr-2">
-                          <span className="font-medium text-gray-800 block truncate">{item.name}</span>
-                          <span className="text-xs text-gray-500">${item.price.toFixed(2)} c/u{item.discount > 0 ? ` - ${item.discount}% desc` : ''}</span>
+                          <span className="font-medium text-gray-800 dark:text-gray-200 block truncate">{item.name}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">${item.price.toFixed(2)} c/u{item.discount > 0 ? ` - ${item.discount}% desc` : ''}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <input
                             type="number"
                             min="1"
                             title="Cantidad"
-                            className="w-14 text-sm text-center p-1 border border-gray-300 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
+                            className="w-14 text-sm text-center p-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                             value={item.quantity}
                             onChange={e => handleQuoteItemQuantityChange(item.id, e.target.value)}
                           />
-                          <span className="font-bold text-gray-900 whitespace-nowrap">
+                          <span className="font-bold text-gray-900 dark:text-gray-100 whitespace-nowrap">
                             ${((item.price * item.quantity) - (item.price * item.quantity * item.discount / 100)).toFixed(2)}
                           </span>
                           <button onClick={() => handleRemoveQuoteItem(item.id)} className="text-red-400 hover:text-red-600 transition-colors">
@@ -799,27 +799,27 @@ export default function ValidationPanel({
 
                 {/* Totales */}
                 {quoteItems.length > 0 && (
-                  <div className="mt-4 pt-3 border-t border-gray-200 text-sm space-y-1">
-                    <div className="flex justify-between text-gray-600">
+                  <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700 text-sm space-y-1">
+                    <div className="flex justify-between text-gray-600 dark:text-gray-400">
                       <span>Subtotal:</span>
                       <span>${subtotal.toFixed(2)}</span>
                     </div>
                     {totalDiscount > 0 && (
-                      <div className="flex justify-between text-green-600">
+                      <div className="flex justify-between text-green-600 dark:text-green-400">
                         <span>Descuento OS:</span>
                         <span>-${totalDiscount.toFixed(2)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between items-center text-gray-600 py-1">
+                    <div className="flex justify-between items-center text-gray-600 dark:text-gray-400 py-1">
                       <span>Costo de Envío:</span>
                       {envioGratis ? (
-                        <span className="text-green-600 font-medium">Bonificado</span>
+                        <span className="text-green-600 dark:text-green-400 font-medium">Bonificado</span>
                       ) : (
                         <div className="flex items-center gap-1 w-24">
                           <span className="text-gray-500">$</span>
                           <input
                             type="number"
-                            className="w-full p-1 text-right text-sm border border-gray-300 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
+                            className="w-full p-1 text-right text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                             value={shippingCost}
                             onChange={e => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setShippingCost — nuevo valor:', e.target.value); setShippingCost(e.target.value); }}
                             placeholder="0.00"
@@ -827,12 +827,12 @@ export default function ValidationPanel({
                         </div>
                       )}
                     </div>
-                    <div className="flex justify-between font-bold text-lg text-gray-900 pt-1 border-t border-gray-100">
+                    <div className="flex justify-between font-bold text-lg text-gray-900 dark:text-gray-100 pt-1 border-t border-gray-100 dark:border-gray-800">
                       <span>Total:</span>
                       <span>${total.toFixed(2)}</span>
                     </div>
 
-                    <div className={`flex items-center gap-2 text-xs font-medium rounded-lg px-3 py-2 mt-2 ${envioGratis ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+                    <div className={`flex items-center gap-2 text-xs font-medium rounded-lg px-3 py-2 mt-2 ${envioGratis ? 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-400' : 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400'}`}>
                       <Truck size={14} className="shrink-0" />
                       {envioGratis
                         ? `¡Envío gratis! Supera los $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')}.`
@@ -851,7 +851,7 @@ export default function ValidationPanel({
                       <button
                         onClick={handleLimpiarCotizacion}
                         title="Limpiar / Nuevo presupuesto"
-                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-600 hover:bg-gray-100 transition-colors"
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
                         <Eraser size={16} />
                       </button>
@@ -885,12 +885,12 @@ export default function ValidationPanel({
 
         {/* Muestra el motivo de cierre debajo de las observaciones si la conversación finalizó */}
         {activeConversation && activeConversation.sale_status && ESTADOS_CERRADOS.includes(activeConversation.status) && (
-          <div className="p-6 border-t border-gray-200 bg-gray-50">
-            <h3 className="text-sm font-bold text-gray-900 mb-3">Resultado de la Gestión</h3>
-            <div className={`p-3 rounded-lg border ${SALE_STATUS_BADGES[activeConversation.sale_status]?.className.replace('bg-', 'border-').replace('text-', '')}`}>
+          <div className="p-6 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
+            <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-3">Resultado de la Gestión</h3>
+            <div className={`p-3 rounded-lg border dark:text-gray-100 ${SALE_STATUS_BADGES[activeConversation.sale_status]?.className.replace('bg-', 'border-').replace('text-', '')}`}>
               <div className="font-semibold text-sm mb-1">{SALE_STATUS_BADGES[activeConversation.sale_status]?.label}</div>
               {(activeConversation.sale_status === 'otra' || activeConversation.sale_reason) && (
-                <div className="text-xs text-gray-700 italic border-t border-black/10 mt-2 pt-2">
+                <div className="text-xs text-gray-700 dark:text-gray-400 italic border-t border-black/10 dark:border-white/10 mt-2 pt-2">
                   "{activeConversation.sale_reason}"
                 </div>
               )}

@@ -50,21 +50,21 @@ export default function NotificationsPanel() {
 
   return (
     <div className="space-y-5 max-w-lg">
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-gray-500 dark:text-gray-400">
         Elegí cómo querés enterarte cuando entra un chat nuevo o un cliente pide hablar con un humano.
       </p>
 
-      <div className="flex items-center justify-between gap-3 p-4 border border-gray-200 rounded-lg">
+      <div className="flex items-center justify-between gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
         <div className="flex items-start gap-3">
-          <Volume2 size={18} className="text-teal-600 mt-0.5 shrink-0" />
+          <Volume2 size={18} className="text-teal-600 dark:text-teal-400 mt-0.5 shrink-0" />
           <div>
-            <div className="text-sm font-medium text-gray-800">Alertas sonoras</div>
-            <div className="text-xs text-gray-500">Reproduce un sonido corto al recibir un chat nuevo o un pedido de atención.</div>
+            <div className="text-sm font-medium text-gray-800 dark:text-gray-100">Alertas sonoras</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Reproduce un sonido corto al recibir un chat nuevo o un pedido de atención.</div>
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {prefs.sound && (
-            <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-NotificationsPanel] Probar sonido click'); playAlertSound(); }} className="text-xs text-teal-600 hover:text-teal-700 font-medium">
+            <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-NotificationsPanel] Probar sonido click'); playAlertSound(); }} className="text-xs text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 font-medium">
               Probar
             </button>
           )}
@@ -72,19 +72,19 @@ export default function NotificationsPanel() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-3 p-4 border border-gray-200 rounded-lg">
+      <div className="flex items-center justify-between gap-3 p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
         <div className="flex items-start gap-3">
-          <BellRing size={18} className="text-teal-600 mt-0.5 shrink-0" />
+          <BellRing size={18} className="text-teal-600 dark:text-teal-400 mt-0.5 shrink-0" />
           <div>
-            <div className="text-sm font-medium text-gray-800">Notificaciones emergentes</div>
-            <div className="text-xs text-gray-500">Muestra un aviso del sistema operativo, incluso con el CRM en otra pestaña.</div>
+            <div className="text-sm font-medium text-gray-800 dark:text-gray-100">Notificaciones emergentes</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Muestra un aviso del sistema operativo, incluso con el CRM en otra pestaña.</div>
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {prefs.desktop && (
             <button
               onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-NotificationsPanel] Probar notificación de escritorio click'); showDesktopNotification('Prueba de notificación', 'Así se van a ver los avisos de nuevos chats.'); }}
-              className="text-xs text-teal-600 hover:text-teal-700 font-medium"
+              className="text-xs text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 font-medium"
             >
               Probar
             </button>
@@ -93,7 +93,7 @@ export default function NotificationsPanel() {
         </div>
       </div>
 
-      {permissionError && <p className="text-sm text-rose-600">{permissionError}</p>}
+      {permissionError && <p className="text-sm text-rose-600 dark:text-rose-400">{permissionError}</p>}
     </div>
   );
 }

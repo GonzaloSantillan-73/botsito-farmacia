@@ -58,26 +58,26 @@ export default function ClientNotesPanel({ clientPhone }) {
   };
 
   return (
-    <div className="p-6 border-t border-gray-200 bg-white">
+    <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
       <button
         onClick={() => { const next = !isOpen; console.log('🔄 [DEBUG-COMPONENT-ClientNotesPanel] setIsOpen ->', next); setIsOpen(next); }}
         className="w-full flex items-center justify-between text-left mb-2 outline-none group"
       >
-        <h3 className="text-md font-bold text-gray-900 flex items-center gap-2">
-          <NotebookText size={18} className="text-teal-600" />
+        <h3 className="text-md font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+          <NotebookText size={18} className="text-teal-600 dark:text-teal-400" />
           Observaciones del Cliente
         </h3>
         {isOpen ? (
-          <ChevronUp size={18} className="text-gray-400 group-hover:text-teal-600 transition-colors" />
+          <ChevronUp size={18} className="text-gray-400 dark:text-gray-500 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors" />
         ) : (
-          <ChevronDown size={18} className="text-gray-400 group-hover:text-teal-600 transition-colors" />
+          <ChevronDown size={18} className="text-gray-400 dark:text-gray-500 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors" />
         )}
       </button>
 
       {isOpen && (
         <div className="animate-fade-in-up mt-3">
           {loading ? (
-            <div className="text-sm text-gray-400 py-4 text-center">Cargando...</div>
+            <div className="text-sm text-gray-400 dark:text-gray-500 py-4 text-center">Cargando...</div>
           ) : (
             <div className="space-y-3">
               <textarea
@@ -85,7 +85,7 @@ export default function ClientNotesPanel({ clientPhone }) {
                 onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ClientNotesPanel] setNotas -> (longitud):', e.target.value.length); setNotas(e.target.value); }}
                 rows={4}
                 placeholder="Notas internas sobre la atención de este cliente (no las ve el cliente)..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm resize-none"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm resize-none"
               />
 
               <button

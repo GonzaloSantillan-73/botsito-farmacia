@@ -62,14 +62,14 @@ export default function BotKeywordPanel() {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-gray-500 dark:text-gray-400">
         Cuando un cliente está hablando con un humano, puede escribir esta palabra para volver a hablar con el bot.
       </p>
 
       <div className="relative max-w-xs">
         <Hash size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
         {loading ? (
-          <div className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-400">Cargando...</div>
+          <div className="w-full pl-9 pr-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-400">Cargando...</div>
         ) : (
           <input
             type="text"
@@ -77,12 +77,12 @@ export default function BotKeywordPanel() {
             onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-BotKeywordPanel] onChange botKeyword — nuevo valor:', e.target.value); setBotKeyword(e.target.value); }}
             maxLength={30}
             placeholder="BOT"
-            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm uppercase"
+            className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm uppercase"
           />
         )}
       </div>
 
-      {error && <p className="text-sm text-rose-600">{error}</p>}
+      {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
 
       <button
         onClick={handleSave}

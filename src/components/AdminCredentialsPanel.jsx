@@ -73,55 +73,55 @@ export default function AdminCredentialsPanel() {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-gray-500">
-        Usuario actual: <span className="font-semibold text-gray-700">{getAdminUsername() || 'admin'}</span>. Completá los campos que quieras cambiar; el resto puede quedar vacío.
+      <p className="text-xs text-gray-500 dark:text-gray-400">
+        Usuario actual: <span className="font-semibold text-gray-700 dark:text-gray-300">{getAdminUsername() || 'admin'}</span>. Completá los campos que quieras cambiar; el resto puede quedar vacío.
       </p>
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Nuevo usuario (opcional)</label>
+        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Nuevo usuario (opcional)</label>
         <input
           type="text"
           value={newUsername}
           onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-AdminCredentialsPanel] onChange newUsername — nuevo valor:', e.target.value); setNewUsername(e.target.value); }}
           placeholder="Dejalo vacío para no cambiarlo"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Nueva contraseña (opcional, mínimo 6 caracteres)</label>
+        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Nueva contraseña (opcional, mínimo 6 caracteres)</label>
         <input
           type="password"
           value={newPassword}
           onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-AdminCredentialsPanel] onChange newPassword — valor: [REDACTED], longitud:', e.target.value.length); setNewPassword(e.target.value); }}
           placeholder="Dejalo vacío para no cambiarla"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
         />
       </div>
 
       {newPassword.trim() && (
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Confirmar nueva contraseña</label>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Confirmar nueva contraseña</label>
           <input
             type="password"
             value={confirmPassword}
             onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-AdminCredentialsPanel] onChange confirmPassword — valor: [REDACTED], longitud:', e.target.value.length); setConfirmPassword(e.target.value); }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
           />
         </div>
       )}
 
-      <div className="pt-2 border-t border-gray-100">
-        <label className="block text-xs font-medium text-gray-600 mb-1">Tu contraseña actual (para confirmar)</label>
+      <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
+        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Tu contraseña actual (para confirmar)</label>
         <input
           type="password"
           value={currentPassword}
           onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-AdminCredentialsPanel] onChange currentPassword — valor: [REDACTED], longitud:', e.target.value.length); setCurrentPassword(e.target.value); }}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
         />
       </div>
 
-      {error && <p className="text-xs text-rose-600">{error}</p>}
+      {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}
 
       <button
         onClick={handleSave}

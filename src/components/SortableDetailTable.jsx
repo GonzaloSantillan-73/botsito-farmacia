@@ -46,7 +46,7 @@ export const DETAIL_COLUMNS = [
     label: 'Comprobante',
     sortable: false,
     render: r => r.comprobanteUrl ? (
-      <a href={r.comprobanteUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-800 hover:underline whitespace-nowrap">
+      <a href={r.comprobanteUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="inline-flex items-center gap-1 text-teal-600 dark:text-teal-400 hover:text-teal-800 hover:underline whitespace-nowrap">
         <FileText size={13} /> Ver
       </a>
     ) : '—'
@@ -93,10 +93,10 @@ export default function SortableDetailTable({ rows, onRowClick, initialSortKey =
   }, [rows, sortKey, sortDir]);
 
   return (
-    <div className="overflow-x-auto scrollbar-thin border border-gray-200 rounded-xl">
+    <div className="overflow-x-auto scrollbar-thin border border-gray-200 dark:border-gray-700 rounded-xl">
       <table className="min-w-full text-sm">
         <thead>
-          <tr className="bg-gray-50 border-b border-gray-200">
+          <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             {DETAIL_COLUMNS.map(col => {
               const isSorted = sortKey === col.key;
               const Icon = !isSorted ? ArrowUpDown : (sortDir === 'asc' ? ArrowUp : ArrowDown);
@@ -104,27 +104,27 @@ export default function SortableDetailTable({ rows, onRowClick, initialSortKey =
                 <th
                   key={col.key}
                   onClick={() => handleSort(col)}
-                  className={`px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 whitespace-nowrap select-none ${col.sortable === false ? '' : 'cursor-pointer hover:text-gray-800'}`}
+                  className={`px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 whitespace-nowrap select-none ${col.sortable === false ? '' : 'cursor-pointer hover:text-gray-800 dark:hover:text-gray-100'}`}
                 >
                   <span className="flex items-center gap-1">
                     {col.label}
-                    {col.sortable !== false && <Icon size={12} className={isSorted ? 'text-teal-600' : 'text-gray-300'} />}
+                    {col.sortable !== false && <Icon size={12} className={isSorted ? 'text-teal-600 dark:text-teal-400' : 'text-gray-300'} />}
                   </span>
                 </th>
               );
             })}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
           {console.log('🔍 [DEBUG-COMPONENT-SortableDetailTable] Renderizando filas de la tabla — cantidad:', sortedRows.length)}
           {sortedRows.map(row => (
             <tr
               key={row.id}
               onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-SortableDetailTable] Click en fila — row.id:', row.id); onRowClick && onRowClick(row); }}
-              className={`hover:bg-gray-50 ${onRowClick ? 'cursor-pointer' : ''}`}
+              className={`hover:bg-gray-50 dark:hover:bg-gray-800 ${onRowClick ? 'cursor-pointer' : ''}`}
             >
               {DETAIL_COLUMNS.map(col => (
-                <td key={col.key} className="px-3 py-2.5 whitespace-nowrap text-gray-700">
+                <td key={col.key} className="px-3 py-2.5 whitespace-nowrap text-gray-700 dark:text-gray-300">
                   {col.render(row)}
                 </td>
               ))}

@@ -18,9 +18,9 @@ const NumberBox = ({ label, value, onChange, max }) => (
       max={max}
       value={value}
       onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SessionTimeoutPanel] NumberBox onChange —', label, 'nuevo valor:', e.target.value); onChange(e.target.value); }}
-      className="w-16 text-center px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-lg font-semibold tabular-nums"
+      className="w-16 text-center px-2 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-lg font-semibold tabular-nums"
     />
-    <span className="text-[11px] text-gray-500 uppercase font-medium mt-1">{label}</span>
+    <span className="text-[11px] text-gray-500 dark:text-gray-400 uppercase font-medium mt-1">{label}</span>
   </div>
 );
 
@@ -86,7 +86,7 @@ export default function SessionTimeoutPanel({ sessionTimeoutMs, onSave }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-gray-500 dark:text-gray-400">
         Si un cliente no escribe nada durante este tiempo, la consulta se cierra automáticamente y pasa al Historial.
       </p>
 
@@ -98,7 +98,7 @@ export default function SessionTimeoutPanel({ sessionTimeoutMs, onSave }) {
         <NumberBox label="Segundos" value={secs} onChange={setSecs} max={59} />
       </div>
 
-      {error && <p className="text-sm text-rose-600">{error}</p>}
+      {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
 
       <button
         onClick={handleSave}

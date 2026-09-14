@@ -152,28 +152,28 @@ export default function MediaGalleryModal({ clientPhone, clientName, conversatio
 
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 shrink-0">
-          <div className="flex items-center gap-2 text-gray-800 font-bold">
-            <Images size={20} className="text-teal-600" />
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
+          <div className="flex items-center gap-2 text-gray-800 dark:text-gray-100 font-bold">
+            <Images size={20} className="text-teal-600 dark:text-teal-400" />
             Archivos compartidos{clientName ? ` — ${clientName}` : ''}
-            <span className="text-[11px] font-normal text-gray-400">
+            <span className="text-[11px] font-normal text-gray-400 dark:text-gray-500">
               ({showFullHistory ? 'todo el historial' : 'esta consulta'})
             </span>
           </div>
-          <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-MediaGalleryModal] onClick cerrar modal'); onClose(); }} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
+          <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-MediaGalleryModal] onClick cerrar modal'); onClose(); }} className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
             <X size={18} />
           </button>
         </div>
 
-        <div className="flex items-center gap-1.5 px-5 py-3 border-b border-gray-200 shrink-0 overflow-x-auto scrollbar-thin">
+        <div className="flex items-center gap-1.5 px-5 py-3 border-b border-gray-200 dark:border-gray-700 shrink-0 overflow-x-auto scrollbar-thin">
           {console.log('🔍 [DEBUG-COMPONENT-MediaGalleryModal] .map() FILTERS — cantidad:', FILTERS.length, FILTERS) || null}
           {FILTERS.map(f => (
             <button
               key={f.key}
               onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-MediaGalleryModal] onClick filtro —', f.key); console.log('🔄 [DEBUG-COMPONENT-MediaGalleryModal] setFilter — nuevo valor:', f.key); setFilter(f.key); }}
               className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-                filter === f.key ? 'bg-teal-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                filter === f.key ? 'bg-teal-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
               }`}
             >
               {f.label} {counts[f.key] > 0 && <span className="opacity-75">({counts[f.key]})</span>}
@@ -181,13 +181,13 @@ export default function MediaGalleryModal({ clientPhone, clientName, conversatio
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-thin p-5 bg-gray-50">
+        <div className="flex-1 overflow-y-auto scrollbar-thin p-5 bg-gray-50 dark:bg-gray-800">
           {loading ? (
-            <div className="flex items-center justify-center h-full text-gray-400 text-sm gap-2">
+            <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500 text-sm gap-2">
               <Loader2 size={18} className="animate-spin" /> Cargando archivos...
             </div>
           ) : visibles.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+            <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500 text-sm">
               No hay {filter === 'todo' ? 'archivos compartidos' : 'contenido de este tipo'} con este cliente.
             </div>
           ) : (
@@ -218,7 +218,7 @@ function GalleryItem({ msg, tipo, onImageClick, onDownload, downloading }) {
 
   if (tipo === 'image') {
     return (
-      <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-white group aspect-square cursor-pointer" onClick={onImageClick}>
+      <div className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 group aspect-square cursor-pointer" onClick={onImageClick}>
         <img src={msg.media_url} alt="Imagen compartida" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors" />
         <span className="absolute bottom-1 right-1.5 text-[10px] font-medium text-white bg-black/50 px-1.5 py-0.5 rounded">{fecha}</span>
@@ -236,7 +236,7 @@ function GalleryItem({ msg, tipo, onImageClick, onDownload, downloading }) {
 
   if (tipo === 'video') {
     return (
-      <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-black aspect-square group">
+      <div className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-black aspect-square group">
         <video src={msg.media_url} className="w-full h-full object-cover opacity-90" />
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="p-2.5 rounded-full bg-black/50 text-white">
@@ -258,9 +258,9 @@ function GalleryItem({ msg, tipo, onImageClick, onDownload, downloading }) {
 
   if (tipo === 'audio') {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-3 flex flex-col gap-2 aspect-square">
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 flex flex-col gap-2 aspect-square">
         <div className="flex-1 flex items-center justify-center">
-          <div className="p-3 rounded-lg bg-teal-50 text-teal-500">
+          <div className="p-3 rounded-lg bg-teal-50 dark:bg-teal-950 text-teal-500 dark:text-teal-400">
             <Mic size={28} />
           </div>
         </div>
@@ -268,24 +268,24 @@ function GalleryItem({ msg, tipo, onImageClick, onDownload, downloading }) {
         <button
           onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-MediaGalleryModal] onClick descargar audio (galería) — msg.id:', msg.id); onDownload(); }}
           disabled={downloading}
-          className="flex items-center justify-center gap-1 py-1.5 text-[11px] font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors disabled:opacity-50"
+          className="flex items-center justify-center gap-1 py-1.5 text-[11px] font-medium rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
         >
           {downloading ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Bajar
         </button>
-        <span className="text-[10px] text-gray-400 text-right">{fecha}</span>
+        <span className="text-[10px] text-gray-400 dark:text-gray-500 text-right">{fecha}</span>
       </div>
     );
   }
 
   if (tipo === 'documento') {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-3 flex flex-col gap-2 aspect-square">
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 flex flex-col gap-2 aspect-square">
         <div className="flex-1 flex items-center justify-center">
-          <div className="p-3 rounded-lg bg-rose-50 text-rose-500">
+          <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950 text-rose-500 dark:text-rose-400">
             <FileText size={28} />
           </div>
         </div>
-        <p className="text-xs font-medium text-gray-700 truncate" title={msg.message_text || 'Documento'}>
+        <p className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate" title={msg.message_text || 'Documento'}>
           {msg.message_text || 'Documento adjunto'}
         </p>
         <div className="flex items-center gap-1.5">
@@ -294,19 +294,19 @@ function GalleryItem({ msg, tipo, onImageClick, onDownload, downloading }) {
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => console.log('🖱️ [DEBUG-COMPONENT-MediaGalleryModal] onClick ver documento (galería) — msg.id:', msg.id)}
-            className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+            className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] font-medium rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
           >
             <Eye size={12} /> Ver
           </a>
           <button
             onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-MediaGalleryModal] onClick descargar documento (galería) — msg.id:', msg.id); onDownload(); }}
             disabled={downloading}
-            className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] font-medium rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
           >
             {downloading ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Bajar
           </button>
         </div>
-        <span className="text-[10px] text-gray-400 text-right">{fecha}</span>
+        <span className="text-[10px] text-gray-400 dark:text-gray-500 text-right">{fecha}</span>
       </div>
     );
   }
@@ -319,15 +319,15 @@ function GalleryItem({ msg, tipo, onImageClick, onDownload, downloading }) {
       target="_blank"
       rel="noopener noreferrer"
       onClick={() => console.log('🖱️ [DEBUG-COMPONENT-MediaGalleryModal] onClick abrir enlace (galería) — msg.id:', msg.id, 'url:', url)}
-      className="rounded-lg border border-gray-200 bg-white p-3 flex flex-col gap-2 aspect-square hover:border-teal-400 transition-colors"
+      className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 flex flex-col gap-2 aspect-square hover:border-teal-400 dark:hover:border-teal-600 transition-colors"
     >
       <div className="flex-1 flex items-center justify-center">
-        <div className="p-3 rounded-lg bg-sky-50 text-sky-500">
+        <div className="p-3 rounded-lg bg-sky-50 dark:bg-sky-950 text-sky-500 dark:text-sky-400">
           <Link2 size={28} />
         </div>
       </div>
-      <p className="text-xs font-medium text-sky-700 truncate" title={msg.message_text}>{msg.message_text}</p>
-      <span className="text-[10px] text-gray-400 text-right">{fecha}</span>
+      <p className="text-xs font-medium text-sky-700 dark:text-sky-400 truncate" title={msg.message_text}>{msg.message_text}</p>
+      <span className="text-[10px] text-gray-400 dark:text-gray-500 text-right">{fecha}</span>
     </a>
   );
 }

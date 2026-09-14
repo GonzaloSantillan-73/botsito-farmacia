@@ -126,7 +126,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-[#f0f2f5] text-gray-400 text-sm">
+      <div className="flex-1 flex items-center justify-center bg-[#f0f2f5] text-gray-400 dark:text-gray-500 text-sm">
         Cargando directorio de clientes...
       </div>
     );
@@ -137,53 +137,53 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
     console.log('🔍 [DEBUG-COMPONENT-ClientDirectory] Abriendo ficha de cliente — client_phone:', selectedClient.client_phone, 'total:', selectedClient.total);
     return (
       <div className="flex-1 flex flex-col bg-[#f0f2f5] overflow-hidden">
-        <div className="px-6 py-4 bg-white border-b border-gray-200 flex items-center gap-3 shrink-0">
-          <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ClientDirectory] handleBack() — volviendo a la lista general'); setSelectedPhone(null); }} className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
+        <div className="px-6 py-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3 shrink-0">
+          <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ClientDirectory] handleBack() — volviendo a la lista general'); setSelectedPhone(null); }} className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
             <ArrowLeft size={20} />
           </button>
           <div className="min-w-0">
-            <h2 className="font-bold text-gray-900 truncate">{selectedClient.real_name || selectedClient.client_name || formatPhone(selectedClient.client_phone)}</h2>
-            <p className="text-xs text-gray-500">{formatPhone(selectedClient.client_phone)}</p>
+            <h2 className="font-bold text-gray-900 dark:text-gray-100 truncate">{selectedClient.real_name || selectedClient.client_name || formatPhone(selectedClient.client_phone)}</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">{formatPhone(selectedClient.client_phone)}</p>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin p-6">
           <div className={`grid ${soyStaff ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'} gap-3 mb-6`}>
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <div className="text-2xl font-bold text-gray-900">{selectedClient.total}</div>
-              <div className="text-xs text-gray-500 uppercase font-medium mt-1">Interacciones</div>
+            <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+              <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{selectedClient.total}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mt-1">Interacciones</div>
             </div>
             {!soyStaff && (
               <>
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
                   <div className="text-2xl font-bold">
                     {selectedClient.avgRating != null ? (
                       <StarRating value={selectedClient.avgRating.toFixed(1)} type="atencion" size={16} className="text-2xl font-bold" />
                     ) : (
-                      <span className="text-gray-900">—</span>
+                      <span className="text-gray-900 dark:text-gray-100">—</span>
                     )}
                   </div>
-                  <div className="text-xs text-gray-500 uppercase font-medium mt-1">Calificación de atención</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mt-1">Calificación de atención</div>
                 </div>
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
                   <div className="text-2xl font-bold">
                     {selectedClient.avgProductRating != null ? (
                       <StarRating value={selectedClient.avgProductRating.toFixed(1)} type="producto" size={16} className="text-2xl font-bold" />
                     ) : (
-                      <span className="text-gray-900">—</span>
+                      <span className="text-gray-900 dark:text-gray-100">—</span>
                     )}
                   </div>
-                  <div className="text-xs text-gray-500 uppercase font-medium mt-1">Calificación de producto</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mt-1">Calificación de producto</div>
                 </div>
               </>
             )}
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <div className="text-sm font-bold text-gray-900">{formatDateTime(selectedClient.lastContact)}</div>
-              <div className="text-xs text-gray-500 uppercase font-medium mt-1">Último contacto</div>
+            <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+              <div className="text-sm font-bold text-gray-900 dark:text-gray-100">{formatDateTime(selectedClient.lastContact)}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mt-1">Último contacto</div>
             </div>
           </div>
 
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">Historial de consultas</h3>
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Historial de consultas</h3>
           <ClientHistoryList
             conversations={selectedClient.conversations}
             onSelect={(conv) => { console.log('🖱️ [DEBUG-COMPONENT-ClientDirectory] onSelect (ficha cliente) — conversation id:', conv?.id); onOpenConversation && onOpenConversation(conv); }}
@@ -197,21 +197,21 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
   // --- Vista de lista general ---
   return (
     <div className="flex-1 flex flex-col bg-[#f0f2f5] overflow-hidden">
-      <div className="px-6 py-4 bg-white border-b border-gray-200 shrink-0">
-        <h2 className="font-bold text-gray-900 flex items-center gap-2 mb-3">
-          <Users size={20} className="text-teal-600" /> Directorio de Clientes
+      <div className="px-6 py-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shrink-0">
+        <h2 className="font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-3">
+          <Users size={20} className="text-teal-600 dark:text-teal-400" /> Directorio de Clientes
         </h2>
 
-        <div className="flex bg-gray-100 rounded-lg p-1 gap-1 w-fit mb-3">
+        <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-1 w-fit mb-3">
           <button
             onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ClientDirectory] handleVista — cambiando vista a: historial'); setVista('historial'); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${vista === 'historial' ? 'bg-white text-teal-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${vista === 'historial' ? 'bg-white dark:bg-gray-900 text-teal-700 dark:text-teal-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
             <History size={14} /> Historial de Consultas
           </button>
           <button
             onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ClientDirectory] handleVista — cambiando vista a: lista'); setVista('lista'); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${vista === 'lista' ? 'bg-white text-teal-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${vista === 'lista' ? 'bg-white dark:bg-gray-900 text-teal-700 dark:text-teal-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
           >
             <List size={14} /> Lista de Clientes
           </button>
@@ -225,22 +225,22 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
                 value={search}
                 onChange={(e) => { console.log('🖱️ [DEBUG-COMPONENT-ClientDirectory] handleSearchChange — nuevo texto:', e.target.value); setSearch(e.target.value); }}
                 placeholder="Buscar por nombre o teléfono..."
-                className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               />
-              <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
+              <Search className="absolute left-3 top-2.5 text-gray-400 dark:text-gray-500" size={16} />
             </div>
             <div className="relative shrink-0">
               <select
                 value={sortBy}
                 onChange={(e) => { console.log('🖱️ [DEBUG-COMPONENT-ClientDirectory] handleSortChange — nuevo sortBy:', e.target.value); setSortBy(e.target.value); }}
-                className="pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 appearance-none"
+                className="pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 appearance-none"
               >
                 {console.log('🔍 [DEBUG-COMPONENT-ClientDirectory] render sortOptions.map — cantidad:', sortOptions.length)}
                 {sortOptions.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
-              <ArrowUpDown className="absolute left-2.5 top-2.5 text-gray-400 pointer-events-none" size={16} />
+              <ArrowUpDown className="absolute left-2.5 top-2.5 text-gray-400 dark:text-gray-500 pointer-events-none" size={16} />
             </div>
           </div>
         )}
@@ -255,15 +255,15 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
             showClient
           />
         ) : sortedClients.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400">
+          <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500">
             <Users size={48} className="mb-3 text-gray-300" />
             <p className="text-sm">No se encontraron clientes.</p>
           </div>
         ) : (
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden overflow-x-auto scrollbar-thin">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden overflow-x-auto scrollbar-thin">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs text-gray-500 uppercase">
+                <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-left text-xs text-gray-500 dark:text-gray-400 uppercase">
                   <th className="px-4 py-3 font-medium">Cliente</th>
                   <th className="px-4 py-3 font-medium">Teléfono</th>
                   <th className="px-4 py-3 font-medium">Último contacto</th>
@@ -278,18 +278,18 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
                   <tr
                     key={cl.client_phone}
                     onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ClientDirectory] handleRowClick — client_phone:', cl.client_phone); setSelectedPhone(cl.client_phone); }}
-                    className="border-b border-gray-100 last:border-0 hover:bg-teal-50/40 cursor-pointer transition-colors"
+                    className="border-b border-gray-100 dark:border-gray-800 last:border-0 hover:bg-teal-50/40 dark:hover:bg-teal-950/40 cursor-pointer transition-colors"
                   >
-                    <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{cl.real_name || cl.client_name || '—'}</td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{formatPhone(cl.client_phone)}</td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{new Date(cl.lastContact).toLocaleDateString('es-AR')}</td>
-                    <td className="px-4 py-3 text-center text-gray-700">{cl.total}</td>
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{cl.real_name || cl.client_name || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{formatPhone(cl.client_phone)}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{new Date(cl.lastContact).toLocaleDateString('es-AR')}</td>
+                    <td className="px-4 py-3 text-center text-gray-700 dark:text-gray-300">{cl.total}</td>
                     {!soyStaff && (
                       <td className="px-4 py-3 text-center whitespace-nowrap">
                         {cl.avgRating != null ? (
                           <StarRating value={cl.avgRating.toFixed(1)} type="atencion" size={12} className="font-medium" />
                         ) : (
-                          <span className="text-gray-400">Sin datos</span>
+                          <span className="text-gray-400 dark:text-gray-500">Sin datos</span>
                         )}
                       </td>
                     )}
@@ -298,7 +298,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
                         {cl.avgProductRating != null ? (
                           <StarRating value={cl.avgProductRating.toFixed(1)} type="producto" size={12} className="font-medium" />
                         ) : (
-                          <span className="text-gray-400">Sin datos</span>
+                          <span className="text-gray-400 dark:text-gray-500">Sin datos</span>
                         )}
                       </td>
                     )}

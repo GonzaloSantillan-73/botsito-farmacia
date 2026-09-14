@@ -35,13 +35,13 @@ export default function SaleStatusPanel({ activeConversation, total }) {
   };
 
   return (
-    <div className="mt-3 pt-3 border-t border-gray-200">
-      <div className="text-xs font-semibold text-gray-600 uppercase mb-2">Resultado de la gestión</div>
+    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+      <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-2">Resultado de la gestión</div>
 
       {saleStatus && (
         <div
           className={`mb-2 text-xs font-medium px-2 py-1 rounded-full inline-block ${
-            saleStatus === 'concretada' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+            saleStatus === 'concretada' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' : 'bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-400'
           }`}
         >
           {saleStatus === 'concretada' ? '✅ Venta concretada' : '❌ Venta no concretada'}
@@ -53,7 +53,7 @@ export default function SaleStatusPanel({ activeConversation, total }) {
           onClick={() => marcarVenta('concretada')}
           disabled={saving === 'concretada'}
           className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
-            saleStatus === 'concretada' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+            saleStatus === 'concretada' ? 'bg-emerald-600 text-white' : 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900'
           }`}
         >
           <CheckCircle2 size={14} /> Venta Concretada
@@ -62,7 +62,7 @@ export default function SaleStatusPanel({ activeConversation, total }) {
           onClick={() => marcarVenta('no_concretada')}
           disabled={saving === 'no_concretada'}
           className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
-            saleStatus === 'no_concretada' ? 'bg-rose-600 text-white' : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
+            saleStatus === 'no_concretada' ? 'bg-rose-600 text-white' : 'bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900'
           }`}
         >
           <XCircle size={14} /> Venta No Concretada

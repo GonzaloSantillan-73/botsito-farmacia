@@ -99,40 +99,40 @@ export default function ExportPanel() {
   return (
     <div className="space-y-5 max-w-lg">
       <div>
-        <h3 className="text-sm font-semibold text-gray-800 mb-1">Exportar datos</h3>
-        <p className="text-xs text-gray-500">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-1">Exportar datos</h3>
+        <p className="text-xs text-gray-500 dark:text-gray-400">
           Descargá un archivo CSV (compatible con Excel y Google Sheets) con la información del rango de fechas elegido.
         </p>
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-2">Rango de fechas</label>
+        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">Rango de fechas</label>
         <div className="flex items-center gap-3">
           <div>
-            <label className="block text-[11px] text-gray-500 mb-1">Desde</label>
+            <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">Desde</label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ExportPanel] onChange startDate — nuevo valor:', e.target.value); setStartDate(e.target.value); }}
-              className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+              className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
             />
           </div>
           <div>
-            <label className="block text-[11px] text-gray-500 mb-1">Hasta</label>
+            <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">Hasta</label>
             <input
               type="date"
               value={endDate}
               onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ExportPanel] onChange endDate — nuevo valor:', e.target.value); setEndDate(e.target.value); }}
-              className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+              className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
             />
           </div>
         </div>
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-2">Datos a exportar</label>
+        <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">Datos a exportar</label>
         <div className="space-y-2">
-          <label className="flex items-start gap-2 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+          <label className="flex items-start gap-2 p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
             <input
               type="checkbox"
               checked={includeChats}
@@ -140,11 +140,11 @@ export default function ExportPanel() {
               className="mt-0.5 accent-teal-600"
             />
             <div>
-              <div className="text-sm font-medium text-gray-800">Historial de Chats</div>
-              <div className="text-xs text-gray-500">Conversaciones y mensajes detallados (cliente, teléfono, remitente, texto).</div>
+              <div className="text-sm font-medium text-gray-800 dark:text-gray-100">Historial de Chats</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Conversaciones y mensajes detallados (cliente, teléfono, remitente, texto).</div>
             </div>
           </label>
-          <label className="flex items-start gap-2 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+          <label className="flex items-start gap-2 p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
             <input
               type="checkbox"
               checked={includeMetrics}
@@ -152,8 +152,8 @@ export default function ExportPanel() {
               className="mt-0.5 accent-teal-600"
             />
             <div>
-              <div className="text-sm font-medium text-gray-800">Métricas y Estadísticas</div>
-              <div className="text-xs text-gray-500">Calificaciones de satisfacción por consulta, más un resumen general.</div>
+              <div className="text-sm font-medium text-gray-800 dark:text-gray-100">Métricas y Estadísticas</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Calificaciones de satisfacción por consulta, más un resumen general.</div>
             </div>
           </label>
         </div>

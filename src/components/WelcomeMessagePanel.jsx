@@ -64,13 +64,13 @@ export default function WelcomeMessagePanel() {
 
   return (
     <div className="space-y-4">
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-gray-500 dark:text-gray-400">
         Es el saludo que el bot manda al arrancar (o reiniciar) una consulta, antes del menú de opciones.
         El menú numerado de abajo es fijo y se agrega siempre automáticamente.
       </p>
 
       {loading ? (
-        <div className="w-full max-w-md p-2.5 border border-gray-200 rounded-lg text-sm text-gray-400">Cargando...</div>
+        <div className="w-full max-w-md p-2.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-400">Cargando...</div>
       ) : (
         <textarea
           value={welcomeMessage}
@@ -78,18 +78,18 @@ export default function WelcomeMessagePanel() {
           maxLength={500}
           rows={3}
           placeholder="¡Hola! Soy el bot de la Farmacia. 💊"
-          className="w-full max-w-md p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm resize-none"
+          className="w-full max-w-md p-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm resize-none"
         />
       )}
 
-      <div className="max-w-md p-3 bg-gray-50 border border-gray-100 rounded-lg text-xs text-gray-500 whitespace-pre-wrap">
-        <span className="block font-semibold text-gray-600 mb-1">Vista previa del mensaje completo:</span>
+      <div className="max-w-md p-3 bg-gray-50 border border-gray-100 dark:bg-gray-800 dark:border-gray-800 rounded-lg text-xs text-gray-500 dark:text-gray-400 whitespace-pre-wrap">
+        <span className="block font-semibold text-gray-600 dark:text-gray-400 mb-1">Vista previa del mensaje completo:</span>
         {(welcomeMessage.trim() || '(tu saludo acá)')}
         {'\n\n'}
         {MENU_PREVIEW}
       </div>
 
-      {error && <p className="text-sm text-rose-600">{error}</p>}
+      {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
 
       <button
         onClick={handleSave}

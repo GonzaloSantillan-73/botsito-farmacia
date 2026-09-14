@@ -6,15 +6,15 @@ import MetricsTable from './MetricsTable';
 import Accordion from './Accordion';
 import MetricsBucketModal from './MetricsBucketModal';
 
-function StatCard({ icon: Icon, value, label, accent = 'text-gray-900' }) {
+function StatCard({ icon: Icon, value, label, accent = 'text-gray-900 dark:text-gray-100' }) {
   console.log('🔍 [DEBUG-COMPONENT-MetricsPanel] Render StatCard — props:', { value, label, accent });
   return (
-    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 flex-1">
+    <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-100 dark:border-gray-800 flex-1">
       <div className={`text-2xl font-bold flex items-center gap-1.5 ${accent}`}>
         <Icon size={18} className="shrink-0" />
         {value}
       </div>
-      <div className="text-xs text-gray-500 uppercase font-medium mt-1">{label}</div>
+      <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mt-1">{label}</div>
     </div>
   );
 }
@@ -25,7 +25,7 @@ function VerBoton({ onClick }) {
   return (
     <button
       onClick={onClick}
-      className="text-[11px] font-medium text-teal-600 hover:text-teal-800 hover:underline whitespace-nowrap shrink-0"
+      className="text-[11px] font-medium text-teal-600 dark:text-teal-400 hover:text-teal-800 hover:underline whitespace-nowrap shrink-0"
     >
       Ver
     </button>
@@ -42,22 +42,22 @@ function RatingSummary({ resumen, label, type = 'atencion', onVer }) {
   const colores = coloresRating(type);
   if (!resumen || resumen.total === 0) {
     return (
-      <div className="text-sm text-gray-400 py-6 text-center bg-gray-50 rounded-xl border border-gray-100">
+      <div className="text-sm text-gray-400 py-6 text-center bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-800">
         Todavía no hay calificaciones de {label} registradas.
       </div>
     );
   }
   return (
     <>
-      <div className="flex items-center gap-8 mb-6 bg-gray-50 rounded-xl p-5 border border-gray-100">
+      <div className="flex items-center gap-8 mb-6 bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-800">
         <div>
           <StarRating value={resumen.promedio.toFixed(1)} type={type} size={20} className="text-3xl font-bold" />
-          <div className="text-xs text-gray-500 uppercase font-medium mt-1">Promedio general</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mt-1">Promedio general</div>
         </div>
-        <div className="w-px h-12 bg-gray-200" />
+        <div className="w-px h-12 bg-gray-200 dark:bg-gray-700" />
         <div>
-          <div className="text-3xl font-bold text-gray-900">{resumen.total}</div>
-          <div className="text-xs text-gray-500 uppercase font-medium mt-1">Valoraciones totales</div>
+          <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">{resumen.total}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mt-1">Valoraciones totales</div>
         </div>
       </div>
 
@@ -67,11 +67,11 @@ function RatingSummary({ resumen, label, type = 'atencion', onVer }) {
           const pct = resumen.total > 0 ? (count / resumen.total) * 100 : 0;
           return (
             <div key={n} className="flex items-center gap-3 text-sm">
-              <span className="w-10 text-gray-600 shrink-0 flex items-center gap-0.5">{n}<Star size={12} className={colores.estrella} /></span>
-              <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+              <span className="w-10 text-gray-600 dark:text-gray-300 shrink-0 flex items-center gap-0.5">{n}<Star size={12} className={colores.estrella} /></span>
+              <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                 <div className={`h-full ${colores.barra} rounded-full transition-all`} style={{ width: `${pct}%` }} />
               </div>
-              <span className="w-8 text-right text-gray-500 shrink-0">{count}</span>
+              <span className="w-8 text-right text-gray-500 dark:text-gray-400 shrink-0">{count}</span>
               {onVer && <VerBoton onClick={() => onVer(n)} />}
             </div>
           );
@@ -182,8 +182,8 @@ export default function MetricsPanel() {
           muchas columnas, no una tarjeta de resumen, así que no tiene sentido
           acotarla ni poder ocultarla. */}
       <div className="mb-8">
-        <h3 className="text-sm font-semibold text-gray-800 mb-1">Detalle de consultas</h3>
-        <p className="text-xs text-gray-500 mb-4">Una fila por consulta, con teléfono, tiempos de atención y datos del pago. Hacé clic en una columna para ordenar, filtrá por fecha y exportá todo a CSV.</p>
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-1">Detalle de consultas</h3>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Una fila por consulta, con teléfono, tiempos de atención y datos del pago. Hacé clic en una columna para ordenar, filtrá por fecha y exportá todo a CSV.</p>
         <MetricsTable />
       </div>
 
@@ -191,23 +191,23 @@ export default function MetricsPanel() {
           centradas, y son colapsables para que el admin achique lo que no
           esté mirando en el momento. */}
       <div className="max-w-2xl mx-auto space-y-3">
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 flex flex-wrap items-end gap-3">
+        <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-[11px] text-gray-500 mb-1">Desde</label>
+            <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">Desde</label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-MetricsPanel] onChange startDate — nuevo valor:', e.target.value); setStartDate(e.target.value); }}
-              className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+              className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
             />
           </div>
           <div>
-            <label className="block text-[11px] text-gray-500 mb-1">Hasta</label>
+            <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">Hasta</label>
             <input
               type="date"
               value={endDate}
               onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-MetricsPanel] onChange endDate — nuevo valor:', e.target.value); setEndDate(e.target.value); }}
-              className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+              className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
             />
           </div>
           <button
@@ -219,7 +219,7 @@ export default function MetricsPanel() {
           {(appliedRange.startDate || appliedRange.endDate) && (
             <button
               onClick={handleLimpiarFiltro}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-xs font-medium transition-colors"
             >
               <X size={13} /> Quitar filtro
             </button>
@@ -234,33 +234,33 @@ export default function MetricsPanel() {
         defaultOpen
       >
         {!negocio || negocio.conversion.totalGestionadas === 0 ? (
-          <div className="text-sm text-gray-400 py-6 text-center bg-gray-50 rounded-xl border border-gray-100">
+          <div className="text-sm text-gray-400 py-6 text-center bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-800">
             Todavía no se marcó ninguna venta como concretada o no concretada.
           </div>
         ) : (
           <div className="space-y-2">
             <div className="flex items-center gap-3 text-sm">
-              <span className="w-32 text-gray-600 shrink-0 flex items-center gap-1.5"><CheckCircle2 size={14} /> Concretadas</span>
-              <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+              <span className="w-32 text-gray-600 dark:text-gray-300 shrink-0 flex items-center gap-1.5"><CheckCircle2 size={14} /> Concretadas</span>
+              <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                 <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${(negocio.conversion.concretadas / negocio.conversion.totalGestionadas) * 100}%` }} />
               </div>
-              <span className="w-8 text-right text-gray-500 shrink-0">{negocio.conversion.concretadas}</span>
+              <span className="w-8 text-right text-gray-500 dark:text-gray-400 shrink-0">{negocio.conversion.concretadas}</span>
               <VerBoton onClick={() => abrirBucket('Ventas concretadas', { saleStatus: 'concretada' })} />
             </div>
             <div className="flex items-center gap-3 text-sm">
-              <span className="w-32 text-gray-600 shrink-0 flex items-center gap-1.5"><XCircle size={14} /> No concretadas</span>
-              <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+              <span className="w-32 text-gray-600 dark:text-gray-300 shrink-0 flex items-center gap-1.5"><XCircle size={14} /> No concretadas</span>
+              <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                 <div className="h-full bg-rose-400 rounded-full transition-all" style={{ width: `${(negocio.conversion.noConcretadas / negocio.conversion.totalGestionadas) * 100}%` }} />
               </div>
-              <span className="w-8 text-right text-gray-500 shrink-0">{negocio.conversion.noConcretadas}</span>
+              <span className="w-8 text-right text-gray-500 dark:text-gray-400 shrink-0">{negocio.conversion.noConcretadas}</span>
               <VerBoton onClick={() => abrirBucket('Ventas no concretadas', { saleStatus: 'no_concretada' })} />
             </div>
             <div className="flex items-center gap-3 text-sm">
-              <span className="w-32 text-gray-600 shrink-0 flex items-center gap-1.5"><MessageSquare size={14} /> Otra razón</span>
-              <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+              <span className="w-32 text-gray-600 dark:text-gray-300 shrink-0 flex items-center gap-1.5"><MessageSquare size={14} /> Otra razón</span>
+              <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                 <div className="h-full bg-amber-400 rounded-full transition-all" style={{ width: `${(negocio.conversion.otras / negocio.conversion.totalGestionadas) * 100}%` }} />
               </div>
-              <span className="w-8 text-right text-gray-500 shrink-0">{negocio.conversion.otras}</span>
+              <span className="w-8 text-right text-gray-500 dark:text-gray-400 shrink-0">{negocio.conversion.otras}</span>
               <VerBoton onClick={() => abrirBucket('Otra razón', { saleStatus: 'otra' })} />
             </div>
           </div>
@@ -274,38 +274,38 @@ export default function MetricsPanel() {
         defaultOpen
       >
         {!negocio || negocio.operacion.totalCerradas === 0 ? (
-          <div className="text-sm text-gray-400 py-6 text-center bg-gray-50 rounded-xl border border-gray-100">
+          <div className="text-sm text-gray-400 py-6 text-center bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-800">
             Todavía no hay consultas cerradas.
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-8 mb-4 bg-gray-50 rounded-xl p-5 border border-gray-100">
+            <div className="flex items-center gap-8 mb-4 bg-gray-50 dark:bg-gray-800 rounded-xl p-5 border border-gray-100 dark:border-gray-800">
               <div>
-                <div className="text-3xl font-bold text-teal-700">{negocio.operacion.pctAutonoma.toFixed(0)}%</div>
-                <div className="text-xs text-gray-500 uppercase font-medium mt-1">Resueltas por el bot</div>
+                <div className="text-3xl font-bold text-teal-700 dark:text-teal-400">{negocio.operacion.pctAutonoma.toFixed(0)}%</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mt-1">Resueltas por el bot</div>
               </div>
-              <div className="w-px h-12 bg-gray-200" />
+              <div className="w-px h-12 bg-gray-200 dark:bg-gray-700" />
               <div>
-                <div className="text-3xl font-bold text-gray-900">{negocio.operacion.totalCerradas}</div>
-                <div className="text-xs text-gray-500 uppercase font-medium mt-1">Consultas cerradas</div>
+                <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">{negocio.operacion.totalCerradas}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mt-1">Consultas cerradas</div>
               </div>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center gap-3 text-sm">
-                <span className="w-32 text-gray-600 shrink-0 flex items-center gap-1.5"><Bot size={14} /> Bot (sin humano)</span>
-                <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                <span className="w-32 text-gray-600 dark:text-gray-300 shrink-0 flex items-center gap-1.5"><Bot size={14} /> Bot (sin humano)</span>
+                <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                   <div className="h-full bg-teal-500 rounded-full transition-all" style={{ width: `${negocio.operacion.pctAutonoma}%` }} />
                 </div>
-                <span className="w-8 text-right text-gray-500 shrink-0">{negocio.operacion.autonomas}</span>
+                <span className="w-8 text-right text-gray-500 dark:text-gray-400 shrink-0">{negocio.operacion.autonomas}</span>
                 <VerBoton onClick={() => abrirBucket('Resueltas por el bot (sin humano)', { derivada: false })} />
               </div>
               <div className="flex items-center gap-3 text-sm">
-                <span className="w-32 text-gray-600 shrink-0 flex items-center gap-1.5"><Headset size={14} /> Derivadas</span>
-                <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                <span className="w-32 text-gray-600 dark:text-gray-300 shrink-0 flex items-center gap-1.5"><Headset size={14} /> Derivadas</span>
+                <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                   <div className="h-full bg-amber-400 rounded-full transition-all" style={{ width: `${100 - negocio.operacion.pctAutonoma}%` }} />
                 </div>
-                <span className="w-8 text-right text-gray-500 shrink-0">{negocio.operacion.derivadas}</span>
+                <span className="w-8 text-right text-gray-500 dark:text-gray-400 shrink-0">{negocio.operacion.derivadas}</span>
                 <VerBoton onClick={() => abrirBucket('Derivadas a un humano', { derivada: true })} />
               </div>
             </div>
@@ -320,8 +320,8 @@ export default function MetricsPanel() {
         defaultOpen
       >
         <div className="flex gap-3">
-          <StatCard icon={ShieldAlert} value={negocio?.seguridad?.pdfBloqueados ?? 0} label="PDFs bloqueados" accent="text-rose-600" />
-          <StatCard icon={ShieldCheck} value={negocio?.seguridad?.pdfAceptados ?? 0} label="PDFs aceptados" accent="text-emerald-600" />
+          <StatCard icon={ShieldAlert} value={negocio?.seguridad?.pdfBloqueados ?? 0} label="PDFs bloqueados" accent="text-rose-600 dark:text-rose-400" />
+          <StatCard icon={ShieldCheck} value={negocio?.seguridad?.pdfAceptados ?? 0} label="PDFs aceptados" accent="text-emerald-600 dark:text-emerald-400" />
         </div>
       </Accordion>
 
@@ -352,9 +352,9 @@ export default function MetricsPanel() {
         defaultOpen
       >
         <div className="space-y-2">
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-teal-50 border border-teal-100">
-            <div className="p-2 rounded-lg bg-white text-teal-600 shrink-0"><Store size={16} /></div>
-            <span className="flex-1 text-sm font-semibold text-teal-800">Promedio general (todas las sucursales)</span>
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-teal-50 dark:bg-teal-950 border border-teal-100">
+            <div className="p-2 rounded-lg bg-white dark:bg-gray-900 text-teal-600 dark:text-teal-400 shrink-0"><Store size={16} /></div>
+            <span className="flex-1 text-sm font-semibold text-teal-800 dark:text-teal-400">Promedio general (todas las sucursales)</span>
             <StarRating
               value={negocio?.calificaciones?.atencion?.total > 0 ? negocio.calificaciones.atencion.promedio.toFixed(1) : '—'}
               type="atencion"
@@ -370,14 +370,14 @@ export default function MetricsPanel() {
           </div>
 
           {sucursalesVisibles.length === 0 ? (
-            <div className="text-sm text-gray-400 py-6 text-center bg-gray-50 rounded-xl border border-gray-100">
+            <div className="text-sm text-gray-400 py-6 text-center bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-800">
               {soyAdmin ? 'Todavía no hay calificaciones asociadas a ninguna sucursal.' : 'Tu sucursal todavía no tiene calificaciones registradas.'}
             </div>
           ) : (
             sucursalesVisibles.map(s => (
-              <div key={s.sucursalId || 'sin_sucursal'} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
-                <div className="p-2 rounded-lg bg-white text-gray-500 shrink-0"><Store size={16} /></div>
-                <span className="flex-1 text-sm font-medium text-gray-800 truncate">{s.nombre}</span>
+              <div key={s.sucursalId || 'sin_sucursal'} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-800">
+                <div className="p-2 rounded-lg bg-white dark:bg-gray-900 text-gray-500 dark:text-gray-400 shrink-0"><Store size={16} /></div>
+                <span className="flex-1 text-sm font-medium text-gray-800 dark:text-gray-100 truncate">{s.nombre}</span>
                 <StarRating
                   value={s.atencion.total > 0 ? s.atencion.promedio.toFixed(1) : '—'}
                   type="atencion"

@@ -111,23 +111,23 @@ const SucursalesRecomendadas = ({ sucursales }) => {
 };
 
 export const STATUS_BADGES = {
-  pending_validation: { label: 'Receta Pendiente', className: 'bg-amber-100 text-amber-800' },
-  open: { label: 'Abierto', className: 'bg-blue-100 text-blue-800' },
-  preparation: { label: 'En Preparación', className: 'bg-indigo-100 text-indigo-800' },
-  ready: { label: 'Listo / En Envío', className: 'bg-cyan-100 text-cyan-800' },
-  esperando: { label: 'Esperando Humano', className: 'bg-orange-100 text-orange-800' },
-  rejected: { label: 'Rechazado', className: 'bg-rose-100 text-rose-800' },
-  resolved: { label: 'Resuelto', className: 'bg-emerald-100 text-emerald-800' },
-  finalizada: { label: 'Finalizada', className: 'bg-gray-200 text-gray-600' }
+  pending_validation: { label: 'Receta Pendiente', className: 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-400' },
+  open: { label: 'Abierto', className: 'bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-400' },
+  preparation: { label: 'En Preparación', className: 'bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-400' },
+  ready: { label: 'Listo / En Envío', className: 'bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-400' },
+  esperando: { label: 'Esperando Humano', className: 'bg-orange-100 dark:bg-orange-950 text-orange-800 dark:text-orange-400' },
+  rejected: { label: 'Rechazado', className: 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-400' },
+  resolved: { label: 'Resuelto', className: 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-400' },
+  finalizada: { label: 'Finalizada', className: 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300' }
 };
 
 // Resultado comercial de la conversación (conversations.sale_status), lo carga
 // el operador manualmente desde SaleStatusPanel. Se muestra como badge aparte
 // del estado del chat en el Directorio, el Historial y la vista del chat.
 export const SALE_STATUS_BADGES = {
-  concretada: { label: '✅ Venta Concretada', className: 'bg-emerald-100 text-emerald-800' },
-  no_concretada: { label: '❌ Venta No Concretada', className: 'bg-rose-100 text-rose-800' },
-  otra: { label: '💬 Otra Razón', className: 'bg-amber-100 text-amber-800' }
+  concretada: { label: '✅ Venta Concretada', className: 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-400' },
+  no_concretada: { label: '❌ Venta No Concretada', className: 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-400' },
+  otra: { label: '💬 Otra Razón', className: 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-400' }
 };
 
 // Estados "cerrados": la consulta ya terminó (por el operador o por inactividad).

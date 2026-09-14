@@ -99,7 +99,7 @@ export default function SucursalesPanel() {
   return (
     <div>
       <div className="flex items-start justify-between gap-3 mb-4">
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
           Dirección, horario y credenciales de acceso del personal de cada sucursal. Desde "Configurar" cargás todo eso, incluido el usuario/contraseña de quien atenderá sus chats derivados.
         </p>
         <button
@@ -113,7 +113,7 @@ export default function SucursalesPanel() {
       {loading ? (
         <div className="text-sm text-gray-400 py-8 text-center">Cargando sucursales...</div>
       ) : sucursales.length === 0 ? (
-        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-900 rounded-lg p-3">
           Todavía no hay sucursales cargadas. Creá la primera con "Nueva sucursal".
         </div>
       ) : (
@@ -122,59 +122,59 @@ export default function SucursalesPanel() {
             const empleados = s.staff_users || [];
             const estaConfigurada = Boolean(s.direccion) && empleados.length > 0;
             return (
-              <div key={s.id} className="p-3 bg-white border border-gray-200 rounded-lg">
+              <div key={s.id} className="p-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Store size={14} className="text-teal-600 shrink-0" />
-                      <span className="text-sm font-semibold text-gray-800 truncate">{s.nombre}</span>
+                      <Store size={14} className="text-teal-600 dark:text-teal-400 shrink-0" />
+                      <span className="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">{s.nombre}</span>
                       {estaConfigurada ? (
-                        <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded whitespace-nowrap">
+                        <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-900 px-1.5 py-0.5 rounded whitespace-nowrap">
                           <CheckCircle2 size={10} /> Configurada
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded whitespace-nowrap">
+                        <span className="flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-900 px-1.5 py-0.5 rounded whitespace-nowrap">
                           <AlertTriangle size={10} /> No disponible
                         </span>
                       )}
                       {!s.activo && (
-                        <span className="flex items-center gap-1 text-[10px] font-medium text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                        <span className="flex items-center gap-1 text-[10px] font-medium text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
                           <EyeOff size={10} /> Oculta
                         </span>
                       )}
                     </div>
-                    {s.direccion && <div className="text-xs text-gray-600 mt-0.5">{s.direccion}</div>}
+                    {s.direccion && <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{s.direccion}</div>}
                     {!estaConfigurada && empleados.length === 0 && (
-                      <div className="text-[11px] text-amber-600 mt-0.5">Sin credenciales de personal: nadie puede atender sus chats derivados todavía.</div>
+                      <div className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">Sin credenciales de personal: nadie puede atender sus chats derivados todavía.</div>
                     )}
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <button
                       onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-SucursalesPanel] click Configurar — sucursal id:', s.id); setModalSucursal(s); }}
-                      className="text-xs font-medium text-teal-700 hover:text-teal-800 whitespace-nowrap"
+                      className="text-xs font-medium text-teal-700 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300 whitespace-nowrap"
                     >
                       Configurar
                     </button>
                     <button
                       onClick={() => eliminarSucursal(s)}
                       title="Eliminar sucursal"
-                      className="text-gray-400 hover:text-rose-600"
+                      className="text-gray-400 hover:text-rose-600 dark:hover:text-rose-400"
                     >
                       <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
 
-                <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
+                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 space-y-3">
                   {(s.google_maps_url || s.whatsapp_url) && (
                     <div className="flex items-center gap-3">
                       {s.google_maps_url && (
-                        <a href={s.google_maps_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-medium text-sky-600 hover:text-sky-800 hover:underline">
+                        <a href={s.google_maps_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-medium text-sky-600 hover:text-sky-800 dark:text-sky-400 dark:hover:text-sky-300 hover:underline">
                           <MapPin size={13} /> Ver en Maps
                         </a>
                       )}
                       {normalizarWhatsappUrl(s.whatsapp_url) && (
-                        <a href={normalizarWhatsappUrl(s.whatsapp_url)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-800 hover:underline">
+                        <a href={normalizarWhatsappUrl(s.whatsapp_url)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-medium text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300 hover:underline">
                           <MessageCircle size={13} /> WhatsApp
                         </a>
                       )}
@@ -183,43 +183,43 @@ export default function SucursalesPanel() {
 
                   {/* Horario */}
                   {editingHorarioId === s.id ? (
-                    <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 space-y-2">
                       <div className="flex flex-wrap gap-1.5">
                         {DIAS.map(d => (
                           <button key={d.value} type="button" onClick={() => toggleDia(d.value)}
-                            className={`w-8 h-8 rounded-full text-xs font-semibold transition-colors ${horarioForm.dias.includes(d.value) ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'}`}>
+                            className={`w-8 h-8 rounded-full text-xs font-semibold transition-colors ${horarioForm.dias.includes(d.value) ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-500 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600'}`}>
                             {d.label}
                           </button>
                         ))}
                       </div>
                       <div className="flex items-center gap-3">
                         <input type="time" value={horarioForm.hora_apertura} onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SucursalesPanel] horarioForm.hora_apertura ->', e.target.value); setHorarioForm({ ...horarioForm, hora_apertura: e.target.value }); }}
-                          className="px-2 py-1 border border-gray-300 rounded text-xs" />
+                          className="px-2 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded text-xs" />
                         <span className="text-gray-400 text-xs">a</span>
                         <input type="time" value={horarioForm.hora_cierre} onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SucursalesPanel] horarioForm.hora_cierre ->', e.target.value); setHorarioForm({ ...horarioForm, hora_cierre: e.target.value }); }}
-                          className="px-2 py-1 border border-gray-300 rounded text-xs" />
-                        <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                          className="px-2 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded text-xs" />
+                        <label className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
                           <input type="checkbox" checked={horarioForm.activo} onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SucursalesPanel] horarioForm.activo ->', e.target.checked); setHorarioForm({ ...horarioForm, activo: e.target.checked }); }} className="accent-teal-600" />
                           Visible para el bot
                         </label>
                       </div>
-                      {errorHorario && <p className="text-xs text-rose-600">{errorHorario}</p>}
+                      {errorHorario && <p className="text-xs text-rose-600 dark:text-rose-400">{errorHorario}</p>}
                       <div className="flex items-center gap-2">
                         <button onClick={guardarHorario} disabled={savingHorario} className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 rounded text-xs font-medium disabled:opacity-50">
                           {savingHorario ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Guardar
                         </button>
-                        <button onClick={cancelEditHorario} className="flex items-center gap-1 text-gray-500 hover:text-gray-700 text-xs">
+                        <button onClick={cancelEditHorario} className="flex items-center gap-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 text-xs">
                           <X size={12} /> Cancelar
                         </button>
                       </div>
                     </div>
                   ) : (
                     <div className="flex items-center justify-between">
-                      <div className="text-xs text-gray-500 flex items-center gap-1.5">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
                         <Clock size={12} />
                         {DIAS.filter(d => s.dias.includes(d.value)).map(d => d.label).join(' ')} · {s.hora_apertura} a {s.hora_cierre}hs
                       </div>
-                      <button onClick={() => startEditHorario(s)} className="text-xs font-medium text-teal-700 hover:text-teal-800">Editar horario</button>
+                      <button onClick={() => startEditHorario(s)} className="text-xs font-medium text-teal-700 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300">Editar horario</button>
                     </div>
                   )}
                 </div>

@@ -27,14 +27,14 @@ const MENSAJES_DEFAULT = {
 };
 
 const PAGO_BADGES = {
-  pendiente: { label: 'Pendiente', className: 'bg-sky-50 text-sky-700' },
-  confirmado: { label: 'Confirmado', className: 'bg-emerald-50 text-emerald-700' }
+  pendiente: { label: 'Pendiente', className: 'bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-400' },
+  confirmado: { label: 'Confirmado', className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' }
 };
 const ENTREGA_BADGES = {
-  armando: { label: 'Armando', className: 'bg-amber-50 text-amber-700' },
-  enviado: { label: 'Enviado', className: 'bg-teal-50 text-teal-700' }
+  armando: { label: 'Armando', className: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400' },
+  enviado: { label: 'Enviado', className: 'bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-400' }
 };
-const BADGE_VACIO = { label: 'Sin iniciar', className: 'bg-gray-100 text-gray-500' };
+const BADGE_VACIO = { label: 'Sin iniciar', className: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' };
 
 // Toda venta se cobra por transferencia (Alias): no hay otros medios de
 // pago para elegir, así que este valor queda fijo al confirmar el pago.
@@ -130,19 +130,19 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
   console.log('🔍 [DEBUG-COMPONENT-OrderStatusPanel] Render pasos — cantidad:', PASOS.length, 'pagoBadge:', pagoBadge, 'entregaBadge:', entregaBadge);
 
   return (
-    <div className="p-6 border-t border-gray-200 bg-white">
+    <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
       <button
         onClick={() => { const next = !isOpen; console.log('🔄 [DEBUG-COMPONENT-OrderStatusPanel] setIsOpen ->', next); setIsOpen(next); }}
         className="w-full flex items-center justify-between text-left mb-2 outline-none group"
       >
-        <h3 className="text-md font-bold text-gray-900 flex items-center gap-2">
-          <Truck size={18} className="text-teal-600" />
+        <h3 className="text-md font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+          <Truck size={18} className="text-teal-600 dark:text-teal-400" />
           Estado del Pedido
         </h3>
         {isOpen ? (
-          <ChevronUp size={18} className="text-gray-400 group-hover:text-teal-600 transition-colors" />
+          <ChevronUp size={18} className="text-gray-400 dark:text-gray-500 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors" />
         ) : (
-          <ChevronDown size={18} className="text-gray-400 group-hover:text-teal-600 transition-colors" />
+          <ChevronDown size={18} className="text-gray-400 dark:text-gray-500 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors" />
         )}
       </button>
 
@@ -163,7 +163,7 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
                   onClick={() => handlePaso(paso)}
                   disabled={updatingKey === paso.key}
                   className={`flex items-center gap-1.5 justify-center p-2.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-50 ${
-                    activo ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    activo ? 'bg-teal-600 text-white border-teal-600' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
                 >
                   <Icon size={14} /> {paso.label}
@@ -174,7 +174,7 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
 
           <button
             onClick={handleDemora}
-            className="w-full mt-2 flex items-center justify-center gap-1.5 p-2 rounded-lg text-xs font-medium border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors"
+            className="w-full mt-2 flex items-center justify-center gap-1.5 p-2 rounded-lg text-xs font-medium border border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 hover:bg-amber-100 dark:hover:bg-amber-900 transition-colors"
           >
             <AlertTriangle size={14} /> Avisar demora / inconveniente
           </button>

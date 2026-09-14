@@ -112,21 +112,21 @@ export default function MetricsTable() {
       <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-[11px] text-gray-500 mb-1">Desde</label>
+            <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">Desde</label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-MetricsTable] onChange startDate — nuevo valor:', e.target.value); setStartDate(e.target.value); }}
-              className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+              className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
             />
           </div>
           <div>
-            <label className="block text-[11px] text-gray-500 mb-1">Hasta</label>
+            <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">Hasta</label>
             <input
               type="date"
               value={endDate}
               onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-MetricsTable] onChange endDate — nuevo valor:', e.target.value); setEndDate(e.target.value); }}
-              className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+              className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
             />
           </div>
           <button
@@ -138,7 +138,7 @@ export default function MetricsTable() {
           {(appliedRange.startDate || appliedRange.endDate) && (
             <button
               onClick={handleLimpiarFiltro}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-xs font-medium transition-colors"
             >
               <X size={13} /> Quitar filtro
             </button>
@@ -163,7 +163,7 @@ export default function MetricsTable() {
       ) : error ? (
         <div className="text-sm text-rose-600 py-10 text-center">{error}</div>
       ) : rows.length === 0 ? (
-        <div className="text-sm text-gray-400 py-10 text-center bg-gray-50 rounded-xl border border-gray-100">
+        <div className="text-sm text-gray-400 py-10 text-center bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-800">
           No hay consultas en el rango elegido.
         </div>
       ) : (
