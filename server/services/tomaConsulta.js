@@ -14,42 +14,72 @@ const mensajeConsultaTomada = (sucursal) => {
 // marca ya no aplica una vez que alguien la toma. Al confirmarse, le avisa
 // al cliente por WhatsApp qué sucursal lo va a atender y dónde queda.
 export const tomarConsulta = async (conversationId, sucursalId) => {
-  const { data: sucursal, error: sucursalError } = await supabase
-    .from('sucursales')
-    .select('id, nombre, direccion')
-    .eq('id', sucursalId)
-    .maybeSingle();
-  if (sucursalError) throw sucursalError;
-  if (!sucursal) throw new Error('Sucursal no encontrada.');
+  console.log('🔍 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — conversationId:', conversationId, 'sucursalId:', sucursalId);
+  try {
+    console.log('📡 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — SELECT sucursales, filtros: { id:', sucursalId, '}, columnas: id, nombre, direccion');
+    const { data: sucursal, error: sucursalError } = await supabase
+      .from('sucursales')
+      .select('id, nombre, direccion')
+      .eq('id', sucursalId)
+      .maybeSingle();
+    console.log('📡 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — resultado SELECT sucursales — data:', sucursal, 'error:', sucursalError);
 
-  // primera_sucursal_id no se pisa nunca: solo se completa la primera vez que
-  // alguien toma la consulta, para poder saber después (aunque haya habido
-  // una devolución y otra sucursal la haya retomado) si intervino una sola
-  // sucursal o dos.
-  const { data: actual } = await supabase
-    .from('conversations')
-    .select('primera_sucursal_id')
-    .eq('id', conversationId)
-    .maybeSingle();
+    if (sucursalError) {
+      console.error('❌ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — sucursalError:', sucursalError);
+      throw sucursalError;
+    }
+    if (!sucursal) {
+      console.error('❌ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — sucursal no encontrada para sucursalId:', sucursalId);
+      throw new Error('Sucursal no encontrada.');
+    }
 
-  const updates = { sucursal_id: sucursalId, devuelta_por_sucursal_id: null };
-  if (!actual?.primera_sucursal_id) updates.primera_sucursal_id = sucursalId;
+    // primera_sucursal_id no se pisa nunca: solo se completa la primera vez que
+    // alguien toma la consulta, para poder saber después (aunque haya habido
+    // una devolución y otra sucursal la haya retomado) si intervino una sola
+    // sucursal o dos.
+    console.log('📡 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — SELECT conversations, filtros: { id:', conversationId, '}, columnas: primera_sucursal_id');
+    const { data: actual, error: actualError } = await supabase
+      .from('conversations')
+      .select('primera_sucursal_id')
+      .eq('id', conversationId)
+      .maybeSingle();
+    console.log('📡 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — resultado SELECT conversations — data:', actual, 'error:', actualError);
 
-  const { data: conv, error: updateError } = await supabase
-    .from('conversations')
-    .update(updates)
-    .eq('id', conversationId)
-    .eq('status', 'esperando')
-    .is('sucursal_id', null)
-    .select()
-    .maybeSingle();
+    const updates = { sucursal_id: sucursalId, devuelta_por_sucursal_id: null };
+    if (!actual?.primera_sucursal_id) updates.primera_sucursal_id = sucursalId;
+    console.log('🔍 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — CAMBIO DE ESTADO — conversationId:', conversationId, 'de "esperando" (sin sucursal) a tomada por sucursal:', sucursalId, '— updates a aplicar:', updates);
 
-  if (updateError) throw updateError;
-  if (!conv) throw new Error('Esta consulta ya fue tomada por otra sucursal.');
+    console.log('📡 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — UPDATE conversations, filtros: { id:', conversationId, ', status: "esperando", sucursal_id: null }, valores:', updates);
+    const { data: conv, error: updateError } = await supabase
+      .from('conversations')
+      .update(updates)
+      .eq('id', conversationId)
+      .eq('status', 'esperando')
+      .is('sucursal_id', null)
+      .select()
+      .maybeSingle();
+    console.log('📡 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — resultado UPDATE conversations — data:', conv, 'error:', updateError);
 
-  if (conv.client_phone) {
-    await enviarMensajeBot(conversationId, conv.client_phone, mensajeConsultaTomada(sucursal));
+    if (updateError) {
+      console.error('❌ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — updateError:', updateError);
+      throw updateError;
+    }
+    if (!conv) {
+      console.error('❌ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — la consulta ya fue tomada por otra sucursal, conversationId:', conversationId);
+      throw new Error('Esta consulta ya fue tomada por otra sucursal.');
+    }
+
+    console.log('✅ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — CAMBIO DE ESTADO CONFIRMADO — conversationId:', conversationId, 'ahora tomada por sucursal:', sucursalId, '(', sucursal.nombre, ')');
+
+    if (conv.client_phone) {
+      console.log('🔍 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — enviando mensaje de consulta tomada a', conv.client_phone);
+      await enviarMensajeBot(conversationId, conv.client_phone, mensajeConsultaTomada(sucursal));
+    }
+
+    console.log('✅ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — resultado a devolver:', conv);
+    return conv;
+  } catch (err) {
+    console.error('❌ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — error:', err?.message, err?.stack);
+    throw err;
   }
-
-  return conv;
 };
