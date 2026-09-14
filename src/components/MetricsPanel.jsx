@@ -7,6 +7,7 @@ import Accordion from './Accordion';
 import MetricsBucketModal from './MetricsBucketModal';
 
 function StatCard({ icon: Icon, value, label, accent = 'text-gray-900' }) {
+  console.log('🔍 [DEBUG-COMPONENT-MetricsPanel] Render StatCard — props:', { value, label, accent });
   return (
     <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 flex-1">
       <div className={`text-2xl font-bold flex items-center gap-1.5 ${accent}`}>
@@ -37,6 +38,7 @@ function VerBoton({ onClick }) {
 // producto, ver StarRating.jsx). `onVer(n)`, si se pasa, agrega un botón
 // "Ver" al lado de cada barra para abrir los chats con esa puntuación.
 function RatingSummary({ resumen, label, type = 'atencion', onVer }) {
+  console.log('🔍 [DEBUG-COMPONENT-MetricsPanel] Render RatingSummary — props:', { resumen, label, type });
   const colores = coloresRating(type);
   if (!resumen || resumen.total === 0) {
     return (
@@ -80,6 +82,8 @@ function RatingSummary({ resumen, label, type = 'atencion', onVer }) {
 }
 
 export default function MetricsPanel() {
+  console.log('🔍 [DEBUG-COMPONENT-MetricsPanel] Render — props: (ninguna)');
+
   const [negocio, setNegocio] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -99,6 +103,7 @@ export default function MetricsPanel() {
   const miSucursalId = getStaffSucursalId();
 
   useEffect(() => {
+    console.log('🔍 [DEBUG-COMPONENT-MetricsPanel] useEffect ejecutado — deps: [appliedRange] valores:', appliedRange);
     // Si el usuario cambia el filtro antes de que responda el fetch anterior
     // (ej. la carga inicial sin filtro, más pesada, todavía en vuelo), esa
     // respuesta vieja no debe pisar el resultado del filtro nuevo cuando
@@ -112,16 +117,18 @@ export default function MetricsPanel() {
     if (appliedRange.startDate) params.set('startDate', appliedRange.startDate);
     if (appliedRange.endDate) params.set('endDate', appliedRange.endDate);
 
+    console.log('📡 [DEBUG-COMPONENT-MetricsPanel] Fetch de metrics/negocio — params:', params.toString());
     adminFetch(`/api/metrics/negocio${params.toString() ? `?${params}` : ''}`)
       .then(r => r.json())
       .then(negocioData => {
         if (cancelado) return;
+        console.log('📡 [DEBUG-COMPONENT-MetricsPanel] Respuesta metrics/negocio:', negocioData);
         if (negocioData.error) throw new Error(negocioData.error);
         setNegocio(negocioData);
       })
       .catch(err => {
         if (cancelado) return;
-        console.error('Error cargando métricas:', err);
+        console.error('❌ [DEBUG-COMPONENT-MetricsPanel] Error cargando métricas:', err);
         setError(err.message || 'Error cargando métricas.');
       })
       .finally(() => { if (!cancelado) setLoading(false); });
@@ -130,8 +137,12 @@ export default function MetricsPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appliedRange]);
 
-  const handleFiltrar = () => setAppliedRange({ startDate, endDate });
+  const handleFiltrar = () => {
+    console.log('🖱️ [DEBUG-COMPONENT-MetricsPanel] handleFiltrar — startDate:', startDate, 'endDate:', endDate);
+    setAppliedRange({ startDate, endDate });
+  };
   const handleLimpiarFiltro = () => {
+    console.log('🖱️ [DEBUG-COMPONENT-MetricsPanel] handleLimpiarFiltro');
     setStartDate('');
     setEndDate('');
     setAppliedRange({ startDate: '', endDate: '' });
@@ -141,6 +152,7 @@ export default function MetricsPanel() {
   // arriba, para que la lista de chats coincida con lo que generó el número
   // que se está mirando.
   const abrirBucket = (title, filtrosExtra) => {
+    console.log('🖱️ [DEBUG-COMPONENT-MetricsPanel] abrirBucket — title:', title, 'filtrosExtra:', filtrosExtra);
     setBucketModal({
       title,
       filtros: { startDate: appliedRange.startDate, endDate: appliedRange.endDate, ...filtrosExtra }
@@ -154,6 +166,7 @@ export default function MetricsPanel() {
         ? negocio.calificaciones.porSucursal
         : negocio.calificaciones.porSucursal.filter(s => s.sucursalId === miSucursalId))
     : [];
+  console.log('🔍 [DEBUG-COMPONENT-MetricsPanel] sucursalesVisibles calculado — cantidad:', sucursalesVisibles.length);
 
   if (loading) {
     return <div className="text-sm text-gray-400 py-10 text-center">Cargando métricas...</div>;
@@ -184,7 +197,7 @@ export default function MetricsPanel() {
             <input
               type="date"
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-MetricsPanel] onChange startDate — nuevo valor:', e.target.value); setStartDate(e.target.value); }}
               className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
             />
           </div>
@@ -193,7 +206,7 @@ export default function MetricsPanel() {
             <input
               type="date"
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-MetricsPanel] onChange endDate — nuevo valor:', e.target.value); setEndDate(e.target.value); }}
               className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
             />
           </div>

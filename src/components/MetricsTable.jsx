@@ -4,15 +4,18 @@ import { adminFetch } from '../lib/adminAuth';
 import SortableDetailTable from './SortableDetailTable';
 
 const downloadFile = async (url, fallbackName) => {
+  console.log('📡 [DEBUG-COMPONENT-MetricsTable] downloadFile — GET', url, 'fallbackName:', fallbackName);
   const res = await adminFetch(url);
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
+    console.error('❌ [DEBUG-COMPONENT-MetricsTable] Error respuesta downloadFile — status:', res.status, 'data:', data);
     throw new Error(data.error || 'Error generando el archivo.');
   }
   const blob = await res.blob();
   const disposition = res.headers.get('Content-Disposition') || '';
   const match = disposition.match(/filename="([^"]+)"/);
   const filename = match ? match[1] : fallbackName;
+  console.log('✅ [DEBUG-COMPONENT-MetricsTable] downloadFile — archivo descargado:', filename, 'tamaño (bytes):', blob.size);
 
   const blobUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -25,6 +28,8 @@ const downloadFile = async (url, fallbackName) => {
 };
 
 export default function MetricsTable() {
+  console.log('🔍 [DEBUG-COMPONENT-MetricsTable] Render — props: (ninguna)');
+
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -42,6 +47,7 @@ export default function MetricsTable() {
   // llegue tarde (puede pasar si la consulta sin filtro, más pesada, tarda
   // más que la filtrada que la reemplazó).
   useEffect(() => {
+    console.log('🔍 [DEBUG-COMPONENT-MetricsTable] useEffect ejecutado — deps: [appliedRange] valores:', appliedRange);
     let cancelado = false;
     setLoading(true);
     setError('');
@@ -49,15 +55,18 @@ export default function MetricsTable() {
     if (appliedRange.startDate) params.set('startDate', appliedRange.startDate);
     if (appliedRange.endDate) params.set('endDate', appliedRange.endDate);
 
+    console.log('📡 [DEBUG-COMPONENT-MetricsTable] Fetch de metrics/detalle — params:', params.toString());
     adminFetch(`/api/metrics/detalle${params.toString() ? `?${params}` : ''}`)
       .then(res => res.json())
       .then(data => {
         if (cancelado) return;
+        console.log('📡 [DEBUG-COMPONENT-MetricsTable] Respuesta metrics/detalle — filas devueltas:', (data.filas || []).length);
         if (data.error) throw new Error(data.error);
         setRows(data.filas || []);
       })
       .catch(err => {
         if (cancelado) return;
+        console.error('❌ [DEBUG-COMPONENT-MetricsTable] Error cargando el detalle de consultas:', err);
         setError(err.message || 'Error cargando el detalle de consultas.');
       })
       .finally(() => { if (!cancelado) setLoading(false); });
@@ -65,14 +74,19 @@ export default function MetricsTable() {
     return () => { cancelado = true; };
   }, [appliedRange]);
 
-  const handleFiltrar = () => setAppliedRange({ startDate, endDate });
+  const handleFiltrar = () => {
+    console.log('🖱️ [DEBUG-COMPONENT-MetricsTable] handleFiltrar — startDate:', startDate, 'endDate:', endDate);
+    setAppliedRange({ startDate, endDate });
+  };
   const handleLimpiarFiltro = () => {
+    console.log('🖱️ [DEBUG-COMPONENT-MetricsTable] handleLimpiarFiltro');
     setStartDate('');
     setEndDate('');
     setAppliedRange({ startDate: '', endDate: '' });
   };
 
   const handleExportar = async () => {
+    console.log('🖱️ [DEBUG-COMPONENT-MetricsTable] handleExportar — appliedRange:', appliedRange);
     setExporting(true);
     setExportError('');
     setExported(false);
@@ -84,11 +98,14 @@ export default function MetricsTable() {
       setExported(true);
       setTimeout(() => setExported(false), 2500);
     } catch (err) {
+      console.error('❌ [DEBUG-COMPONENT-MetricsTable] Error exportando la tabla:', err);
       setExportError(err.message || 'Error exportando la tabla.');
     } finally {
       setExporting(false);
     }
   };
+
+  console.log('🔍 [DEBUG-COMPONENT-MetricsTable] Renderizando tabla — cantidad de filas:', rows.length);
 
   return (
     <div>
@@ -99,7 +116,7 @@ export default function MetricsTable() {
             <input
               type="date"
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-MetricsTable] onChange startDate — nuevo valor:', e.target.value); setStartDate(e.target.value); }}
               className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
             />
           </div>
@@ -108,7 +125,7 @@ export default function MetricsTable() {
             <input
               type="date"
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-MetricsTable] onChange endDate — nuevo valor:', e.target.value); setEndDate(e.target.value); }}
               className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
             />
           </div>

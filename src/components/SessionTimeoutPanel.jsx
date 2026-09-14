@@ -17,7 +17,7 @@ const NumberBox = ({ label, value, onChange, max }) => (
       min="0"
       max={max}
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SessionTimeoutPanel] NumberBox onChange —', label, 'nuevo valor:', e.target.value); onChange(e.target.value); }}
       className="w-16 text-center px-2 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-lg font-semibold tabular-nums"
     />
     <span className="text-[11px] text-gray-500 uppercase font-medium mt-1">{label}</span>
@@ -25,6 +25,8 @@ const NumberBox = ({ label, value, onChange, max }) => (
 );
 
 export default function SessionTimeoutPanel({ sessionTimeoutMs, onSave }) {
+  console.log('🔍 [DEBUG-COMPONENT-SessionTimeoutPanel] Render — props:', { sessionTimeoutMs, onSave });
+
   const [hours, setHours] = useState(0);
   const [mins, setMins] = useState(0);
   const [secs, setSecs] = useState(0);
@@ -33,8 +35,10 @@ export default function SessionTimeoutPanel({ sessionTimeoutMs, onSave }) {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
+    console.log('🔍 [DEBUG-COMPONENT-SessionTimeoutPanel] useEffect ejecutado — deps: [sessionTimeoutMs] valores:', { sessionTimeoutMs });
     if (sessionTimeoutMs != null) {
       const { h, m, s } = msToHms(sessionTimeoutMs);
+      console.log('🔄 [DEBUG-COMPONENT-SessionTimeoutPanel] Convertido sessionTimeoutMs a h/m/s:', { h, m, s });
       setHours(h);
       setMins(m);
       setSecs(s);
@@ -42,9 +46,12 @@ export default function SessionTimeoutPanel({ sessionTimeoutMs, onSave }) {
   }, [sessionTimeoutMs]);
 
   const handleSave = async () => {
+    console.log('🖱️ [DEBUG-COMPONENT-SessionTimeoutPanel] handleSave — hours:', hours, 'mins:', mins, 'secs:', secs);
     const totalMs = ((Number(hours) || 0) * 3600 + (Number(mins) || 0) * 60 + (Number(secs) || 0)) * 1000;
+    console.log('🔍 [DEBUG-COMPONENT-SessionTimeoutPanel] totalMs calculado:', totalMs);
 
     if (totalMs <= 0) {
+      console.log('❌ [DEBUG-COMPONENT-SessionTimeoutPanel] Validación fallida — totalMs <= 0');
       setError('El tiempo de inactividad debe ser mayor a 0.');
       return;
     }
@@ -54,19 +61,23 @@ export default function SessionTimeoutPanel({ sessionTimeoutMs, onSave }) {
     setSaved(false);
 
     try {
+      console.log('📡 [DEBUG-COMPONENT-SessionTimeoutPanel] Fetch PUT /api/session-config — body:', { sessionTimeoutMs: totalMs });
       const res = await fetch('/api/session-config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionTimeoutMs: totalMs })
       });
       const data = await res.json();
+      console.log('📡 [DEBUG-COMPONENT-SessionTimeoutPanel] Respuesta /api/session-config — status:', res.status, 'data:', data);
 
       if (!res.ok) throw new Error(data.error || 'No se pudo guardar el tiempo de inactividad.');
 
+      console.log('✅ [DEBUG-COMPONENT-SessionTimeoutPanel] Guardado exitoso — totalMs:', totalMs);
       onSave && onSave(totalMs);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
+      console.error('❌ [DEBUG-COMPONENT-SessionTimeoutPanel] Error guardando el tiempo de inactividad:', err);
       setError(err.message || 'Error guardando el tiempo de inactividad.');
     } finally {
       setSaving(false);

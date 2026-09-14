@@ -12,10 +12,12 @@ const defaultStartDate = () => {
 };
 
 const downloadFile = async (url, fallbackName) => {
+  console.log('📡 [DEBUG-COMPONENT-ExportPanel] downloadFile — GET', url, 'fallbackName:', fallbackName);
   const res = await adminFetch(url);
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
+    console.error('❌ [DEBUG-COMPONENT-ExportPanel] Error respuesta downloadFile — status:', res.status, 'data:', data);
     throw new Error(data.error || 'Error generando el archivo.');
   }
 
@@ -23,6 +25,7 @@ const downloadFile = async (url, fallbackName) => {
   const disposition = res.headers.get('Content-Disposition') || '';
   const match = disposition.match(/filename="([^"]+)"/);
   const filename = match ? match[1] : fallbackName;
+  console.log('✅ [DEBUG-COMPONENT-ExportPanel] downloadFile — archivo descargado:', filename, 'tamaño (bytes):', blob.size);
 
   const blobUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -35,6 +38,8 @@ const downloadFile = async (url, fallbackName) => {
 };
 
 export default function ExportPanel() {
+  console.log('🔍 [DEBUG-COMPONENT-ExportPanel] Render — props: (ninguna)');
+
   const [startDate, setStartDate] = useState(defaultStartDate());
   const [endDate, setEndDate] = useState(defaultEndDate());
   const [includeChats, setIncludeChats] = useState(true);
@@ -44,15 +49,19 @@ export default function ExportPanel() {
   const [done, setDone] = useState(false);
 
   const handleExport = async () => {
+    console.log('🖱️ [DEBUG-COMPONENT-ExportPanel] handleExport — startDate:', startDate, 'endDate:', endDate, 'includeChats:', includeChats, 'includeMetrics:', includeMetrics);
     if (!includeChats && !includeMetrics) {
+      console.log('❌ [DEBUG-COMPONENT-ExportPanel] Validación fallida — ningún tipo de dato seleccionado');
       setError('Elegí al menos un tipo de dato para exportar.');
       return;
     }
     if (!startDate || !endDate) {
+      console.log('❌ [DEBUG-COMPONENT-ExportPanel] Validación fallida — falta rango de fechas');
       setError('Elegí un rango de fechas.');
       return;
     }
     if (startDate > endDate) {
+      console.log('❌ [DEBUG-COMPONENT-ExportPanel] Validación fallida — startDate posterior a endDate');
       setError('La fecha de inicio no puede ser posterior a la de fin.');
       return;
     }
@@ -63,20 +72,24 @@ export default function ExportPanel() {
 
     try {
       if (includeChats) {
+        console.log('📡 [DEBUG-COMPONENT-ExportPanel] Exportando chats — rango:', { startDate, endDate });
         await downloadFile(
           `/api/export/chats?startDate=${startDate}&endDate=${endDate}`,
           `historial-chats_${startDate}_a_${endDate}.csv`
         );
       }
       if (includeMetrics) {
+        console.log('📡 [DEBUG-COMPONENT-ExportPanel] Exportando métricas — rango:', { startDate, endDate });
         await downloadFile(
           `/api/export/metrics?startDate=${startDate}&endDate=${endDate}`,
           `metricas_${startDate}_a_${endDate}.csv`
         );
       }
+      console.log('✅ [DEBUG-COMPONENT-ExportPanel] Exportación completada');
       setDone(true);
       setTimeout(() => setDone(false), 2500);
     } catch (err) {
+      console.error('❌ [DEBUG-COMPONENT-ExportPanel] Error generando la exportación:', err);
       setError(err.message || 'Error generando la exportación.');
     } finally {
       setExporting(false);
@@ -100,7 +113,7 @@ export default function ExportPanel() {
             <input
               type="date"
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ExportPanel] onChange startDate — nuevo valor:', e.target.value); setStartDate(e.target.value); }}
               className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
             />
           </div>
@@ -109,7 +122,7 @@ export default function ExportPanel() {
             <input
               type="date"
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ExportPanel] onChange endDate — nuevo valor:', e.target.value); setEndDate(e.target.value); }}
               className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
             />
           </div>
@@ -123,7 +136,7 @@ export default function ExportPanel() {
             <input
               type="checkbox"
               checked={includeChats}
-              onChange={(e) => setIncludeChats(e.target.checked)}
+              onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ExportPanel] onChange includeChats — nuevo valor:', e.target.checked); setIncludeChats(e.target.checked); }}
               className="mt-0.5 accent-teal-600"
             />
             <div>
@@ -135,7 +148,7 @@ export default function ExportPanel() {
             <input
               type="checkbox"
               checked={includeMetrics}
-              onChange={(e) => setIncludeMetrics(e.target.checked)}
+              onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ExportPanel] onChange includeMetrics — nuevo valor:', e.target.checked); setIncludeMetrics(e.target.checked); }}
               className="mt-0.5 accent-teal-600"
             />
             <div>

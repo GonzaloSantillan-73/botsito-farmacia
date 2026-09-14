@@ -4,6 +4,8 @@ import { Loader2, Check } from 'lucide-react';
 const MENU_PREVIEW = '¿Qué querés hacer?\n\n1. Hablar con un humano\n2. Horarios y sucursales\n3. Actualizar mis datos';
 
 export default function WelcomeMessagePanel() {
+  console.log('🔍 [DEBUG-COMPONENT-WelcomeMessagePanel] Render — props: (ninguna)');
+
   const [welcomeMessage, setWelcomeMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -11,16 +13,23 @@ export default function WelcomeMessagePanel() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
+    console.log('🔍 [DEBUG-COMPONENT-WelcomeMessagePanel] useEffect ejecutado — deps: []');
+    console.log('📡 [DEBUG-COMPONENT-WelcomeMessagePanel] Fetch GET /api/welcome-message');
     fetch('/api/welcome-message')
       .then(res => res.json())
-      .then(data => setWelcomeMessage(data.welcomeMessage || ''))
-      .catch(err => console.error('Error obteniendo el mensaje de bienvenida:', err))
+      .then(data => {
+        console.log('📡 [DEBUG-COMPONENT-WelcomeMessagePanel] Respuesta /api/welcome-message:', data);
+        setWelcomeMessage(data.welcomeMessage || '');
+      })
+      .catch(err => console.error('❌ [DEBUG-COMPONENT-WelcomeMessagePanel] Error obteniendo el mensaje de bienvenida:', err))
       .finally(() => setLoading(false));
   }, []);
 
   const handleSave = async () => {
     const mensaje = welcomeMessage.trim();
+    console.log('🖱️ [DEBUG-COMPONENT-WelcomeMessagePanel] handleSave — mensaje:', mensaje);
     if (!mensaje) {
+      console.log('❌ [DEBUG-COMPONENT-WelcomeMessagePanel] Validación fallida — mensaje vacío');
       setError('El mensaje de bienvenida no puede estar vacío.');
       return;
     }
@@ -30,19 +39,23 @@ export default function WelcomeMessagePanel() {
     setSaved(false);
 
     try {
+      console.log('📡 [DEBUG-COMPONENT-WelcomeMessagePanel] Fetch PUT /api/welcome-message — body:', { welcomeMessage: mensaje });
       const res = await fetch('/api/welcome-message', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ welcomeMessage: mensaje })
       });
       const data = await res.json();
+      console.log('📡 [DEBUG-COMPONENT-WelcomeMessagePanel] Respuesta /api/welcome-message — status:', res.status, 'data:', data);
 
       if (!res.ok) throw new Error(data.error || 'No se pudo guardar el mensaje de bienvenida.');
 
+      console.log('✅ [DEBUG-COMPONENT-WelcomeMessagePanel] Mensaje de bienvenida guardado:', data.welcomeMessage || mensaje);
       setWelcomeMessage(data.welcomeMessage || mensaje);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
+      console.error('❌ [DEBUG-COMPONENT-WelcomeMessagePanel] Error guardando el mensaje de bienvenida:', err);
       setError(err.message || 'Error guardando el mensaje de bienvenida.');
     } finally {
       setSaving(false);
@@ -61,7 +74,7 @@ export default function WelcomeMessagePanel() {
       ) : (
         <textarea
           value={welcomeMessage}
-          onChange={(e) => setWelcomeMessage(e.target.value)}
+          onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-WelcomeMessagePanel] onChange welcomeMessage — nuevo valor:', e.target.value); setWelcomeMessage(e.target.value); }}
           maxLength={500}
           rows={3}
           placeholder="¡Hola! Soy el bot de la Farmacia. 💊"

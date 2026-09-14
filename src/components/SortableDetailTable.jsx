@@ -57,20 +57,29 @@ export const DETAIL_COLUMNS = [
 // cuando se pasa, cada fila es clickeable (ej. el modal de "Ver" de una
 // barra de Métricas la usa para abrir la trazabilidad del chat).
 export default function SortableDetailTable({ rows, onRowClick, initialSortKey = 'fecha', initialSortDir = 'desc' }) {
+  console.log('🔍 [DEBUG-COMPONENT-SortableDetailTable] Render — props:', { cantidadFilas: rows?.length, initialSortKey, initialSortDir, tieneOnRowClick: !!onRowClick });
+
   const [sortKey, setSortKey] = useState(initialSortKey);
   const [sortDir, setSortDir] = useState(initialSortDir);
 
   const handleSort = (col) => {
+    console.log('🖱️ [DEBUG-COMPONENT-SortableDetailTable] handleSort — columna:', col.key, 'sortKey actual:', sortKey, 'sortDir actual:', sortDir);
     if (col.sortable === false) return;
     if (sortKey === col.key) {
-      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+      setSortDir(d => {
+        const next = d === 'asc' ? 'desc' : 'asc';
+        console.log('🔄 [DEBUG-COMPONENT-SortableDetailTable] Cambio de criterio de orden — columna:', col.key, 'dirección:', next);
+        return next;
+      });
     } else {
+      console.log('🔄 [DEBUG-COMPONENT-SortableDetailTable] Cambio de criterio de orden — columna:', col.key, 'dirección: asc');
       setSortKey(col.key);
       setSortDir('asc');
     }
   };
 
   const sortedRows = useMemo(() => {
+    console.log('🔍 [DEBUG-COMPONENT-SortableDetailTable] Recalculando orden — sortKey:', sortKey, 'sortDir:', sortDir, 'cantidad de filas:', rows.length);
     const col = DETAIL_COLUMNS.find(c => c.key === sortKey);
     if (!col) return rows;
     const factor = sortDir === 'asc' ? 1 : -1;
@@ -107,10 +116,11 @@ export default function SortableDetailTable({ rows, onRowClick, initialSortKey =
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
+          {console.log('🔍 [DEBUG-COMPONENT-SortableDetailTable] Renderizando filas de la tabla — cantidad:', sortedRows.length)}
           {sortedRows.map(row => (
             <tr
               key={row.id}
-              onClick={() => onRowClick && onRowClick(row)}
+              onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-SortableDetailTable] Click en fila — row.id:', row.id); onRowClick && onRowClick(row); }}
               className={`hover:bg-gray-50 ${onRowClick ? 'cursor-pointer' : ''}`}
             >
               {DETAIL_COLUMNS.map(col => (

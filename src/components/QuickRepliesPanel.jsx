@@ -3,6 +3,8 @@ import { Plus, Pencil, Trash2, Loader2, Check, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function QuickRepliesPanel() {
+  console.log('🔍 [DEBUG-COMPONENT-QuickRepliesPanel] Render — props: (ninguna)');
+
   const [replies, setReplies] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -13,20 +15,24 @@ export default function QuickRepliesPanel() {
   const [error, setError] = useState('');
 
   const fetchReplies = async () => {
+    console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] Supabase select — tabla: quick_replies, order: shortcut');
     setLoading(true);
     const { data, error: fetchError } = await supabase
       .from('quick_replies')
       .select('*')
       .order('shortcut');
+    console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] Supabase select respuesta — data:', data, 'error:', fetchError);
     if (!fetchError) setReplies(data || []);
     setLoading(false);
   };
 
   useEffect(() => {
+    console.log('🔍 [DEBUG-COMPONENT-QuickRepliesPanel] useEffect ejecutado — deps: []');
     fetchReplies();
   }, []);
 
   const startNew = () => {
+    console.log('🖱️ [DEBUG-COMPONENT-QuickRepliesPanel] startNew');
     setEditingId('new');
     setFormShortcut('/');
     setFormText('');
@@ -34,6 +40,7 @@ export default function QuickRepliesPanel() {
   };
 
   const startEdit = (reply) => {
+    console.log('🖱️ [DEBUG-COMPONENT-QuickRepliesPanel] startEdit — reply:', reply);
     setEditingId(reply.id);
     setFormShortcut(reply.shortcut);
     setFormText(reply.message_text);
@@ -41,6 +48,7 @@ export default function QuickRepliesPanel() {
   };
 
   const cancelEdit = () => {
+    console.log('🖱️ [DEBUG-COMPONENT-QuickRepliesPanel] cancelEdit');
     setEditingId(null);
     setFormShortcut('');
     setFormText('');
@@ -50,8 +58,10 @@ export default function QuickRepliesPanel() {
   const handleSave = async () => {
     const shortcut = formShortcut.trim();
     const text = formText.trim();
+    console.log('🖱️ [DEBUG-COMPONENT-QuickRepliesPanel] handleSave — editingId:', editingId, 'shortcut:', shortcut, 'text:', text);
 
     if (!shortcut || !text) {
+      console.log('❌ [DEBUG-COMPONENT-QuickRepliesPanel] Validación fallida — falta atajo o mensaje');
       setError('Completá el atajo y el mensaje.');
       return;
     }
@@ -61,15 +71,21 @@ export default function QuickRepliesPanel() {
 
     try {
       if (editingId === 'new') {
+        console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] Supabase insert — tabla: quick_replies, payload:', { shortcut, message_text: text });
         const { error: insertError } = await supabase.from('quick_replies').insert([{ shortcut, message_text: text }]);
+        console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] Supabase insert respuesta — error:', insertError);
         if (insertError) throw insertError;
       } else {
+        console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] Supabase update — tabla: quick_replies, id:', editingId, 'payload:', { shortcut, message_text: text });
         const { error: updateError } = await supabase.from('quick_replies').update({ shortcut, message_text: text }).eq('id', editingId);
+        console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] Supabase update respuesta — error:', updateError);
         if (updateError) throw updateError;
       }
+      console.log('✅ [DEBUG-COMPONENT-QuickRepliesPanel] Plantilla guardada correctamente');
       cancelEdit();
       await fetchReplies();
     } catch (err) {
+      console.error('❌ [DEBUG-COMPONENT-QuickRepliesPanel] Error guardando la plantilla:', err);
       setError(err.code === '23505' ? 'Ya existe una plantilla con ese atajo.' : (err.message || 'Error guardando la plantilla.'));
     } finally {
       setSaving(false);
@@ -77,8 +93,11 @@ export default function QuickRepliesPanel() {
   };
 
   const handleDelete = async (id) => {
+    console.log('🖱️ [DEBUG-COMPONENT-QuickRepliesPanel] handleDelete — id:', id);
     if (!window.confirm('¿Eliminar esta plantilla? Esta acción no se puede deshacer.')) return;
-    await supabase.from('quick_replies').delete().eq('id', id);
+    console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] Supabase delete — tabla: quick_replies, id:', id);
+    const { error: deleteError } = await supabase.from('quick_replies').delete().eq('id', id);
+    console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] Supabase delete respuesta — error:', deleteError);
     fetchReplies();
   };
 
@@ -105,7 +124,7 @@ export default function QuickRepliesPanel() {
             <input
               type="text"
               value={formShortcut}
-              onChange={(e) => setFormShortcut(e.target.value)}
+              onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-QuickRepliesPanel] onChange formShortcut — nuevo valor:', e.target.value); setFormShortcut(e.target.value); }}
               placeholder="/horarios"
               className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
             />
@@ -114,7 +133,7 @@ export default function QuickRepliesPanel() {
             <label className="block text-xs font-medium text-gray-600 mb-1">Mensaje</label>
             <textarea
               value={formText}
-              onChange={(e) => setFormText(e.target.value)}
+              onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-QuickRepliesPanel] onChange formText — nuevo valor:', e.target.value); setFormText(e.target.value); }}
               rows={3}
               placeholder="Texto que se va a insertar en el chat..."
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm resize-none"
@@ -146,6 +165,7 @@ export default function QuickRepliesPanel() {
         <div className="text-sm text-gray-400 py-8 text-center">Todavía no hay plantillas creadas.</div>
       ) : (
         <div className="space-y-2">
+          {console.log('🔍 [DEBUG-COMPONENT-QuickRepliesPanel] Renderizando lista de replies — cantidad:', replies.length)}
           {replies.map(reply => (
             <div key={reply.id} className="flex items-start justify-between gap-3 p-3 bg-white border border-gray-200 rounded-lg">
               <div className="min-w-0">
