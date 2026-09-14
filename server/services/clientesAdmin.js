@@ -9,8 +9,14 @@ import { normalizarTelefono } from './whatsapp.js';
 // todas las conversaciones que tenía con el número viejo, para no perder el
 // historial ni romper el enganche con el bot.
 export const actualizarDatosCliente = async (clientPhoneActual, { nombreCompleto, dni, obraSocial, nuevoTelefono } = {}) => {
+  console.log('🔍 [DEBUG-SERVICE-CLIENTESADMIN] actualizarDatosCliente() — parámetros recibidos:', { clientPhoneActual, nombreCompleto, dni, obraSocial, nuevoTelefono });
+
   const telefonoActual = normalizarTelefono(clientPhoneActual);
-  if (!telefonoActual) throw new Error('Teléfono de cliente inválido.');
+  console.log('🔍 [DEBUG-SERVICE-CLIENTESADMIN] actualizarDatosCliente() — telefonoActual normalizado:', telefonoActual);
+  if (!telefonoActual) {
+    console.error('❌ [DEBUG-SERVICE-CLIENTESADMIN] actualizarDatosCliente() — teléfono actual inválido:', clientPhoneActual);
+    throw new Error('Teléfono de cliente inválido.');
+  }
 
   const campos = {};
   if (nombreCompleto !== undefined) campos.nombre_completo = nombreCompleto?.toString().trim() || null;
@@ -20,50 +26,79 @@ export const actualizarDatosCliente = async (clientPhoneActual, { nombreCompleto
   let telefonoFinal = telefonoActual;
   if (nuevoTelefono !== undefined && nuevoTelefono !== null && nuevoTelefono.toString().trim() !== '') {
     const normalizado = normalizarTelefono(nuevoTelefono);
-    if (!normalizado) throw new Error('El nuevo teléfono no es válido.');
+    console.log('🔍 [DEBUG-SERVICE-CLIENTESADMIN] actualizarDatosCliente() — nuevoTelefono normalizado:', normalizado);
+    if (!normalizado) {
+      console.error('❌ [DEBUG-SERVICE-CLIENTESADMIN] actualizarDatosCliente() — nuevo teléfono inválido:', nuevoTelefono);
+      throw new Error('El nuevo teléfono no es válido.');
+    }
     telefonoFinal = normalizado;
   }
 
   const cambiaTelefono = telefonoFinal !== telefonoActual;
+  console.log('🔍 [DEBUG-SERVICE-CLIENTESADMIN] actualizarDatosCliente() — cambiaTelefono:', cambiaTelefono, 'telefonoFinal:', telefonoFinal);
 
   if (cambiaTelefono) {
+    console.log('📡 [DEBUG-SERVICE-CLIENTESADMIN] Query Supabase → tabla: clientes, operación: select, filtro: client_phone =', telefonoFinal);
     const { data: existente, error: existeError } = await supabase
       .from('clientes')
       .select('client_phone')
       .eq('client_phone', telefonoFinal)
       .maybeSingle();
-    if (existeError) throw existeError;
-    if (existente) throw new Error('Ya existe otro cliente registrado con ese teléfono.');
+    console.log('📡 [DEBUG-SERVICE-CLIENTESADMIN] Resultado query clientes (select existente) — data:', existente, 'error:', existeError);
+    if (existeError) {
+      console.error('❌ [DEBUG-SERVICE-CLIENTESADMIN] actualizarDatosCliente() — error verificando teléfono existente:', existeError);
+      throw existeError;
+    }
+    if (existente) {
+      console.error('❌ [DEBUG-SERVICE-CLIENTESADMIN] actualizarDatosCliente() — ya existe otro cliente con ese teléfono:', telefonoFinal);
+      throw new Error('Ya existe otro cliente registrado con ese teléfono.');
+    }
 
     campos.client_phone = telefonoFinal;
   }
 
   campos.updated_at = new Date().toISOString();
+  console.log('🔍 [DEBUG-SERVICE-CLIENTESADMIN] actualizarDatosCliente() — campos a aplicar:', campos);
 
+  console.log('📡 [DEBUG-SERVICE-CLIENTESADMIN] Query Supabase → tabla: clientes, operación: select, filtro: client_phone =', telefonoActual);
   const { data: filaActual, error: fetchError } = await supabase
     .from('clientes')
     .select('client_phone')
     .eq('client_phone', telefonoActual)
     .maybeSingle();
-  if (fetchError) throw fetchError;
+  console.log('📡 [DEBUG-SERVICE-CLIENTESADMIN] Resultado query clientes (select filaActual) — data:', filaActual, 'error:', fetchError);
+  if (fetchError) {
+    console.error('❌ [DEBUG-SERVICE-CLIENTESADMIN] actualizarDatosCliente() — error consultando fila actual:', fetchError);
+    throw fetchError;
+  }
 
   let cliente;
   if (filaActual) {
+    console.log('📡 [DEBUG-SERVICE-CLIENTESADMIN] Query Supabase → tabla: clientes, operación: update, filtro: client_phone =', telefonoActual, ', valores:', campos);
     const { data, error } = await supabase
       .from('clientes')
       .update(campos)
       .eq('client_phone', telefonoActual)
       .select()
       .single();
-    if (error) throw error;
+    console.log('📡 [DEBUG-SERVICE-CLIENTESADMIN] Resultado query clientes (update) — data:', data, 'error:', error);
+    if (error) {
+      console.error('❌ [DEBUG-SERVICE-CLIENTESADMIN] actualizarDatosCliente() — error actualizando cliente:', error);
+      throw error;
+    }
     cliente = data;
   } else {
+    console.log('📡 [DEBUG-SERVICE-CLIENTESADMIN] Query Supabase → tabla: clientes, operación: insert, valores:', { client_phone: telefonoActual, ...campos });
     const { data, error } = await supabase
       .from('clientes')
       .insert([{ client_phone: telefonoActual, ...campos }])
       .select()
       .single();
-    if (error) throw error;
+    console.log('📡 [DEBUG-SERVICE-CLIENTESADMIN] Resultado query clientes (insert) — data:', data, 'error:', error);
+    if (error) {
+      console.error('❌ [DEBUG-SERVICE-CLIENTESADMIN] actualizarDatosCliente() — error insertando cliente:', error);
+      throw error;
+    }
     cliente = data;
   }
 
@@ -71,12 +106,18 @@ export const actualizarDatosCliente = async (clientPhoneActual, { nombreCompleto
   // la que está abierta ahora mismo en el CRM): si se corrigió el teléfono,
   // las re-apuntamos todas al valor nuevo para no perder el historial.
   if (cambiaTelefono) {
+    console.log('📡 [DEBUG-SERVICE-CLIENTESADMIN] Query Supabase → tabla: conversations, operación: update, filtro: client_phone =', telefonoActual, ', valores:', { client_phone: telefonoFinal });
     const { error: convError } = await supabase
       .from('conversations')
       .update({ client_phone: telefonoFinal })
       .eq('client_phone', telefonoActual);
-    if (convError) throw convError;
+    console.log('📡 [DEBUG-SERVICE-CLIENTESADMIN] Resultado query conversations (update client_phone) — error:', convError);
+    if (convError) {
+      console.error('❌ [DEBUG-SERVICE-CLIENTESADMIN] actualizarDatosCliente() — error re-vinculando conversaciones:', convError);
+      throw convError;
+    }
   }
 
+  console.log('✅ [DEBUG-SERVICE-CLIENTESADMIN] actualizarDatosCliente() — valor de retorno:', cliente);
   return cliente;
 };

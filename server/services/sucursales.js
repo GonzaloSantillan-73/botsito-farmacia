@@ -5,6 +5,8 @@ const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 // Junta días consecutivos en rangos (ej: [1,2,3,4,5] -> "Lun a Vie") para que
 // el mensaje del bot no liste cada día suelto cuando el horario es corrido.
 const formatearDias = (dias) => {
+  console.log('🔍 [DEBUG-SERVICE-SUCURSALES] formatearDias() — parámetros recibidos:', { dias });
+
   const ordenados = [...dias].sort((a, b) => a - b);
   const rangos = [];
   let inicio = ordenados[0];
@@ -21,24 +23,39 @@ const formatearDias = (dias) => {
     anterior = actual;
   }
 
-  return rangos.join(', ');
+  const resultado = rangos.join(', ');
+  console.log('✅ [DEBUG-SERVICE-SUCURSALES] formatearDias() — valor de retorno:', resultado);
+  return resultado;
 };
 
 export const getSucursalesActivas = async () => {
+  console.log('🔍 [DEBUG-SERVICE-SUCURSALES] getSucursalesActivas() — sin parámetros');
+
+  console.log('📡 [DEBUG-SERVICE-SUCURSALES] Query Supabase → tabla: sucursales, operación: select, filtro: activo = true, order: orden, nombre');
   const { data, error } = await supabase
     .from('sucursales')
     .select('*')
     .eq('activo', true)
     .order('orden')
     .order('nombre');
-  if (error) throw error;
-  return data || [];
+  console.log('📡 [DEBUG-SERVICE-SUCURSALES] Resultado query sucursales (select activas) — data:', data, 'error:', error);
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-SUCURSALES] getSucursalesActivas() — error consultando sucursales activas:', error);
+    throw error;
+  }
+  const resultado = data || [];
+  console.log('✅ [DEBUG-SERVICE-SUCURSALES] getSucursalesActivas() — valor de retorno:', resultado);
+  return resultado;
 };
 
 // Mensaje que el bot envía cuando el cliente elige "Horarios y sucursales".
 export const formatearMensajeSucursales = (sucursales) => {
+  console.log('🔍 [DEBUG-SERVICE-SUCURSALES] formatearMensajeSucursales() — parámetros recibidos:', { sucursales });
+
   if (!sucursales || sucursales.length === 0) {
-    return 'Por el momento no tenemos sucursales cargadas. Escribí "1" para hablar con un asesor y te contamos dónde estamos.';
+    const resultadoVacio = 'Por el momento no tenemos sucursales cargadas. Escribí "1" para hablar con un asesor y te contamos dónde estamos.';
+    console.log('✅ [DEBUG-SERVICE-SUCURSALES] formatearMensajeSucursales() — valor de retorno (sin sucursales):', resultadoVacio);
+    return resultadoVacio;
   }
 
   const lista = sucursales
@@ -53,5 +70,7 @@ export const formatearMensajeSucursales = (sucursales) => {
     })
     .join('\n\n');
 
-  return `Estas son nuestras sucursales:\n\n${lista}`;
+  const resultado = `Estas son nuestras sucursales:\n\n${lista}`;
+  console.log('✅ [DEBUG-SERVICE-SUCURSALES] formatearMensajeSucursales() — valor de retorno:', resultado);
+  return resultado;
 };

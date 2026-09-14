@@ -13,53 +13,102 @@ const JWT_EXPIRES_IN = '12h';
 // de usuario, prueba contra staff_users (empleados). Devuelve un objeto con
 // forma uniforme para poder generar el token sin importar de qué tabla vino.
 export const verificarCredenciales = async (username, password) => {
+  console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] verificarCredenciales() — parámetros recibidos:', { username, password: '[REDACTED]' });
+
+  console.log('📡 [DEBUG-SERVICE-ADMINAUTH] Query Supabase → tabla: admin_users, operación: select, filtro: username =', username);
   const { data: admin, error: adminError } = await supabase
     .from('admin_users')
     .select('*')
     .eq('username', username)
     .maybeSingle();
-  if (adminError) throw adminError;
-
-  if (admin) {
-    const passwordOk = await bcrypt.compare(password, admin.password_hash);
-    return passwordOk ? { id: admin.id, username: admin.username, role: 'admin', sucursalId: null } : null;
+  console.log('📡 [DEBUG-SERVICE-ADMINAUTH] Resultado query admin_users — data:', admin ? { ...admin, password_hash: '[REDACTED]' } : admin, 'error:', adminError);
+  if (adminError) {
+    console.error('❌ [DEBUG-SERVICE-ADMINAUTH] verificarCredenciales() — error consultando admin_users:', adminError);
+    throw adminError;
   }
 
+  if (admin) {
+    console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] verificarCredenciales() — se encontró admin, comparando contraseña (bcrypt.compare, hash no se loguea)');
+    const passwordOk = await bcrypt.compare(password, admin.password_hash);
+    console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] verificarCredenciales() — contraseña de admin correcta:', passwordOk);
+    const resultado = passwordOk ? { id: admin.id, username: admin.username, role: 'admin', sucursalId: null } : null;
+    console.log('✅ [DEBUG-SERVICE-ADMINAUTH] verificarCredenciales() — valor de retorno (rama admin):', resultado);
+    return resultado;
+  }
+
+  console.log('📡 [DEBUG-SERVICE-ADMINAUTH] Query Supabase → tabla: staff_users, operación: select (con join sucursales), filtro: username =', username);
   const { data: staff, error: staffError } = await supabase
     .from('staff_users')
     .select('*, sucursales(nombre)')
     .eq('username', username)
     .maybeSingle();
-  if (staffError) throw staffError;
-  if (!staff) return null;
+  console.log('📡 [DEBUG-SERVICE-ADMINAUTH] Resultado query staff_users — data:', staff ? { ...staff, password_hash: '[REDACTED]' } : staff, 'error:', staffError);
+  if (staffError) {
+    console.error('❌ [DEBUG-SERVICE-ADMINAUTH] verificarCredenciales() — error consultando staff_users:', staffError);
+    throw staffError;
+  }
+  if (!staff) {
+    console.log('✅ [DEBUG-SERVICE-ADMINAUTH] verificarCredenciales() — no se encontró usuario en ninguna tabla, valor de retorno: null');
+    return null;
+  }
 
+  console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] verificarCredenciales() — se encontró staff, comparando contraseña (bcrypt.compare, hash no se loguea)');
   const passwordOk = await bcrypt.compare(password, staff.password_hash);
-  return passwordOk
+  console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] verificarCredenciales() — contraseña de staff correcta:', passwordOk);
+  const resultado = passwordOk
     ? { id: staff.id, username: staff.username, role: 'staff', sucursalId: staff.sucursal_id, sucursalNombre: staff.sucursales?.nombre || null }
     : null;
+  console.log('✅ [DEBUG-SERVICE-ADMINAUTH] verificarCredenciales() — valor de retorno (rama staff):', resultado);
+  return resultado;
 };
 
-export const generarToken = (user) =>
-  jwt.sign(
+export const generarToken = (user) => {
+  console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] generarToken() — parámetros recibidos:', user);
+  const token = jwt.sign(
     { sub: user.id, username: user.username, role: user.role, sucursalId: user.sucursalId || null },
     JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
   );
+  console.log('✅ [DEBUG-SERVICE-ADMINAUTH] generarToken() — token generado (primeros 10 caracteres):', token ? token.substring(0, 10) + '...' : token);
+  return token;
+};
 
 export const verificarToken = (token) => {
+  console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] verificarToken() — token recibido (primeros 10 caracteres):', token ? token.toString().substring(0, 10) + '...' : token);
   try {
-    return jwt.verify(token, JWT_SECRET);
-  } catch {
+    const payload = jwt.verify(token, JWT_SECRET);
+    console.log('✅ [DEBUG-SERVICE-ADMINAUTH] verificarToken() — token válido, payload:', payload);
+    return payload;
+  } catch (error) {
+    console.error('❌ [DEBUG-SERVICE-ADMINAUTH] verificarToken() — error verificando token:', error?.message, error?.stack);
+    console.log('✅ [DEBUG-SERVICE-ADMINAUTH] verificarToken() — valor de retorno: null');
     return null;
   }
 };
 
 export const actualizarCredenciales = async (adminId, { currentPassword, newUsername, newPassword }) => {
-  const { data: admin, error } = await supabase.from('admin_users').select('*').eq('id', adminId).single();
-  if (error || !admin) throw new Error('Administrador no encontrado.');
+  console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] actualizarCredenciales() — parámetros recibidos:', {
+    adminId,
+    currentPassword: '[REDACTED]',
+    newUsername,
+    newPassword: '[REDACTED]'
+  });
 
+  console.log('📡 [DEBUG-SERVICE-ADMINAUTH] Query Supabase → tabla: admin_users, operación: select, filtro: id =', adminId);
+  const { data: admin, error } = await supabase.from('admin_users').select('*').eq('id', adminId).single();
+  console.log('📡 [DEBUG-SERVICE-ADMINAUTH] Resultado query admin_users (select) — data:', admin ? { ...admin, password_hash: '[REDACTED]' } : admin, 'error:', error);
+  if (error || !admin) {
+    console.error('❌ [DEBUG-SERVICE-ADMINAUTH] actualizarCredenciales() — administrador no encontrado:', error);
+    throw new Error('Administrador no encontrado.');
+  }
+
+  console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] actualizarCredenciales() — comparando contraseña actual (bcrypt.compare, hash no se loguea)');
   const passwordOk = await bcrypt.compare(currentPassword, admin.password_hash);
-  if (!passwordOk) throw new Error('La contraseña actual no es correcta.');
+  console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] actualizarCredenciales() — contraseña actual correcta:', passwordOk);
+  if (!passwordOk) {
+    console.error('❌ [DEBUG-SERVICE-ADMINAUTH] actualizarCredenciales() — la contraseña actual no coincide');
+    throw new Error('La contraseña actual no es correcta.');
+  }
 
   const updates = { updated_at: new Date().toISOString() };
 
@@ -69,18 +118,30 @@ export const actualizarCredenciales = async (adminId, { currentPassword, newUser
 
   if (newPassword && newPassword.trim()) {
     if (newPassword.trim().length < 6) {
+      console.error('❌ [DEBUG-SERVICE-ADMINAUTH] actualizarCredenciales() — nueva contraseña demasiado corta');
       throw new Error('La nueva contraseña debe tener al menos 6 caracteres.');
     }
     updates.password_hash = await bcrypt.hash(newPassword.trim(), 10);
   }
 
+  console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] actualizarCredenciales() — updates a aplicar (password_hash omitido si presente):', {
+    ...updates,
+    password_hash: updates.password_hash ? '[REDACTED]' : undefined
+  });
+
+  console.log('📡 [DEBUG-SERVICE-ADMINAUTH] Query Supabase → tabla: admin_users, operación: update, filtro: id =', adminId);
   const { data: updated, error: updateError } = await supabase
     .from('admin_users')
     .update(updates)
     .eq('id', adminId)
     .select()
     .single();
-  if (updateError) throw updateError;
+  console.log('📡 [DEBUG-SERVICE-ADMINAUTH] Resultado query admin_users (update) — data:', updated ? { ...updated, password_hash: '[REDACTED]' } : updated, 'error:', updateError);
+  if (updateError) {
+    console.error('❌ [DEBUG-SERVICE-ADMINAUTH] actualizarCredenciales() — error actualizando credenciales:', updateError);
+    throw updateError;
+  }
 
+  console.log('✅ [DEBUG-SERVICE-ADMINAUTH] actualizarCredenciales() — valor de retorno:', updated ? { ...updated, password_hash: '[REDACTED]' } : updated);
   return updated;
 };

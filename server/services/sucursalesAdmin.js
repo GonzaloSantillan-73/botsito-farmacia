@@ -4,20 +4,43 @@ import { extraerCoordenadasDeUrl } from './mapsLocation.js';
 // CRUD clásico de sucursales: se dan de alta directamente desde el panel de
 // Administración, sin depender de ningún catálogo externo.
 export const listarSucursales = async () => {
+  console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] listarSucursales() — sin parámetros');
+
+  console.log('📡 [DEBUG-SERVICE-SUCURSALESADMIN] Query Supabase → tabla: sucursales, operación: select (con join staff_users), order: orden, nombre');
   const { data, error } = await supabase
     .from('sucursales')
     .select('*, staff_users(id, username, created_at)')
     .order('orden')
     .order('nombre');
-  if (error) throw error;
-  return data || [];
+  console.log('📡 [DEBUG-SERVICE-SUCURSALESADMIN] Resultado query sucursales (select listado) — data:', data, 'error:', error);
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] listarSucursales() — error listando sucursales:', error);
+    throw error;
+  }
+  const resultado = data || [];
+  console.log('✅ [DEBUG-SERVICE-SUCURSALESADMIN] listarSucursales() — valor de retorno:', resultado);
+  return resultado;
 };
 
 export const crearSucursal = async ({ nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre }) => {
-  if (!nombre?.trim()) throw new Error('Ingresá el nombre de la sucursal.');
-  if (!direccion?.trim()) throw new Error('Ingresá la dirección de la sucursal.');
-  if (!googleMapsUrl?.trim()) throw new Error('Ingresá el Link de Google Maps de la sucursal.');
-  if (dias && dias.length === 0) throw new Error('Elegí al menos un día de atención.');
+  console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — parámetros recibidos:', { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre });
+
+  if (!nombre?.trim()) {
+    console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — falta nombre');
+    throw new Error('Ingresá el nombre de la sucursal.');
+  }
+  if (!direccion?.trim()) {
+    console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — falta dirección');
+    throw new Error('Ingresá la dirección de la sucursal.');
+  }
+  if (!googleMapsUrl?.trim()) {
+    console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — falta Google Maps URL');
+    throw new Error('Ingresá el Link de Google Maps de la sucursal.');
+  }
+  if (dias && dias.length === 0) {
+    console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — dias vacío');
+    throw new Error('Elegí al menos un día de atención.');
+  }
 
   const payload = {
     nombre: nombre.trim(),
@@ -33,25 +56,47 @@ export const crearSucursal = async ({ nombre, direccion, googleMapsUrl, dias, ho
   // pueden resolver (link sin coordenadas embebidas, sin conexión, etc.) la
   // sucursal se crea igual; sólo que no va a entrar en las recomendaciones
   // por cercanía hasta que se corrija el link.
-  const coords = await extraerCoordenadasDeUrl(googleMapsUrl.trim()).catch(() => null);
+  console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — resolviendo coordenadas desde URL:', googleMapsUrl.trim());
+  const coords = await extraerCoordenadasDeUrl(googleMapsUrl.trim()).catch((err) => {
+    console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — error resolviendo coordenadas (se continúa sin ellas):', err);
+    return null;
+  });
+  console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — coordenadas resueltas:', coords);
   if (coords) {
     payload.latitud = coords.lat;
     payload.longitud = coords.lng;
   }
 
+  console.log('📡 [DEBUG-SERVICE-SUCURSALESADMIN] Query Supabase → tabla: sucursales, operación: insert, valores:', payload);
   const { data, error } = await supabase
     .from('sucursales')
     .insert([payload])
     .select('*, staff_users(id, username, created_at)')
     .single();
-  if (error) throw error;
+  console.log('📡 [DEBUG-SERVICE-SUCURSALESADMIN] Resultado query sucursales (insert) — data:', data, 'error:', error);
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — error creando sucursal:', error);
+    throw error;
+  }
+  console.log('✅ [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — valor de retorno:', data);
   return data;
 };
 
 export const actualizarSucursal = async (id, { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre }) => {
-  if (!direccion?.trim()) throw new Error('Ingresá la dirección de la sucursal.');
-  if (!googleMapsUrl?.trim()) throw new Error('Ingresá el Link de Google Maps de la sucursal.');
-  if (dias && dias.length === 0) throw new Error('Elegí al menos un día de atención.');
+  console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — parámetros recibidos:', { id, nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre });
+
+  if (!direccion?.trim()) {
+    console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — falta dirección');
+    throw new Error('Ingresá la dirección de la sucursal.');
+  }
+  if (!googleMapsUrl?.trim()) {
+    console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — falta Google Maps URL');
+    throw new Error('Ingresá el Link de Google Maps de la sucursal.');
+  }
+  if (dias && dias.length === 0) {
+    console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — dias vacío');
+    throw new Error('Elegí al menos un día de atención.');
+  }
 
   const updates = {
     direccion: direccion.trim(),
@@ -62,23 +107,42 @@ export const actualizarSucursal = async (id, { nombre, direccion, googleMapsUrl,
   if (horaApertura) updates.hora_apertura = horaApertura;
   if (horaCierre) updates.hora_cierre = horaCierre;
 
-  const coords = await extraerCoordenadasDeUrl(googleMapsUrl.trim()).catch(() => null);
+  console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — resolviendo coordenadas desde URL:', googleMapsUrl.trim());
+  const coords = await extraerCoordenadasDeUrl(googleMapsUrl.trim()).catch((err) => {
+    console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — error resolviendo coordenadas (se continúa sin ellas):', err);
+    return null;
+  });
+  console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — coordenadas resueltas:', coords);
   if (coords) {
     updates.latitud = coords.lat;
     updates.longitud = coords.lng;
   }
 
+  console.log('📡 [DEBUG-SERVICE-SUCURSALESADMIN] Query Supabase → tabla: sucursales, operación: update, filtro: id =', id, ', valores:', updates);
   const { data, error } = await supabase
     .from('sucursales')
     .update(updates)
     .eq('id', id)
     .select('*, staff_users(id, username, created_at)')
     .single();
-  if (error) throw error;
+  console.log('📡 [DEBUG-SERVICE-SUCURSALESADMIN] Resultado query sucursales (update) — data:', data, 'error:', error);
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — error actualizando sucursal:', error);
+    throw error;
+  }
+  console.log('✅ [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — valor de retorno:', data);
   return data;
 };
 
 export const eliminarSucursal = async (id) => {
+  console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] eliminarSucursal() — parámetros recibidos:', { id });
+
+  console.log('📡 [DEBUG-SERVICE-SUCURSALESADMIN] Query Supabase → tabla: sucursales, operación: delete, filtro: id =', id);
   const { error } = await supabase.from('sucursales').delete().eq('id', id);
-  if (error) throw error;
+  console.log('📡 [DEBUG-SERVICE-SUCURSALESADMIN] Resultado query sucursales (delete) — error:', error);
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] eliminarSucursal() — error eliminando sucursal:', error);
+    throw error;
+  }
+  console.log('✅ [DEBUG-SERVICE-SUCURSALESADMIN] eliminarSucursal() — completado sin valor de retorno (undefined)');
 };

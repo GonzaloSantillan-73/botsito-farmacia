@@ -12,14 +12,26 @@ const PHONE_ID = process.env.PHONE_NUMBER_ID;
 const API_URL = `https://graph.facebook.com/v22.0/${PHONE_ID}/messages`;
 
 const limpiarTelefono = (phone) => {
-  if (!phone) return phone;
+  console.log(`[SERVICES/WHATSAPP - limpiarTelefono] ==> INICIO DE FUNCIÓN`);
+  console.log(`[SERVICES/WHATSAPP] ==> Parámetro recibido: phone="${phone}"`);
+
+  if (!phone) {
+    console.log(`[SERVICES/WHATSAPP] -> Condición: phone vacío/falsy. Devolviendo el mismo valor sin transformar:`, phone);
+    return phone;
+  }
   let clean = phone.toString().replace(/[\s\+\-]/g, '');
+  console.log(`[SERVICES/WHATSAPP] -> Teléfono tras quitar espacios/+/-: ${clean}`);
   // Meta entrega el "from" de los mensajes entrantes en formato wa_id ("549" + 10 dígitos),
   // pero tanto el envío como la lista de autorizados usan el formato nacional sin el 9
   // ("54" + 10 dígitos). Normalizamos siempre a este último para que ambos coincidan.
   if (clean.startsWith('549') && clean.length === 13) {
-    return '54' + clean.substring(3);
+    const conVersion9Removido = '54' + clean.substring(3);
+    console.log(`[SERVICES/WHATSAPP] -> Condición: prefijo "549" con longitud 13 (wa_id). Se remueve el "9": ${conVersion9Removido}`);
+    console.log(`[SERVICES/WHATSAPP] ==> ✅ FIN limpiarTelefono. Valor de retorno: ${conVersion9Removido}`);
+    return conVersion9Removido;
   }
+  console.log(`[SERVICES/WHATSAPP] -> Condición: no matchea formato wa_id, se devuelve tal cual quedó tras la limpieza.`);
+  console.log(`[SERVICES/WHATSAPP] ==> ✅ FIN limpiarTelefono. Valor de retorno: ${clean}`);
   return clean;
 };
 
