@@ -210,7 +210,7 @@ export default function ValidationPanel({
   const subtotal = quoteItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const totalDiscount = quoteItems.reduce((acc, item) => acc + (item.price * item.quantity * (item.discount / 100)), 0);
   const totalItems = subtotal - totalDiscount;
-  const envioGratis = totalItems > FREE_SHIPPING_THRESHOLD;
+  const envioGratis = totalItems >= FREE_SHIPPING_THRESHOLD;
   const finalShippingCost = envioGratis ? 0 : (parseFloat(shippingCost) || 0);
   const total = totalItems + finalShippingCost;
 
