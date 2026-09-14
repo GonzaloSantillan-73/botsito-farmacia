@@ -40,6 +40,8 @@ const BADGE_VACIO = { label: 'Sin iniciar', className: 'bg-gray-100 text-gray-50
 const MEDIO_PAGO_UNICO = 'Transferencia';
 
 export default function OrderStatusPanel({ activeConversation, handleSendMessage, onPaymentConfirmed }) {
+  console.log('🔍 [DEBUG-COMPONENT-OrderStatusPanel] Render — props:', { activeConversation, handleSendMessage, onPaymentConfirmed });
+
   const [plantillas, setPlantillas] = useState({});
   const [updatingKey, setUpdatingKey] = useState(null);
   const [alias, setAlias] = useState('');
@@ -47,21 +49,26 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
+    console.log('🔄 [DEBUG-COMPONENT-OrderStatusPanel] useEffect(carga plantillas + alias) disparado — deps: [] (solo al montar)');
+    console.log('📡 [DEBUG-COMPONENT-OrderStatusPanel] Supabase SELECT quick_replies — params:', { table: 'quick_replies', shortcuts: Object.keys(MENSAJES_DEFAULT) });
     supabase
       .from('quick_replies')
       .select('shortcut, message_text')
       .in('shortcut', Object.keys(MENSAJES_DEFAULT))
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        console.log('📡 [DEBUG-COMPONENT-OrderStatusPanel] Supabase SELECT quick_replies — respuesta:', { data, error });
         const map = {};
         (data || []).forEach(r => { map[r.shortcut] = r.message_text; });
         setPlantillas(map);
       });
 
+    console.log('📡 [DEBUG-COMPONENT-OrderStatusPanel] Supabase SELECT app_settings — params:', { table: 'app_settings', keys: ['alias', 'titular'] });
     supabase
       .from('app_settings')
       .select('key, value')
       .in('key', ['alias', 'titular'])
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        console.log('📡 [DEBUG-COMPONENT-OrderStatusPanel] Supabase SELECT app_settings — respuesta:', { data, error });
         (data || []).forEach(({ key, value }) => {
           if (key === 'alias') setAlias(value);
           if (key === 'titular') setTitular(value);
@@ -73,24 +80,35 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
 
   const textoDe = (shortcut) => {
     const baseText = plantillas[shortcut] || MENSAJES_DEFAULT[shortcut];
+    let textoFinal;
     if (shortcut === '/alias' && alias) {
       if (baseText === MENSAJES_DEFAULT['/alias']) {
         const titularTexto = titular ? ` a nombre de *${titular}*` : '';
-        return `Para confirmar tu pedido, podés transferir a nuestro Alias: *${alias}*${titularTexto}. Cuando hagas la transferencia, envianos el comprobante por acá. 🙂`;
+        textoFinal = `Para confirmar tu pedido, podés transferir a nuestro Alias: *${alias}*${titularTexto}. Cuando hagas la transferencia, envianos el comprobante por acá. 🙂`;
+      } else {
+        textoFinal = baseText
+          .replace(/\{\{ALIAS\}\}/g, alias)
+          .replace(/\{\{TITULAR\}\}/g, titular || '');
       }
-      return baseText
-        .replace(/\{\{ALIAS\}\}/g, alias)
-        .replace(/\{\{TITULAR\}\}/g, titular || '');
+    } else {
+      textoFinal = baseText;
     }
-    return baseText;
+    console.log('🔍 [DEBUG-COMPONENT-OrderStatusPanel] textoDe() — shortcut:', shortcut, 'alias:', alias, 'titular:', titular, '-> texto final:', textoFinal);
+    return textoFinal;
   };
 
   const handlePaso = async (paso) => {
+    const estadoAnterior = activeConversation[paso.campo];
+    console.log('🖱️ [DEBUG-COMPONENT-OrderStatusPanel] handlePaso() — paso:', paso.key, 'campo:', paso.campo, 'estado anterior:', estadoAnterior, '-> nuevo estado:', paso.valor);
     setUpdatingKey(paso.key);
     const updates = { [paso.campo]: paso.valor };
     if (paso.key === 'pagook') updates.payment_method = MEDIO_PAGO_UNICO;
-    await supabase.from('conversations').update(updates).eq('id', activeConversation.id);
-    handleSendMessage?.(textoDe(paso.shortcut));
+    console.log('📡 [DEBUG-COMPONENT-OrderStatusPanel] Supabase UPDATE conversations — params:', { table: 'conversations', id: activeConversation.id, updates });
+    const { error } = await supabase.from('conversations').update(updates).eq('id', activeConversation.id);
+    console.log('📡 [DEBUG-COMPONENT-OrderStatusPanel] Supabase UPDATE conversations — respuesta:', { error });
+    const textoPlantilla = textoDe(paso.shortcut);
+    console.log('✅ [DEBUG-COMPONENT-OrderStatusPanel] Enviando plantilla del paso', paso.key, '— texto:', textoPlantilla);
+    handleSendMessage?.(textoPlantilla);
     // Al confirmar el pago se vacía el Cotizador: lo que compre el cliente
     // de acá en adelante es un pedido nuevo, no debe sumarse al ya cobrado.
     if (paso.key === 'pagook') onPaymentConfirmed?.();
@@ -98,16 +116,20 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
   };
 
   const handleDemora = () => {
-    handleSendMessage?.(textoDe('/demora'));
+    const textoDemora = textoDe('/demora');
+    console.log('🖱️ [DEBUG-COMPONENT-OrderStatusPanel] handleDemora() — texto:', textoDemora);
+    handleSendMessage?.(textoDemora);
   };
 
   const pagoBadge = PAGO_BADGES[activeConversation.payment_status] || BADGE_VACIO;
   const entregaBadge = ENTREGA_BADGES[activeConversation.order_status] || BADGE_VACIO;
 
+  console.log('🔍 [DEBUG-COMPONENT-OrderStatusPanel] Render pasos — cantidad:', PASOS.length, 'pagoBadge:', pagoBadge, 'entregaBadge:', entregaBadge);
+
   return (
     <div className="p-6 border-t border-gray-200 bg-white">
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
+      <button
+        onClick={() => { const next = !isOpen; console.log('🔄 [DEBUG-COMPONENT-OrderStatusPanel] setIsOpen ->', next); setIsOpen(next); }}
         className="w-full flex items-center justify-between text-left mb-2 outline-none group"
       >
         <h3 className="text-md font-bold text-gray-900 flex items-center gap-2">

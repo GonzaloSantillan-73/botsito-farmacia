@@ -11,22 +11,29 @@ const formatMoney = (n) => `$${Number(n || 0).toFixed(2)}`;
 // `pedidos_cotizados`, vinculada por client_phone (no por conversación), así
 // que agrupa todo lo cotizado a ese cliente sin importar en qué consulta.
 export default function OrderHistoryPanel({ clientPhone, clientName, onClose }) {
+  console.log('🔍 [DEBUG-COMPONENT-OrderHistoryPanel] Render — props:', { clientPhone, clientName, onClose });
+
   const [pedidos, setPedidos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('🔄 [DEBUG-COMPONENT-OrderHistoryPanel] useEffect(cargar pedidos) disparado — deps:', { clientPhone });
     if (!clientPhone) return;
     setLoading(true);
+    console.log('📡 [DEBUG-COMPONENT-OrderHistoryPanel] Supabase SELECT pedidos_cotizados — params:', { table: 'pedidos_cotizados', client_phone: clientPhone });
     supabase
       .from('pedidos_cotizados')
       .select('*')
       .eq('client_phone', clientPhone)
       .order('created_at', { ascending: false })
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        console.log('📡 [DEBUG-COMPONENT-OrderHistoryPanel] Supabase SELECT pedidos_cotizados — respuesta:', { data, error });
         setPedidos(data || []);
         setLoading(false);
       });
   }, [clientPhone]);
+
+  console.log('🔍 [DEBUG-COMPONENT-OrderHistoryPanel] Render lista de pedidos — cantidad:', pedidos.length);
 
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6">
@@ -36,7 +43,7 @@ export default function OrderHistoryPanel({ clientPhone, clientName, onClose }) 
             <ShoppingBag size={20} className="text-teal-600" />
             Historial de pedidos{clientName ? ` — ${clientName}` : ''}
           </div>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
+          <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-OrderHistoryPanel] click botón cerrar (X)'); onClose(); }} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
             <X size={18} />
           </button>
         </div>

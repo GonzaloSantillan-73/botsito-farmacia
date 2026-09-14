@@ -12,24 +12,31 @@ import MessageBubble from './MessageBubble';
 // que devuelve server/services/metricsDetalle.js (id, cliente, telefono,
 // sucursal, status, saleStatus).
 export default function ChatTraceModal({ conversation, onClose }) {
+  console.log('🔍 [DEBUG-COMPONENT-ChatTraceModal] Render — props:', { conversation, onClose });
+
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('🔄 [DEBUG-COMPONENT-ChatTraceModal] useEffect(cargar mensajes) disparado — deps:', { conversationId: conversation.id });
     let cancelled = false;
     setLoading(true);
+    console.log('📡 [DEBUG-COMPONENT-ChatTraceModal] Supabase SELECT messages — params:', { table: 'messages', conversation_id: conversation.id });
     supabase
       .from('messages')
       .select('*')
       .eq('conversation_id', conversation.id)
       .order('created_at', { ascending: true })
       .then(({ data, error }) => {
+        console.log('📡 [DEBUG-COMPONENT-ChatTraceModal] Supabase SELECT messages — respuesta:', { data, error, cancelled });
         if (cancelled) return;
         if (!error) setMessages(data || []);
         setLoading(false);
       });
     return () => { cancelled = true; };
   }, [conversation.id]);
+
+  console.log('🔍 [DEBUG-COMPONENT-ChatTraceModal] Render lista de mensajes — cantidad:', messages.length);
 
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-6">
@@ -55,7 +62,7 @@ export default function ChatTraceModal({ conversation, onClose }) {
               )}
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors shrink-0">
+          <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ChatTraceModal] click botón cerrar (X)'); onClose(); }} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors shrink-0">
             <X size={18} />
           </button>
         </div>
@@ -70,7 +77,7 @@ export default function ChatTraceModal({ conversation, onClose }) {
               <MessageBubble
                 key={msg.id}
                 msg={msg}
-                onImageClick={(m) => window.open(m.media_url, '_blank', 'noopener,noreferrer')}
+                onImageClick={(m) => { console.log('🖱️ [DEBUG-COMPONENT-ChatTraceModal] click en imagen del mensaje', { messageId: m.id, media_url: m.media_url }); window.open(m.media_url, '_blank', 'noopener,noreferrer'); }}
               />
             ))
           )}

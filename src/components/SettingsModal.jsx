@@ -15,6 +15,8 @@ import AdminCredentialsPanel from './AdminCredentialsPanel';
 import AliasPanel from './AliasPanel';
 
 export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdmin = true }) {
+  console.log('🔍 [DEBUG-COMPONENT-SettingsModal] Render — props:', { sessionTimeoutMs, isAdmin, onSave, onClose });
+
   // "Métricas y Estadísticas", "Exportar Datos" y "Administración" son
   // exclusivos del administrador (incluyen teléfonos, montos de venta y
   // credenciales de todo el sistema): un empleado ni siquiera ve esas
@@ -28,11 +30,23 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
     ] : [])
   ];
 
+  console.log('🔍 [DEBUG-COMPONENT-SettingsModal] Pestañas disponibles — cantidad:', TABS.length, 'isAdmin:', isAdmin, 'tabs:', TABS.map(t => t.id));
+
   const [activeTab, setActiveTab] = useState('chat');
 
   // La tabla de métricas necesita todo el ancho posible (muchas columnas);
   // el resto de las pestañas se ve mejor acotado, como antes.
   const anchoContenido = activeTab === 'metrics' ? 'max-w-none' : 'max-w-2xl mx-auto';
+
+  const handleTabClick = (tabId) => {
+    const esAdminOnly = ['metrics', 'export', 'admin'].includes(tabId);
+    console.log('🖱️ [DEBUG-COMPONENT-SettingsModal] handleTabClick() — pestaña anterior:', activeTab, '-> nueva pestaña:', tabId, '— requiere admin:', esAdminOnly, '— usuario es admin:', isAdmin);
+    if (esAdminOnly && !isAdmin) {
+      console.error('❌ [DEBUG-COMPONENT-SettingsModal] Intento de abrir pestaña admin-only sin ser admin:', tabId);
+    }
+    console.log('🔄 [DEBUG-COMPONENT-SettingsModal] setActiveTab ->', tabId);
+    setActiveTab(tabId);
+  };
 
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
@@ -43,7 +57,7 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
             <Settings size={20} className="text-teal-600" />
             Configuración
           </div>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
+          <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-SettingsModal] click botón cerrar (X)'); onClose(); }} className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
             <X size={22} />
           </button>
         </div>
@@ -56,7 +70,7 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => handleTabClick(tab.id)}
                 className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors shrink-0 whitespace-nowrap ${
                   isActive ? 'border-teal-600 text-teal-700' : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}

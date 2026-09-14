@@ -7,6 +7,8 @@ import { supabase } from '../lib/supabase';
 // tabla `clientes`, vinculado por client_phone (no por conversación), así
 // que persiste sin importar cuántos chats distintos tenga ese cliente.
 export default function ClientNotesPanel({ clientPhone }) {
+  console.log('🔍 [DEBUG-COMPONENT-ClientNotesPanel] Render — props:', { clientPhone });
+
   const [cliente, setCliente] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notas, setNotas] = useState('');
@@ -15,15 +17,18 @@ export default function ClientNotesPanel({ clientPhone }) {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
+    console.log('🔄 [DEBUG-COMPONENT-ClientNotesPanel] useEffect(cargar cliente) disparado — deps:', { clientPhone });
     if (!clientPhone) return;
     setLoading(true);
     setSaved(false);
+    console.log('📡 [DEBUG-COMPONENT-ClientNotesPanel] Supabase SELECT clientes — params:', { table: 'clientes', client_phone: clientPhone });
     supabase
       .from('clientes')
       .select('*')
       .eq('client_phone', clientPhone)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        console.log('📡 [DEBUG-COMPONENT-ClientNotesPanel] Supabase SELECT clientes — respuesta:', { data, error });
         setCliente(data);
         setNotas(data?.notas_operador || '');
         setLoading(false);
@@ -31,25 +36,31 @@ export default function ClientNotesPanel({ clientPhone }) {
   }, [clientPhone]);
 
   const handleGuardarNotas = async () => {
+    console.log('🖱️ [DEBUG-COMPONENT-ClientNotesPanel] handleGuardarNotas() — clientPhone:', clientPhone, 'notas:', notas);
     setSaving(true);
     setSaved(false);
+    console.log('📡 [DEBUG-COMPONENT-ClientNotesPanel] Supabase UPSERT clientes — params:', { table: 'clientes', client_phone: clientPhone, notas_operador: notas });
     const { error } = await supabase
       .from('clientes')
       .upsert(
         { client_phone: clientPhone, notas_operador: notas, updated_at: new Date().toISOString() },
         { onConflict: 'client_phone' }
       );
+    console.log('📡 [DEBUG-COMPONENT-ClientNotesPanel] Supabase UPSERT clientes — respuesta:', { error });
     setSaving(false);
     if (!error) {
+      console.log('✅ [DEBUG-COMPONENT-ClientNotesPanel] Notas guardadas correctamente');
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
+    } else {
+      console.error('❌ [DEBUG-COMPONENT-ClientNotesPanel] Error guardando notas:', error);
     }
   };
 
   return (
     <div className="p-6 border-t border-gray-200 bg-white">
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
+      <button
+        onClick={() => { const next = !isOpen; console.log('🔄 [DEBUG-COMPONENT-ClientNotesPanel] setIsOpen ->', next); setIsOpen(next); }}
         className="w-full flex items-center justify-between text-left mb-2 outline-none group"
       >
         <h3 className="text-md font-bold text-gray-900 flex items-center gap-2">
@@ -71,7 +82,7 @@ export default function ClientNotesPanel({ clientPhone }) {
             <div className="space-y-3">
               <textarea
                 value={notas}
-                onChange={(e) => setNotas(e.target.value)}
+                onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ClientNotesPanel] setNotas -> (longitud):', e.target.value.length); setNotas(e.target.value); }}
                 rows={4}
                 placeholder="Notas internas sobre la atención de este cliente (no las ve el cliente)..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm resize-none"

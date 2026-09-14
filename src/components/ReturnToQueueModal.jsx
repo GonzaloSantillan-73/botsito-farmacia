@@ -5,6 +5,8 @@ import { X, Loader2, PackageX, MessageSquare } from 'lucide-react';
 // espera": el operador tiene que elegir un motivo (no hay forma de cerrarlo
 // sin elegir uno) porque ese motivo se le informa al cliente por WhatsApp.
 export default function ReturnToQueueModal({ isOpen, onClose, onConfirm }) {
+  console.log('🔍 [DEBUG-COMPONENT-ReturnToQueueModal] Render — props:', { isOpen, onClose, onConfirm });
+
   const [motivo, setMotivo] = useState('');
   const [motivoTexto, setMotivoTexto] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -16,14 +18,19 @@ export default function ReturnToQueueModal({ isOpen, onClose, onConfirm }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('🖱️ [DEBUG-COMPONENT-ReturnToQueueModal] handleSubmit() — valores:', { motivo, motivoTexto, isFormValid });
     if (!isFormValid || isSubmitting) return;
 
     setIsSubmitting(true);
     setError('');
     try {
-      await onConfirm({ motivo, motivoTexto: motivo === 'otra' ? motivoTexto.trim() : '' });
+      const payload = { motivo, motivoTexto: motivo === 'otra' ? motivoTexto.trim() : '' };
+      console.log('🖱️ [DEBUG-COMPONENT-ReturnToQueueModal] Llamando a onConfirm() con:', payload);
+      await onConfirm(payload);
+      console.log('✅ [DEBUG-COMPONENT-ReturnToQueueModal] Chat devuelto a la cola correctamente');
       onClose();
     } catch (err) {
+      console.error('❌ [DEBUG-COMPONENT-ReturnToQueueModal] Error al devolver a la cola:', err);
       setError(err.message || 'No se pudo devolver el chat a la cola de espera.');
     } finally {
       setIsSubmitting(false);
@@ -36,7 +43,7 @@ export default function ReturnToQueueModal({ isOpen, onClose, onConfirm }) {
         <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50/50 shrink-0">
           <h3 className="font-bold text-gray-900">Devolver a la lista de espera</h3>
           <button
-            onClick={onClose}
+            onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ReturnToQueueModal] click botón cerrar (X)'); onClose(); }}
             disabled={isSubmitting}
             className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
           >
@@ -56,7 +63,7 @@ export default function ReturnToQueueModal({ isOpen, onClose, onConfirm }) {
                 name="motivo_devolucion"
                 value="stock"
                 checked={motivo === 'stock'}
-                onChange={(e) => setMotivo(e.target.value)}
+                onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ReturnToQueueModal] setMotivo ->', e.target.value); setMotivo(e.target.value); }}
                 className="w-4 h-4 text-amber-600 focus:ring-amber-500"
               />
               <div className="flex items-center gap-2">
@@ -71,7 +78,7 @@ export default function ReturnToQueueModal({ isOpen, onClose, onConfirm }) {
                 name="motivo_devolucion"
                 value="otra"
                 checked={motivo === 'otra'}
-                onChange={(e) => setMotivo(e.target.value)}
+                onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ReturnToQueueModal] setMotivo ->', e.target.value); setMotivo(e.target.value); }}
                 className="w-4 h-4 text-teal-600 focus:ring-teal-500"
               />
               <div className="flex items-center gap-2">
@@ -88,7 +95,7 @@ export default function ReturnToQueueModal({ isOpen, onClose, onConfirm }) {
               </label>
               <textarea
                 value={motivoTexto}
-                onChange={(e) => setMotivoTexto(e.target.value)}
+                onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ReturnToQueueModal] setMotivoTexto ->', e.target.value); setMotivoTexto(e.target.value); }}
                 placeholder="Escribí el motivo por el cual no podés continuar la atención..."
                 className="w-full p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none resize-none h-24"
                 required
@@ -101,7 +108,7 @@ export default function ReturnToQueueModal({ isOpen, onClose, onConfirm }) {
           <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-gray-100">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ReturnToQueueModal] click botón Cancelar'); onClose(); }}
               disabled={isSubmitting}
               className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
             >
