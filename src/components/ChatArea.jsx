@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag, Undo2, Hand } from 'lucide-react';
+import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag, Undo2, Hand, Mic } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
@@ -87,6 +87,16 @@ export default function ChatArea({
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
   const fileInputRef = useRef(null);
   const messagesContainerRef = useRef(null);
+
+  // Notas de voz grabadas desde el CRM: mismo circuito de subida que un
+  // archivo adjunto (Storage bucket 'media' + media_type 'audio'), sólo que
+  // el archivo se genera con MediaRecorder en vez de venir de un <input file>.
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingMs, setRecordingMs] = useState(0);
+  const mediaRecorderRef = useRef(null);
+  const recordedChunksRef = useRef([]);
+  const recordingStreamRef = useRef(null);
+  const recordingIntervalRef = useRef(null);
 
   // "Ver todo el chat": en vez de un modal aparte, antepone mensajes de
   // consultas anteriores del mismo cliente arriba de los de la conversación
@@ -335,33 +345,117 @@ export default function ChatArea({
     if (!res.ok) throw new Error(data.error || 'No se pudo devolver el chat a la cola de espera.');
   };
 
+  // A partir del MIME real del archivo, no de su nombre: antes esto sólo
+  // distinguía "imagen" de "todo lo demás", así que un video o un audio
+  // adjuntado por el operador se mandaba a Meta como si fuera un documento
+  // (WhatsApp lo rechaza/lo muestra roto) en vez de video/audio.
+  const mediaTypeFromMime = (mimeType) => {
+    if (mimeType.startsWith('image/')) return 'image';
+    if (mimeType.startsWith('video/')) return 'video';
+    if (mimeType.startsWith('audio/')) return 'audio';
+    return 'document';
+  };
+
+  // Sube un archivo o blob (adjunto del operador o nota de voz grabada) al
+  // mismo bucket de Storage que usa el webhook para la media entrante, y
+  // dispara el mensaje saliente con la URL pública resultante.
+  const uploadAndSendMedia = async (fileOrBlob, extension, mediaType) => {
+    setIsUploading(true);
+    const fileName = `${activeConversation.id}_${Date.now()}.${extension}`;
+
+    const { error } = await supabase.storage
+      .from('media')
+      .upload(fileName, fileOrBlob, fileOrBlob.type ? { contentType: fileOrBlob.type } : undefined);
+
+    setIsUploading(false);
+
+    if (error) {
+      console.error('Error subiendo el archivo:', error);
+      alert('No se pudo subir el archivo adjunto.');
+      return;
+    }
+
+    const { data: publicUrlData } = supabase.storage.from('media').getPublicUrl(fileName);
+    handleSendMessage(null, publicUrlData.publicUrl, mediaType);
+  };
+
   const handleSendClick = async () => {
     if (!messageInput.trim() && !selectedFile) return;
 
     if (selectedFile) {
-      setIsUploading(true);
       const fileExt = selectedFile.name.split('.').pop();
-      const fileName = `${activeConversation.id}_${Date.now()}.${fileExt}`;
-
-      const { data, error } = await supabase.storage
-        .from('media')
-        .upload(fileName, selectedFile);
-        
-      setIsUploading(false);
-
-      if (error) {
-        console.error('Error subiendo el archivo:', error);
-        return;
-      }
-
-      const { data: publicUrlData } = supabase.storage.from('media').getPublicUrl(fileName);
-      const mediaType = selectedFile.type.startsWith('image/') ? 'image' : 'document';
-
-      handleSendMessage(null, publicUrlData.publicUrl, mediaType);
+      const mediaType = mediaTypeFromMime(selectedFile.type || '');
+      await uploadAndSendMedia(selectedFile, fileExt, mediaType);
       setSelectedFile(null);
     } else {
       handleSendMessage();
     }
+  };
+
+  const stopRecordingStream = () => {
+    clearInterval(recordingIntervalRef.current);
+    recordingIntervalRef.current = null;
+    recordingStreamRef.current?.getTracks().forEach(track => track.stop());
+    recordingStreamRef.current = null;
+  };
+
+  // Cancela cualquier grabación en curso al cambiar de conversación o
+  // desmontar el componente: una nota de voz no debe terminar mandándose a
+  // un chat distinto del que estaba activo cuando se empezó a grabar.
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.onstop = null;
+        mediaRecorderRef.current.stop();
+      }
+      stopRecordingStream();
+      setIsRecording(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeConversation?.id]);
+
+  const handleStartRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordingStreamRef.current = stream;
+      recordedChunksRef.current = [];
+
+      const mimeType = ['audio/webm', 'audio/ogg'].find(t => window.MediaRecorder?.isTypeSupported?.(t)) || '';
+      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunksRef.current.push(e.data);
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+
+      setRecordingMs(0);
+      setIsRecording(true);
+      recordingIntervalRef.current = setInterval(() => setRecordingMs(ms => ms + 1000), 1000);
+    } catch (err) {
+      console.error('No se pudo acceder al micrófono:', err);
+      alert('No se pudo acceder al micrófono. Revisá los permisos del navegador para este sitio.');
+    }
+  };
+
+  // `shouldSend=false` descarta la grabación (botón de tacho); `true` la sube
+  // y la manda como mensaje de audio, igual que un archivo adjunto.
+  const handleStopRecording = (shouldSend) => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder) return;
+
+    recorder.onstop = async () => {
+      stopRecordingStream();
+      setIsRecording(false);
+
+      const blob = new Blob(recordedChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+      recordedChunksRef.current = [];
+
+      if (shouldSend && blob.size > 0) {
+        const extension = (recorder.mimeType || '').includes('ogg') ? 'ogg' : 'webm';
+        await uploadAndSendMedia(blob, extension, 'audio');
+      }
+    };
+    recorder.stop();
   };
 
   return (
@@ -604,31 +698,54 @@ export default function ChatArea({
               </div>
             )}
 
+            {isRecording ? (
+              <div className="flex items-center gap-3 bg-rose-50 border border-rose-200 rounded-xl p-2 pl-3">
+                <button
+                  onClick={() => handleStopRecording(false)}
+                  title="Cancelar grabación"
+                  className="p-2 text-rose-500 hover:bg-rose-100 rounded-full transition-colors shrink-0"
+                >
+                  <Trash2 size={18} />
+                </button>
+                <span className="flex-1 flex items-center gap-2 text-sm font-medium text-rose-700">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                  Grabando nota de voz... {formatCountdown(recordingMs)}
+                </span>
+                <button
+                  onClick={() => handleStopRecording(true)}
+                  disabled={isUploading}
+                  title="Enviar nota de voz"
+                  className="p-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center w-10 h-10 shrink-0"
+                >
+                  {isUploading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
+                </button>
+              </div>
+            ) : (
             <div className="flex items-end gap-2 bg-gray-50 border border-gray-300 rounded-xl p-2 focus-within:border-teal-500 focus-within:ring-1 focus-within:ring-teal-500 transition-shadow">
-              <button 
+              <button
                 onClick={() => setShowQuickResponses(!showQuickResponses)}
                 className={`p-2 transition-colors rounded-lg ${showQuickResponses ? 'bg-amber-100 text-amber-600' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50'}`}
                 title="Respuestas Rápidas (/)"
               >
                 <Zap size={20} />
               </button>
-              
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
+
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
                 onChange={handleFileChange}
-                accept="image/*,.pdf,.doc,.docx"
+                accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
               />
-              <button 
+              <button
                 onClick={() => fileInputRef.current?.click()}
                 className="p-2 text-gray-400 hover:text-teal-600 transition-colors"
                 title="Adjuntar archivo"
               >
                 <Paperclip size={20} />
               </button>
-              
-              <textarea 
+
+              <textarea
                 className="flex-1 bg-transparent max-h-32 min-h-[40px] resize-none outline-none py-2 px-2 text-sm scrollbar-thin"
                 placeholder="Escribe un mensaje... (Usa '/' para plantillas)"
                 value={messageInput}
@@ -640,14 +757,26 @@ export default function ChatArea({
                   }
                 }}
               />
-              <button 
-                onClick={handleSendClick}
-                disabled={(!messageInput.trim() && !selectedFile) || isUploading}
-                className="p-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center w-10 h-10"
-              >
-                {isUploading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
-              </button>
+              {messageInput.trim() || selectedFile ? (
+                <button
+                  onClick={handleSendClick}
+                  disabled={isUploading}
+                  className="p-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center w-10 h-10"
+                >
+                  {isUploading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
+                </button>
+              ) : (
+                <button
+                  onClick={handleStartRecording}
+                  disabled={isUploading}
+                  title="Grabar nota de voz"
+                  className="p-2 text-gray-400 hover:text-teal-600 transition-colors disabled:opacity-50 flex items-center justify-center w-10 h-10"
+                >
+                  <Mic size={20} />
+                </button>
+              )}
             </div>
+            )}
           </div>
           )}
 
@@ -672,6 +801,8 @@ export default function ChatArea({
             <MediaGalleryModal
               clientPhone={activeConversation.client_phone}
               clientName={activeConversation.real_name || activeConversation.client_name}
+              conversationId={activeConversation.id}
+              showFullHistory={showFullHistory}
               setModalImage={setModalImage}
               onClose={() => setShowGallery(false)}
             />

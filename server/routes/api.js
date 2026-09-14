@@ -519,7 +519,20 @@ router.post('/messages/send', requireAuth, blockAdminRole, async (req, res) => {
     console.log(`[API] ==> C. LLAMADA AL SERVICIO DE META (whatsapp.js)`);
     console.log(`[API] -> Enviando a sendWhatsAppMessage. Destino: ${cleanPhone}, Texto: "${finalMessage}", MediaUrl: ${media_url}, MediaType: ${media_type}`);
     
-    const metaResponse = await sendWhatsAppMessage(cleanPhone, finalMessage, media_url, media_type);
+    let metaResponse;
+    try {
+      metaResponse = await sendWhatsAppMessage(cleanPhone, finalMessage, media_url, media_type);
+    } catch (metaError) {
+      // Sin esto, un envío rechazado por Meta (ej. un adjunto con un
+      // media_type que la API no acepta) dejaba el mensaje trabado en
+      // estado 'pendiente' para siempre -el reloj de "enviando..." nunca
+      // se convertía en el ícono de error- porque el catch de más abajo
+      // solo responde el 500 y no toca la fila ya insertada.
+      if (dbMessageId) {
+        await supabase.from('messages').update({ estado: 'error' }).eq('id', dbMessageId);
+      }
+      throw metaError;
+    }
     console.log(`[API] ✅ Respuesta exitosa de Meta recibida en el endpoint:`, metaResponse);
     
     const wamid = metaResponse?.messages?.[0]?.id;

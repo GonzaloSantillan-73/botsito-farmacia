@@ -47,6 +47,9 @@ export const sendWhatsAppMessage = async (to, text, mediaUrl = null, mediaType =
     if (mediaUrl) {
         console.log(`[SERVICES/WHATSAPP] -> Condición: Se detectó mediaUrl. Preparando payload multimedia.`);
         const validTypes = ['image', 'document', 'audio', 'video'];
+        if (!validTypes.includes(mediaType)) {
+          console.warn(`[SERVICES/WHATSAPP] ⚠️ mediaType "${mediaType}" inválido/ausente, se hace fallback silencioso a "document" (Meta puede rechazar el archivo si no era realmente un documento).`);
+        }
         const type = validTypes.includes(mediaType) ? mediaType : 'document';
         console.log(`[SERVICES/WHATSAPP] -> Tipo de medio resuelto: ${type}`);
 

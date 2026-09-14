@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Images, FileText, Film, Link2, Loader2, Download, Eye } from 'lucide-react';
+import { X, Images, FileText, Film, Link2, Loader2, Download, Eye, Mic } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
@@ -16,6 +16,7 @@ const FILTERS = [
   { key: 'todo', label: 'Todo' },
   { key: 'image', label: 'Imágenes' },
   { key: 'video', label: 'Videos' },
+  { key: 'audio', label: 'Audios' },
   { key: 'documento', label: 'Documentos' },
   { key: 'link', label: 'Enlaces' }
 ];
@@ -25,6 +26,7 @@ const FILTERS = [
 const clasificar = (msg) => {
   if (msg.media_type === 'image') return 'image';
   if (msg.media_type === 'video') return 'video';
+  if (msg.media_type === 'audio') return 'audio';
   if (msg.media_type === 'document' || msg.media_type === 'pdf') return 'documento';
   if (msg.media_type === 'text' || !msg.media_type) {
     return URL_REGEX.test(msg.message_text || '') ? 'link' : null;
@@ -32,7 +34,12 @@ const clasificar = (msg) => {
   return null;
 };
 
-export default function MediaGalleryModal({ clientPhone, clientName, setModalImage, onClose }) {
+// `conversationId` + `showFullHistory` reflejan exactamente el mismo toggle
+// "Ver todo el chat" del header de ChatArea: por defecto la galería sólo
+// muestra lo compartido en la consulta activa, y si el operador ya activó el
+// historial completo, se amplía a todas las conversaciones del cliente sin
+// tener que cerrar y reabrir el modal.
+export default function MediaGalleryModal({ clientPhone, clientName, conversationId, showFullHistory = false, setModalImage, onClose }) {
   const soyStaff = !isAdminRole();
   const miSucursalId = getStaffSucursalId();
 
@@ -44,20 +51,26 @@ export default function MediaGalleryModal({ clientPhone, clientName, setModalIma
   useEffect(() => {
     const fetchMedia = async () => {
       setLoading(true);
-      const { data: convs, error: convError } = await supabase
-        .from('conversations')
-        .select('id, sucursal_id')
-        .eq('client_phone', clientPhone);
 
-      if (convError || !convs) {
-        setItems([]);
-        setLoading(false);
-        return;
+      let ids;
+      if (showFullHistory) {
+        const { data: convs, error: convError } = await supabase
+          .from('conversations')
+          .select('id, sucursal_id')
+          .eq('client_phone', clientPhone);
+
+        if (convError || !convs) {
+          setItems([]);
+          setLoading(false);
+          return;
+        }
+
+        ids = convs
+          .filter(c => !soyStaff || !c.sucursal_id || c.sucursal_id === miSucursalId)
+          .map(c => c.id);
+      } else {
+        ids = conversationId ? [conversationId] : [];
       }
-
-      const ids = convs
-        .filter(c => !soyStaff || !c.sucursal_id || c.sucursal_id === miSucursalId)
-        .map(c => c.id);
 
       if (ids.length === 0) {
         setItems([]);
@@ -80,7 +93,7 @@ export default function MediaGalleryModal({ clientPhone, clientName, setModalIma
     };
 
     if (clientPhone) fetchMedia();
-  }, [clientPhone]);
+  }, [clientPhone, conversationId, showFullHistory]);
 
   const visibles = useMemo(
     () => (filter === 'todo' ? items : items.filter(item => item.tipo === filter)),
@@ -88,7 +101,7 @@ export default function MediaGalleryModal({ clientPhone, clientName, setModalIma
   );
 
   const counts = useMemo(() => {
-    const c = { todo: items.length, image: 0, video: 0, documento: 0, link: 0 };
+    const c = { todo: items.length, image: 0, video: 0, audio: 0, documento: 0, link: 0 };
     items.forEach(item => { c[item.tipo] += 1; });
     return c;
   }, [items]);
@@ -110,6 +123,9 @@ export default function MediaGalleryModal({ clientPhone, clientName, setModalIma
           <div className="flex items-center gap-2 text-gray-800 font-bold">
             <Images size={20} className="text-teal-600" />
             Archivos compartidos{clientName ? ` — ${clientName}` : ''}
+            <span className="text-[11px] font-normal text-gray-400">
+              ({showFullHistory ? 'todo el historial' : 'esta consulta'})
+            </span>
           </div>
           <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
             <X size={18} />
@@ -199,6 +215,27 @@ function GalleryItem({ msg, tipo, onImageClick, onDownload, downloading }) {
         >
           {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
         </button>
+      </div>
+    );
+  }
+
+  if (tipo === 'audio') {
+    return (
+      <div className="rounded-lg border border-gray-200 bg-white p-3 flex flex-col gap-2 aspect-square">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="p-3 rounded-lg bg-teal-50 text-teal-500">
+            <Mic size={28} />
+          </div>
+        </div>
+        <audio controls preload="metadata" src={msg.media_url} className="w-full h-8" />
+        <button
+          onClick={onDownload}
+          disabled={downloading}
+          className="flex items-center justify-center gap-1 py-1.5 text-[11px] font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors disabled:opacity-50"
+        >
+          {downloading ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />} Bajar
+        </button>
+        <span className="text-[10px] text-gray-400 text-right">{fecha}</span>
       </div>
     );
   }

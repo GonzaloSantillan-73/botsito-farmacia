@@ -183,7 +183,7 @@ router.post('/', async (req, res) => {
           console.log(`[WEBHOOK] -> Entró al bloque de multimedia/documento`);
           const mediaId = waMessage[messageType].id;
           const nombreOriginal = messageType === 'document' ? (waMessage.document.filename || '') : '';
-          mediaTypeDB = messageType === 'image' ? 'image' : (messageType === 'document' ? 'document' : (messageType === 'video' ? 'video' : 'text'));
+          mediaTypeDB = messageType === 'image' ? 'image' : (messageType === 'document' ? 'document' : (messageType === 'video' ? 'video' : (messageType === 'audio' ? 'audio' : 'text')));
           console.log(`[WEBHOOK] -> Media ID: ${mediaId}, DB Type: ${mediaTypeDB}`);
 
           console.log(`[WEBHOOK] -> Solicitando descarga de media a whatsapp.js...`);
@@ -248,8 +248,12 @@ router.post('/', async (req, res) => {
               previewText = '🚫 Archivo PDF bloqueado por seguridad';
           } else {
               const caption = waMessage[messageType].caption || '';
-              messageText = caption || nombreOriginal || `[Archivo recibido: ${messageType}]`;
-              const etiquetaPreview = messageType === 'image' ? '📷 Imagen' : messageType === 'video' ? '🎥 Video' : (mediaTypeDB === 'pdf' ? '📄 PDF' : '📎 Archivo');
+              // Las notas de voz de WhatsApp no llevan caption ni nombre de
+              // archivo: dejamos message_text vacío para no mostrar un
+              // placeholder tipo "[Archivo recibido: audio]" debajo del
+              // reproductor en MessageBubble.
+              messageText = caption || (messageType === 'audio' ? '' : (nombreOriginal || `[Archivo recibido: ${messageType}]`));
+              const etiquetaPreview = messageType === 'image' ? '📷 Imagen' : messageType === 'video' ? '🎥 Video' : messageType === 'audio' ? '🎤 Nota de voz' : (mediaTypeDB === 'pdf' ? '📄 PDF' : '📎 Archivo');
               previewText = etiquetaPreview + (caption ? ` - ${caption}` : '');
           }
           console.log(`[WEBHOOK] -> Caption/Text final: "${messageText}"`);

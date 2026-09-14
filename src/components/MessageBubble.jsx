@@ -125,6 +125,19 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
             </div>
           </div>
         )}
+        {msg.media_url && msg.media_type === 'audio' && (
+          <div className="mb-2 flex items-center gap-1.5">
+            <audio controls preload="metadata" src={msg.media_url} className="max-w-full h-10" style={{ width: 230 }} />
+            <button
+              onClick={() => onDownload && onDownload(msg)}
+              disabled={downloadingId === msg.id}
+              title="Descargar audio"
+              className={`p-2 rounded-full transition-colors disabled:opacity-50 shrink-0 ${msg.sender_type === 'client' ? 'text-gray-500 hover:bg-gray-100' : 'text-white/90 hover:bg-white/10'}`}
+            >
+              {downloadingId === msg.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            </button>
+          </div>
+        )}
         {msg.media_type === 'blocked_pdf' && (
           <div className="mb-2 flex items-start gap-2 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700">
             <ShieldAlert size={18} className="shrink-0 mt-0.5" />
@@ -134,7 +147,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
             </div>
           </div>
         )}
-        {!location && msg.media_type !== 'pdf' && <p className="text-sm whitespace-pre-wrap">{renderWhatsAppText(msg.message_text)}</p>}
+        {!location && msg.media_type !== 'pdf' && msg.media_type !== 'audio' && <p className="text-sm whitespace-pre-wrap">{renderWhatsAppText(msg.message_text)}</p>}
         <div className="flex items-center justify-end gap-1 mt-1">
           <span className={`text-[10px] ${msg.sender_type === 'client' ? 'text-gray-400' : 'text-teal-100'}`}>
             {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
