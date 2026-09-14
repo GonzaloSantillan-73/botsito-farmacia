@@ -49,7 +49,7 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200 px-6 shrink-0">
+        <div className="flex border-b border-gray-200 px-6 shrink-0 overflow-x-auto scrollbar-thin">
           {TABS.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -57,7 +57,7 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors shrink-0 whitespace-nowrap ${
                   isActive ? 'border-teal-600 text-teal-700' : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -69,7 +69,7 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto scrollbar-thin p-8">
           <div className={anchoContenido}>
             {activeTab === 'chat' ? (
               <div className="space-y-3">

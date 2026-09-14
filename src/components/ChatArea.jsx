@@ -365,12 +365,12 @@ export default function ChatArea({
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-[#f0f2f5] relative">
+    <div className="flex-1 min-w-0 flex flex-col bg-[#f0f2f5] relative">
       {activeConversation ? (
         <>
           {/* Header */}
-          <div className="px-6 py-3 bg-white border-b border-gray-200 flex items-center justify-between shadow-sm z-10">
-            <div className="flex items-center gap-3">
+          <div className="px-6 py-3 bg-white border-b border-gray-200 flex flex-wrap items-center justify-between gap-y-2 shadow-sm z-10">
+            <div className="flex items-center gap-3 min-w-0">
               {onBackToHistory && (
                 <button
                   onClick={onBackToHistory}
@@ -380,12 +380,12 @@ export default function ChatArea({
                   <ArrowLeft size={20} />
                 </button>
               )}
-              <div>
-                <h2 className="font-bold text-gray-900">{activeConversation.real_name || activeConversation.client_name}</h2>
-                <p className="text-xs text-gray-500">{formatPhone(activeConversation.client_phone)}</p>
+              <div className="min-w-0">
+                <h2 className="font-bold text-gray-900 truncate">{activeConversation.real_name || activeConversation.client_name}</h2>
+                <p className="text-xs text-gray-500 truncate">{formatPhone(activeConversation.client_phone)}</p>
               </div>
               {SALE_STATUS_BADGES[activeConversation.sale_status] && (
-                <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap ${SALE_STATUS_BADGES[activeConversation.sale_status].className}`}>
+                <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 ${SALE_STATUS_BADGES[activeConversation.sale_status].className}`}>
                   {SALE_STATUS_BADGES[activeConversation.sale_status].label}
                 </span>
               )}
@@ -394,7 +394,7 @@ export default function ChatArea({
             {remainingMs !== null && (
               <div
                 title="Tiempo restante antes de que la consulta se cierre por inactividad"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold tabular-nums transition-colors ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold tabular-nums transition-colors shrink-0 ${
                   remainingMs <= 0
                     ? 'bg-gray-100 text-gray-500'
                     : remainingMs <= 30000
@@ -407,7 +407,7 @@ export default function ChatArea({
               </div>
             )}
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
                <button
                  onClick={() => setShowGallery(true)}
                  title="Ver imágenes, videos, documentos y enlaces compartidos con el cliente"
@@ -469,7 +469,7 @@ export default function ChatArea({
           <div
             ref={messagesContainerRef}
             onScroll={handleMessagesScroll}
-            className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#efeae2] scrollbar-hide"
+            className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#efeae2] scrollbar-thin"
           >
             {showFullHistory && loadingHistory && (
               <div className="flex items-center justify-center gap-2 py-2 text-gray-400 text-xs">
@@ -568,7 +568,7 @@ export default function ChatArea({
                     <Check size={16} className="opacity-0" />
                   </button>
                 </div>
-                <div className="max-h-60 overflow-y-auto">
+                <div className="max-h-60 overflow-y-auto scrollbar-thin">
                   {quickResponses.length === 0 ? (
                     <div className="p-3 text-xs text-gray-400 text-center">
                       No hay plantillas creadas. Agregalas desde Configuración.
@@ -629,7 +629,7 @@ export default function ChatArea({
               </button>
               
               <textarea 
-                className="flex-1 bg-transparent max-h-32 min-h-[40px] resize-none outline-none py-2 px-2 text-sm scrollbar-hide"
+                className="flex-1 bg-transparent max-h-32 min-h-[40px] resize-none outline-none py-2 px-2 text-sm scrollbar-thin"
                 placeholder="Escribe un mensaje... (Usa '/' para plantillas)"
                 value={messageInput}
                 onChange={handleInputChange}

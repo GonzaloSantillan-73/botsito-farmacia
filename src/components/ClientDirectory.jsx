@@ -133,7 +133,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto scrollbar-thin p-6">
           <div className={`grid ${soyStaff ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'} gap-3 mb-6`}>
             <div className="bg-white rounded-lg border border-gray-200 p-4">
               <div className="text-2xl font-bold text-gray-900">{selectedClient.total}</div>
@@ -231,7 +231,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto scrollbar-thin p-6">
         {vista === 'historial' ? (
           <ClientHistoryList
             conversations={historialConsultas}
@@ -245,7 +245,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
             <p className="text-sm">No se encontraron clientes.</p>
           </div>
         ) : (
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden overflow-x-auto">
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden overflow-x-auto scrollbar-thin">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs text-gray-500 uppercase">

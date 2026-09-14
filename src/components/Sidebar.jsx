@@ -226,7 +226,7 @@ export default function Sidebar({
   };
 
   return (
-    <div className="w-1/4 border-r border-gray-200 bg-white flex flex-col shadow-sm z-10">
+    <div className="w-1/4 min-w-[260px] max-w-sm border-r border-gray-200 bg-white flex flex-col shadow-sm z-10">
       <div className="p-4 border-b border-gray-200 space-y-4">
         <h1 className="text-xl font-bold text-teal-700 flex items-center justify-between gap-2">
           <span>CRM</span>
@@ -326,7 +326,7 @@ export default function Sidebar({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-hide">
+      <div className="flex-1 overflow-y-auto scrollbar-thin">
         {loading ? (
            <div className="p-6 space-y-4">
              {[1,2,3].map(i => (

@@ -41,7 +41,7 @@ export default function OrderHistoryPanel({ clientPhone, clientName, onClose }) 
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 bg-[#f8f9fa]">
+        <div className="flex-1 overflow-y-auto scrollbar-thin p-5 bg-[#f8f9fa]">
           {loading ? (
             <div className="flex items-center justify-center h-full text-gray-400 text-sm">Cargando...</div>
           ) : pedidos.length === 0 ? (

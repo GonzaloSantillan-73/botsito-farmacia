@@ -60,7 +60,7 @@ export default function ChatTraceModal({ conversation, onClose }) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-2.5 bg-[#f0f2f5]">
+        <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-2.5 bg-[#f0f2f5]">
           {loading ? (
             <div className="text-center text-gray-400 text-sm py-10">Cargando mensajes...</div>
           ) : messages.length === 0 ? (

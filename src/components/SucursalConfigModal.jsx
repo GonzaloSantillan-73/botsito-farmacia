@@ -136,7 +136,7 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto scrollbar-thin p-5 space-y-4">
           <div className="space-y-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Nombre de la sucursal</label>

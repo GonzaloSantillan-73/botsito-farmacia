@@ -601,7 +601,7 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 font-sans text-gray-800">
+    <div className="flex h-screen bg-gray-50 font-sans text-gray-800 overflow-x-auto">
 
       <Sidebar
         conversations={conversations}

@@ -45,7 +45,7 @@ export default function MetricsBucketModal({ title, filtros, onClose }) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5">
+        <div className="flex-1 overflow-y-auto scrollbar-thin p-5">
           {loading ? (
             <div className="text-sm text-gray-400 py-10 text-center">Cargando...</div>
           ) : error ? (

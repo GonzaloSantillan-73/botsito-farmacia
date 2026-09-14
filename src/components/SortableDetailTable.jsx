@@ -84,7 +84,7 @@ export default function SortableDetailTable({ rows, onRowClick, initialSortKey =
   }, [rows, sortKey, sortDir]);
 
   return (
-    <div className="overflow-x-auto border border-gray-200 rounded-xl">
+    <div className="overflow-x-auto scrollbar-thin border border-gray-200 rounded-xl">
       <table className="min-w-full text-sm">
         <thead>
           <tr className="bg-gray-50 border-b border-gray-200">

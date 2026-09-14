@@ -32,8 +32,8 @@ export default function ReturnToQueueModal({ isOpen, onClose, onConfirm }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-fade-in-up">
-        <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50/50">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden animate-fade-in-up">
+        <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50/50 shrink-0">
           <h3 className="font-bold text-gray-900">Devolver a la lista de espera</h3>
           <button
             onClick={onClose}
@@ -44,7 +44,7 @@ export default function ReturnToQueueModal({ isOpen, onClose, onConfirm }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto scrollbar-thin">
           <div className="text-sm text-gray-600 mb-2">
             El chat vuelve a la cola general para que cualquier sucursal lo pueda tomar. Elegí el motivo por el cual no podés continuar la atención (se le va a informar al cliente):
           </div>

@@ -79,19 +79,19 @@ export default function CloseChatModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-fade-in-up">
-        <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50/50">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden animate-fade-in-up">
+        <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50/50 shrink-0">
           <h3 className="font-bold text-gray-900">Finalizar Consulta</h3>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             disabled={isSubmitting}
             className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
           >
             <X size={20} />
           </button>
         </div>
-        
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto scrollbar-thin">
           <div className="text-sm text-gray-600 mb-2">
             Selecciona el resultado de esta gestión comercial antes de cerrar el chat:
           </div>

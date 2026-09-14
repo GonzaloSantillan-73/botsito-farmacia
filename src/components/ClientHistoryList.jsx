@@ -171,7 +171,7 @@ export default function ClientHistoryList({
         </div>
       </div>
 
-      <div className={fillHeight ? 'flex-1 overflow-y-auto' : ''}>
+      <div className={fillHeight ? 'flex-1 overflow-y-auto scrollbar-thin' : ''}>
         {loading ? (
           <div className="text-center text-gray-400 py-10 text-sm">Cargando historial...</div>
         ) : conversations.length === 0 ? (

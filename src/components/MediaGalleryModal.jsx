@@ -116,7 +116,7 @@ export default function MediaGalleryModal({ clientPhone, clientName, setModalIma
           </button>
         </div>
 
-        <div className="flex items-center gap-1.5 px-5 py-3 border-b border-gray-200 shrink-0 overflow-x-auto">
+        <div className="flex items-center gap-1.5 px-5 py-3 border-b border-gray-200 shrink-0 overflow-x-auto scrollbar-thin">
           {FILTERS.map(f => (
             <button
               key={f.key}
@@ -130,7 +130,7 @@ export default function MediaGalleryModal({ clientPhone, clientName, setModalIma
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 bg-gray-50">
+        <div className="flex-1 overflow-y-auto scrollbar-thin p-5 bg-gray-50">
           {loading ? (
             <div className="flex items-center justify-center h-full text-gray-400 text-sm gap-2">
               <Loader2 size={18} className="animate-spin" /> Cargando archivos...

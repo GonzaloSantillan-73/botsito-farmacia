@@ -312,8 +312,8 @@ export default function ValidationPanel({
   };
 
   return (
-    <div className="w-1/4 bg-white border-l border-gray-200 flex flex-col shadow-sm z-10 overflow-hidden">
-      <div className="flex-1 overflow-y-auto scrollbar-hide">
+    <div className="w-1/4 min-w-[280px] max-w-sm @container bg-white border-l border-gray-200 flex flex-col shadow-sm z-10 overflow-hidden">
+      <div className="flex-1 overflow-y-auto scrollbar-thin">
         {/* La validación de receta dispara un mensaje automático al cliente
             (aprobada/rechazada) por /api/messages/send, bloqueado para el
             admin en el backend: por eso queda fuera de su vista, igual que
@@ -608,7 +608,7 @@ export default function ValidationPanel({
                       onChange={e => setNewItemName(e.target.value)}
                     />
                   </div>
-                  <div className="col-span-4">
+                  <div className="col-span-6 @sm:col-span-4">
                     <div className="relative">
                       <span className="absolute left-2 top-2 text-gray-500 text-sm">$</span>
                       <input
@@ -620,7 +620,7 @@ export default function ValidationPanel({
                       />
                     </div>
                   </div>
-                  <div className="col-span-3">
+                  <div className="col-span-6 @sm:col-span-3">
                     <input
                       type="number"
                       min="1"
@@ -631,7 +631,7 @@ export default function ValidationPanel({
                       onChange={e => setNewItemQuantity(e.target.value)}
                     />
                   </div>
-                  <div className="col-span-3">
+                  <div className="col-span-8 @sm:col-span-3">
                     <select
                       className="w-full text-sm p-2 border border-gray-300 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none bg-white"
                       value={newItemDiscount}
@@ -642,8 +642,8 @@ export default function ValidationPanel({
                       ))}
                     </select>
                   </div>
-                  <div className="col-span-2">
-                    <button 
+                  <div className="col-span-4 @sm:col-span-2">
+                    <button
                       onClick={handleAddQuoteItem}
                       disabled={!newItemName || !newItemPrice}
                       className="w-full h-full flex items-center justify-center bg-teal-100 hover:bg-teal-200 text-teal-700 rounded transition-colors disabled:opacity-50"
@@ -655,7 +655,7 @@ export default function ValidationPanel({
 
                 {/* Lista de Items */}
                 {quoteItems.length > 0 && (
-                  <div className="mt-4 space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-hide">
+                  <div className="mt-4 space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-thin">
                     {quoteItems.map(item => (
                       <div key={item.id} className="flex items-center justify-between bg-gray-50 p-2 rounded border border-gray-100 text-sm">
                         <div className="flex-1 truncate pr-2">
