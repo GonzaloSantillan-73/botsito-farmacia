@@ -162,13 +162,41 @@ export default function ValidationPanel({
     setNewItemDiscount('0');
   };
 
-  // El Cotizador es estado local del panel, no de la conversación: si no lo
-  // vaciáramos acá, al cambiar de chat sin recargar la página quedarían
-  // pegados los ítems del cliente anterior sobre la conversación nueva.
+  // Evita que el efecto de "autoguardar" (más abajo) reguarde el mismo
+  // borrador que el efecto de "cargar" acaba de leer para esta conversación.
+  const skipNextDraftSaveRef = React.useRef(true);
+
+  // Los ítems del cotizador se guardan por conversación (cotizador_draft,
+  // ver conversations_cotizador_draft.sql) y se recargan acá: si el chat se
+  // devuelve a la cola de espera y otra sucursal lo toma, no tiene que volver
+  // a cargar los mismos productos desde cero. El costo de envío y el resto
+  // del formulario, en cambio, son siempre locales a esta apertura: cada
+  // sucursal tiene su propia tarifa/ubicación, así que arrancan en blanco.
   React.useEffect(() => {
-    resetCotizacion();
+    setQuoteItems(activeConversation?.cotizador_draft || []);
+    setShippingCost('');
+    setNewItemName('');
+    setNewItemPrice('');
+    setNewItemQuantity('1');
+    setNewItemDiscount('0');
+    skipNextDraftSaveRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConversation?.id]);
+
+  // Autoguarda el borrador del cotizador cada vez que cambia (agregar/quitar/
+  // editar cantidad, o limpiarlo), para que sobreviva a una devolución a la
+  // cola + toma por otra sucursal sin depender de que alguien se acuerde de
+  // guardarlo a mano en ese momento puntual.
+  React.useEffect(() => {
+    if (skipNextDraftSaveRef.current) {
+      skipNextDraftSaveRef.current = false;
+      return;
+    }
+    if (!activeConversation?.id) return;
+    supabase.from('conversations').update({ cotizador_draft: quoteItems }).eq('id', activeConversation.id)
+      .then(({ error }) => { if (error) console.error('Error guardando el borrador del cotizador:', error); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quoteItems]);
 
   // El cotizador NO se vacía solo al enviar (ver handleSendQuote): así el
   // operador puede seguir sumando o corrigiendo ítems del mismo pedido sin
