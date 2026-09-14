@@ -8,7 +8,7 @@ const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
 // vendedor puede editar el texto real desde Configuración) y persiste el
 // estado correspondiente en conversations.payment_status / order_status.
 const PASOS = [
-  { key: 'cbu', label: 'Enviar CBU/Alias', icon: CreditCard, campo: 'payment_status', valor: 'pendiente', shortcut: '/cbu' },
+  { key: 'alias', label: 'Enviar Alias', icon: CreditCard, campo: 'payment_status', valor: 'pendiente', shortcut: '/alias' },
   { key: 'pagook', label: 'Pago confirmado', icon: CheckCircle2, campo: 'payment_status', valor: 'confirmado', shortcut: '/pagook' },
   { key: 'armando', label: 'Armando pedido', icon: PackageSearch, campo: 'order_status', valor: 'armando', shortcut: '/armando' },
   { key: 'enviado', label: 'Envío realizado', icon: Truck, campo: 'order_status', valor: 'enviado', shortcut: '/enviado' }
@@ -18,7 +18,7 @@ const PASOS = [
 // alguna: sin esto, un panel recién instalado se quedaría sin poder enviar
 // nada hasta que las quick_replies existan.
 const MENSAJES_DEFAULT = {
-  '/cbu': 'Para confirmar tu pedido, podés transferir a nuestro CBU: 0000000000000000000000, Alias: FARMACIA.PAGO. Cuando hagas la transferencia, envianos el comprobante por acá. 🙂',
+  '/alias': 'Para confirmar tu pedido, podés transferir a nuestro Alias: FARMACIA.PAGO. Cuando hagas la transferencia, envianos el comprobante por acá. 🙂',
   '/pagook': '✅ ¡Recibimos tu pago! Ya estamos preparando tu pedido.',
   '/armando': '📦 Estamos armando tu pedido. Te avisamos apenas esté listo para el envío.',
   '/enviado': '🚚 ¡Tu pedido ya salió! En breve debería llegar a tu domicilio.',
@@ -35,14 +35,14 @@ const ENTREGA_BADGES = {
 };
 const BADGE_VACIO = { label: 'Sin iniciar', className: 'bg-gray-100 text-gray-500' };
 
-// Toda venta se cobra por transferencia (CBU/Alias): no hay otros medios de
+// Toda venta se cobra por transferencia (Alias): no hay otros medios de
 // pago para elegir, así que este valor queda fijo al confirmar el pago.
 const MEDIO_PAGO_UNICO = 'Transferencia';
 
 export default function OrderStatusPanel({ activeConversation, handleSendMessage, onPaymentConfirmed }) {
   const [plantillas, setPlantillas] = useState({});
   const [updatingKey, setUpdatingKey] = useState(null);
-  const [cbuAlias, setCbuAlias] = useState('');
+  const [alias, setAlias] = useState('');
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
@@ -59,10 +59,10 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
     supabase
       .from('app_settings')
       .select('value')
-      .eq('key', 'cbu_alias')
+      .eq('key', 'alias')
       .maybeSingle()
       .then(({ data }) => {
-        if (data) setCbuAlias(data.value);
+        if (data) setAlias(data.value);
       });
   }, []);
 
@@ -70,12 +70,12 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
 
   const textoDe = (shortcut) => {
     let baseText = plantillas[shortcut] || MENSAJES_DEFAULT[shortcut];
-    if (shortcut === '/cbu' && cbuAlias) {
-      if (baseText === MENSAJES_DEFAULT['/cbu']) {
-        return `Para confirmar tu pedido, podés transferir a nuestro CBU/Alias: *${cbuAlias}*. Cuando hagas la transferencia, envianos el comprobante por acá. 🙂`;
+    if (shortcut === '/alias' && alias) {
+      if (baseText === MENSAJES_DEFAULT['/alias']) {
+        return `Para confirmar tu pedido, podés transferir a nuestro Alias: *${alias}*. Cuando hagas la transferencia, envianos el comprobante por acá. 🙂`;
       }
-      if (baseText.includes('{{CBU}}')) {
-        return baseText.replace(/\{\{CBU\}\}/g, cbuAlias);
+      if (baseText.includes('{{ALIAS}}')) {
+        return baseText.replace(/\{\{ALIAS\}\}/g, alias);
       }
     }
     return baseText;

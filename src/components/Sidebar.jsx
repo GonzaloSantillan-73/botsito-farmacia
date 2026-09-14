@@ -238,13 +238,15 @@ export default function Sidebar({
             >
               <Users size={20} />
             </button>
-            <button
-              onClick={() => setShowSettings(true)}
-              title="Configuración"
-              className="p-2 text-gray-400 hover:text-teal-600 hover:bg-gray-100 rounded-full transition-colors"
-            >
-              <Settings size={20} />
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => setShowSettings(true)}
+                title="Configuración"
+                className="p-2 text-gray-400 hover:text-teal-600 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <Settings size={20} />
+              </button>
+            )}
             <button
               onClick={() => {
                 if (window.confirm('¿Cerrar sesión del CRM?')) onLogout?.();
@@ -414,7 +416,7 @@ export default function Sidebar({
         )}
       </div>
 
-      {showSettings && (
+      {showSettings && isAdmin && (
         <SettingsModal
           sessionTimeoutMs={sessionTimeoutMs}
           onSave={(newMs) => onSessionTimeoutChange && onSessionTimeoutChange(newMs)}

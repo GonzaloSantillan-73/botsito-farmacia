@@ -12,7 +12,7 @@ import NotificationsPanel from './NotificationsPanel';
 import MetricsPanel from './MetricsPanel';
 import ExportPanel from './ExportPanel';
 import AdminCredentialsPanel from './AdminCredentialsPanel';
-import CbuAliasPanel from './CbuAliasPanel';
+import AliasPanel from './AliasPanel';
 
 export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdmin = true }) {
   // "Métricas y Estadísticas", "Exportar Datos" y "Administración" son
@@ -110,8 +110,8 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
                 <Accordion title="Sucursales" icon={Store}>
                   <SucursalesPanel />
                 </Accordion>
-                <Accordion title="CBU / Alias Institucional" icon={CreditCard}>
-                  <CbuAliasPanel />
+                <Accordion title="Alias Institucional" icon={CreditCard}>
+                  <AliasPanel />
                 </Accordion>
               </div>
             ) : null}

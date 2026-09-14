@@ -17,7 +17,7 @@ GRANT ALL ON public.quick_replies TO anon, authenticated, service_role;
 -- Datos iniciales: las mismas plantillas que antes estaban hardcodeadas en el frontend.
 INSERT INTO public.quick_replies (shortcut, message_text) VALUES
     ('/receta', 'Por favor, recuerda que la foto de la receta debe incluir fecha, firma y diagnóstico legible.'),
-    ('/pago', 'Puedes transferir a nuestro CBU: 0000000000000000000000, Alias: FARMACIA.PAGO. Recuerda enviarnos el comprobante.'),
+    ('/pago', 'Puedes transferir a nuestro Alias: FARMACIA.PAGO. Recuerda enviarnos el comprobante.'),
     ('/sucursal', 'Nuestra sucursal se encuentra en Av. Principal 123. Los horarios de atención son de Lunes a Viernes de 9 a 20hs. Recuerda traer tu DNI o el de la persona que retira.'),
     ('/obrasocial', 'Para consultar cobertura, por favor envíanos una foto de tu credencial de obra social y el número de DNI del afiliado.')
 ON CONFLICT (shortcut) DO NOTHING;
