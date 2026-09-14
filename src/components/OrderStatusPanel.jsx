@@ -43,6 +43,7 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
   const [plantillas, setPlantillas] = useState({});
   const [updatingKey, setUpdatingKey] = useState(null);
   const [alias, setAlias] = useState('');
+  const [titular, setTitular] = useState('');
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
@@ -58,25 +59,28 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
 
     supabase
       .from('app_settings')
-      .select('value')
-      .eq('key', 'alias')
-      .maybeSingle()
+      .select('key, value')
+      .in('key', ['alias', 'titular'])
       .then(({ data }) => {
-        if (data) setAlias(data.value);
+        (data || []).forEach(({ key, value }) => {
+          if (key === 'alias') setAlias(value);
+          if (key === 'titular') setTitular(value);
+        });
       });
   }, []);
 
   if (!activeConversation || ESTADOS_CERRADOS.includes(activeConversation.status)) return null;
 
   const textoDe = (shortcut) => {
-    let baseText = plantillas[shortcut] || MENSAJES_DEFAULT[shortcut];
+    const baseText = plantillas[shortcut] || MENSAJES_DEFAULT[shortcut];
     if (shortcut === '/alias' && alias) {
       if (baseText === MENSAJES_DEFAULT['/alias']) {
-        return `Para confirmar tu pedido, podés transferir a nuestro Alias: *${alias}*. Cuando hagas la transferencia, envianos el comprobante por acá. 🙂`;
+        const titularTexto = titular ? ` a nombre de *${titular}*` : '';
+        return `Para confirmar tu pedido, podés transferir a nuestro Alias: *${alias}*${titularTexto}. Cuando hagas la transferencia, envianos el comprobante por acá. 🙂`;
       }
-      if (baseText.includes('{{ALIAS}}')) {
-        return baseText.replace(/\{\{ALIAS\}\}/g, alias);
-      }
+      return baseText
+        .replace(/\{\{ALIAS\}\}/g, alias)
+        .replace(/\{\{TITULAR\}\}/g, titular || '');
     }
     return baseText;
   };
