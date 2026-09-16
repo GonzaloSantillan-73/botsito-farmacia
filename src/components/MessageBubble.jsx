@@ -1,6 +1,61 @@
-import React from 'react';
-import { Image as ImageIcon, FileText, Loader2, MapPin, Download, Eye, ShieldAlert } from 'lucide-react';
+import React, { useState } from 'react';
+import { Image as ImageIcon, FileText, Loader2, MapPin, Download, Eye, ShieldAlert, Tag, Check, X } from 'lucide-react';
 import { renderWhatsAppText } from '../lib/whatsappFormat';
+
+const TAG_LABELS = {
+  comprobante: { texto: '🧾 Comprobante', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' },
+  receta: { texto: '📋 Receta', className: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-400' }
+};
+
+// Menú para marcar un adjunto del cliente como "el" comprobante de pago o
+// "la" receta de la conversación (ver server/routes/api.js PATCH
+// /messages/:id/tag). Sólo tiene sentido sobre archivos que mandó el
+// cliente, nunca sobre lo que le mandamos nosotros.
+function AttachmentTagControls({ msg, onTag, tagging }) {
+  const [open, setOpen] = useState(false);
+  const tagActual = TAG_LABELS[msg.tagged_as];
+
+  const elegir = (tag) => {
+    setOpen(false);
+    onTag && onTag(msg, tag);
+  };
+
+  return (
+    <div className="flex items-center gap-1.5 mt-1.5">
+      {tagActual && (
+        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap ${tagActual.className}`}>
+          {tagActual.texto}
+        </span>
+      )}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen(v => !v)}
+          disabled={tagging}
+          title="Marcar este archivo"
+          className="p-1 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+        >
+          {tagging ? <Loader2 size={13} className="animate-spin" /> : <Tag size={13} />}
+        </button>
+        {open && (
+          <div className="absolute z-10 bottom-full mb-1 left-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 w-48 text-xs">
+            <button onClick={() => elegir('comprobante')} className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
+              {msg.tagged_as === 'comprobante' && <Check size={12} className="text-emerald-600 shrink-0" />} Marcar como comprobante
+            </button>
+            <button onClick={() => elegir('receta')} className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
+              {msg.tagged_as === 'receta' && <Check size={12} className="text-sky-600 shrink-0" />} Marcar como receta
+            </button>
+            {msg.tagged_as && (
+              <button onClick={() => elegir(null)} className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-rose-600 dark:text-rose-400 border-t border-gray-100 dark:border-gray-700 mt-1 flex items-center gap-1.5">
+                <X size={12} className="shrink-0" /> Quitar marca
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // El webhook guarda las ubicaciones de WhatsApp como JSON en message_text
 // ({lat, lng, name?, address?}) con media_type 'location'. Acá lo parseamos
@@ -20,7 +75,7 @@ export const parseLocationMessage = (msg) => {
 // ubicación) exactamente igual en el chat en vivo, el historial completo del
 // cliente y la galería multimedia, para que los tres lugares se vean y se
 // comporten de forma idéntica.
-export default function MessageBubble({ msg, onImageClick, onDownload, downloadingId, statusIcon }) {
+export default function MessageBubble({ msg, onImageClick, onDownload, downloadingId, onTag, taggingId, statusIcon }) {
   const location = parseLocationMessage(msg);
   return (
     <div className={`flex ${msg.sender_type === 'client' ? 'justify-start' : 'justify-end'}`}>
@@ -148,6 +203,9 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
           </div>
         )}
         {!location && msg.media_type !== 'pdf' && msg.media_type !== 'audio' && <p className="text-sm whitespace-pre-wrap">{renderWhatsAppText(msg.message_text)}</p>}
+        {msg.sender_type === 'client' && msg.media_url && msg.media_type !== 'location' && (
+          <AttachmentTagControls msg={msg} onTag={onTag} tagging={taggingId === msg.id} />
+        )}
         <div className="flex items-center justify-end gap-1 mt-1">
           <span className={`text-[10px] ${msg.sender_type === 'client' ? 'text-gray-400' : 'text-teal-100'}`}>
             {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

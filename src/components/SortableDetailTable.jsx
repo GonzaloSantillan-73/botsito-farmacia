@@ -50,6 +50,16 @@ export const DETAIL_COLUMNS = [
         <FileText size={13} /> Ver
       </a>
     ) : '—'
+  },
+  {
+    key: 'receta',
+    label: 'Receta',
+    sortable: false,
+    render: r => r.recetaUrl ? (
+      <a href={r.recetaUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="inline-flex items-center gap-1 text-teal-600 dark:text-teal-400 hover:text-teal-800 hover:underline whitespace-nowrap">
+        <FileText size={13} /> Ver
+      </a>
+    ) : '—'
   }
 ];
 

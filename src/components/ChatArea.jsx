@@ -84,6 +84,7 @@ export default function ChatArea({
   const [showGallery, setShowGallery] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [downloadingId, setDownloadingId] = useState(null);
+  const [taggingId, setTaggingId] = useState(null);
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
   const fileInputRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -111,6 +112,27 @@ export default function ChatArea({
       alert('No se pudo descargar el archivo directamente. Se abrió en una pestaña nueva: desde ahí podés guardarlo con Ctrl+S o clic derecho → "Guardar como".');
     }
     setDownloadingId(null);
+  };
+
+  // Marca/desmarca un mensaje como comprobante o receta oficial de la
+  // conversación (ver server/routes/api.js PATCH /messages/:id/tag). No hace
+  // falta actualizar el estado local a mano: la fila llega actualizada por la
+  // suscripción Realtime de App.jsx (igual que el resto de los UPDATE de 'messages').
+  const handleTagMessage = async (msg, tag) => {
+    setTaggingId(msg.id);
+    try {
+      const res = await adminFetch(`/api/messages/${msg.id}/tag`, {
+        method: 'PATCH',
+        body: JSON.stringify({ tag })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo marcar el archivo.');
+    } catch (err) {
+      console.error('❌ [DEBUG-COMPONENT-ChatArea] Error marcando mensaje:', err);
+      alert(err.message || 'No se pudo marcar el archivo.');
+    } finally {
+      setTaggingId(null);
+    }
   };
 
   // Corre el contador en vivo, segundo a segundo.
@@ -558,6 +580,8 @@ export default function ChatArea({
                     onImageClick={(m) => { setModalImage(m.media_url); }}
                     onDownload={handleDownloadMedia}
                     downloadingId={downloadingId}
+                    onTag={handleTagMessage}
+                    taggingId={taggingId}
                     statusIcon={msg.sender_type !== 'client' && <MessageStatusIcon estado={msg.estado} />}
                   />
                 </React.Fragment>

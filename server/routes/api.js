@@ -168,7 +168,8 @@ router.get('/export/metrics', async (req, res) => {
       { label: 'Estado del Contacto', value: r => r.status },
       { label: 'Monto Total', value: r => (r.montoTotal != null ? r.montoTotal : '') },
       { label: 'Medio de Pago', value: r => r.medioPago },
-      { label: 'Comprobante', value: r => r.comprobanteUrl || '' }
+      { label: 'Comprobante', value: r => r.comprobanteUrl || '' },
+      { label: 'Receta', value: r => r.recetaUrl || '' }
     ];
 
     const summaryColumns = [
@@ -802,6 +803,59 @@ router.post('/messages/send', requireAuth, blockAdminRole, async (req, res) => {
       metaCode: error.metaCode,
       metaSubcode: error.metaSubcode
     });
+  }
+});
+
+const TAGS_VALIDOS = ['comprobante', 'receta'];
+
+// Marca (o desmarca, con tag: null) un mensaje con adjunto como "el"
+// comprobante o "la" receta oficial de su conversación. Sólo puede haber un
+// mensaje con cada tag por conversación: al marcar uno nuevo, se desmarca
+// automáticamente el anterior que tuviera el mismo tag.
+router.patch('/messages/:id/tag', requireAuth, blockAdminRole, async (req, res) => {
+  const { id } = req.params;
+  const { tag } = req.body;
+
+  if (tag !== null && !TAGS_VALIDOS.includes(tag)) {
+    return res.status(400).json({ error: `tag inválido: debe ser ${TAGS_VALIDOS.join(', ')} o null` });
+  }
+
+  try {
+    const { data: msg, error: msgError } = await supabase
+      .from('messages')
+      .select('id, conversation_id')
+      .eq('id', id)
+      .single();
+
+    if (msgError || !msg) {
+      return res.status(404).json({ error: 'Mensaje no encontrado' });
+    }
+
+    if (tag !== null) {
+      // Desmarca cualquier otro mensaje de esta conversación que ya tuviera
+      // este mismo tag, para que sólo exista un "comprobante" y una "receta"
+      // vigente a la vez.
+      await supabase
+        .from('messages')
+        .update({ tagged_as: null })
+        .eq('conversation_id', msg.conversation_id)
+        .eq('tagged_as', tag)
+        .neq('id', id);
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from('messages')
+      .update({ tagged_as: tag })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    res.status(200).json({ success: true, message: updated });
+  } catch (error) {
+    console.error('[API] ❌ ERROR marcando mensaje:', error);
+    res.status(500).json({ error: error.message || 'No se pudo marcar el mensaje.' });
   }
 });
 

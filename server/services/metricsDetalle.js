@@ -59,7 +59,7 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
         ? supabase.from('clientes').select('client_phone, nombre_completo').in('client_phone', phones)
         : Promise.resolve({ data: [] }),
       ids.length
-        ? supabase.from('messages').select('conversation_id, sender_type, media_type, media_url, created_at').in('conversation_id', ids).order('created_at', { ascending: true })
+        ? supabase.from('messages').select('conversation_id, sender_type, media_type, media_url, tagged_as, created_at').in('conversation_id', ids).order('created_at', { ascending: true })
         : Promise.resolve({ data: [] }),
       ids.length
         ? supabase.from('pedidos_confirmados').select('conversation_id, total').in('conversation_id', ids)
@@ -104,7 +104,9 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
         msgsCliente: 0,
         primeraRespuestaAgente: null,
         ultimoMensaje: null,
-        comprobanteUrl: null
+        comprobanteUrl: null,
+        comprobanteTagUrl: null,
+        recetaUrl: null
       });
 
       if (m.sender_type === 'client') acc.msgsCliente += 1;
@@ -112,14 +114,19 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
       acc.ultimoMensaje = m.created_at;
       // Los mensajes ya vienen ordenados ascendente, así que el último que
       // matchea queda como "el" comprobante (el más reciente que mandó).
+      // Esta heurística es sólo un fallback para conversaciones viejas: si
+      // alguien marcó explícitamente un mensaje como comprobante/receta
+      // (tagged_as), eso tiene prioridad (ver más abajo).
       if (m.sender_type === 'client' && m.media_url && MEDIA_COMPROBANTE.includes(m.media_type)) {
         acc.comprobanteUrl = m.media_url;
       }
+      if (m.tagged_as === 'comprobante' && m.media_url) acc.comprobanteTagUrl = m.media_url;
+      if (m.tagged_as === 'receta' && m.media_url) acc.recetaUrl = m.media_url;
     });
     console.log('🔍 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — porConversacion agregado, conversaciones con mensajes:', Object.keys(porConversacion).length);
 
     let resultado = conversations.map(c => {
-      const agg = porConversacion[c.id] || { msgsCliente: 0, primeraRespuestaAgente: null, ultimoMensaje: null, comprobanteUrl: null };
+      const agg = porConversacion[c.id] || { msgsCliente: 0, primeraRespuestaAgente: null, ultimoMensaje: null, comprobanteUrl: null, comprobanteTagUrl: null, recetaUrl: null };
       const inicioEspera = c.waiting_since || c.created_at;
 
       return {
@@ -136,7 +143,8 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
           ? montoPorConversacion[c.id]
           : (c.sale_amount != null ? Number(c.sale_amount) : null),
         medioPago: c.payment_method || '',
-        comprobanteUrl: agg.comprobanteUrl,
+        comprobanteUrl: agg.comprobanteTagUrl || agg.comprobanteUrl,
+        recetaUrl: agg.recetaUrl,
         msjsCliente: agg.msgsCliente,
         demoraInicialMs: msDiff(inicioEspera, agg.primeraRespuestaAgente),
         duracionTotalMs: msDiff(c.created_at, agg.ultimoMensaje || c.created_at),
