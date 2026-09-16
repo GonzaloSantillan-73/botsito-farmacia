@@ -109,7 +109,8 @@ export default function SchedulePanel() {
   useEffect(() => {
     console.log('🔍 [DEBUG-COMPONENT-SchedulePanel] useEffect ejecutado — deps: []');
     console.log('📡 [DEBUG-COMPONENT-SchedulePanel] Fetch GET /api/schedules');
-    fetch('/api/schedules')
+    const API_URL = import.meta.env.VITE_API_URL || '';
+    fetch(`${API_URL}/api/schedules`)
       .then(res => res.json())
       .then(data => {
         console.log('📡 [DEBUG-COMPONENT-SchedulePanel] Respuesta /api/schedules:', data);
@@ -128,7 +129,8 @@ export default function SchedulePanel() {
 
     try {
       console.log('📡 [DEBUG-COMPONENT-SchedulePanel] Fetch PUT /api/schedules — body:', { bot: botSchedule, human: humanSchedule });
-      const res = await fetch('/api/schedules', {
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${API_URL}/api/schedules`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bot: botSchedule, human: humanSchedule })

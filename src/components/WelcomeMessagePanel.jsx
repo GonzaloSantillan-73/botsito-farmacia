@@ -15,7 +15,8 @@ export default function WelcomeMessagePanel() {
   useEffect(() => {
     console.log('🔍 [DEBUG-COMPONENT-WelcomeMessagePanel] useEffect ejecutado — deps: []');
     console.log('📡 [DEBUG-COMPONENT-WelcomeMessagePanel] Fetch GET /api/welcome-message');
-    fetch('/api/welcome-message')
+    const API_URL = import.meta.env.VITE_API_URL || '';
+    fetch(`${API_URL}/api/welcome-message`)
       .then(res => res.json())
       .then(data => {
         console.log('📡 [DEBUG-COMPONENT-WelcomeMessagePanel] Respuesta /api/welcome-message:', data);
@@ -40,7 +41,8 @@ export default function WelcomeMessagePanel() {
 
     try {
       console.log('📡 [DEBUG-COMPONENT-WelcomeMessagePanel] Fetch PUT /api/welcome-message — body:', { welcomeMessage: mensaje });
-      const res = await fetch('/api/welcome-message', {
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${API_URL}/api/welcome-message`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ welcomeMessage: mensaje })

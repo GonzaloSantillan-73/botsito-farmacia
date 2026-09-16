@@ -81,7 +81,8 @@ function App() {
   useEffect(() => {
     console.log('🔍 [DEBUG-COMPONENT-App] useEffect[] (session-config) disparado — montaje inicial');
     console.log('📡 [DEBUG-COMPONENT-App] fetch GET /api/session-config — antes de la llamada');
-    fetch('/api/session-config')
+    const API_URL = import.meta.env.VITE_API_URL || '';
+    fetch(`${API_URL}/api/session-config`)
       .then(res => res.json())
       .then(data => {
         console.log('📡 [DEBUG-COMPONENT-App] fetch /api/session-config — respuesta', data);

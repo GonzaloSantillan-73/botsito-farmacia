@@ -95,9 +95,11 @@ export const clearAdminSession = () => {
 export const adminFetch = (url, options = {}) => {
   console.log('🔍 [DEBUG-LIB-ADMINAUTH] adminFetch() — url:', url, '| options:', options);
   const token = getAdminToken();
+  const API_URL = import.meta.env.VITE_API_URL || '';
+  const fullUrl = url.startsWith('/') ? `${API_URL}${url}` : url;
   console.log('🔍 [DEBUG-LIB-ADMINAUTH] adminFetch() — token presente:', !!token, '| primeros 8 caracteres:', token ? token.slice(0, 8) + '...' : null);
-  console.log('📡 [DEBUG-LIB-ADMINAUTH] adminFetch() — disparando fetch a:', url);
-  const promise = fetch(url, {
+  console.log('📡 [DEBUG-LIB-ADMINAUTH] adminFetch() — disparando fetch a:', fullUrl);
+  const promise = fetch(fullUrl, {
     ...options,
     headers: {
       ...(options.headers || {}),

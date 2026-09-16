@@ -62,7 +62,8 @@ export default function SessionTimeoutPanel({ sessionTimeoutMs, onSave }) {
 
     try {
       console.log('📡 [DEBUG-COMPONENT-SessionTimeoutPanel] Fetch PUT /api/session-config — body:', { sessionTimeoutMs: totalMs });
-      const res = await fetch('/api/session-config', {
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${API_URL}/api/session-config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionTimeoutMs: totalMs })

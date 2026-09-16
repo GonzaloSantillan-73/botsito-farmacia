@@ -13,7 +13,8 @@ export default function BotKeywordPanel() {
   useEffect(() => {
     console.log('🔍 [DEBUG-COMPONENT-BotKeywordPanel] useEffect ejecutado — deps: []');
     console.log('📡 [DEBUG-COMPONENT-BotKeywordPanel] Fetch GET /api/bot-config');
-    fetch('/api/bot-config')
+    const API_URL = import.meta.env.VITE_API_URL || '';
+    fetch(`${API_URL}/api/bot-config`)
       .then(res => res.json())
       .then(data => {
         console.log('📡 [DEBUG-COMPONENT-BotKeywordPanel] Respuesta /api/bot-config:', data);
@@ -38,7 +39,8 @@ export default function BotKeywordPanel() {
 
     try {
       console.log('📡 [DEBUG-COMPONENT-BotKeywordPanel] Fetch PUT /api/bot-config — body:', { botKeyword: keyword });
-      const res = await fetch('/api/bot-config', {
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${API_URL}/api/bot-config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ botKeyword: keyword })
