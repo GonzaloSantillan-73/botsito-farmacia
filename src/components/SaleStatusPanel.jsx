@@ -8,7 +8,6 @@ const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
 // ticket promedio). Marcarlo NUNCA toca `status`: el chat de WhatsApp sigue
 // abierto, el cliente puede seguir escribiéndole al bot o al operador.
 export default function SaleStatusPanel({ activeConversation, total }) {
-  console.log('🔍 [DEBUG-COMPONENT-SaleStatusPanel] Render — props:', { activeConversation, total });
 
   const [saving, setSaving] = useState(null);
 
@@ -17,19 +16,15 @@ export default function SaleStatusPanel({ activeConversation, total }) {
   const saleStatus = activeConversation.sale_status;
 
   const marcarVenta = async (status) => {
-    console.log('🖱️ [DEBUG-COMPONENT-SaleStatusPanel] marcarVenta() — estado anterior:', saleStatus, '-> nuevo estado:', status, 'total:', total);
     setSaving(status);
     const updates = { sale_status: status, sale_amount: status === 'concretada' ? (total || 0) : null };
-    console.log('📡 [DEBUG-COMPONENT-SaleStatusPanel] Supabase UPDATE conversations — params:', { table: 'conversations', id: activeConversation.id, updates });
     const { error } = await supabase
       .from('conversations')
       .update(updates)
       .eq('id', activeConversation.id);
-    console.log('📡 [DEBUG-COMPONENT-SaleStatusPanel] Supabase UPDATE conversations — respuesta:', { error });
     if (error) {
       console.error('❌ [DEBUG-COMPONENT-SaleStatusPanel] Error marcando venta:', error);
     } else {
-      console.log('✅ [DEBUG-COMPONENT-SaleStatusPanel] Venta marcada correctamente:', status);
     }
     setSaving(null);
   };

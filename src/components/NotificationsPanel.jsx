@@ -10,24 +10,20 @@ import {
 } from '../lib/notifications';
 
 export default function NotificationsPanel() {
-  console.log('🔍 [DEBUG-COMPONENT-NotificationsPanel] Render — props: (ninguna)');
 
   const [prefs, setPrefs] = useState(getNotificationPrefs());
   const [permissionError, setPermissionError] = useState('');
 
   const persist = (next) => {
-    console.log('🔄 [DEBUG-COMPONENT-NotificationsPanel] persist — nuevas prefs:', next);
     setPrefs(next);
     setNotificationPrefs(next);
   };
 
   const toggleSound = (value) => {
-    console.log('🖱️ [DEBUG-COMPONENT-NotificationsPanel] toggleSound — value:', value);
     persist({ ...prefs, sound: value });
   };
 
   const toggleDesktop = async (value) => {
-    console.log('🖱️ [DEBUG-COMPONENT-NotificationsPanel] toggleDesktop — value:', value);
     setPermissionError('');
 
     if (!value) {
@@ -36,14 +32,11 @@ export default function NotificationsPanel() {
     }
 
     const permission = await requestDesktopPermission();
-    console.log('🔍 [DEBUG-COMPONENT-NotificationsPanel] requestDesktopPermission resultado:', permission);
     if (permission === 'granted') {
       persist({ ...prefs, desktop: true });
     } else if (permission === 'unsupported') {
-      console.log('❌ [DEBUG-COMPONENT-NotificationsPanel] Notificaciones de escritorio no soportadas');
       setPermissionError('Tu navegador no soporta notificaciones de escritorio.');
     } else {
-      console.log('❌ [DEBUG-COMPONENT-NotificationsPanel] Permiso de notificación denegado');
       setPermissionError('Tenés que habilitar los permisos de notificación de este sitio en tu navegador.');
     }
   };
@@ -64,7 +57,7 @@ export default function NotificationsPanel() {
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {prefs.sound && (
-            <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-NotificationsPanel] Probar sonido click'); playAlertSound(); }} className="text-xs text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 font-medium">
+            <button onClick={() => { playAlertSound(); }} className="text-xs text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 font-medium">
               Probar
             </button>
           )}
@@ -83,7 +76,7 @@ export default function NotificationsPanel() {
         <div className="flex items-center gap-3 shrink-0">
           {prefs.desktop && (
             <button
-              onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-NotificationsPanel] Probar notificación de escritorio click'); showDesktopNotification('Prueba de notificación', 'Así se van a ver los avisos de nuevos chats.'); }}
+              onClick={() => { showDesktopNotification('Prueba de notificación', 'Así se van a ver los avisos de nuevos chats.'); }}
               className="text-xs text-teal-600 hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300 font-medium"
             >
               Probar

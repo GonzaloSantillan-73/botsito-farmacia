@@ -8,7 +8,6 @@ export default function CloseChatModal({
   activeConversation,
   onConfirmClose
 }) {
-  console.log('🔍 [DEBUG-COMPONENT-CloseChatModal] Render — props:', { isOpen, activeConversation, onClose, onConfirmClose });
 
   const [selectedStatus, setSelectedStatus] = useState('');
   const [reason, setReason] = useState('');
@@ -19,10 +18,8 @@ export default function CloseChatModal({
   // desde el Cotizador para esta conversación (si existe), para que el
   // operador no tenga que volver a tipearlo. Sigue siendo editable.
   React.useEffect(() => {
-    console.log('🔄 [DEBUG-COMPONENT-CloseChatModal] useEffect(precarga monto) disparado — deps:', { isOpen, activeConversationId: activeConversation?.id });
     if (!isOpen || !activeConversation?.id) return;
     setAmount('');
-    console.log('📡 [DEBUG-COMPONENT-CloseChatModal] Supabase SELECT pedidos_cotizados — params:', { table: 'pedidos_cotizados', conversation_id: activeConversation.id });
     supabase
       .from('pedidos_cotizados')
       .select('total')
@@ -31,7 +28,6 @@ export default function CloseChatModal({
       .limit(1)
       .maybeSingle()
       .then(({ data, error }) => {
-        console.log('📡 [DEBUG-COMPONENT-CloseChatModal] Supabase SELECT pedidos_cotizados — respuesta:', { data, error });
         if (data?.total != null) setAmount(String(data.total));
       });
   }, [isOpen, activeConversation?.id]);
@@ -40,7 +36,6 @@ export default function CloseChatModal({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('🖱️ [DEBUG-COMPONENT-CloseChatModal] handleSubmit() — valores actuales:', { selectedStatus, reason, amount, conversationId: activeConversation?.id });
 
     if (!selectedStatus) return;
     if (selectedStatus === 'otra' && !reason.trim()) return;
@@ -56,12 +51,10 @@ export default function CloseChatModal({
         sale_reason: selectedStatus === 'otra' ? reason.trim() : null
       };
 
-      console.log('📡 [DEBUG-COMPONENT-CloseChatModal] Supabase UPDATE conversations — params:', { table: 'conversations', id: activeConversation.id, updateData });
       const { error } = await supabase
         .from('conversations')
         .update(updateData)
         .eq('id', activeConversation.id);
-      console.log('📡 [DEBUG-COMPONENT-CloseChatModal] Supabase UPDATE conversations — respuesta:', { error });
 
       if (error) {
         console.error('❌ [DEBUG-COMPONENT-CloseChatModal] Error actualizando el resultado:', error);
@@ -70,9 +63,7 @@ export default function CloseChatModal({
       }
 
       // 2. Finalizar la conversación
-      console.log('🖱️ [DEBUG-COMPONENT-CloseChatModal] Llamando a onConfirmClose()');
       await onConfirmClose();
-      console.log('✅ [DEBUG-COMPONENT-CloseChatModal] Conversación finalizada correctamente');
 
       onClose();
     } catch (err) {
@@ -93,7 +84,7 @@ export default function CloseChatModal({
         <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50 shrink-0">
           <h3 className="font-bold text-gray-900 dark:text-gray-100">Finalizar Consulta</h3>
           <button
-            onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-CloseChatModal] click botón cerrar (X)'); onClose(); }}
+            onClick={() => { onClose(); }}
             disabled={isSubmitting}
             className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-50"
           >
@@ -113,7 +104,7 @@ export default function CloseChatModal({
                 name="sale_status"
                 value="concretada"
                 checked={selectedStatus === 'concretada'}
-                onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-CloseChatModal] setSelectedStatus ->', e.target.value); setSelectedStatus(e.target.value); }}
+                onChange={(e) => { setSelectedStatus(e.target.value); }}
                 className="w-4 h-4 text-emerald-600 focus:ring-emerald-500"
               />
               <div className="flex items-center gap-2">
@@ -132,7 +123,7 @@ export default function CloseChatModal({
                   min="0"
                   step="0.01"
                   value={amount}
-                  onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-CloseChatModal] setAmount ->', e.target.value); setAmount(e.target.value); }}
+                  onChange={(e) => { setAmount(e.target.value); }}
                   placeholder="0.00"
                   className="w-full p-3 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
                   required
@@ -146,7 +137,7 @@ export default function CloseChatModal({
                 name="sale_status"
                 value="no_concretada"
                 checked={selectedStatus === 'no_concretada'}
-                onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-CloseChatModal] setSelectedStatus ->', e.target.value); setSelectedStatus(e.target.value); }}
+                onChange={(e) => { setSelectedStatus(e.target.value); }}
                 className="w-4 h-4 text-rose-600 focus:ring-rose-500"
               />
               <div className="flex items-center gap-2">
@@ -161,7 +152,7 @@ export default function CloseChatModal({
                 name="sale_status"
                 value="otra"
                 checked={selectedStatus === 'otra'}
-                onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-CloseChatModal] setSelectedStatus ->', e.target.value); setSelectedStatus(e.target.value); }}
+                onChange={(e) => { setSelectedStatus(e.target.value); }}
                 className="w-4 h-4 text-amber-600 focus:ring-amber-500"
               />
               <div className="flex items-center gap-2">
@@ -178,7 +169,7 @@ export default function CloseChatModal({
               </label>
               <textarea
                 value={reason}
-                onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-CloseChatModal] setReason ->', e.target.value); setReason(e.target.value); }}
+                onChange={(e) => { setReason(e.target.value); }}
                 placeholder="Escribe el motivo por el cual estás cerrando la consulta..."
                 className="w-full p-3 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none resize-none h-24"
                 required
@@ -189,7 +180,7 @@ export default function CloseChatModal({
           <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
             <button
               type="button"
-              onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-CloseChatModal] click botón Cancelar'); onClose(); }}
+              onClick={() => { onClose(); }}
               disabled={isSubmitting}
               className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
             >

@@ -3,7 +3,6 @@ import { Loader2, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function AliasPanel() {
-  console.log('🔍 [DEBUG-COMPONENT-AliasPanel] Render — props: (ninguna)');
 
   const [alias, setAlias] = useState('');
   const [titular, setTitular] = useState('');
@@ -11,21 +10,16 @@ export default function AliasPanel() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('🔍 [DEBUG-COMPONENT-AliasPanel] useEffect ejecutado — deps: []');
-    console.log('📡 [DEBUG-COMPONENT-AliasPanel] Supabase select — tabla: app_settings, filtro: key in [alias, titular]');
     supabase
       .from('app_settings')
       .select('key, value')
       .in('key', ['alias', 'titular'])
       .then(({ data, error }) => {
-        console.log('📡 [DEBUG-COMPONENT-AliasPanel] Supabase select respuesta — data:', data, 'error:', error);
         (data || []).forEach(({ key, value }) => {
           if (key === 'alias') {
-            console.log('🔄 [DEBUG-COMPONENT-AliasPanel] Alias cargado desde Supabase:', value);
             setAlias(value);
           }
           if (key === 'titular') {
-            console.log('🔄 [DEBUG-COMPONENT-AliasPanel] Titular cargado desde Supabase:', value);
             setTitular(value);
           }
         });
@@ -34,22 +28,18 @@ export default function AliasPanel() {
   }, []);
 
   const handleSave = async () => {
-    console.log('🖱️ [DEBUG-COMPONENT-AliasPanel] handleSave — alias:', alias, 'titular:', titular);
     setSaving(true);
     const now = new Date().toISOString();
     const upsertPayload = [
       { key: 'alias', value: alias, updated_at: now },
       { key: 'titular', value: titular, updated_at: now }
     ];
-    console.log('📡 [DEBUG-COMPONENT-AliasPanel] Supabase upsert — tabla: app_settings, payload:', upsertPayload);
     const { data, error } = await supabase
       .from('app_settings')
       .upsert(upsertPayload, { onConflict: 'key' });
-    console.log('📡 [DEBUG-COMPONENT-AliasPanel] Supabase upsert respuesta — data:', data, 'error:', error);
     if (error) {
       console.error('❌ [DEBUG-COMPONENT-AliasPanel] Error guardando alias/titular:', error);
     } else {
-      console.log('✅ [DEBUG-COMPONENT-AliasPanel] Alias y titular guardados correctamente — alias:', alias, 'titular:', titular);
     }
     setSaving(false);
   };
@@ -67,7 +57,7 @@ export default function AliasPanel() {
           <input
             type="text"
             value={alias}
-            onChange={e => { console.log('🔄 [DEBUG-COMPONENT-AliasPanel] onChange alias — nuevo valor:', e.target.value); setAlias(e.target.value); }}
+            onChange={e => { setAlias(e.target.value); }}
             placeholder="Ej: MI.ALIAS"
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
           />
@@ -77,7 +67,7 @@ export default function AliasPanel() {
           <input
             type="text"
             value={titular}
-            onChange={e => { console.log('🔄 [DEBUG-COMPONENT-AliasPanel] onChange titular — nuevo valor:', e.target.value); setTitular(e.target.value); }}
+            onChange={e => { setTitular(e.target.value); }}
             placeholder="Ej: Farmacia Pago S.A."
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
           />

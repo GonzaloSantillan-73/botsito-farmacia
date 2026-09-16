@@ -7,6 +7,4 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Supabase variables are missing in .env')
 }
 
-console.log('🔍 [DEBUG-LIB-SUPABASE] creando cliente de Supabase — url:', supabaseUrl, '| anonKey presente:', !!supabaseAnonKey);
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
-console.log('✅ [DEBUG-LIB-SUPABASE] cliente de Supabase creado');

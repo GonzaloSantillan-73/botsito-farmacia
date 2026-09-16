@@ -41,7 +41,6 @@ const BADGE_VACIO = { label: 'Sin iniciar', className: 'bg-gray-100 text-gray-50
 const MEDIO_PAGO_UNICO = 'Transferencia';
 
 export default function OrderStatusPanel({ activeConversation, handleSendMessage, onPaymentConfirmed }) {
-  console.log('🔍 [DEBUG-COMPONENT-OrderStatusPanel] Render — props:', { activeConversation, handleSendMessage, onPaymentConfirmed });
 
   const [plantillas, setPlantillas] = useState({});
   const [updatingKey, setUpdatingKey] = useState(null);
@@ -50,12 +49,9 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    console.log('🔄 [DEBUG-COMPONENT-OrderStatusPanel] useEffect(carga plantillas + alias) disparado — deps: [] (solo al montar)');
-    console.log('📡 [DEBUG-COMPONENT-OrderStatusPanel] adminFetch GET /api/admin/quick-replies');
     adminFetch('/api/admin/quick-replies')
       .then(res => res.json())
       .then(data => {
-        console.log('📡 [DEBUG-COMPONENT-OrderStatusPanel] respuesta quick-replies —', data);
         const relevantes = (data.replies || []).filter(r => Object.keys(MENSAJES_DEFAULT).includes(r.shortcut));
         const map = {};
         // Primero las globales, después las propias de la sucursal (si las
@@ -65,13 +61,11 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
         setPlantillas(map);
       });
 
-    console.log('📡 [DEBUG-COMPONENT-OrderStatusPanel] Supabase SELECT app_settings — params:', { table: 'app_settings', keys: ['alias', 'titular'] });
     supabase
       .from('app_settings')
       .select('key, value')
       .in('key', ['alias', 'titular'])
       .then(({ data, error }) => {
-        console.log('📡 [DEBUG-COMPONENT-OrderStatusPanel] Supabase SELECT app_settings — respuesta:', { data, error });
         (data || []).forEach(({ key, value }) => {
           if (key === 'alias') setAlias(value);
           if (key === 'titular') setTitular(value);
@@ -96,21 +90,16 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
     } else {
       textoFinal = baseText;
     }
-    console.log('🔍 [DEBUG-COMPONENT-OrderStatusPanel] textoDe() — shortcut:', shortcut, 'alias:', alias, 'titular:', titular, '-> texto final:', textoFinal);
     return textoFinal;
   };
 
   const handlePaso = async (paso) => {
     const estadoAnterior = activeConversation[paso.campo];
-    console.log('🖱️ [DEBUG-COMPONENT-OrderStatusPanel] handlePaso() — paso:', paso.key, 'campo:', paso.campo, 'estado anterior:', estadoAnterior, '-> nuevo estado:', paso.valor);
     setUpdatingKey(paso.key);
     const updates = { [paso.campo]: paso.valor };
     if (paso.key === 'pagook') updates.payment_method = MEDIO_PAGO_UNICO;
-    console.log('📡 [DEBUG-COMPONENT-OrderStatusPanel] Supabase UPDATE conversations — params:', { table: 'conversations', id: activeConversation.id, updates });
     const { error } = await supabase.from('conversations').update(updates).eq('id', activeConversation.id);
-    console.log('📡 [DEBUG-COMPONENT-OrderStatusPanel] Supabase UPDATE conversations — respuesta:', { error });
     const textoPlantilla = textoDe(paso.shortcut);
-    console.log('✅ [DEBUG-COMPONENT-OrderStatusPanel] Enviando plantilla del paso', paso.key, '— texto:', textoPlantilla);
     handleSendMessage?.(textoPlantilla);
     // Al confirmar el pago se vacía el Cotizador: lo que compre el cliente
     // de acá en adelante es un pedido nuevo, no debe sumarse al ya cobrado.
@@ -120,19 +109,17 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
 
   const handleDemora = () => {
     const textoDemora = textoDe('/demora');
-    console.log('🖱️ [DEBUG-COMPONENT-OrderStatusPanel] handleDemora() — texto:', textoDemora);
     handleSendMessage?.(textoDemora);
   };
 
   const pagoBadge = PAGO_BADGES[activeConversation.payment_status] || BADGE_VACIO;
   const entregaBadge = ENTREGA_BADGES[activeConversation.order_status] || BADGE_VACIO;
 
-  console.log('🔍 [DEBUG-COMPONENT-OrderStatusPanel] Render pasos — cantidad:', PASOS.length, 'pagoBadge:', pagoBadge, 'entregaBadge:', entregaBadge);
 
   return (
     <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
       <button
-        onClick={() => { const next = !isOpen; console.log('🔄 [DEBUG-COMPONENT-OrderStatusPanel] setIsOpen ->', next); setIsOpen(next); }}
+        onClick={() => { const next = !isOpen; setIsOpen(next); }}
         className="w-full flex items-center justify-between text-left mb-2 outline-none group"
       >
         <h3 className="text-md font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">

@@ -9,7 +9,6 @@ import { adminFetch, isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
 // (sucursal_id null); una sucursal ve además las suyas propias, exclusivas
 // de ella, y las globales le llegan de sólo lectura (no puede tocarlas).
 export default function QuickRepliesPanel() {
-  console.log('🔍 [DEBUG-COMPONENT-QuickRepliesPanel] Render — props: (ninguna)');
 
   const soyAdmin = isAdminRole();
   const miSucursalId = getStaffSucursalId();
@@ -24,24 +23,20 @@ export default function QuickRepliesPanel() {
   const [error, setError] = useState('');
 
   const fetchReplies = async () => {
-    console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] adminFetch GET /api/admin/quick-replies');
     setLoading(true);
     const res = await adminFetch('/api/admin/quick-replies');
     const data = await res.json();
-    console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] respuesta — ok:', res.ok, 'data:', data);
     if (res.ok) setReplies(data.replies || []);
     setLoading(false);
   };
 
   useEffect(() => {
-    console.log('🔍 [DEBUG-COMPONENT-QuickRepliesPanel] useEffect ejecutado — deps: []');
     fetchReplies();
   }, []);
 
   const esPropia = (reply) => (soyAdmin ? reply.sucursal_id === null : reply.sucursal_id === miSucursalId);
 
   const startNew = () => {
-    console.log('🖱️ [DEBUG-COMPONENT-QuickRepliesPanel] startNew');
     setEditingId('new');
     setFormShortcut('/');
     setFormText('');
@@ -49,7 +44,6 @@ export default function QuickRepliesPanel() {
   };
 
   const startEdit = (reply) => {
-    console.log('🖱️ [DEBUG-COMPONENT-QuickRepliesPanel] startEdit — reply:', reply);
     setEditingId(reply.id);
     setFormShortcut(reply.shortcut);
     setFormText(reply.message_text);
@@ -57,7 +51,6 @@ export default function QuickRepliesPanel() {
   };
 
   const cancelEdit = () => {
-    console.log('🖱️ [DEBUG-COMPONENT-QuickRepliesPanel] cancelEdit');
     setEditingId(null);
     setFormShortcut('');
     setFormText('');
@@ -67,10 +60,8 @@ export default function QuickRepliesPanel() {
   const handleSave = async () => {
     const shortcut = formShortcut.trim();
     const text = formText.trim();
-    console.log('🖱️ [DEBUG-COMPONENT-QuickRepliesPanel] handleSave — editingId:', editingId, 'shortcut:', shortcut, 'text:', text);
 
     if (!shortcut || !text) {
-      console.log('❌ [DEBUG-COMPONENT-QuickRepliesPanel] Validación fallida — falta atajo o mensaje');
       setError('Completá el atajo y el mensaje.');
       return;
     }
@@ -81,13 +72,10 @@ export default function QuickRepliesPanel() {
     try {
       const url = editingId === 'new' ? '/api/admin/quick-replies' : `/api/admin/quick-replies/${editingId}`;
       const method = editingId === 'new' ? 'POST' : 'PUT';
-      console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] adminFetch', method, url);
       const res = await adminFetch(url, { method, body: JSON.stringify({ shortcut, messageText: text }) });
       const data = await res.json();
-      console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] respuesta —', method, '— ok:', res.ok, 'data:', data);
       if (!res.ok) throw new Error(data.error || 'Error guardando la plantilla.');
 
-      console.log('✅ [DEBUG-COMPONENT-QuickRepliesPanel] Plantilla guardada correctamente');
       cancelEdit();
       await fetchReplies();
     } catch (err) {
@@ -99,12 +87,9 @@ export default function QuickRepliesPanel() {
   };
 
   const handleDelete = async (id) => {
-    console.log('🖱️ [DEBUG-COMPONENT-QuickRepliesPanel] handleDelete — id:', id);
     if (!window.confirm('¿Eliminar esta plantilla? Esta acción no se puede deshacer.')) return;
-    console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] adminFetch DELETE /api/admin/quick-replies/:id', id);
     const res = await adminFetch(`/api/admin/quick-replies/${id}`, { method: 'DELETE' });
     const data = await res.json().catch(() => ({}));
-    console.log('📡 [DEBUG-COMPONENT-QuickRepliesPanel] respuesta DELETE — ok:', res.ok, 'data:', data);
     if (!res.ok) {
       alert(data.error || 'No se pudo eliminar la plantilla.');
       return;
@@ -137,7 +122,7 @@ export default function QuickRepliesPanel() {
             <input
               type="text"
               value={formShortcut}
-              onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-QuickRepliesPanel] onChange formShortcut — nuevo valor:', e.target.value); setFormShortcut(e.target.value); }}
+              onChange={(e) => { setFormShortcut(e.target.value); }}
               placeholder="/horarios"
               className="w-full max-w-xs px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
             />
@@ -146,7 +131,7 @@ export default function QuickRepliesPanel() {
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Mensaje</label>
             <textarea
               value={formText}
-              onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-QuickRepliesPanel] onChange formText — nuevo valor:', e.target.value); setFormText(e.target.value); }}
+              onChange={(e) => { setFormText(e.target.value); }}
               rows={3}
               placeholder="Texto que se va a insertar en el chat..."
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm resize-none"
@@ -178,7 +163,6 @@ export default function QuickRepliesPanel() {
         <div className="text-sm text-gray-400 py-8 text-center">Todavía no hay plantillas creadas.</div>
       ) : (
         <div className="space-y-2">
-          {console.log('🔍 [DEBUG-COMPONENT-QuickRepliesPanel] Renderizando lista de replies — cantidad:', replies.length)}
           {replies.map(reply => {
             const propia = esPropia(reply);
             return (

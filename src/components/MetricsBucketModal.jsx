@@ -11,7 +11,6 @@ import ChatTraceModal from './ChatTraceModal';
 // /api/metrics/detalle (startDate/endDate/saleStatus/rating/productRating/
 // derivada), que ya sabe interpretarlos (ver server/services/metricsDetalle.js).
 export default function MetricsBucketModal({ title, filtros, onClose }) {
-  console.log('🔍 [DEBUG-COMPONENT-MetricsBucketModal] Render — props:', { title, filtros });
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +18,6 @@ export default function MetricsBucketModal({ title, filtros, onClose }) {
   const [conversacionAbierta, setConversacionAbierta] = useState(null);
 
   useEffect(() => {
-    console.log('🔍 [DEBUG-COMPONENT-MetricsBucketModal] useEffect ejecutado — deps: [] filtros iniciales:', filtros);
     setLoading(true);
     setError('');
     const params = new URLSearchParams();
@@ -27,11 +25,9 @@ export default function MetricsBucketModal({ title, filtros, onClose }) {
       if (value !== undefined && value !== null && value !== '') params.set(key, value);
     });
 
-    console.log('📡 [DEBUG-COMPONENT-MetricsBucketModal] Fetch de metrics/detalle — params:', params.toString());
     adminFetch(`/api/metrics/detalle${params.toString() ? `?${params}` : ''}`)
       .then(res => res.json())
       .then(data => {
-        console.log('📡 [DEBUG-COMPONENT-MetricsBucketModal] Respuesta metrics/detalle — filas devueltas:', (data.filas || []).length);
         if (data.error) throw new Error(data.error);
         setRows(data.filas || []);
       })
@@ -48,13 +44,12 @@ export default function MetricsBucketModal({ title, filtros, onClose }) {
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-5xl h-[80vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
           <h3 className="font-bold text-gray-800 dark:text-gray-100">{title}</h3>
-          <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-MetricsBucketModal] onClose click'); onClose(); }} className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+          <button onClick={() => { onClose(); }} className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
             <X size={18} />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin p-5">
-          {console.log('🔍 [DEBUG-COMPONENT-MetricsBucketModal] Renderizando modal — cantidad de filas:', rows.length, 'loading:', loading, 'error:', error)}
           {loading ? (
             <div className="text-sm text-gray-400 py-10 text-center">Cargando...</div>
           ) : error ? (
@@ -64,7 +59,7 @@ export default function MetricsBucketModal({ title, filtros, onClose }) {
               No hay chats en esta categoría.
             </div>
           ) : (
-            <SortableDetailTable rows={rows} onRowClick={(row) => { console.log('🖱️ [DEBUG-COMPONENT-MetricsBucketModal] onRowClick — row:', row); setConversacionAbierta(row); }} />
+            <SortableDetailTable rows={rows} onRowClick={(row) => { setConversacionAbierta(row); }} />
           )}
         </div>
       </div>

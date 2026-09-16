@@ -40,17 +40,8 @@ const clasificar = (msg) => {
 // historial completo, se amplía a todas las conversaciones del cliente sin
 // tener que cerrar y reabrir el modal.
 export default function MediaGalleryModal({ clientPhone, clientName, conversationId, showFullHistory = false, setModalImage, onClose }) {
-  console.log('🔍 [DEBUG-COMPONENT-MediaGalleryModal] Render — props:', {
-    clientPhone,
-    clientName,
-    conversationId,
-    showFullHistory,
-    setModalImage: typeof setModalImage,
-    onClose: typeof onClose
-  });
   const soyStaff = !isAdminRole();
   const miSucursalId = getStaffSucursalId();
-  console.log('🔍 [DEBUG-COMPONENT-MediaGalleryModal] soyStaff:', soyStaff, 'miSucursalId:', miSucursalId);
 
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
@@ -58,25 +49,19 @@ export default function MediaGalleryModal({ clientPhone, clientName, conversatio
   const [downloadingId, setDownloadingId] = useState(null);
 
   useEffect(() => {
-    console.log('🔍 [DEBUG-COMPONENT-MediaGalleryModal] useEffect[clientPhone, conversationId, showFullHistory] disparado —', { clientPhone, conversationId, showFullHistory });
     const fetchMedia = async () => {
-      console.log('🔄 [DEBUG-COMPONENT-MediaGalleryModal] setLoading — nuevo valor: true');
       setLoading(true);
 
       let ids;
       if (showFullHistory) {
-        console.log('📡 [DEBUG-COMPONENT-MediaGalleryModal] Supabase SELECT conversations — params:', { client_phone: clientPhone });
         const { data: convs, error: convError } = await supabase
           .from('conversations')
           .select('id, sucursal_id')
           .eq('client_phone', clientPhone);
-        console.log('📡 [DEBUG-COMPONENT-MediaGalleryModal] Supabase SELECT conversations — respuesta:', { convs, convError });
 
         if (convError || !convs) {
           console.error('❌ [DEBUG-COMPONENT-MediaGalleryModal] Error en SELECT conversations:', convError);
-          console.log('🔄 [DEBUG-COMPONENT-MediaGalleryModal] setItems — nuevo valor: []');
           setItems([]);
-          console.log('🔄 [DEBUG-COMPONENT-MediaGalleryModal] setLoading — nuevo valor: false');
           setLoading(false);
           return;
         }
@@ -87,32 +72,25 @@ export default function MediaGalleryModal({ clientPhone, clientName, conversatio
       } else {
         ids = conversationId ? [conversationId] : [];
       }
-      console.log('🔍 [DEBUG-COMPONENT-MediaGalleryModal] ids de conversaciones a consultar:', ids);
 
       if (ids.length === 0) {
-        console.log('🔄 [DEBUG-COMPONENT-MediaGalleryModal] setItems — nuevo valor: [] (sin ids)');
         setItems([]);
-        console.log('🔄 [DEBUG-COMPONENT-MediaGalleryModal] setLoading — nuevo valor: false');
         setLoading(false);
         return;
       }
 
-      console.log('📡 [DEBUG-COMPONENT-MediaGalleryModal] Supabase SELECT messages — params:', { conversation_id_in: ids });
       const { data: msgs, error: msgError } = await supabase
         .from('messages')
         .select('*')
         .in('conversation_id', ids)
         .order('created_at', { ascending: false });
-      console.log('📡 [DEBUG-COMPONENT-MediaGalleryModal] Supabase SELECT messages — respuesta:', { cantidad: msgs?.length, msgError });
       if (msgError) console.error('❌ [DEBUG-COMPONENT-MediaGalleryModal] Error en SELECT messages:', msgError);
 
       const clasificados = (!msgError && msgs ? msgs : [])
         .map(msg => ({ msg, tipo: clasificar(msg) }))
         .filter(item => item.tipo !== null);
 
-      console.log('🔄 [DEBUG-COMPONENT-MediaGalleryModal] setItems — nuevo valor, cantidad:', clasificados.length);
       setItems(clasificados);
-      console.log('🔄 [DEBUG-COMPONENT-MediaGalleryModal] setLoading — nuevo valor: false');
       setLoading(false);
     };
 
@@ -120,33 +98,24 @@ export default function MediaGalleryModal({ clientPhone, clientName, conversatio
   }, [clientPhone, conversationId, showFullHistory]);
 
   const visibles = useMemo(() => {
-    console.log('🔍 [DEBUG-COMPONENT-MediaGalleryModal] useMemo[items, filter] recalculando visibles — filter:', filter, 'items.length:', items.length);
     return filter === 'todo' ? items : items.filter(item => item.tipo === filter);
   }, [items, filter]);
 
   const counts = useMemo(() => {
-    console.log('🔍 [DEBUG-COMPONENT-MediaGalleryModal] useMemo[items] recalculando counts — items.length:', items.length);
     const c = { todo: items.length, image: 0, video: 0, audio: 0, documento: 0, link: 0 };
     items.forEach(item => { c[item.tipo] += 1; });
-    console.log('🔍 [DEBUG-COMPONENT-MediaGalleryModal] counts calculados:', c);
     return c;
   }, [items]);
 
   const handleDownload = async (msg) => {
-    console.log('🖱️ [DEBUG-COMPONENT-MediaGalleryModal] handleDownload() — msg.id:', msg.id, 'media_url:', msg.media_url);
-    console.log('🔄 [DEBUG-COMPONENT-MediaGalleryModal] setDownloadingId — nuevo valor:', msg.id);
     setDownloadingId(msg.id);
     const nombre = esNombreArchivoValido(msg.message_text) ? msg.message_text.trim() : filenameFromUrl(msg.media_url);
-    console.log('📡 [DEBUG-COMPONENT-MediaGalleryModal] downloadFile() — params:', { media_url: msg.media_url, nombre });
     const resultado = await downloadFile(msg.media_url, nombre);
-    console.log('📡 [DEBUG-COMPONENT-MediaGalleryModal] downloadFile() — respuesta:', resultado);
     if (!resultado.ok) {
       console.error('❌ [DEBUG-COMPONENT-MediaGalleryModal] downloadFile() falló para msg.id:', msg.id);
       alert('No se pudo descargar el archivo directamente. Se abrió en una pestaña nueva: desde ahí podés guardarlo con Ctrl+S o clic derecho → "Guardar como".');
     } else {
-      console.log('✅ [DEBUG-COMPONENT-MediaGalleryModal] Descarga exitosa — msg.id:', msg.id);
     }
-    console.log('🔄 [DEBUG-COMPONENT-MediaGalleryModal] setDownloadingId — nuevo valor: null');
     setDownloadingId(null);
   };
 
@@ -161,17 +130,16 @@ export default function MediaGalleryModal({ clientPhone, clientName, conversatio
               ({showFullHistory ? 'todo el historial' : 'esta consulta'})
             </span>
           </div>
-          <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-MediaGalleryModal] onClick cerrar modal'); onClose(); }} className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+          <button onClick={() => { onClose(); }} className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
             <X size={18} />
           </button>
         </div>
 
         <div className="flex items-center gap-1.5 px-5 py-3 border-b border-gray-200 dark:border-gray-700 shrink-0 overflow-x-auto scrollbar-thin">
-          {console.log('🔍 [DEBUG-COMPONENT-MediaGalleryModal] .map() FILTERS — cantidad:', FILTERS.length, FILTERS) || null}
           {FILTERS.map(f => (
             <button
               key={f.key}
-              onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-MediaGalleryModal] onClick filtro —', f.key); console.log('🔄 [DEBUG-COMPONENT-MediaGalleryModal] setFilter — nuevo valor:', f.key); setFilter(f.key); }}
+              onClick={() => { setFilter(f.key); }}
               className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
                 filter === f.key ? 'bg-teal-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
               }`}
@@ -192,13 +160,12 @@ export default function MediaGalleryModal({ clientPhone, clientName, conversatio
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {console.log('🔍 [DEBUG-COMPONENT-MediaGalleryModal] .map() visibles — cantidad:', visibles.length) || null}
               {visibles.map(({ msg, tipo }) => (
                 <GalleryItem
                   key={msg.id}
                   msg={msg}
                   tipo={tipo}
-                  onImageClick={() => { console.log('🖱️ [DEBUG-COMPONENT-MediaGalleryModal] onImageClick — msg.id:', msg.id); setModalImage(msg.media_url); }}
+                  onImageClick={() => { setModalImage(msg.media_url); }}
                   onDownload={() => handleDownload(msg)}
                   downloading={downloadingId === msg.id}
                 />
@@ -213,7 +180,6 @@ export default function MediaGalleryModal({ clientPhone, clientName, conversatio
 }
 
 function GalleryItem({ msg, tipo, onImageClick, onDownload, downloading }) {
-  console.log('🔍 [DEBUG-COMPONENT-MediaGalleryModal] GalleryItem Render — props:', { msg, tipo, downloading, onImageClick: typeof onImageClick, onDownload: typeof onDownload });
   const fecha = new Date(msg.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
 
   if (tipo === 'image') {
@@ -223,7 +189,7 @@ function GalleryItem({ msg, tipo, onImageClick, onDownload, downloading }) {
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors" />
         <span className="absolute bottom-1 right-1.5 text-[10px] font-medium text-white bg-black/50 px-1.5 py-0.5 rounded">{fecha}</span>
         <button
-          onClick={(e) => { e.stopPropagation(); console.log('🖱️ [DEBUG-COMPONENT-MediaGalleryModal] onClick descargar imagen (galería) — msg.id:', msg.id); onDownload(); }}
+          onClick={(e) => { e.stopPropagation(); onDownload(); }}
           disabled={downloading}
           title="Descargar imagen"
           className="absolute top-1.5 right-1.5 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-50"
@@ -245,7 +211,7 @@ function GalleryItem({ msg, tipo, onImageClick, onDownload, downloading }) {
         </div>
         <span className="absolute bottom-1 right-1.5 text-[10px] font-medium text-white bg-black/50 px-1.5 py-0.5 rounded">{fecha}</span>
         <button
-          onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-MediaGalleryModal] onClick descargar video (galería) — msg.id:', msg.id); onDownload(); }}
+          onClick={() => { onDownload(); }}
           disabled={downloading}
           title="Descargar video"
           className="absolute top-1.5 right-1.5 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors opacity-0 group-hover:opacity-100 disabled:opacity-50"
@@ -266,7 +232,7 @@ function GalleryItem({ msg, tipo, onImageClick, onDownload, downloading }) {
         </div>
         <audio controls preload="metadata" src={msg.media_url} className="w-full h-8" />
         <button
-          onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-MediaGalleryModal] onClick descargar audio (galería) — msg.id:', msg.id); onDownload(); }}
+          onClick={() => { onDownload(); }}
           disabled={downloading}
           className="flex items-center justify-center gap-1 py-1.5 text-[11px] font-medium rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
         >
@@ -293,13 +259,12 @@ function GalleryItem({ msg, tipo, onImageClick, onDownload, downloading }) {
             href={msg.media_url}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => console.log('🖱️ [DEBUG-COMPONENT-MediaGalleryModal] onClick ver documento (galería) — msg.id:', msg.id)}
             className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] font-medium rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
           >
             <Eye size={12} /> Ver
           </a>
           <button
-            onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-MediaGalleryModal] onClick descargar documento (galería) — msg.id:', msg.id); onDownload(); }}
+            onClick={() => { onDownload(); }}
             disabled={downloading}
             className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[11px] font-medium rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
           >
@@ -318,7 +283,6 @@ function GalleryItem({ msg, tipo, onImageClick, onDownload, downloading }) {
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      onClick={() => console.log('🖱️ [DEBUG-COMPONENT-MediaGalleryModal] onClick abrir enlace (galería) — msg.id:', msg.id, 'url:', url)}
       className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 flex flex-col gap-2 aspect-square hover:border-teal-400 dark:hover:border-teal-600 transition-colors"
     >
       <div className="flex-1 flex items-center justify-center">

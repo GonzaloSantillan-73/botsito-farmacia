@@ -16,7 +16,6 @@ import AliasPanel from './AliasPanel';
 import ThemeToggle from './ThemeToggle';
 
 export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdmin = true }) {
-  console.log('🔍 [DEBUG-COMPONENT-SettingsModal] Render — props:', { sessionTimeoutMs, isAdmin, onSave, onClose });
 
   // Una cuenta de sucursal sólo tiene acceso a "Apariencia" (modo oscuro,
   // ver [[dark-mode-por-cuenta]]) y a sus propias Respuestas Rápidas: el
@@ -34,7 +33,6 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
     { id: 'respuestas', label: 'Mis Respuestas Rápidas', icon: Zap }
   ];
 
-  console.log('🔍 [DEBUG-COMPONENT-SettingsModal] Pestañas disponibles — cantidad:', TABS.length, 'isAdmin:', isAdmin, 'tabs:', TABS.map(t => t.id));
 
   const [activeTab, setActiveTab] = useState(isAdmin ? 'chat' : 'apariencia');
 
@@ -44,12 +42,10 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
 
   const handleTabClick = (tabId) => {
     const esAdminOnly = ['chat', 'metrics', 'export', 'admin'].includes(tabId);
-    console.log('🖱️ [DEBUG-COMPONENT-SettingsModal] handleTabClick() — pestaña anterior:', activeTab, '-> nueva pestaña:', tabId, '— requiere admin:', esAdminOnly, '— usuario es admin:', isAdmin);
     if (esAdminOnly && !isAdmin) {
       console.error('❌ [DEBUG-COMPONENT-SettingsModal] Intento de abrir pestaña admin-only sin ser admin:', tabId);
       return;
     }
-    console.log('🔄 [DEBUG-COMPONENT-SettingsModal] setActiveTab ->', tabId);
     setActiveTab(tabId);
   };
 
@@ -62,7 +58,7 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
             <Settings size={20} className="text-teal-600 dark:text-teal-400" />
             Configuración
           </div>
-          <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-SettingsModal] click botón cerrar (X)'); onClose(); }} className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+          <button onClick={() => { onClose(); }} className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
             <X size={22} />
           </button>
         </div>

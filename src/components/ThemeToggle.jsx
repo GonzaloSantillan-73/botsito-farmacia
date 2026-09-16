@@ -10,7 +10,6 @@ import { getTheme, applyTheme, adminFetch } from '../lib/adminAuth';
 // mostrador — cada login trae y aplica su propio theme (ver setAdminSession
 // en src/lib/adminAuth.js).
 export default function ThemeToggle() {
-  console.log('🔍 [DEBUG-COMPONENT-ThemeToggle] Render — props: (ninguna)');
 
   const [theme, setThemeState] = useState(getTheme());
   const [saving, setSaving] = useState(false);
@@ -18,7 +17,6 @@ export default function ThemeToggle() {
 
   const toggle = async (checked) => {
     const nuevoTema = checked ? 'dark' : 'light';
-    console.log('🖱️ [DEBUG-COMPONENT-ThemeToggle] toggle — nuevo tema:', nuevoTema);
     setError('');
     setThemeState(nuevoTema);
     applyTheme(nuevoTema);
@@ -28,7 +26,6 @@ export default function ThemeToggle() {
       const res = await adminFetch('/api/admin/theme', { method: 'PUT', body: JSON.stringify({ theme: nuevoTema }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'No se pudo guardar la preferencia de tema.');
-      console.log('✅ [DEBUG-COMPONENT-ThemeToggle] tema guardado en la cuenta:', nuevoTema);
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-ThemeToggle] Error guardando el tema:', err);
       setError('No se pudo guardar la preferencia. Se aplicó igual, pero puede no persistir la próxima vez que inicies sesión.');

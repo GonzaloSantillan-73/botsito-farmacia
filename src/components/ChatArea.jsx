@@ -75,7 +75,6 @@ export default function ChatArea({
   sessionTimeoutMs,
   onBackToHistory
 }) {
-  console.log('🔍 [DEBUG-COMPONENT-ChatArea] Render — props:', { activeConversation, messages, messageInput, sessionTimeoutMs, onBackToHistory, handleSendMessage, handleDeleteConversation, setModalImage });
   const [showQuickResponses, setShowQuickResponses] = useState(false);
   const [quickResponses, setQuickResponses] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -105,25 +104,19 @@ export default function ChatArea({
   const esNombreArchivoValido = (texto) => /\.[a-z0-9]{2,5}$/i.test((texto || '').trim());
 
   const handleDownloadMedia = async (msg) => {
-    console.log('🖱️ [DEBUG-COMPONENT-ChatArea] handleDownloadMedia() — msg.id:', msg?.id, 'media_url:', msg?.media_url);
-    console.log('🔄 [DEBUG-COMPONENT-ChatArea] setDownloadingId ->', msg.id);
     setDownloadingId(msg.id);
     const nombre = esNombreArchivoValido(msg.message_text) ? msg.message_text.trim() : filenameFromUrl(msg.media_url);
     const resultado = await downloadFile(msg.media_url, nombre);
-    console.log('✅ [DEBUG-COMPONENT-ChatArea] resultado downloadFile():', resultado);
     if (!resultado.ok) {
       alert('No se pudo descargar el archivo directamente. Se abrió en una pestaña nueva: desde ahí podés guardarlo con Ctrl+S o clic derecho → "Guardar como".');
     }
-    console.log('🔄 [DEBUG-COMPONENT-ChatArea] setDownloadingId -> null');
     setDownloadingId(null);
   };
 
   // Corre el contador en vivo, segundo a segundo.
   useEffect(() => {
-    console.log('🔍 [DEBUG-COMPONENT-ChatArea] useEffect (contador now) disparado — mount');
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => {
-      console.log('🔍 [DEBUG-COMPONENT-ChatArea] cleanup useEffect (contador now)');
       clearInterval(interval);
     };
   }, []);
@@ -131,15 +124,11 @@ export default function ChatArea({
   // Trae las plantillas cada vez que se abre el menú, para reflejar cambios
   // hechos en Configuración sin necesidad de recargar la página.
   useEffect(() => {
-    console.log('🔍 [DEBUG-COMPONENT-ChatArea] useEffect (quick_replies) disparado — showQuickResponses:', showQuickResponses);
     if (!showQuickResponses) return;
-    console.log('📡 [DEBUG-COMPONENT-ChatArea] antes de adminFetch GET /api/admin/quick-replies');
     adminFetch('/api/admin/quick-replies')
       .then(res => res.json())
       .then(data => {
-        console.log('📡 [DEBUG-COMPONENT-ChatArea] respuesta quick-replies — data:', data);
         if (data.replies) {
-          console.log('🔄 [DEBUG-COMPONENT-ChatArea] setQuickResponses ->', data.replies);
           setQuickResponses(data.replies);
         } else {
           console.error('❌ [DEBUG-COMPONENT-ChatArea] error cargando quick_replies:', data.error);
@@ -150,14 +139,9 @@ export default function ChatArea({
   // Al cambiar de conversación activa, la vista de historial completo (y lo
   // ya cargado) deja de tener sentido: arranca de nuevo, cerrada.
   useEffect(() => {
-    console.log('🔍 [DEBUG-COMPONENT-ChatArea] useEffect (reset historial) disparado — activeConversation?.id:', activeConversation?.id);
-    console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowFullHistory -> false');
     setShowFullHistory(false);
-    console.log('🔄 [DEBUG-COMPONENT-ChatArea] setHistoryMessages -> []');
     setHistoryMessages([]);
-    console.log('🔄 [DEBUG-COMPONENT-ChatArea] setHistoryConversationsById -> {}');
     setHistoryConversationsById({});
-    console.log('🔄 [DEBUG-COMPONENT-ChatArea] setHasMoreHistory -> true');
     setHasMoreHistory(true);
   }, [activeConversation?.id]);
 
@@ -165,40 +149,33 @@ export default function ChatArea({
   // (de cualquier consulta anterior del cliente, no la activa) y la antepone,
   // preservando la posición de scroll para que la vista no salte.
   const loadMoreHistory = async () => {
-    console.log('🖱️ [DEBUG-COMPONENT-ChatArea] loadMoreHistory() — activeConversation?.id:', activeConversation?.id, 'loadingHistory:', loadingHistory, 'loadingMoreHistory:', loadingMoreHistory, 'hasMoreHistory:', hasMoreHistory);
     if (!activeConversation || loadingHistory || loadingMoreHistory || !hasMoreHistory) return;
 
     const esPrimeraCarga = historyMessages.length === 0;
     if (esPrimeraCarga) {
-      console.log('🔄 [DEBUG-COMPONENT-ChatArea] setLoadingHistory -> true');
       setLoadingHistory(true);
     } else {
-      console.log('🔄 [DEBUG-COMPONENT-ChatArea] setLoadingMoreHistory -> true');
       setLoadingMoreHistory(true);
     }
 
     let convMap = historyConversationsById;
     if (esPrimeraCarga) {
-      console.log('📡 [DEBUG-COMPONENT-ChatArea] antes de supabase.from(conversations).select() — client_phone:', activeConversation.client_phone, 'neq id:', activeConversation.id);
       const { data: convs } = await supabase
         .from('conversations')
         .select('*')
         .eq('client_phone', activeConversation.client_phone)
         .neq('id', activeConversation.id);
-      console.log('📡 [DEBUG-COMPONENT-ChatArea] respuesta supabase conversations (historial) — convs:', convs);
 
       const soyStaff = !isAdminRole();
       const miSucursalId = getStaffSucursalId();
       // Un empleado no debe ver, ni acá, las consultas de otra sucursal.
       const visibles = (convs || []).filter(c => !soyStaff || !c.sucursal_id || c.sucursal_id === miSucursalId);
       convMap = Object.fromEntries(visibles.map(c => [c.id, c]));
-      console.log('🔄 [DEBUG-COMPONENT-ChatArea] setHistoryConversationsById ->', convMap);
       setHistoryConversationsById(convMap);
     }
 
     const idsPermitidos = Object.keys(convMap);
     if (idsPermitidos.length === 0) {
-      console.log('🔄 [DEBUG-COMPONENT-ChatArea] setHasMoreHistory -> false (sin idsPermitidos)');
       setHasMoreHistory(false);
       setLoadingHistory(false);
       setLoadingMoreHistory(false);
@@ -209,7 +186,6 @@ export default function ChatArea({
       ? (messages[0]?.created_at || activeConversation.created_at)
       : historyMessages[0].created_at;
 
-    console.log('📡 [DEBUG-COMPONENT-ChatArea] antes de supabase.from(messages).select() — idsPermitidos:', idsPermitidos, 'cursor:', cursor, 'limit:', HISTORY_PAGE_SIZE);
     const { data: pagina, error } = await supabase
       .from('messages')
       .select('*')
@@ -217,11 +193,9 @@ export default function ChatArea({
       .lt('created_at', cursor)
       .order('created_at', { ascending: false })
       .limit(HISTORY_PAGE_SIZE);
-    console.log('📡 [DEBUG-COMPONENT-ChatArea] respuesta supabase messages (historial) — pagina:', pagina, 'error:', error);
 
     if (error || !pagina || pagina.length === 0) {
       if (error) console.error('❌ [DEBUG-COMPONENT-ChatArea] error cargando página de historial:', error);
-      console.log('🔄 [DEBUG-COMPONENT-ChatArea] setHasMoreHistory -> false');
       setHasMoreHistory(false);
     } else {
       const nuevosAsc = [...pagina].reverse();
@@ -229,10 +203,8 @@ export default function ChatArea({
       const scrollHeightPrevio = contenedor?.scrollHeight ?? 0;
       const scrollTopPrevio = contenedor?.scrollTop ?? 0;
 
-      console.log('🔄 [DEBUG-COMPONENT-ChatArea] setHistoryMessages -> anteponiendo', nuevosAsc.length, 'mensajes');
       setHistoryMessages(prev => [...nuevosAsc, ...prev]);
       if (pagina.length < HISTORY_PAGE_SIZE) {
-        console.log('🔄 [DEBUG-COMPONENT-ChatArea] setHasMoreHistory -> false (última página)');
         setHasMoreHistory(false);
       }
 
@@ -245,14 +217,12 @@ export default function ChatArea({
       });
     }
 
-    console.log('🔄 [DEBUG-COMPONENT-ChatArea] setLoadingHistory -> false, setLoadingMoreHistory -> false');
     setLoadingHistory(false);
     setLoadingMoreHistory(false);
   };
 
   // Dispara la primera tanda apenas se activa "Ver todo el chat".
   useEffect(() => {
-    console.log('🔍 [DEBUG-COMPONENT-ChatArea] useEffect (disparo primera tanda historial) disparado — showFullHistory:', showFullHistory, 'historyMessages.length:', historyMessages.length, 'hasMoreHistory:', hasMoreHistory, 'loadingHistory:', loadingHistory);
     if (showFullHistory && historyMessages.length === 0 && hasMoreHistory && !loadingHistory) {
       loadMoreHistory();
     }
@@ -262,7 +232,6 @@ export default function ChatArea({
   const handleMessagesScroll = () => {
     if (!showFullHistory || loadingHistory || loadingMoreHistory || !hasMoreHistory) return;
     const el = messagesContainerRef.current;
-    console.log('🖱️ [DEBUG-COMPONENT-ChatArea] handleMessagesScroll() — scrollTop:', el?.scrollTop);
     if (el && el.scrollTop < 80) {
       loadMoreHistory();
     }
@@ -306,35 +275,27 @@ export default function ChatArea({
 
   const handleInputChange = (e) => {
     const value = e.target.value;
-    console.log('🖱️ [DEBUG-COMPONENT-ChatArea] handleInputChange() — value:', value);
     setMessageInput(value);
 
     if (value.endsWith('/')) {
-      console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowQuickResponses -> true');
       setShowQuickResponses(true);
     } else if (showQuickResponses && value.trim() === '') {
-      console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowQuickResponses -> false');
       setShowQuickResponses(false);
     }
   };
 
   const insertQuickResponse = (text) => {
-    console.log('🖱️ [DEBUG-COMPONENT-ChatArea] insertQuickResponse() — text:', text);
     let current = messageInput;
     if (current.endsWith('/')) {
       current = current.slice(0, -1);
     }
     const nuevoValor = current ? `${current} ${text}` : text;
-    console.log('🔄 [DEBUG-COMPONENT-ChatArea] setMessageInput ->', nuevoValor);
     setMessageInput(nuevoValor);
-    console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowQuickResponses -> false');
     setShowQuickResponses(false);
   };
 
   const handleFileChange = (e) => {
-    console.log('🖱️ [DEBUG-COMPONENT-ChatArea] handleFileChange() — files:', e.target.files);
     if (e.target.files && e.target.files[0]) {
-      console.log('🔄 [DEBUG-COMPONENT-ChatArea] setSelectedFile ->', e.target.files[0]);
       setSelectedFile(e.target.files[0]);
     }
   };
@@ -342,22 +303,16 @@ export default function ChatArea({
   const [closingChat, setClosingChat] = useState(false);
 
   const executeCloseChat = async () => {
-    console.log('🖱️ [DEBUG-COMPONENT-ChatArea] executeCloseChat() — activeConversation?.id:', activeConversation?.id);
     if (!activeConversation) return;
 
-    console.log('🔄 [DEBUG-COMPONENT-ChatArea] setClosingChat -> true');
     setClosingChat(true);
     try {
-      console.log('📡 [DEBUG-COMPONENT-ChatArea] antes de adminFetch — url:', `/api/conversations/${activeConversation.id}/close`, 'method: POST');
       const res = await adminFetch(`/api/conversations/${activeConversation.id}/close`, { method: 'POST' });
-      console.log('📡 [DEBUG-COMPONENT-ChatArea] respuesta adminFetch close — ok:', res.ok, 'status:', res.status);
       if (!res.ok) throw new Error('No se pudo finalizar la consulta.');
-      console.log('✅ [DEBUG-COMPONENT-ChatArea] consulta finalizada correctamente');
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-ChatArea] Error finalizando la consulta:', err);
       alert('No se pudo finalizar la consulta.');
     } finally {
-      console.log('🔄 [DEBUG-COMPONENT-ChatArea] setClosingChat -> false');
       setClosingChat(false);
     }
   };
@@ -367,14 +322,10 @@ export default function ChatArea({
   const [tomandoConsulta, setTomandoConsulta] = useState(false);
 
   const handleTomarDesdeChat = async () => {
-    console.log('🖱️ [DEBUG-COMPONENT-ChatArea] handleTomarDesdeChat() — activeConversation?.id:', activeConversation?.id, 'miSucursalId:', miSucursalId);
     if (!activeConversation || !miSucursalId) return;
-    console.log('🔄 [DEBUG-COMPONENT-ChatArea] setTomandoConsulta -> true');
     setTomandoConsulta(true);
     try {
-      console.log('📡 [DEBUG-COMPONENT-ChatArea] antes de tomarConsulta() — conv.id:', activeConversation.id, 'miSucursalId:', miSucursalId);
       const tomada = await tomarConsulta(activeConversation.id, miSucursalId);
-      console.log('✅ [DEBUG-COMPONENT-ChatArea] respuesta de tomarConsulta():', tomada);
       // No hace falta actualizar el estado local a mano: la suscripción de
       // Realtime en App.jsx va a traer el sucursal_id nuevo apenas Postgres
       // confirme el UPDATE.
@@ -382,27 +333,22 @@ export default function ChatArea({
       console.error('❌ [DEBUG-COMPONENT-ChatArea] error en tomarConsulta():', err);
       alert(err.message || 'No se pudo tomar la consulta.');
     } finally {
-      console.log('🔄 [DEBUG-COMPONENT-ChatArea] setTomandoConsulta -> false');
       setTomandoConsulta(false);
     }
   };
 
   const executeReturnToQueue = async ({ motivo, motivoTexto }) => {
-    console.log('🖱️ [DEBUG-COMPONENT-ChatArea] executeReturnToQueue() — motivo:', motivo, 'motivoTexto:', motivoTexto, 'activeConversation?.id:', activeConversation?.id);
     if (!activeConversation) return;
 
-    console.log('📡 [DEBUG-COMPONENT-ChatArea] antes de adminFetch — url:', `/api/conversations/${activeConversation.id}/return-to-queue`, 'body:', { motivo, motivoTexto });
     const res = await adminFetch(`/api/conversations/${activeConversation.id}/return-to-queue`, {
       method: 'POST',
       body: JSON.stringify({ motivo, motivoTexto })
     });
     const data = await res.json();
-    console.log('📡 [DEBUG-COMPONENT-ChatArea] respuesta adminFetch return-to-queue — ok:', res.ok, 'data:', data);
     if (!res.ok) {
       console.error('❌ [DEBUG-COMPONENT-ChatArea] error return-to-queue:', data.error);
       throw new Error(data.error || 'No se pudo devolver el chat a la cola de espera.');
     }
-    console.log('✅ [DEBUG-COMPONENT-ChatArea] chat devuelto a la cola de espera correctamente');
   };
 
   // A partir del MIME real del archivo, no de su nombre: antes esto sólo
@@ -420,18 +366,13 @@ export default function ChatArea({
   // el webhook para la media entrante, y dispara el mensaje saliente con la
   // URL pública resultante.
   const uploadAndSendMedia = async (fileOrBlob, extension, mediaType) => {
-    console.log('📡 [DEBUG-COMPONENT-ChatArea] uploadAndSendMedia() — extension:', extension, 'mediaType:', mediaType, 'size:', fileOrBlob?.size);
-    console.log('🔄 [DEBUG-COMPONENT-ChatArea] setIsUploading -> true');
     setIsUploading(true);
     const fileName = `${activeConversation.id}_${Date.now()}.${extension}`;
 
-    console.log('📡 [DEBUG-COMPONENT-ChatArea] antes de supabase.storage.from(media).upload() — fileName:', fileName, 'contentType:', fileOrBlob.type);
     const { error } = await supabase.storage
       .from('media')
       .upload(fileName, fileOrBlob, fileOrBlob.type ? { contentType: fileOrBlob.type } : undefined);
-    console.log('📡 [DEBUG-COMPONENT-ChatArea] respuesta supabase.storage.upload() — error:', error);
 
-    console.log('🔄 [DEBUG-COMPONENT-ChatArea] setIsUploading -> false');
     setIsUploading(false);
 
     if (error) {
@@ -441,20 +382,16 @@ export default function ChatArea({
     }
 
     const { data: publicUrlData } = supabase.storage.from('media').getPublicUrl(fileName);
-    console.log('📡 [DEBUG-COMPONENT-ChatArea] supabase.storage.getPublicUrl() — publicUrl:', publicUrlData?.publicUrl);
-    console.log('✅ [DEBUG-COMPONENT-ChatArea] media subida y enviada — mediaType:', mediaType);
     handleSendMessage(null, publicUrlData.publicUrl, mediaType);
   };
 
   const handleSendClick = async () => {
-    console.log('🖱️ [DEBUG-COMPONENT-ChatArea] handleSendClick() — messageInput:', messageInput, 'selectedFile:', selectedFile);
     if (!messageInput.trim() && !selectedFile) return;
 
     if (selectedFile) {
       const fileExt = selectedFile.name.split('.').pop();
       const mediaType = mediaTypeFromMime(selectedFile.type || '');
       await uploadAndSendMedia(selectedFile, fileExt, mediaType);
-      console.log('🔄 [DEBUG-COMPONENT-ChatArea] setSelectedFile -> null');
       setSelectedFile(null);
     } else {
       handleSendMessage();
@@ -506,14 +443,14 @@ export default function ChatArea({
 
             <div className="flex items-center gap-2 shrink-0">
                <button
-                 onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowGallery -> true'); setShowGallery(true); }}
+                 onClick={() => { setShowGallery(true); }}
                  title="Ver imágenes, videos, documentos y enlaces compartidos con el cliente"
                  className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
                >
                  <Images size={20} />
                </button>
                <button
-                 onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowFullHistory -> toggle, valor actual:', showFullHistory); setShowFullHistory(v => !v); }}
+                 onClick={() => { setShowFullHistory(v => !v); }}
                  title={showFullHistory ? 'Volver a esta consulta' : 'Ver todo el chat: cargar acá mismo los mensajes de consultas anteriores con este cliente'}
                  className={`p-2 rounded-full transition-colors ${showFullHistory ? 'bg-teal-50 dark:bg-teal-950 text-teal-600 dark:text-teal-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
                >
@@ -521,7 +458,7 @@ export default function ChatArea({
                </button>
                {!isConversacionCerrada && !soyAdmin && (
                  <button
-                   onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setIsCloseModalOpen -> true'); setIsCloseModalOpen(true); }}
+                   onClick={() => { setIsCloseModalOpen(true); }}
                    disabled={closingChat}
                    title="Finalizar esta consulta y pedirle al cliente que la califique"
                    className="p-2 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 rounded-full transition-colors disabled:opacity-50"
@@ -531,7 +468,7 @@ export default function ChatArea({
                )}
                {!isConversacionCerrada && !estaEnColaGeneral && !soyAdmin && (
                  <button
-                   onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setIsReturnModalOpen -> true'); setIsReturnModalOpen(true); }}
+                   onClick={() => { setIsReturnModalOpen(true); }}
                    title="Devolver este chat a la lista de espera general (ej. no hay stock)"
                    className="p-2 text-gray-500 hover:bg-amber-50 hover:text-amber-600 rounded-full transition-colors"
                  >
@@ -539,21 +476,21 @@ export default function ChatArea({
                  </button>
                )}
                <button
-                 onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowHistory -> true'); setShowHistory(true); }}
+                 onClick={() => { setShowHistory(true); }}
                  title="Historial de consultas del cliente"
                  className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
                >
                  <History size={20} />
                </button>
                <button
-                 onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowOrderHistory -> true'); setShowOrderHistory(true); }}
+                 onClick={() => { setShowOrderHistory(true); }}
                  title="Historial de pedidos del cliente"
                  className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
                >
                  <ShoppingBag size={20} />
                </button>
                <button
-                 onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ChatArea] click handleDeleteConversation — activeConversation.id:', activeConversation.id); handleDeleteConversation && handleDeleteConversation(activeConversation.id); }}
+                 onClick={() => { handleDeleteConversation && handleDeleteConversation(activeConversation.id); }}
                  title="Eliminar esta conversación"
                  className="p-2 text-gray-500 hover:bg-rose-50 hover:text-rose-600 rounded-full transition-colors"
                >
@@ -587,7 +524,7 @@ export default function ChatArea({
                <div className="flex items-center justify-center h-full text-gray-400">
                   No hay mensajes aún.
                </div>
-            ) : (console.log('🔍 [DEBUG-COMPONENT-ChatArea] .map() displayedMessages — cantidad:', displayedMessages.length), displayedMessages.map((msg, i) => {
+            ) : (displayedMessages.map((msg, i) => {
               const anterior = displayedMessages[i - 1];
               const cambioDeDia = showFullHistory && (!anterior || !mismoDia(new Date(anterior.created_at), new Date(msg.created_at)));
               const cambioDeSesion = showFullHistory && !cambioDeDia && anterior && msg.conversation_id !== anterior.conversation_id;
@@ -618,7 +555,7 @@ export default function ChatArea({
                   )}
                   <MessageBubble
                     msg={msg}
-                    onImageClick={(m) => { console.log('🖱️ [DEBUG-COMPONENT-ChatArea] click imagen mensaje — media_url:', m.media_url); setModalImage(m.media_url); }}
+                    onImageClick={(m) => { setModalImage(m.media_url); }}
                     onDownload={handleDownloadMedia}
                     downloadingId={downloadingId}
                     statusIcon={msg.sender_type !== 'client' && <MessageStatusIcon estado={msg.estado} />}
@@ -661,7 +598,7 @@ export default function ChatArea({
                     <Zap size={16} className="text-amber-500" />
                     <span className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase">Respuestas Rápidas</span>
                   </div>
-                  <button onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowQuickResponses -> false (botón cerrar)'); setShowQuickResponses(false); }} className="text-gray-400 hover:text-gray-600">
+                  <button onClick={() => { setShowQuickResponses(false); }} className="text-gray-400 hover:text-gray-600">
                     <Check size={16} className="opacity-0" />
                   </button>
                 </div>
@@ -671,7 +608,6 @@ export default function ChatArea({
                       No hay plantillas creadas. Agregalas desde Configuración.
                     </div>
                   ) : (
-                    console.log('🔍 [DEBUG-COMPONENT-ChatArea] .map() quickResponses — cantidad:', quickResponses.length, 'quickResponses:', quickResponses),
                     quickResponses.map((qr) => (
                       <button
                         key={qr.id}
@@ -698,13 +634,13 @@ export default function ChatArea({
                     )}
                     <span className="text-xs font-medium text-gray-700 dark:text-gray-300 truncate">{selectedFile.name}</span>
                  </div>
-                 <button onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setSelectedFile -> null (quitar preview)'); setSelectedFile(null); }} className="p-1 text-gray-400 hover:text-rose-500 bg-white dark:bg-gray-900 rounded-full shadow-sm"><X size={16}/></button>
+                 <button onClick={() => { setSelectedFile(null); }} className="p-1 text-gray-400 hover:text-rose-500 bg-white dark:bg-gray-900 rounded-full shadow-sm"><X size={16}/></button>
               </div>
             )}
 
             <div className="flex items-end gap-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl p-2 focus-within:border-teal-500 focus-within:ring-1 focus-within:ring-teal-500 transition-shadow">
               <button
-                onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowQuickResponses -> toggle, valor actual:', showQuickResponses); setShowQuickResponses(!showQuickResponses); }}
+                onClick={() => { setShowQuickResponses(!showQuickResponses); }}
                 className={`p-2 transition-colors rounded-lg ${showQuickResponses ? 'bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950'}`}
                 title="Respuestas Rápidas (/)"
               >
@@ -719,7 +655,7 @@ export default function ChatArea({
                 accept="image/*,video/*,.pdf,.doc,.docx"
               />
               <button
-                onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ChatArea] click abrir selector de archivo (Paperclip)'); fileInputRef.current?.click(); }}
+                onClick={() => { fileInputRef.current?.click(); }}
                 className="p-2 text-gray-400 hover:text-teal-600 transition-colors"
                 title="Adjuntar archivo"
               >
@@ -732,7 +668,6 @@ export default function ChatArea({
                 value={messageInput}
                 onChange={handleInputChange}
                 onKeyDown={(e) => {
-                  console.log('🖱️ [DEBUG-COMPONENT-ChatArea] onKeyDown textarea — key:', e.key, 'shiftKey:', e.shiftKey);
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     handleSendClick();
@@ -755,7 +690,7 @@ export default function ChatArea({
               clientPhone={activeConversation.client_phone}
               clientName={activeConversation.real_name || activeConversation.client_name}
               currentConversationId={activeConversation.id}
-              onClose={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowHistory -> false'); setShowHistory(false); }}
+              onClose={() => { setShowHistory(false); }}
             />
           )}
 
@@ -763,7 +698,7 @@ export default function ChatArea({
             <OrderHistoryPanel
               clientPhone={activeConversation.client_phone}
               clientName={activeConversation.real_name || activeConversation.client_name}
-              onClose={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowOrderHistory -> false'); setShowOrderHistory(false); }}
+              onClose={() => { setShowOrderHistory(false); }}
             />
           )}
 
@@ -774,20 +709,20 @@ export default function ChatArea({
               conversationId={activeConversation.id}
               showFullHistory={showFullHistory}
               setModalImage={setModalImage}
-              onClose={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setShowGallery -> false'); setShowGallery(false); }}
+              onClose={() => { setShowGallery(false); }}
             />
           )}
 
           <CloseChatModal
             isOpen={isCloseModalOpen}
-            onClose={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setIsCloseModalOpen -> false'); setIsCloseModalOpen(false); }}
+            onClose={() => { setIsCloseModalOpen(false); }}
             activeConversation={activeConversation}
             onConfirmClose={executeCloseChat}
           />
 
           <ReturnToQueueModal
             isOpen={isReturnModalOpen}
-            onClose={() => { console.log('🔄 [DEBUG-COMPONENT-ChatArea] setIsReturnModalOpen -> false'); setIsReturnModalOpen(false); }}
+            onClose={() => { setIsReturnModalOpen(false); }}
             onConfirm={executeReturnToQueue}
           />
         </>

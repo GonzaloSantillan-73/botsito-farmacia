@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 export default function Accordion({ title, description, icon: Icon, defaultOpen = false, children }) {
-  console.log('🔍 [DEBUG-COMPONENT-Accordion] Accordion() — props:', { title, description, defaultOpen });
   const [open, setOpen] = useState(defaultOpen);
 
   return (
@@ -11,7 +10,6 @@ export default function Accordion({ title, description, icon: Icon, defaultOpen 
         type="button"
         onClick={() => setOpen(o => {
           const nuevoValor = !o;
-          console.log('🖱️ [DEBUG-COMPONENT-Accordion] toggle open — nuevo valor:', nuevoValor);
           return nuevoValor;
         })}
         aria-expanded={open}

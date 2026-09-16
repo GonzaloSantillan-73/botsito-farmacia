@@ -25,18 +25,6 @@ export default function ValidationPanel({
   handleSendMessage,
   isAdmin = true
 }) {
-  console.log('🔍 [DEBUG-COMPONENT-ValidationPanel] Render — props:', {
-    activeConversation,
-    activePrescription,
-    prescriptionObraSocial,
-    prescriptionNotes,
-    isAdmin,
-    handleUpdatePrescription: typeof handleUpdatePrescription,
-    setPrescriptionObraSocial: typeof setPrescriptionObraSocial,
-    setPrescriptionNotes: typeof setPrescriptionNotes,
-    setModalImage: typeof setModalImage,
-    handleSendMessage: typeof handleSendMessage
-  });
   const [showRejectOptions, setShowRejectOptions] = useState(false);
   const [rejectReason, setRejectReason] = useState('Ilegible');
   const [isQuoteOpen, setIsQuoteOpen] = useState(false);
@@ -44,22 +32,17 @@ export default function ValidationPanel({
   const [clienteData, setClienteData] = useState(null);
 
   React.useEffect(() => {
-    console.log('🔍 [DEBUG-COMPONENT-ValidationPanel] useEffect[activeConversation?.client_phone] disparado — client_phone:', activeConversation?.client_phone);
     if (!activeConversation?.client_phone) {
-      console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setClienteData — nuevo valor: null (sin client_phone)');
       setClienteData(null);
       return;
     }
-    console.log('📡 [DEBUG-COMPONENT-ValidationPanel] Supabase SELECT clientes — params:', { client_phone: activeConversation.client_phone });
     supabase
       .from('clientes')
       .select('nombre_completo, dni, obra_social, created_at')
       .eq('client_phone', activeConversation.client_phone)
       .maybeSingle()
       .then(({ data, error }) => {
-        console.log('📡 [DEBUG-COMPONENT-ValidationPanel] Supabase SELECT clientes — respuesta:', { data, error });
         if (error) console.error('❌ [DEBUG-COMPONENT-ValidationPanel] Error en SELECT clientes:', error);
-        console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setClienteData — nuevo valor:', data);
         setClienteData(data);
       });
   }, [activeConversation?.client_phone]);
@@ -77,34 +60,21 @@ export default function ValidationPanel({
   const [clientError, setClientError] = useState('');
 
   const handleStartEditClient = () => {
-    console.log('🖱️ [DEBUG-COMPONENT-ValidationPanel] handleStartEditClient() — clienteData:', clienteData, 'activeConversation:', activeConversation);
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setEditNombre — nuevo valor:', clienteData?.nombre_completo || activeConversation.real_name || activeConversation.client_name || '');
     setEditNombre(clienteData?.nombre_completo || activeConversation.real_name || activeConversation.client_name || '');
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setEditDni — nuevo valor:', clienteData?.dni || '');
     setEditDni(clienteData?.dni || '');
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setEditObraSocial — nuevo valor:', clienteData?.obra_social || '');
     setEditObraSocial(clienteData?.obra_social || '');
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setEditTelefono — nuevo valor:', activeConversation.client_phone || '');
     setEditTelefono(activeConversation.client_phone || '');
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setClientError — nuevo valor: ""');
     setClientError('');
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setIsEditingClient — nuevo valor: true');
     setIsEditingClient(true);
   };
 
   const handleCancelEditClient = () => {
-    console.log('🖱️ [DEBUG-COMPONENT-ValidationPanel] handleCancelEditClient()');
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setIsEditingClient — nuevo valor: false');
     setIsEditingClient(false);
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setClientError — nuevo valor: ""');
     setClientError('');
   };
 
   const handleSaveClient = async () => {
-    console.log('🖱️ [DEBUG-COMPONENT-ValidationPanel] handleSaveClient() — editNombre:', editNombre, 'editDni:', editDni, 'editObraSocial:', editObraSocial, 'editTelefono:', editTelefono);
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setSavingClient — nuevo valor: true');
     setSavingClient(true);
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setClientError — nuevo valor: ""');
     setClientError('');
     try {
       const body = {
@@ -116,36 +86,25 @@ export default function ValidationPanel({
         body.nuevoTelefono = editTelefono;
       }
 
-      console.log('📡 [DEBUG-COMPONENT-ValidationPanel] adminFetch PUT /api/admin/clientes/:phone — url:', `/api/admin/clientes/${encodeURIComponent(activeConversation.client_phone)}`, 'body:', body);
       const res = await adminFetch(`/api/admin/clientes/${encodeURIComponent(activeConversation.client_phone)}`, {
         method: 'PUT',
         body: JSON.stringify(body)
       });
       const data = await res.json();
-      console.log('📡 [DEBUG-COMPONENT-ValidationPanel] adminFetch PUT /api/admin/clientes/:phone — respuesta:', { status: res.status, ok: res.ok, data });
       if (!res.ok) throw new Error(data.error || 'No se pudieron guardar los datos del cliente.');
 
-      console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setClienteData — nuevo valor:', {
-        nombre_completo: data.cliente.nombre_completo,
-        dni: data.cliente.dni,
-        obra_social: data.cliente.obra_social
-      });
       setClienteData({
         nombre_completo: data.cliente.nombre_completo,
         dni: data.cliente.dni,
         obra_social: data.cliente.obra_social
       });
-      console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setIsEditingClient — nuevo valor: false');
       setIsEditingClient(false);
-      console.log('✅ [DEBUG-COMPONENT-ValidationPanel] handleSaveClient() — guardado exitoso');
       // Si cambió el teléfono, la conversación se actualiza sola vía Realtime
       // (App.jsx escucha UPDATE de `conversations`), no hace falta tocarla acá.
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-ValidationPanel] handleSaveClient() — error:', err);
-      console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setClientError — nuevo valor:', err.message || 'Error guardando los datos del cliente.');
       setClientError(err.message || 'Error guardando los datos del cliente.');
     } finally {
-      console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setSavingClient — nuevo valor: false');
       setSavingClient(false);
     }
   };
@@ -169,21 +128,12 @@ export default function ValidationPanel({
   ];
 
   const handleRejectConfirm = () => {
-    console.log('🖱️ [DEBUG-COMPONENT-ValidationPanel] handleRejectConfirm() — rejectReason:', rejectReason);
     handleUpdatePrescription('rejected', rejectReason);
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setShowRejectOptions — nuevo valor: false');
     setShowRejectOptions(false);
   };
 
   const handleAddQuoteItem = () => {
-    console.log('🖱️ [DEBUG-COMPONENT-ValidationPanel] handleAddQuoteItem() — newItemName:', newItemName, 'newItemPrice:', newItemPrice, 'newItemQuantity:', newItemQuantity, 'newItemDiscount:', newItemDiscount);
     if (!newItemName.trim() || !newItemPrice) return;
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setQuoteItems — agregando item:', {
-      name: newItemName,
-      price: parseFloat(newItemPrice),
-      quantity: Math.max(1, parseInt(newItemQuantity) || 1),
-      discount: parseInt(newItemDiscount)
-    });
     setQuoteItems([...quoteItems, {
       id: crypto.randomUUID(),
       name: newItemName,
@@ -191,43 +141,28 @@ export default function ValidationPanel({
       quantity: Math.max(1, parseInt(newItemQuantity) || 1),
       discount: parseInt(newItemDiscount)
     }]);
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemName — nuevo valor: ""');
     setNewItemName('');
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemPrice — nuevo valor: ""');
     setNewItemPrice('');
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemQuantity — nuevo valor: "1"');
     setNewItemQuantity('1');
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemDiscount — nuevo valor: "0"');
     setNewItemDiscount('0');
   };
 
   const handleRemoveQuoteItem = (id) => {
-    console.log('🖱️ [DEBUG-COMPONENT-ValidationPanel] handleRemoveQuoteItem() — id:', id);
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setQuoteItems — quitando item id:', id);
     setQuoteItems(quoteItems.filter(item => item.id !== id));
   };
 
   const handleQuoteItemQuantityChange = (id, quantity) => {
-    console.log('🖱️ [DEBUG-COMPONENT-ValidationPanel] handleQuoteItemQuantityChange() — id:', id, 'quantity:', quantity);
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setQuoteItems — nueva cantidad para id', id, ':', Math.max(1, parseInt(quantity) || 1));
     setQuoteItems(quoteItems.map(item =>
       item.id === id ? { ...item, quantity: Math.max(1, parseInt(quantity) || 1) } : item
     ));
   };
 
   const resetCotizacion = () => {
-    console.log('🖱️ [DEBUG-COMPONENT-ValidationPanel] resetCotizacion()');
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setQuoteItems — nuevo valor: []');
     setQuoteItems([]);
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setShippingCost — nuevo valor: ""');
     setShippingCost('');
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemName — nuevo valor: ""');
     setNewItemName('');
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemPrice — nuevo valor: ""');
     setNewItemPrice('');
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemQuantity — nuevo valor: "1"');
     setNewItemQuantity('1');
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemDiscount — nuevo valor: "0"');
     setNewItemDiscount('0');
   };
 
@@ -242,21 +177,13 @@ export default function ValidationPanel({
   // del formulario, en cambio, son siempre locales a esta apertura: cada
   // sucursal tiene su propia tarifa/ubicación, así que arrancan en blanco.
   React.useEffect(() => {
-    console.log('🔍 [DEBUG-COMPONENT-ValidationPanel] useEffect[activeConversation?.id] disparado — activeConversation.id:', activeConversation?.id, 'cotizador_draft:', activeConversation?.cotizador_draft);
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setQuoteItems — nuevo valor:', activeConversation?.cotizador_draft || []);
     setQuoteItems(activeConversation?.cotizador_draft || []);
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setShippingCost — nuevo valor: ""');
     setShippingCost('');
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemName — nuevo valor: ""');
     setNewItemName('');
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemPrice — nuevo valor: ""');
     setNewItemPrice('');
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemQuantity — nuevo valor: "1"');
     setNewItemQuantity('1');
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemDiscount — nuevo valor: "0"');
     setNewItemDiscount('0');
     skipNextDraftSaveRef.current = true;
-    console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] skipNextDraftSaveRef.current = true');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeConversation?.id]);
 
@@ -265,17 +192,13 @@ export default function ValidationPanel({
   // cola + toma por otra sucursal sin depender de que alguien se acuerde de
   // guardarlo a mano en ese momento puntual.
   React.useEffect(() => {
-    console.log('🔍 [DEBUG-COMPONENT-ValidationPanel] useEffect[quoteItems] disparado — quoteItems:', quoteItems);
     if (skipNextDraftSaveRef.current) {
-      console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] skipNextDraftSaveRef.current = false (se salta el autoguardado)');
       skipNextDraftSaveRef.current = false;
       return;
     }
     if (!activeConversation?.id) return;
-    console.log('📡 [DEBUG-COMPONENT-ValidationPanel] Supabase UPDATE conversations.cotizador_draft — params:', { id: activeConversation.id, cotizador_draft: quoteItems });
     supabase.from('conversations').update({ cotizador_draft: quoteItems }).eq('id', activeConversation.id)
       .then(({ error }) => {
-        console.log('📡 [DEBUG-COMPONENT-ValidationPanel] Supabase UPDATE conversations.cotizador_draft — respuesta:', { error });
         if (error) console.error('❌ [DEBUG-COMPONENT-ValidationPanel] Error guardando el borrador del cotizador:', error);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -286,7 +209,6 @@ export default function ValidationPanel({
   // rearmar el carrito de cero. Este botón es la forma explícita de arrancar
   // de nuevo cuando ya se terminó por completo con ese cliente.
   const handleLimpiarCotizacion = () => {
-    console.log('🖱️ [DEBUG-COMPONENT-ValidationPanel] handleLimpiarCotizacion() — quoteItems.length:', quoteItems.length);
     if (quoteItems.length > 0 && !window.confirm('¿Vaciar el cotizador? Se van a borrar los productos cargados.')) return;
     resetCotizacion();
   };
@@ -304,7 +226,6 @@ export default function ValidationPanel({
   const pagoConfirmado = activeConversation?.payment_status === 'confirmado';
 
   const handleSendQuote = async () => {
-    console.log('🖱️ [DEBUG-COMPONENT-ValidationPanel] handleSendQuote() — quoteItems:', quoteItems, 'subtotal:', subtotal, 'total:', total);
     if (quoteItems.length === 0) return;
 
     let message = `📋 *Cotización de Receta*\n`;
@@ -343,22 +264,11 @@ export default function ValidationPanel({
     message += `💲 *Total a Pagar:* $${total.toFixed(2)}\n`;
 
     if (handleSendMessage) {
-      console.log('🖱️ [DEBUG-COMPONENT-ValidationPanel] handleSendQuote() — enviando mensaje al chat:', message);
       handleSendMessage(message);
     }
 
     // Además del mensaje de texto al chat, guardamos la cotización de forma
     // estructurada para poder listarla después en el Historial de Pedidos.
-    console.log('📡 [DEBUG-COMPONENT-ValidationPanel] Supabase INSERT pedidos_cotizados — params:', {
-      conversation_id: activeConversation?.id || null,
-      client_phone: activeConversation?.client_phone,
-      items: itemsParaGuardar,
-      subtotal,
-      descuento_total: totalDiscount,
-      costo_envio: finalShippingCost,
-      envio_gratis: envioGratis,
-      total
-    });
     const { error } = await supabase.from('pedidos_cotizados').insert([{
       conversation_id: activeConversation?.id || null,
       client_phone: activeConversation?.client_phone,
@@ -369,11 +279,9 @@ export default function ValidationPanel({
       envio_gratis: envioGratis,
       total
     }]);
-    console.log('📡 [DEBUG-COMPONENT-ValidationPanel] Supabase INSERT pedidos_cotizados — respuesta:', { error });
     if (error) {
       console.error('❌ [DEBUG-COMPONENT-ValidationPanel] Error guardando la cotización en el historial de pedidos:', error);
     } else {
-      console.log('✅ [DEBUG-COMPONENT-ValidationPanel] Cotización guardada exitosamente en pedidos_cotizados');
     }
   };
 
@@ -383,9 +291,7 @@ export default function ValidationPanel({
   // recién ahí vacía el Cotizador para que un pedido nuevo del mismo cliente
   // en la misma conversación no se mezcle con lo ya cobrado.
   const handlePagoConfirmado = async () => {
-    console.log('🖱️ [DEBUG-COMPONENT-ValidationPanel] handlePagoConfirmado() — quoteItems.length:', quoteItems.length);
     if (quoteItems.length > 0) {
-      console.log('🔍 [DEBUG-COMPONENT-ValidationPanel] handlePagoConfirmado() — mapeando quoteItems, cantidad:', quoteItems.length, quoteItems);
       const items = quoteItems.map(item => {
         const itemDiscount = item.price * item.quantity * (item.discount / 100);
         return {
@@ -397,13 +303,6 @@ export default function ValidationPanel({
         };
       });
 
-      console.log('📡 [DEBUG-COMPONENT-ValidationPanel] Supabase INSERT pedidos_confirmados — params:', {
-        conversation_id: activeConversation?.id || null,
-        client_phone: activeConversation?.client_phone,
-        items,
-        total,
-        sucursal_id: activeConversation?.sucursal_id || null
-      });
       const { error } = await supabase.from('pedidos_confirmados').insert([{
         conversation_id: activeConversation?.id || null,
         client_phone: activeConversation?.client_phone,
@@ -411,11 +310,9 @@ export default function ValidationPanel({
         total,
         sucursal_id: activeConversation?.sucursal_id || null
       }]);
-      console.log('📡 [DEBUG-COMPONENT-ValidationPanel] Supabase INSERT pedidos_confirmados — respuesta:', { error });
       if (error) {
         console.error('❌ [DEBUG-COMPONENT-ValidationPanel] Error guardando el pedido confirmado en el historial:', error);
       } else {
-        console.log('✅ [DEBUG-COMPONENT-ValidationPanel] Pedido confirmado guardado exitosamente');
       }
     }
 
@@ -439,7 +336,7 @@ export default function ValidationPanel({
             <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-2 mb-6 border border-gray-100 dark:border-gray-700">
                <div
                  className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 min-h-[150px] flex items-center justify-center cursor-zoom-in group"
-                 onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ValidationPanel] onClick Ampliar receta — image_url:', activePrescription.image_url); setModalImage(activePrescription.image_url); }}
+                 onClick={() => { setModalImage(activePrescription.image_url); }}
                >
                   <img
                     src={activePrescription.image_url}
@@ -458,7 +355,7 @@ export default function ValidationPanel({
                 <input
                   type="text"
                   value={prescriptionObraSocial}
-                  onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setPrescriptionObraSocial — nuevo valor:', e.target.value); setPrescriptionObraSocial(e.target.value); }}
+                  onChange={(e) => { setPrescriptionObraSocial(e.target.value); }}
                   className="w-full p-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none text-sm"
                   placeholder="Ej: OSDE, IOMA..."
                 />
@@ -468,7 +365,7 @@ export default function ValidationPanel({
                 <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase mb-1">Notas del Farmacéutico</label>
                 <textarea
                   value={prescriptionNotes}
-                  onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setPrescriptionNotes — nuevo valor:', e.target.value); setPrescriptionNotes(e.target.value); }}
+                  onChange={(e) => { setPrescriptionNotes(e.target.value); }}
                   className="w-full p-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none h-24 resize-none text-sm"
                   placeholder="Anotaciones internas (si se rechaza por 'Otro', escribe aquí el motivo)..."
                 ></textarea>
@@ -477,13 +374,13 @@ export default function ValidationPanel({
               {!showRejectOptions ? (
                 <div className="pt-4 grid grid-cols-2 gap-3">
                   <button
-                    onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-ValidationPanel] onClick Aprobar receta'); handleUpdatePrescription('approved'); }}
+                    onClick={() => { handleUpdatePrescription('approved'); }}
                     className="flex items-center justify-center gap-2 py-2.5 px-4 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium shadow-sm transition-colors text-sm"
                   >
                     <CheckCircle size={18} /> Aprobar
                   </button>
                   <button
-                    onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setShowRejectOptions — nuevo valor: true'); setShowRejectOptions(true); }}
+                    onClick={() => { setShowRejectOptions(true); }}
                     className="flex items-center justify-center gap-2 py-2.5 px-4 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium shadow-sm transition-colors text-sm"
                   >
                     <XCircle size={18} /> Rechazar
@@ -494,17 +391,16 @@ export default function ValidationPanel({
                   <label className="block text-xs font-semibold text-red-800 dark:text-red-400 uppercase">Motivo del rechazo</label>
                   <select
                     value={rejectReason}
-                    onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setRejectReason — nuevo valor:', e.target.value); setRejectReason(e.target.value); }}
+                    onChange={(e) => { setRejectReason(e.target.value); }}
                     className="w-full p-2 border border-red-300 dark:border-red-800 dark:bg-gray-800 rounded text-sm text-gray-800 dark:text-gray-100 outline-none focus:border-red-500"
                   >
-                    {console.log('🔍 [DEBUG-COMPONENT-ValidationPanel] .map() rejectionReasons — cantidad:', rejectionReasons.length, rejectionReasons) || null}
                     {rejectionReasons.map(reason => (
                       <option key={reason} value={reason}>{reason}</option>
                     ))}
                   </select>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setShowRejectOptions — nuevo valor: false'); setShowRejectOptions(false); }}
+                      onClick={() => { setShowRejectOptions(false); }}
                       className="flex-1 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded font-medium transition-colors"
                     >
                       Cancelar
@@ -523,7 +419,7 @@ export default function ValidationPanel({
         ) : (
           <div className="p-6">
              <button
-               onClick={() => { const nuevoValor = !isClientDataOpen; console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setIsClientDataOpen — nuevo valor:', nuevoValor); setIsClientDataOpen(nuevoValor); }}
+               onClick={() => { const nuevoValor = !isClientDataOpen; setIsClientDataOpen(nuevoValor); }}
                className="w-full flex items-center justify-between text-left mb-2 outline-none group"
              >
                <h3 className="text-md font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
@@ -560,7 +456,7 @@ export default function ValidationPanel({
                                 <input
                                   type="text"
                                   value={editNombre}
-                                  onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setEditNombre — nuevo valor:', e.target.value); setEditNombre(e.target.value); }}
+                                  onChange={(e) => { setEditNombre(e.target.value); }}
                                   className="w-full p-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                                 />
                               </div>
@@ -569,7 +465,7 @@ export default function ValidationPanel({
                                 <input
                                   type="text"
                                   value={editTelefono}
-                                  onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setEditTelefono — nuevo valor:', e.target.value); setEditTelefono(e.target.value); }}
+                                  onChange={(e) => { setEditTelefono(e.target.value); }}
                                   disabled={!isAdmin}
                                   className="w-full p-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:text-gray-400"
                                 />
@@ -584,7 +480,7 @@ export default function ValidationPanel({
                                 <input
                                   type="text"
                                   value={editDni}
-                                  onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setEditDni — nuevo valor:', e.target.value); setEditDni(e.target.value); }}
+                                  onChange={(e) => { setEditDni(e.target.value); }}
                                   className="w-full p-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                                 />
                               </div>
@@ -593,7 +489,7 @@ export default function ValidationPanel({
                                 <input
                                   type="text"
                                   value={editObraSocial}
-                                  onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setEditObraSocial — nuevo valor:', e.target.value); setEditObraSocial(e.target.value); }}
+                                  onChange={(e) => { setEditObraSocial(e.target.value); }}
                                   className="w-full p-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded text-sm focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                                 />
                               </div>
@@ -686,7 +582,7 @@ export default function ValidationPanel({
         {!isAdmin && activeConversation && !ESTADOS_CERRADOS.includes(activeConversation.status) && (
           <div className="p-6 border-t border-gray-200 dark:border-gray-800 bg-[#f8f9fa] dark:bg-gray-900">
             <button
-              onClick={() => { const nuevoValor = !isQuoteOpen; console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setIsQuoteOpen — nuevo valor:', nuevoValor); setIsQuoteOpen(nuevoValor); }}
+              onClick={() => { const nuevoValor = !isQuoteOpen; setIsQuoteOpen(nuevoValor); }}
               className="w-full flex items-center justify-between text-left mb-2 outline-none group"
             >
               <h3 className="text-md font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
@@ -717,7 +613,7 @@ export default function ValidationPanel({
                       placeholder="Medicamento / Producto"
                       className="w-full text-sm p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                       value={newItemName}
-                      onChange={e => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemName — nuevo valor:', e.target.value); setNewItemName(e.target.value); }}
+                      onChange={e => { setNewItemName(e.target.value); }}
                     />
                   </div>
                   <div className="col-span-6 @sm:col-span-4">
@@ -728,7 +624,7 @@ export default function ValidationPanel({
                         placeholder="Precio"
                         className="w-full text-sm pl-6 p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                         value={newItemPrice}
-                        onChange={e => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemPrice — nuevo valor:', e.target.value); setNewItemPrice(e.target.value); }}
+                        onChange={e => { setNewItemPrice(e.target.value); }}
                       />
                     </div>
                   </div>
@@ -740,16 +636,15 @@ export default function ValidationPanel({
                       title="Cantidad"
                       className="w-full text-sm p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                       value={newItemQuantity}
-                      onChange={e => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemQuantity — nuevo valor:', e.target.value); setNewItemQuantity(e.target.value); }}
+                      onChange={e => { setNewItemQuantity(e.target.value); }}
                     />
                   </div>
                   <div className="col-span-8 @sm:col-span-3">
                     <select
                       className="w-full text-sm p-2 border border-gray-300 dark:border-gray-600 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none bg-white dark:bg-gray-900 dark:text-gray-100"
                       value={newItemDiscount}
-                      onChange={e => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setNewItemDiscount — nuevo valor:', e.target.value); setNewItemDiscount(e.target.value); }}
+                      onChange={e => { setNewItemDiscount(e.target.value); }}
                     >
-                      {console.log('🔍 [DEBUG-COMPONENT-ValidationPanel] .map() discountOptions — cantidad:', discountOptions.length, discountOptions) || null}
                       {discountOptions.map(d => (
                         <option key={d} value={d}>{d}% Desc</option>
                       ))}
@@ -769,7 +664,6 @@ export default function ValidationPanel({
                 {/* Lista de Items */}
                 {quoteItems.length > 0 && (
                   <div className="mt-4 space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-thin">
-                    {console.log('🔍 [DEBUG-COMPONENT-ValidationPanel] .map() quoteItems — cantidad:', quoteItems.length, quoteItems) || null}
                     {quoteItems.map(item => (
                       <div key={item.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-900 p-2 rounded border border-gray-100 dark:border-gray-700 text-sm">
                         <div className="flex-1 truncate pr-2">
@@ -821,7 +715,7 @@ export default function ValidationPanel({
                             type="number"
                             className="w-full p-1 text-right text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                             value={shippingCost}
-                            onChange={e => { console.log('🔄 [DEBUG-COMPONENT-ValidationPanel] setShippingCost — nuevo valor:', e.target.value); setShippingCost(e.target.value); }}
+                            onChange={e => { setShippingCost(e.target.value); }}
                             placeholder="0.00"
                           />
                         </div>

@@ -19,7 +19,6 @@ export const coloresRating = (tipo) => COLOR_POR_TIPO[tipo] || COLOR_POR_TIPO.at
 // llamador con conflictos de especificidad): agregalo vía `className` si
 // hace falta (ej. "font-medium").
 export default function StarRating({ value, type = 'atencion', size = 12, className = '' }) {
-  console.log('🔍 [DEBUG-COMPONENT-StarRating] StarRating() — props:', { value, type, size, className });
   const colores = coloresRating(type);
   return (
     <span className={`inline-flex items-center gap-0.5 ${colores.texto} ${className}`}>

@@ -12,12 +12,9 @@ const DAYS = [
 ];
 
 function ScheduleEditor({ title, description, schedule, onChange, showPlaceholderHint }) {
-  console.log('🔍 [DEBUG-COMPONENT-SchedulePanel] Render ScheduleEditor — props:', { title, description, schedule, showPlaceholderHint });
 
   const toggleDay = (d) => {
-    console.log('🖱️ [DEBUG-COMPONENT-SchedulePanel] toggleDay — día:', d, 'días actuales:', schedule.days);
     const days = schedule.days.includes(d) ? schedule.days.filter(x => x !== d) : [...schedule.days, d];
-    console.log('🔄 [DEBUG-COMPONENT-SchedulePanel] toggleDay — nuevos días:', days);
     onChange({ ...schedule, days });
   };
 
@@ -32,7 +29,7 @@ function ScheduleEditor({ title, description, schedule, onChange, showPlaceholde
           <input
             type="checkbox"
             checked={schedule.enabled}
-            onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SchedulePanel] onChange enabled — nuevo valor:', e.target.checked); onChange({ ...schedule, enabled: e.target.checked }); }}
+            onChange={(e) => { onChange({ ...schedule, enabled: e.target.checked }); }}
             className="accent-teal-600"
           />
           Restringir horario
@@ -64,7 +61,7 @@ function ScheduleEditor({ title, description, schedule, onChange, showPlaceholde
               <input
                 type="time"
                 value={schedule.startTime}
-                onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SchedulePanel] onChange startTime — nuevo valor:', e.target.value); onChange({ ...schedule, startTime: e.target.value }); }}
+                onChange={(e) => { onChange({ ...schedule, startTime: e.target.value }); }}
                 className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               />
             </div>
@@ -73,7 +70,7 @@ function ScheduleEditor({ title, description, schedule, onChange, showPlaceholde
               <input
                 type="time"
                 value={schedule.endTime}
-                onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SchedulePanel] onChange endTime — nuevo valor:', e.target.value); onChange({ ...schedule, endTime: e.target.value }); }}
+                onChange={(e) => { onChange({ ...schedule, endTime: e.target.value }); }}
                 className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               />
             </div>
@@ -85,7 +82,7 @@ function ScheduleEditor({ title, description, schedule, onChange, showPlaceholde
             </label>
             <textarea
               value={schedule.message}
-              onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SchedulePanel] onChange message — nuevo valor:', e.target.value); onChange({ ...schedule, message: e.target.value }); }}
+              onChange={(e) => { onChange({ ...schedule, message: e.target.value }); }}
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm resize-none"
             />
@@ -97,7 +94,6 @@ function ScheduleEditor({ title, description, schedule, onChange, showPlaceholde
 }
 
 export default function SchedulePanel() {
-  console.log('🔍 [DEBUG-COMPONENT-SchedulePanel] Render SchedulePanel — props: (ninguna)');
 
   const [botSchedule, setBotSchedule] = useState(null);
   const [humanSchedule, setHumanSchedule] = useState(null);
@@ -107,13 +103,10 @@ export default function SchedulePanel() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    console.log('🔍 [DEBUG-COMPONENT-SchedulePanel] useEffect ejecutado — deps: []');
-    console.log('📡 [DEBUG-COMPONENT-SchedulePanel] Fetch GET /api/schedules');
     const API_URL = import.meta.env.VITE_API_URL || '';
     fetch(`${API_URL}/api/schedules`)
       .then(res => res.json())
       .then(data => {
-        console.log('📡 [DEBUG-COMPONENT-SchedulePanel] Respuesta /api/schedules:', data);
         setBotSchedule(data.bot);
         setHumanSchedule(data.human);
       })
@@ -122,13 +115,11 @@ export default function SchedulePanel() {
   }, []);
 
   const handleSave = async () => {
-    console.log('🖱️ [DEBUG-COMPONENT-SchedulePanel] handleSave — botSchedule:', botSchedule, 'humanSchedule:', humanSchedule);
     setSaving(true);
     setError('');
     setSaved(false);
 
     try {
-      console.log('📡 [DEBUG-COMPONENT-SchedulePanel] Fetch PUT /api/schedules — body:', { bot: botSchedule, human: humanSchedule });
       const API_URL = import.meta.env.VITE_API_URL || '';
       const res = await fetch(`${API_URL}/api/schedules`, {
         method: 'PUT',
@@ -136,11 +127,9 @@ export default function SchedulePanel() {
         body: JSON.stringify({ bot: botSchedule, human: humanSchedule })
       });
       const data = await res.json();
-      console.log('📡 [DEBUG-COMPONENT-SchedulePanel] Respuesta /api/schedules — status:', res.status, 'data:', data);
 
       if (!res.ok) throw new Error(data.error || 'No se pudieron guardar los horarios.');
 
-      console.log('✅ [DEBUG-COMPONENT-SchedulePanel] Horarios guardados correctamente');
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
@@ -165,14 +154,14 @@ export default function SchedulePanel() {
         title="Bot"
         description="Fuera de este horario, el bot no procesa mensajes y responde con el aviso configurado."
         schedule={botSchedule}
-        onChange={(next) => { console.log('🔄 [DEBUG-COMPONENT-SchedulePanel] setBotSchedule — nuevo valor:', next); setBotSchedule(next); }}
+        onChange={(next) => { setBotSchedule(next); }}
       />
 
       <ScheduleEditor
         title="Asesores Humanos"
         description='Si un cliente pide hablar con un humano fuera de este horario, el bot le avisa y le pide que deje su consulta.'
         schedule={humanSchedule}
-        onChange={(next) => { console.log('🔄 [DEBUG-COMPONENT-SchedulePanel] setHumanSchedule — nuevo valor:', next); setHumanSchedule(next); }}
+        onChange={(next) => { setHumanSchedule(next); }}
         showPlaceholderHint
       />
 

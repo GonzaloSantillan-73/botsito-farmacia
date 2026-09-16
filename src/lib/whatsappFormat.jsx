@@ -6,9 +6,7 @@ import React from 'react';
 const FORMAT_REGEX = /(\*[^*\n]+\*|_[^_\n]+_|~[^~\n]+~)/g;
 
 export function renderWhatsAppText(text) {
-  console.log('🔍 [DEBUG-LIB-WHATSAPPFORMAT] renderWhatsAppText() — input:', text);
   if (!text) {
-    console.log('✅ [DEBUG-LIB-WHATSAPPFORMAT] renderWhatsAppText() — return (input vacío):', text);
     return text;
   }
 
@@ -36,6 +34,5 @@ export function renderWhatsAppText(text) {
     );
   });
 
-  console.log('✅ [DEBUG-LIB-WHATSAPPFORMAT] renderWhatsAppText() — texto de entrada:', text, '| resultado formateado (array de nodos React):', result);
   return result;
 }

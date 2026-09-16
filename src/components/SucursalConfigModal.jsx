@@ -10,7 +10,6 @@ import { DIAS } from '../lib/dias';
 // `sucursal` es null cuando se está dando de alta una sucursal nueva, o la
 // fila existente cuando se edita.
 export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
-  console.log('🔍 [DEBUG-COMPONENT-SucursalConfigModal] Render — props:', { sucursal, onClose, onSaved });
 
   const empleados = sucursal?.staff_users || [];
   const [empleadoPrincipal, setEmpleadoPrincipal] = useState(empleados[0] || null);
@@ -28,21 +27,13 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
   const [error, setError] = useState('');
 
   const toggleDia = (d) => {
-    console.log('🖱️ [DEBUG-COMPONENT-SucursalConfigModal] toggleDia() — día:', d);
     setDias(prev => {
       const next = prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d];
-      console.log('🔄 [DEBUG-COMPONENT-SucursalConfigModal] setDias ->', next);
       return next;
     });
   };
 
   const handleGuardar = async () => {
-    console.log('🖱️ [DEBUG-COMPONENT-SucursalConfigModal] handleGuardar() — datos del formulario:', {
-      esNueva: !sucursal,
-      sucursalId: sucursal?.id,
-      nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre,
-      empleadoPrincipal, username, passwordIngresada: Boolean(password)
-    });
 
     if (!nombre.trim()) {
       setError('Ingresá el nombre de la sucursal.');
@@ -82,37 +73,30 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
       });
       const url = sucursal ? `/api/admin/staff/sucursales/${sucursal.id}` : '/api/admin/staff/sucursales';
       const method = sucursal ? 'PUT' : 'POST';
-      console.log('📡 [DEBUG-COMPONENT-SucursalConfigModal] CRUD sucursal — request:', { url, method, body });
       const resSucursal = sucursal
         ? await adminFetch(`/api/admin/staff/sucursales/${sucursal.id}`, { method: 'PUT', body })
         : await adminFetch('/api/admin/staff/sucursales', { method: 'POST', body });
       const dataSucursal = await resSucursal.json();
-      console.log('📡 [DEBUG-COMPONENT-SucursalConfigModal] CRUD sucursal — respuesta:', { ok: resSucursal.ok, status: resSucursal.status, data: dataSucursal });
       if (!resSucursal.ok) throw new Error(dataSucursal.error || 'No se pudo guardar la sucursal.');
 
       if (username.trim()) {
         if (empleadoPrincipal) {
-          console.log('📡 [DEBUG-COMPONENT-SucursalConfigModal] CRUD acceso personal (editar) — request:', { url: `/api/admin/staff/${empleadoPrincipal.id}`, method: 'PUT', username, passwordIngresada: Boolean(password) });
           const resEmp = await adminFetch(`/api/admin/staff/${empleadoPrincipal.id}`, {
             method: 'PUT',
             body: JSON.stringify({ username, password })
           });
           const dataEmp = await resEmp.json();
-          console.log('📡 [DEBUG-COMPONENT-SucursalConfigModal] CRUD acceso personal (editar) — respuesta:', { ok: resEmp.ok, status: resEmp.status, data: dataEmp });
           if (!resEmp.ok) throw new Error(dataEmp.error || 'No se pudo guardar el acceso del personal.');
         } else {
-          console.log('📡 [DEBUG-COMPONENT-SucursalConfigModal] CRUD acceso personal (crear) — request:', { url: '/api/admin/staff', method: 'POST', sucursalId: dataSucursal.sucursal.id, username, passwordIngresada: Boolean(password) });
           const resEmp = await adminFetch('/api/admin/staff', {
             method: 'POST',
             body: JSON.stringify({ sucursalId: dataSucursal.sucursal.id, username, password })
           });
           const dataEmp = await resEmp.json();
-          console.log('📡 [DEBUG-COMPONENT-SucursalConfigModal] CRUD acceso personal (crear) — respuesta:', { ok: resEmp.ok, status: resEmp.status, data: dataEmp });
           if (!resEmp.ok) throw new Error(dataEmp.error || 'No se pudo crear el acceso del personal.');
         }
       }
 
-      console.log('✅ [DEBUG-COMPONENT-SucursalConfigModal] Sucursal guardada correctamente');
       onSaved();
       onClose();
     } catch (err) {
@@ -124,19 +108,15 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
   };
 
   const eliminarAcceso = async () => {
-    console.log('🖱️ [DEBUG-COMPONENT-SucursalConfigModal] eliminarAcceso() — empleadoPrincipal id:', empleadoPrincipal?.id);
     if (!empleadoPrincipal) return;
     if (!window.confirm('¿Eliminar este acceso? El empleado ya no va a poder entrar al CRM.')) return;
-    console.log('📡 [DEBUG-COMPONENT-SucursalConfigModal] CRUD acceso personal (DELETE) — request:', { url: `/api/admin/staff/${empleadoPrincipal.id}`, method: 'DELETE' });
     const res = await adminFetch(`/api/admin/staff/${empleadoPrincipal.id}`, { method: 'DELETE' });
-    console.log('📡 [DEBUG-COMPONENT-SucursalConfigModal] CRUD acceso personal (DELETE) — respuesta:', { ok: res.ok, status: res.status });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       console.error('❌ [DEBUG-COMPONENT-SucursalConfigModal] Error eliminando acceso:', data);
       setError(data.error || 'No se pudo eliminar el acceso.');
       return;
     }
-    console.log('✅ [DEBUG-COMPONENT-SucursalConfigModal] Acceso principal eliminado');
     setEmpleadoPrincipal(null);
     setUsername('');
     setPassword('');
@@ -144,30 +124,25 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
   };
 
   const eliminarExtra = async (id) => {
-    console.log('🖱️ [DEBUG-COMPONENT-SucursalConfigModal] eliminarExtra() — id:', id);
     if (!window.confirm('¿Eliminar este acceso adicional?')) return;
-    console.log('📡 [DEBUG-COMPONENT-SucursalConfigModal] CRUD acceso extra (DELETE) — request:', { url: `/api/admin/staff/${id}`, method: 'DELETE' });
     const res = await adminFetch(`/api/admin/staff/${id}`, { method: 'DELETE' });
-    console.log('📡 [DEBUG-COMPONENT-SucursalConfigModal] CRUD acceso extra (DELETE) — respuesta:', { ok: res.ok, status: res.status });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       console.error('❌ [DEBUG-COMPONENT-SucursalConfigModal] Error eliminando acceso extra:', data);
       setError(data.error || 'No se pudo eliminar el acceso.');
       return;
     }
-    console.log('✅ [DEBUG-COMPONENT-SucursalConfigModal] Acceso extra eliminado — id:', id);
     setExtras(prev => prev.filter(e => e.id !== id));
     onSaved();
   };
 
-  console.log('🔍 [DEBUG-COMPONENT-SucursalConfigModal] Render lista de accesos extra — cantidad:', extras.length);
 
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
           <h3 className="font-bold text-gray-800 dark:text-gray-100">{sucursal ? sucursal.nombre : 'Nueva sucursal'}</h3>
-          <button onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-SucursalConfigModal] click botón cerrar (X)'); onClose(); }} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-800 rounded-full transition-colors">
+          <button onClick={() => { onClose(); }} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-800 rounded-full transition-colors">
             <X size={18} />
           </button>
         </div>
@@ -179,7 +154,7 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
               <input
                 type="text"
                 value={nombre}
-                onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SucursalConfigModal] setNombre ->', e.target.value); setNombre(e.target.value); }}
+                onChange={(e) => { setNombre(e.target.value); }}
                 placeholder="Sucursal Centro"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               />
@@ -189,7 +164,7 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
               <input
                 type="text"
                 value={direccion}
-                onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SucursalConfigModal] setDireccion ->', e.target.value); setDireccion(e.target.value); }}
+                onChange={(e) => { setDireccion(e.target.value); }}
                 placeholder="Av. Siempre Viva 123"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               />
@@ -199,7 +174,7 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
               <input
                 type="text"
                 value={googleMapsUrl}
-                onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SucursalConfigModal] setGoogleMapsUrl ->', e.target.value); setGoogleMapsUrl(e.target.value); }}
+                onChange={(e) => { setGoogleMapsUrl(e.target.value); }}
                 placeholder="https://maps.app.goo.gl/..."
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               />
@@ -227,14 +202,14 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
               <input
                 type="time"
                 value={horaApertura}
-                onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SucursalConfigModal] setHoraApertura ->', e.target.value); setHoraApertura(e.target.value); }}
+                onChange={(e) => { setHoraApertura(e.target.value); }}
                 className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm"
               />
               <span className="text-gray-400 text-xs">a</span>
               <input
                 type="time"
                 value={horaCierre}
-                onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SucursalConfigModal] setHoraCierre ->', e.target.value); setHoraCierre(e.target.value); }}
+                onChange={(e) => { setHoraCierre(e.target.value); }}
                 className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm"
               />
             </div>
@@ -249,7 +224,7 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
               <input
                 type="text"
                 value={username}
-                onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SucursalConfigModal] setUsername ->', e.target.value); setUsername(e.target.value); }}
+                onChange={(e) => { setUsername(e.target.value); }}
                 placeholder="Usuario para iniciar sesión en el CRM"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               />
@@ -261,7 +236,7 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
               <input
                 type="password"
                 value={password}
-                onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SucursalConfigModal] setPassword -> (longitud):', e.target.value.length); setPassword(e.target.value); }}
+                onChange={(e) => { setPassword(e.target.value); }}
                 placeholder={empleadoPrincipal ? '••••••••' : 'Mínimo 6 caracteres'}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               />

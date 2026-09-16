@@ -8,18 +8,14 @@ import { adminFetch } from './adminAuth';
 // Va con el token de sesión: el backend rechaza esta acción para el rol admin
 // (solo supervisión, ver requireAuth/blockAdminRole en server/routes/api.js).
 export const tomarConsulta = async (conversationId, sucursalId) => {
-  console.log('🔍 [DEBUG-LIB-TOMARCONSULTA] tomarConsulta() — conversationId:', conversationId, '| sucursalId:', sucursalId);
-  console.log('📡 [DEBUG-LIB-TOMARCONSULTA] tomarConsulta() — POST a:', `/api/conversations/${conversationId}/take`, '| body:', { sucursalId });
   const res = await adminFetch(`/api/conversations/${conversationId}/take`, {
     method: 'POST',
     body: JSON.stringify({ sucursalId })
   });
   const data = await res.json();
-  console.log('📡 [DEBUG-LIB-TOMARCONSULTA] tomarConsulta() — respuesta del backend — ok:', res.ok, '| status:', res.status, '| data:', data);
   if (!res.ok) {
     console.error('❌ [DEBUG-LIB-TOMARCONSULTA] tomarConsulta() — error:', data.error || 'No se pudo tomar la consulta.');
     throw new Error(data.error || 'No se pudo tomar la consulta.');
   }
-  console.log('✅ [DEBUG-LIB-TOMARCONSULTA] tomarConsulta() — return:', data.conversation);
   return data.conversation;
 };

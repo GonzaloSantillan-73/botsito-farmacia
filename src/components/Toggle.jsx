@@ -1,7 +1,6 @@
 import React from 'react';
 
 export default function Toggle({ checked, onChange, disabled }) {
-  console.log('🔍 [DEBUG-COMPONENT-Toggle] Toggle() — props:', { checked, disabled });
   return (
     <button
       type="button"
@@ -9,7 +8,6 @@ export default function Toggle({ checked, onChange, disabled }) {
       aria-checked={checked}
       disabled={disabled}
       onClick={() => {
-        console.log('🖱️ [DEBUG-COMPONENT-Toggle] onClick — nuevo valor:', !checked, '| disabled:', disabled);
         !disabled && onChange(!checked);
       }}
       className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
