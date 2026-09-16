@@ -26,6 +26,7 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
   const [abierta24hs, setAbierta24hs] = useState(sucursal?.abierta_24hs || false);
   const [username, setUsername] = useState(empleadoPrincipal?.username || '');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -60,6 +61,10 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
     }
     if (password && password.length < 6) {
       setError('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+    if (password && password !== confirmPassword) {
+      setError('La confirmación no coincide con la nueva contraseña.');
       return;
     }
 
@@ -125,6 +130,7 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
     setEmpleadoPrincipal(null);
     setUsername('');
     setPassword('');
+    setConfirmPassword('');
     onSaved();
   };
 
@@ -246,13 +252,23 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                Contraseña{empleadoPrincipal ? ' (dejar vacío para no cambiarla)' : ''}
+                Nueva contraseña{empleadoPrincipal ? ' (dejar vacío para no cambiarla)' : ''}
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); }}
                 placeholder={empleadoPrincipal ? '••••••••' : 'Mínimo 6 caracteres'}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Confirmar nueva contraseña</label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => { setConfirmPassword(e.target.value); }}
+                placeholder="Repetí la nueva contraseña"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
               />
             </div>

@@ -100,17 +100,16 @@ export default function CredentialsPanel() {
         />
       </div>
 
-      {newPassword.trim() && (
-        <div>
-          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Confirmar nueva contraseña</label>
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => { setConfirmPassword(e.target.value); }}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
-          />
-        </div>
-      )}
+      <div>
+        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Confirmar nueva contraseña</label>
+        <input
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => { setConfirmPassword(e.target.value); }}
+          placeholder="Repetí la nueva contraseña"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
+        />
+      </div>
 
       <div className="pt-2 border-t border-gray-100 dark:border-gray-800">
         <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Tu contraseña actual (para confirmar)</label>
