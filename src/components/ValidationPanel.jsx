@@ -774,7 +774,7 @@ export default function ValidationPanel({
             por cliente (no por conversación), así que se muestra siempre que
             haya un chat abierto, incluso en el Historial. */}
         {activeConversation && (
-          <ClientNotesPanel clientPhone={activeConversation.client_phone} />
+          <ClientNotesPanel conversationId={activeConversation.id} />
         )}
 
         {/* Muestra el motivo de cierre debajo de las observaciones si la conversación finalizó */}

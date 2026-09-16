@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { NotebookText, IdCard, HeartPulse, Loader2, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
-// Ficha del cliente (datos que el propio bot le pidió por WhatsApp) +
-// observaciones internas que carga el operador humano. Todo vive en la
-// tabla `clientes`, vinculado por client_phone (no por conversación), así
-// que persiste sin importar cuántos chats distintos tenga ese cliente.
-export default function ClientNotesPanel({ clientPhone }) {
+// Observaciones internas que carga el operador humano sobre ESTA consulta
+// puntual. Viven en conversations.notas_operador, vinculadas por
+// conversation_id (no por client_phone), para que cada chat tenga su propia
+// nota y no se repita en las demás conversaciones de un mismo cliente.
+export default function ClientNotesPanel({ conversationId }) {
 
-  const [cliente, setCliente] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notas, setNotas] = useState('');
   const [saving, setSaving] = useState(false);
@@ -16,30 +15,28 @@ export default function ClientNotesPanel({ clientPhone }) {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    if (!clientPhone) return;
+    if (!conversationId) return;
     setLoading(true);
     setSaved(false);
     supabase
-      .from('clientes')
-      .select('*')
-      .eq('client_phone', clientPhone)
+      .from('conversations')
+      .select('notas_operador')
+      .eq('id', conversationId)
       .maybeSingle()
       .then(({ data, error }) => {
-        setCliente(data);
+        if (error) console.error('❌ [DEBUG-COMPONENT-ClientNotesPanel] Error cargando notas:', error);
         setNotas(data?.notas_operador || '');
         setLoading(false);
       });
-  }, [clientPhone]);
+  }, [conversationId]);
 
   const handleGuardarNotas = async () => {
     setSaving(true);
     setSaved(false);
     const { error } = await supabase
-      .from('clientes')
-      .upsert(
-        { client_phone: clientPhone, notas_operador: notas, updated_at: new Date().toISOString() },
-        { onConflict: 'client_phone' }
-      );
+      .from('conversations')
+      .update({ notas_operador: notas })
+      .eq('id', conversationId);
     setSaving(false);
     if (!error) {
       setSaved(true);
@@ -76,7 +73,7 @@ export default function ClientNotesPanel({ clientPhone }) {
                 value={notas}
                 onChange={(e) => { setNotas(e.target.value); }}
                 rows={4}
-                placeholder="Notas internas sobre la atención de este cliente (no las ve el cliente)..."
+                placeholder="Notas internas sobre la atención de esta consulta (no las ve el cliente)..."
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm resize-none"
               />
 
