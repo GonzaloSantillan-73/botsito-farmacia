@@ -92,7 +92,7 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
               <QuickRepliesPanel />
             ) : activeTab === 'chat' && isAdmin ? (
               <div className="space-y-3">
-                <Accordion title="Tiempo de inactividad para cerrar un chat" icon={Clock} defaultOpen>
+                <Accordion title="Tiempo de inactividad para cerrar un chat" icon={Clock}>
                   <SessionTimeoutPanel sessionTimeoutMs={sessionTimeoutMs} onSave={onSave} />
                 </Accordion>
 

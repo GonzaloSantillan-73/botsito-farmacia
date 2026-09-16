@@ -221,7 +221,6 @@ export default function MetricsPanel() {
         title="Conversión de ventas"
         description='Resultado que el vendedor marca a mano en el chat: "Venta Concretada", "Venta No Concretada" u "Otra razón".'
         icon={CheckCircle2}
-        defaultOpen
       >
         {!negocio || negocio.conversion.totalGestionadas === 0 ? (
           <div className="text-sm text-gray-400 py-6 text-center bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-800">
@@ -261,7 +260,6 @@ export default function MetricsPanel() {
         title="Resolución autónoma del bot"
         description="De las consultas ya cerradas, cuántas se resolvieron sin intervención humana."
         icon={Bot}
-        defaultOpen
       >
         {!negocio || negocio.operacion.totalCerradas === 0 ? (
           <div className="text-sm text-gray-400 py-6 text-center bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-800">
@@ -307,7 +305,6 @@ export default function MetricsPanel() {
         title="Seguridad: filtro de PDFs"
         description="Efectividad del análisis de seguridad sobre los documentos PDF recibidos por WhatsApp."
         icon={ShieldCheck}
-        defaultOpen
       >
         <div className="flex gap-3">
           <StatCard icon={ShieldAlert} value={negocio?.seguridad?.pdfBloqueados ?? 0} label="PDFs bloqueados" accent="text-rose-600 dark:text-rose-400" />
@@ -315,7 +312,7 @@ export default function MetricsPanel() {
         </div>
       </Accordion>
 
-      <Accordion title="Satisfacción con la atención" description="Resumen de las calificaciones (1 a 5) que dejan los clientes sobre cómo fueron atendidos al finalizar una consulta." icon={Headset} defaultOpen>
+      <Accordion title="Satisfacción con la atención" description="Resumen de las calificaciones (1 a 5) que dejan los clientes sobre cómo fueron atendidos al finalizar una consulta." icon={Headset}>
         <RatingSummary
           resumen={negocio?.calificaciones?.atencion}
           label="atención"
@@ -324,7 +321,7 @@ export default function MetricsPanel() {
         />
       </Accordion>
 
-      <Accordion title="Satisfacción con el producto" description="Resumen de las calificaciones (1 a 5) que dejan los clientes sobre el producto recibido, independiente de la atención." icon={ShoppingCart} defaultOpen>
+      <Accordion title="Satisfacción con el producto" description="Resumen de las calificaciones (1 a 5) que dejan los clientes sobre el producto recibido, independiente de la atención." icon={ShoppingCart}>
         <RatingSummary
           resumen={negocio?.calificaciones?.producto}
           label="producto"
@@ -339,7 +336,6 @@ export default function MetricsPanel() {
           ? 'Puntaje promedio de atención y producto que dejó cada sucursal, comparado con el promedio general del sistema.'
           : 'Puntaje promedio de tu sucursal, comparado con el promedio general del sistema.'}
         icon={Store}
-        defaultOpen
       >
         <div className="space-y-2">
           <div className="flex items-center gap-3 p-3 rounded-xl bg-teal-50 dark:bg-teal-950 border border-teal-100">
