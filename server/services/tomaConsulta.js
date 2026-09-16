@@ -73,7 +73,15 @@ export const tomarConsulta = async (conversationId, sucursalId) => {
 
     if (conv.client_phone) {
       console.log('🔍 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — enviando mensaje de consulta tomada a', conv.client_phone);
-      await enviarMensajeBot(conversationId, conv.client_phone, mensajeConsultaTomada(sucursal));
+      try {
+        await enviarMensajeBot(conversationId, conv.client_phone, mensajeConsultaTomada(sucursal));
+      } catch (avisoError) {
+        // La asignación (el UPDATE de arriba) ya quedó confirmada en la base:
+        // si sólo falla el aviso por WhatsApp (ej. ventana de 24hs cerrada), no
+        // hay que tirar la operación entera, o el operador ve "no se pudo
+        // tomar la consulta" cuando en realidad sí se la asignó a su sucursal.
+        console.error('❌ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — la asignación se guardó pero falló el aviso por WhatsApp:', avisoError?.message, avisoError?.stack);
+      }
     }
 
     console.log('✅ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — resultado a devolver:', conv);

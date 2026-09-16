@@ -321,6 +321,15 @@ const manejarUbicacionHumano = async (conversationId, telefono, t) => {
   console.log(`[BOT] Ubicación recibida y sucursales recomendadas para ID: ${conversationId}`, recomendadas);
   const actualizado = await actualizarEstadoConversacion(conversationId, {
     status: 'esperando',
+    // Esta conversación puede ser una fila reutilizada de una atención
+    // anterior (findOrCreateSession no crea una fila nueva mientras no esté
+    // en un estado terminal), así que puede traer un sucursal_id viejo de la
+    // vez pasada. Si no lo limpiamos acá, el cliente vuelve a quedar
+    // "esperando" pero atado a esa sucursal vieja -invisible para cualquier
+    // otro operador, sin que nadie haya tocado "Tomar"- en vez de entrar de
+    // nuevo a la cola general. Mismo reseteo que ya hace devolverConversacionAEspera().
+    sucursal_id: null,
+    devuelta_por_sucursal_id: null,
     bot_state: null,
     bot_context: null,
     waiting_since: new Date().toISOString(),
