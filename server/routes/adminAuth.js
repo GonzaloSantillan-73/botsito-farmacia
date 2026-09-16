@@ -119,7 +119,11 @@ export const blockAdminRole = (req, res, next) => {
   next();
 };
 
-router.put('/update-credentials', requireAuth, requireAdminRole, async (req, res) => {
+// Cambio de usuario/contraseña de la PROPIA cuenta logueada: no exige
+// requireAdminRole porque tanto el admin como cualquier empleado de sucursal
+// pueden cambiar sus propias credenciales (ver "Cuenta" en SettingsModal.jsx
+// para staff, y "Administrador" en la pestaña Administración para el admin).
+router.put('/update-credentials', requireAuth, async (req, res) => {
   console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - req.method:', req.method, '| req.originalUrl:', req.originalUrl, '| req.path:', req.path);
   const bodyParaLog = { ...req.body };
   if (bodyParaLog.password) bodyParaLog.password = '[REDACTED]';
@@ -144,15 +148,16 @@ router.put('/update-credentials', requireAuth, requireAdminRole, async (req, res
   }
 
   try {
-    console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - llamando a actualizarCredenciales (servicio, no es supabase.from directo) con req.admin.sub:', req.admin.sub, '| newUsername:', newUsername, '| newPassword:', newPassword ? '[REDACTED]' : newPassword);
-    const updated = await actualizarCredenciales(req.admin.sub, { currentPassword, newUsername, newPassword });
+    console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - llamando a actualizarCredenciales (servicio, no es supabase.from directo) con req.admin.sub:', req.admin.sub, '| req.admin.role:', req.admin.role, '| newUsername:', newUsername, '| newPassword:', newPassword ? '[REDACTED]' : newPassword);
+    const updated = await actualizarCredenciales(req.admin.sub, req.admin.role, { currentPassword, newUsername, newPassword });
     console.log('✅ [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - resultado actualizarCredenciales:', updated);
     // Reemitimos el token con el username actualizado (el JWT no lleva la
     // contraseña, así que un cambio de solo contraseña no invalida la sesión).
-    const token = generarToken({ id: updated.id, username: updated.username, role: 'admin', sucursalId: null });
+    // El rol y la sucursal no cambian acá, así que se reusan los del token viejo.
+    const token = generarToken({ id: updated.id, username: updated.username, role: req.admin.role, sucursalId: req.admin.sucursalId || null });
     console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - token generado (longitud, no se loguea el valor completo por seguridad):', token?.length);
-    console.log(`[ADMIN AUTH] Credenciales actualizadas para el admin ${updated.id}.`);
-    const responseBody200 = { success: true, username: updated.username, token };
+    console.log(`[ADMIN AUTH] Credenciales actualizadas para la cuenta ${updated.id} (${req.admin.role}).`);
+    const responseBody200 = { success: true, username: updated.username, role: req.admin.role, sucursalId: req.admin.sucursalId || null, token };
     console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - respondiendo status 200:', { ...responseBody200, token: '[TOKEN OMITIDO EN LOG]' });
     res.status(200).json(responseBody200);
   } catch (error) {

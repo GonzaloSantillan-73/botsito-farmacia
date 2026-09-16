@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
 import { Loader2, Check } from 'lucide-react';
-import { adminFetch, getAdminUsername, setAdminSession } from '../lib/adminAuth';
+import { adminFetch, getAdminUsername, getAdminRole, getStaffSucursalId, getStaffSucursalNombre, getTheme, setAdminSession } from '../lib/adminAuth';
 
-export default function AdminCredentialsPanel() {
+// Cambio de usuario/contraseña de la PROPIA cuenta logueada: lo usa tanto el
+// admin (pestaña "Administración" → "Administrador") como cualquier
+// empleado de sucursal (pestaña "Cuenta"), contra el mismo endpoint
+// PUT /api/admin/update-credentials (ver server/routes/adminAuth.js), que ya
+// decide sobre admin_users o staff_users según el rol de la sesión.
+export default function CredentialsPanel() {
   // NOTA DE SEGURIDAD: este componente maneja contraseñas. Nunca se loguea
   // el valor de currentPassword/newPassword/confirmPassword en texto plano.
 
@@ -48,7 +53,11 @@ export default function AdminCredentialsPanel() {
 
       if (!res.ok) throw new Error(data.error || 'No se pudieron actualizar las credenciales.');
 
-      setAdminSession(data.token, data.username);
+      // El rol, la sucursal y el tema no cambian con esto: se reusan los que
+      // ya tenía la sesión para no pisarlos con los valores por defecto de
+      // setAdminSession() (eso convertiría a un empleado en "admin" en este
+      // navegador, o le resetearía el tema a claro).
+      setAdminSession(data.token, data.username, getAdminRole(), getStaffSucursalId(), getStaffSucursalNombre(), getTheme());
       setCurrentPassword('');
       setNewUsername('');
       setNewPassword('');
@@ -56,7 +65,7 @@ export default function AdminCredentialsPanel() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
-      console.error('❌ [DEBUG-COMPONENT-AdminCredentialsPanel] Error actualizando credenciales:', err.message);
+      console.error('❌ [DEBUG-COMPONENT-CredentialsPanel] Error actualizando credenciales:', err.message);
       setError(err.message || 'No se pudieron actualizar las credenciales.');
     } finally {
       setSaving(false);

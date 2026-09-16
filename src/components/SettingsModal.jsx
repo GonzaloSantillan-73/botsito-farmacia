@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Settings, BarChart3, Sliders, Hash, Zap, CalendarClock, Download, Bell, Clock, Store, ShieldCheck, UserCog, CreditCard, MessageSquareText, Moon } from 'lucide-react';
+import { X, Settings, BarChart3, Sliders, Hash, Zap, CalendarClock, Download, Bell, Clock, Store, ShieldCheck, UserCog, CreditCard, MessageSquareText, Moon, KeyRound } from 'lucide-react';
 import Accordion from './Accordion';
 import SessionTimeoutPanel from './SessionTimeoutPanel';
 import WelcomeMessagePanel from './WelcomeMessagePanel';
@@ -11,7 +11,7 @@ import SucursalesPanel from './SucursalesPanel';
 import NotificationsPanel from './NotificationsPanel';
 import MetricsPanel from './MetricsPanel';
 import ExportPanel from './ExportPanel';
-import AdminCredentialsPanel from './AdminCredentialsPanel';
+import CredentialsPanel from './CredentialsPanel';
 import AliasPanel from './AliasPanel';
 import ThemeToggle from './ThemeToggle';
 
@@ -30,7 +30,8 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
     { id: 'admin', label: 'Administración', icon: UserCog }
   ] : [
     { id: 'apariencia', label: 'Apariencia', icon: Moon },
-    { id: 'respuestas', label: 'Mis Respuestas Rápidas', icon: Zap }
+    { id: 'respuestas', label: 'Mis Respuestas Rápidas', icon: Zap },
+    { id: 'cuenta', label: 'Cuenta', icon: KeyRound }
   ];
 
 
@@ -90,6 +91,8 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
               <ThemeToggle />
             ) : activeTab === 'respuestas' && !isAdmin ? (
               <QuickRepliesPanel />
+            ) : activeTab === 'cuenta' && !isAdmin ? (
+              <CredentialsPanel />
             ) : activeTab === 'chat' && isAdmin ? (
               <div className="space-y-3">
                 <Accordion title="Tiempo de inactividad para cerrar un chat" icon={Clock}>
@@ -123,7 +126,7 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
             ) : activeTab === 'admin' && isAdmin ? (
               <div className="space-y-3">
                 <Accordion title="Administrador" icon={ShieldCheck}>
-                  <AdminCredentialsPanel />
+                  <CredentialsPanel />
                 </Accordion>
 
                 <Accordion title="Sucursales" icon={Store}>

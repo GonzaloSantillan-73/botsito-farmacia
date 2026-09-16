@@ -86,24 +86,34 @@ export const verificarToken = (token) => {
   }
 };
 
-export const actualizarCredenciales = async (adminId, { currentPassword, newUsername, newPassword }) => {
+// Cambia usuario/contraseña de la cuenta logueada (admin o staff), en la
+// tabla que corresponda según su rol — mismo criterio que actualizarTema()
+// más abajo. `userId` siempre es el id de esa misma cuenta (req.admin.sub),
+// nunca el de otra: no hay forma de que un empleado cambie las credenciales
+// de otro ni de que el admin cambie las de un empleado desde este servicio
+// (eso lo maneja server/routes/staff.js, con contraseña nueva sin necesidad
+// de la actual, porque ahí el admin gestiona cuentas ajenas).
+export const actualizarCredenciales = async (userId, role, { currentPassword, newUsername, newPassword }) => {
+  const tabla = role === 'admin' ? 'admin_users' : 'staff_users';
   console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] actualizarCredenciales() — parámetros recibidos:', {
-    adminId,
+    userId,
+    role,
+    tabla,
     currentPassword: '[REDACTED]',
     newUsername,
     newPassword: '[REDACTED]'
   });
 
-  console.log('📡 [DEBUG-SERVICE-ADMINAUTH] Query Supabase → tabla: admin_users, operación: select, filtro: id =', adminId);
-  const { data: admin, error } = await supabase.from('admin_users').select('*').eq('id', adminId).single();
-  console.log('📡 [DEBUG-SERVICE-ADMINAUTH] Resultado query admin_users (select) — data:', admin ? { ...admin, password_hash: '[REDACTED]' } : admin, 'error:', error);
-  if (error || !admin) {
-    console.error('❌ [DEBUG-SERVICE-ADMINAUTH] actualizarCredenciales() — administrador no encontrado:', error);
-    throw new Error('Administrador no encontrado.');
+  console.log('📡 [DEBUG-SERVICE-ADMINAUTH] Query Supabase → tabla:', tabla, ', operación: select, filtro: id =', userId);
+  const { data: cuenta, error } = await supabase.from(tabla).select('*').eq('id', userId).single();
+  console.log('📡 [DEBUG-SERVICE-ADMINAUTH] Resultado query', tabla, '(select) — data:', cuenta ? { ...cuenta, password_hash: '[REDACTED]' } : cuenta, 'error:', error);
+  if (error || !cuenta) {
+    console.error('❌ [DEBUG-SERVICE-ADMINAUTH] actualizarCredenciales() — cuenta no encontrada:', error);
+    throw new Error('Cuenta no encontrada.');
   }
 
   console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] actualizarCredenciales() — comparando contraseña actual (bcrypt.compare, hash no se loguea)');
-  const passwordOk = await bcrypt.compare(currentPassword, admin.password_hash);
+  const passwordOk = await bcrypt.compare(currentPassword, cuenta.password_hash);
   console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] actualizarCredenciales() — contraseña actual correcta:', passwordOk);
   if (!passwordOk) {
     console.error('❌ [DEBUG-SERVICE-ADMINAUTH] actualizarCredenciales() — la contraseña actual no coincide');
@@ -112,7 +122,7 @@ export const actualizarCredenciales = async (adminId, { currentPassword, newUser
 
   const updates = { updated_at: new Date().toISOString() };
 
-  if (newUsername && newUsername.trim() && newUsername.trim() !== admin.username) {
+  if (newUsername && newUsername.trim() && newUsername.trim() !== cuenta.username) {
     updates.username = newUsername.trim();
   }
 
@@ -129,14 +139,14 @@ export const actualizarCredenciales = async (adminId, { currentPassword, newUser
     password_hash: updates.password_hash ? '[REDACTED]' : undefined
   });
 
-  console.log('📡 [DEBUG-SERVICE-ADMINAUTH] Query Supabase → tabla: admin_users, operación: update, filtro: id =', adminId);
+  console.log('📡 [DEBUG-SERVICE-ADMINAUTH] Query Supabase → tabla:', tabla, ', operación: update, filtro: id =', userId);
   const { data: updated, error: updateError } = await supabase
-    .from('admin_users')
+    .from(tabla)
     .update(updates)
-    .eq('id', adminId)
+    .eq('id', userId)
     .select()
     .single();
-  console.log('📡 [DEBUG-SERVICE-ADMINAUTH] Resultado query admin_users (update) — data:', updated ? { ...updated, password_hash: '[REDACTED]' } : updated, 'error:', updateError);
+  console.log('📡 [DEBUG-SERVICE-ADMINAUTH] Resultado query', tabla, '(update) — data:', updated ? { ...updated, password_hash: '[REDACTED]' } : updated, 'error:', updateError);
   if (updateError) {
     console.error('❌ [DEBUG-SERVICE-ADMINAUTH] actualizarCredenciales() — error actualizando credenciales:', updateError);
     throw updateError;
