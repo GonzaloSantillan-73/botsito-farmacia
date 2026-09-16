@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Download, Loader2, Check, Filter, X } from 'lucide-react';
 import { adminFetch } from '../lib/adminAuth';
 import SortableDetailTable from './SortableDetailTable';
+import ChatTraceModal from './ChatTraceModal';
 
 const downloadFile = async (url, fallbackName) => {
   const res = await adminFetch(url);
@@ -38,6 +39,8 @@ export default function MetricsTable() {
   const [exporting, setExporting] = useState(false);
   const [exported, setExported] = useState(false);
   const [exportError, setExportError] = useState('');
+
+  const [conversacionAbierta, setConversacionAbierta] = useState(null);
 
   // Si el usuario cambia el filtro antes de que responda el fetch anterior,
   // esa respuesta vieja no debe pisar el resultado del filtro nuevo cuando
@@ -157,7 +160,13 @@ export default function MetricsTable() {
           No hay consultas en el rango elegido.
         </div>
       ) : (
-        <SortableDetailTable rows={rows} />
+        <div className="w-full max-h-[350px] overflow-auto">
+          <SortableDetailTable rows={rows} onRowClick={(row) => { setConversacionAbierta(row); }} />
+        </div>
+      )}
+
+      {conversacionAbierta && (
+        <ChatTraceModal conversation={conversacionAbierta} onClose={() => setConversacionAbierta(null)} />
       )}
     </div>
   );

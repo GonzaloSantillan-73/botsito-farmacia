@@ -172,8 +172,7 @@ export default function MetricsPanel() {
           muchas columnas, no una tarjeta de resumen, así que no tiene sentido
           acotarla ni poder ocultarla. */}
       <div className="mb-8">
-        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-1">Detalle de consultas</h3>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Una fila por consulta, con teléfono, tiempos de atención y datos del pago. Hacé clic en una columna para ordenar, filtrá por fecha y exportá todo a CSV.</p>
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-4">Detalle de consultas</h3>
         <MetricsTable />
       </div>
 
