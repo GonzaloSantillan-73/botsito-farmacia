@@ -80,7 +80,7 @@ export default function ImageModal({ imageUrl, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="absolute top-4 right-4 flex gap-4">
+      <div className="absolute top-4 right-4 z-20 flex gap-4">
         <button
           onClick={handleZoomOut}
           className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
@@ -120,7 +120,7 @@ export default function ImageModal({ imageUrl, onClose }) {
       </div>
 
       <div
-        className="w-full h-full flex items-center justify-center overflow-visible"
+        className="relative z-10 w-full h-full flex items-center justify-center overflow-visible"
         onWheel={handleWheel}
       >
         <img
