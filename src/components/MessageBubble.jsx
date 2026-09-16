@@ -11,7 +11,7 @@ const TAG_LABELS = {
 // "la" receta de la conversación (ver server/routes/api.js PATCH
 // /messages/:id/tag). Sólo tiene sentido sobre archivos que mandó el
 // cliente, nunca sobre lo que le mandamos nosotros.
-export function AttachmentTagControls({ msg, onTag, tagging, vertical = false }) {
+export function AttachmentTagControls({ msg, onTag, tagging }) {
   const [open, setOpen] = useState(false);
   const tagActual = TAG_LABELS[msg.tagged_as];
 
@@ -21,27 +21,19 @@ export function AttachmentTagControls({ msg, onTag, tagging, vertical = false })
   };
 
   return (
-    <div className={vertical ? 'flex flex-col items-center gap-1.5' : 'flex items-center gap-1.5 mt-1.5'}>
-      {tagActual && (
-        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full whitespace-nowrap text-center ${tagActual.className}`}>
-          {tagActual.texto}
-        </span>
-      )}
+    <div className="flex items-center gap-1.5 shrink-0">
       <div className="relative">
         <button
           type="button"
           onClick={() => setOpen(v => !v)}
           disabled={tagging}
           title="Marcar este archivo"
-          className={vertical
-            ? 'flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 transition-colors disabled:opacity-50'
-            : 'p-1 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 transition-colors disabled:opacity-50'}
+          className="p-2 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-500 shadow-sm hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
         >
-          {tagging ? <Loader2 size={vertical ? 16 : 13} className="animate-spin" /> : <Tag size={vertical ? 16 : 13} />}
-          {vertical && <span className="text-[10px] font-medium leading-none">Marcar</span>}
+          {tagging ? <Loader2 size={14} className="animate-spin" /> : <Tag size={14} />}
         </button>
         {open && (
-          <div className={`absolute z-10 ${vertical ? 'top-full mt-1 left-0' : 'bottom-full mb-1 left-0'} bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 w-48 text-xs`}>
+          <div className="absolute z-10 top-full mt-1 left-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 w-48 text-xs">
             <button onClick={() => elegir('comprobante')} className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
               {msg.tagged_as === 'comprobante' && <Check size={12} className="text-emerald-600 shrink-0" />} Marcar como comprobante
             </button>
@@ -56,6 +48,12 @@ export function AttachmentTagControls({ msg, onTag, tagging, vertical = false })
           </div>
         )}
       </div>
+      {/* El badge de estado sólo aparece si el archivo ya tiene una marca asignada, para no ensuciar la interfaz cuando no hace falta. */}
+      {tagActual && (
+        <span className={`text-[10px] font-medium px-2 py-1 rounded-full whitespace-nowrap ${tagActual.className}`}>
+          {tagActual.texto}
+        </span>
+      )}
     </div>
   );
 }
@@ -80,8 +78,9 @@ export const parseLocationMessage = (msg) => {
 // comporten de forma idéntica.
 export default function MessageBubble({ msg, onImageClick, onDownload, downloadingId, onTag, taggingId, statusIcon }) {
   const location = parseLocationMessage(msg);
+  const showTagControls = msg.sender_type === 'client' && msg.media_url && msg.media_type !== 'location';
   return (
-    <div className={`flex ${msg.sender_type === 'client' ? 'justify-start' : 'justify-end'}`}>
+    <div className={`flex items-start gap-2 ${msg.sender_type === 'client' ? 'justify-start' : 'justify-end'}`}>
       <div className={`relative max-w-[75%] rounded-lg p-3 shadow-sm ${msg.sender_type === 'client' ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-tl-none' : 'bg-teal-500 text-white rounded-tr-none'}`}>
         {msg.sender_type === 'bot' && <div className="text-[10px] font-bold uppercase opacity-70 mb-1">BOT</div>}
         {location && (
@@ -111,29 +110,24 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
           </div>
         )}
         {msg.media_url && msg.media_type === 'image' && (
-          <div className="mb-2 flex items-start gap-2">
-            <div
-              className="w-40 h-40 shrink-0 rounded overflow-hidden relative cursor-pointer group bg-gray-100"
-              onClick={() => { onImageClick && onImageClick(msg); }}
-            >
-              <img src={msg.media_url} alt="Media" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <span className="text-white text-xs font-medium px-2 py-1 bg-black/50 rounded flex items-center gap-1">
-                  <ImageIcon size={14}/> Ampliar
-                </span>
-              </div>
-              <button
-                onClick={(e) => { e.stopPropagation(); onDownload && onDownload(msg); }}
-                disabled={downloadingId === msg.id}
-                title="Descargar imagen"
-                className="absolute top-1.5 right-1.5 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors disabled:opacity-50"
-              >
-                {downloadingId === msg.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
-              </button>
+          <div
+            className="mb-2 w-40 h-40 rounded overflow-hidden relative cursor-pointer group bg-gray-100"
+            onClick={() => { onImageClick && onImageClick(msg); }}
+          >
+            <img src={msg.media_url} alt="Media" className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <span className="text-white text-xs font-medium px-2 py-1 bg-black/50 rounded flex items-center gap-1">
+                <ImageIcon size={14}/> Ampliar
+              </span>
             </div>
-            {msg.sender_type === 'client' && (
-              <AttachmentTagControls msg={msg} onTag={onTag} tagging={taggingId === msg.id} vertical />
-            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); onDownload && onDownload(msg); }}
+              disabled={downloadingId === msg.id}
+              title="Descargar imagen"
+              className="absolute top-1.5 right-1.5 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-full transition-colors disabled:opacity-50"
+            >
+              {downloadingId === msg.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            </button>
           </div>
         )}
         {msg.media_url && msg.media_type === 'video' && (
@@ -211,9 +205,6 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
           </div>
         )}
         {!location && msg.media_type !== 'pdf' && msg.media_type !== 'audio' && <p className="text-sm whitespace-pre-wrap">{renderWhatsAppText(msg.message_text)}</p>}
-        {msg.sender_type === 'client' && msg.media_url && msg.media_type !== 'location' && msg.media_type !== 'image' && (
-          <AttachmentTagControls msg={msg} onTag={onTag} tagging={taggingId === msg.id} />
-        )}
         <div className="flex items-center justify-end gap-1 mt-1">
           <span className={`text-[10px] ${msg.sender_type === 'client' ? 'text-gray-400' : 'text-teal-100'}`}>
             {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -229,6 +220,11 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
           </span>
         )}
       </div>
+      {showTagControls && (
+        <div className="mt-3">
+          <AttachmentTagControls msg={msg} onTag={onTag} tagging={taggingId === msg.id} />
+        </div>
+      )}
     </div>
   );
 }
