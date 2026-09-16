@@ -63,7 +63,7 @@ export const formatearMensajeSucursales = (sucursales) => {
       const lineas = [
         `📍 *${s.nombre}*`,
         s.direccion,
-        `🕒 ${formatearDias(s.dias)} de ${s.hora_apertura} a ${s.hora_cierre}hs`
+        s.abierta_24hs ? '🕒 Abierto 24 hs' : `🕒 ${formatearDias(s.dias)} de ${s.hora_apertura} a ${s.hora_cierre}hs`
       ];
       if (s.google_maps_url) lineas.push(`🗺️ Ver en Google Maps: ${s.google_maps_url}`);
       return lineas.join('\n');

@@ -135,11 +135,11 @@ router.post('/sucursales', async (req, res) => {
   console.log('🔍 [DEBUG-ROUTES-STAFF] POST /sucursales - req.params:', req.params);
   console.log('🔍 [DEBUG-ROUTES-STAFF] POST /sucursales - req.admin (role, sucursalId, username, sub):', req.admin);
 
-  const { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre } = req.body;
+  const { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre, abierta24hs } = req.body;
 
   try {
-    console.log('🔍 [DEBUG-ROUTES-STAFF] POST /sucursales - llamando a crearSucursal (servicio, no es supabase.from directo) con:', { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre });
-    const sucursal = await crearSucursal({ nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre });
+    console.log('🔍 [DEBUG-ROUTES-STAFF] POST /sucursales - llamando a crearSucursal (servicio, no es supabase.from directo) con:', { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre, abierta24hs });
+    const sucursal = await crearSucursal({ nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre, abierta24hs });
     console.log('✅ [DEBUG-ROUTES-STAFF] POST /sucursales - resultado crearSucursal:', sucursal);
     console.log(`[STAFF] Sucursal creada: ${sucursal.nombre}`);
     const responseBody201 = { success: true, sucursal };
@@ -163,11 +163,11 @@ router.put('/sucursales/:id', async (req, res) => {
   console.log('🔍 [DEBUG-ROUTES-STAFF] PUT /sucursales/:id - req.params:', req.params);
   console.log('🔍 [DEBUG-ROUTES-STAFF] PUT /sucursales/:id - req.admin (role, sucursalId, username, sub):', req.admin);
 
-  const { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre } = req.body;
+  const { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre, abierta24hs } = req.body;
 
   try {
-    console.log('🔍 [DEBUG-ROUTES-STAFF] PUT /sucursales/:id - llamando a actualizarSucursal (servicio, no es supabase.from directo) con id:', req.params.id, '| datos:', { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre });
-    const sucursal = await actualizarSucursal(req.params.id, { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre });
+    console.log('🔍 [DEBUG-ROUTES-STAFF] PUT /sucursales/:id - llamando a actualizarSucursal (servicio, no es supabase.from directo) con id:', req.params.id, '| datos:', { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre, abierta24hs });
+    const sucursal = await actualizarSucursal(req.params.id, { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre, abierta24hs });
     console.log('✅ [DEBUG-ROUTES-STAFF] PUT /sucursales/:id - resultado actualizarSucursal:', sucursal);
     console.log(`[STAFF] Sucursal actualizada: ${sucursal.nombre}`);
     const responseBody200 = { success: true, sucursal };

@@ -38,6 +38,30 @@ const limpiarTelefono = (phone) => {
 export const normalizarTelefono = limpiarTelefono;
 export const formatearNumeroArg = limpiarTelefono;
 
+// Traduce los errores más comunes que devuelve la Graph API de Meta a un
+// mensaje accionable en español, en vez del texto crudo (a veces en inglés,
+// a veces genérico) que llega en error.message. Ver:
+// https://developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes
+const traducirErrorMeta = (metaError) => {
+  const code = metaError?.code;
+  const subcode = metaError?.error_subcode;
+  const mensajeOriginal = metaError?.message || 'Error desconocido de Meta.';
+
+  if (code === 131047) {
+    return 'No se pudo enviar: pasaron más de 24hs desde el último mensaje del cliente. Meta solo permite reabrir la conversación con una plantilla (template) aprobada, no con texto libre.';
+  }
+  if (code === 131030) {
+    return 'El número de destino no está en la lista de números autorizados de la app de WhatsApp en Meta for Developers (esto pasa cuando la app todavía está en modo desarrollo/sin verificar).';
+  }
+  if (code === 190) {
+    return 'El token de acceso de WhatsApp venció o es inválido. Hay que generar uno nuevo en Meta for Developers.';
+  }
+  if (code === 100) {
+    return `Meta rechazó el pedido por un parámetro inválido (revisá el formato del número de destino o del mensaje): ${mensajeOriginal}`;
+  }
+  return `${mensajeOriginal}${code ? ` (código ${code}${subcode ? `/${subcode}` : ''})` : ''}`;
+};
+
 export const sendWhatsAppMessage = async (to, text, mediaUrl = null, mediaType = null) => {
   console.log(`\n======================================================`);
   console.log(`[SERVICES/WHATSAPP - sendWhatsAppMessage] ==> INICIO DE FUNCIÓN`);
@@ -101,7 +125,10 @@ export const sendWhatsAppMessage = async (to, text, mediaUrl = null, mediaType =
 
     if (!response.ok) {
       console.error(`[SERVICES/WHATSAPP] ❌ LA API DE META DEVOLVIÓ UN ERROR HTTP NO OK.`);
-      throw new Error(data.error?.message || 'Error desconocido de Meta');
+      const err = new Error(traducirErrorMeta(data.error));
+      err.metaCode = data.error?.code;
+      err.metaSubcode = data.error?.error_subcode;
+      throw err;
     }
 
     console.log(`[SERVICES/WHATSAPP] ==> ✅ FIN EXITOSO DE ENVÍO META. Message ID: ${data.messages?.[0]?.id}`);

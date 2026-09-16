@@ -3,6 +3,7 @@ import { Clock, Loader2, Check, X, MapPin, MessageCircle, Store, AlertTriangle, 
 import { supabase } from '../lib/supabase';
 import { adminFetch } from '../lib/adminAuth';
 import SucursalConfigModal from './SucursalConfigModal';
+import Toggle from './Toggle';
 import { DIAS } from '../lib/dias';
 
 const normalizarWhatsappUrl = (valor) => {
@@ -56,7 +57,7 @@ export default function SucursalesPanel() {
 
   const startEditHorario = (s) => {
     setEditingHorarioId(s.id);
-    setHorarioForm({ dias: s.dias, hora_apertura: s.hora_apertura, hora_cierre: s.hora_cierre });
+    setHorarioForm({ dias: s.dias, hora_apertura: s.hora_apertura, hora_cierre: s.hora_cierre, abierta_24hs: s.abierta_24hs || false });
     setErrorHorario('');
   };
   const cancelEditHorario = () => {
@@ -67,12 +68,12 @@ export default function SucursalesPanel() {
     setHorarioForm({ ...horarioForm, dias });
   };
   const guardarHorario = async () => {
-    if (horarioForm.dias.length === 0) { setErrorHorario('Elegí al menos un día de atención.'); return; }
+    if (!horarioForm.abierta_24hs && horarioForm.dias.length === 0) { setErrorHorario('Elegí al menos un día de atención.'); return; }
     setSavingHorario(true);
     setErrorHorario('');
     const { error } = await supabase
       .from('sucursales')
-      .update({ dias: horarioForm.dias, hora_apertura: horarioForm.hora_apertura, hora_cierre: horarioForm.hora_cierre })
+      .update({ dias: horarioForm.dias, hora_apertura: horarioForm.hora_apertura, hora_cierre: horarioForm.hora_cierre, abierta_24hs: horarioForm.abierta_24hs })
       .eq('id', editingHorarioId);
     setSavingHorario(false);
     if (error) { console.error('❌ [DEBUG-COMPONENT-SucursalesPanel] Error guardando horario:', error); setErrorHorario(error.message || 'Error guardando el horario.'); return; }
@@ -198,20 +199,24 @@ export default function SucursalesPanel() {
                   {/* Horario */}
                   {editingHorarioId === s.id ? (
                     <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 space-y-2">
-                      <div className="flex flex-wrap gap-1.5">
+                      <label className="flex items-center gap-2 cursor-pointer w-fit">
+                        <Toggle checked={horarioForm.abierta_24hs} onChange={(v) => setHorarioForm({ ...horarioForm, abierta_24hs: v })} />
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Abierto 24hs</span>
+                      </label>
+                      <div className={`flex flex-wrap gap-1.5 ${horarioForm.abierta_24hs ? 'opacity-40 pointer-events-none' : ''}`}>
                         {DIAS.map(d => (
-                          <button key={d.value} type="button" onClick={() => toggleDia(d.value)}
+                          <button key={d.value} type="button" disabled={horarioForm.abierta_24hs} onClick={() => toggleDia(d.value)}
                             className={`w-8 h-8 rounded-full text-xs font-semibold transition-colors ${horarioForm.dias.includes(d.value) ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-500 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600'}`}>
                             {d.label}
                           </button>
                         ))}
                       </div>
-                      <div className="flex items-center gap-3">
-                        <input type="time" value={horarioForm.hora_apertura} onChange={(e) => { setHorarioForm({ ...horarioForm, hora_apertura: e.target.value }); }}
-                          className="px-2 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded text-xs" />
+                      <div className={`flex items-center gap-3 ${horarioForm.abierta_24hs ? 'opacity-40 pointer-events-none' : ''}`}>
+                        <input type="time" value={horarioForm.hora_apertura} disabled={horarioForm.abierta_24hs} onChange={(e) => { setHorarioForm({ ...horarioForm, hora_apertura: e.target.value }); }}
+                          className="px-2 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded text-xs disabled:opacity-50" />
                         <span className="text-gray-400 text-xs">a</span>
-                        <input type="time" value={horarioForm.hora_cierre} onChange={(e) => { setHorarioForm({ ...horarioForm, hora_cierre: e.target.value }); }}
-                          className="px-2 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded text-xs" />
+                        <input type="time" value={horarioForm.hora_cierre} disabled={horarioForm.abierta_24hs} onChange={(e) => { setHorarioForm({ ...horarioForm, hora_cierre: e.target.value }); }}
+                          className="px-2 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded text-xs disabled:opacity-50" />
                       </div>
                       {errorHorario && <p className="text-xs text-rose-600 dark:text-rose-400">{errorHorario}</p>}
                       <div className="flex items-center gap-2">
@@ -227,7 +232,9 @@ export default function SucursalesPanel() {
                     <div className="flex items-center justify-between">
                       <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
                         <Clock size={12} />
-                        {DIAS.filter(d => s.dias.includes(d.value)).map(d => d.label).join(' ')} · {s.hora_apertura} a {s.hora_cierre}hs
+                        {s.abierta_24hs
+                          ? 'Abierto 24 hs'
+                          : `${DIAS.filter(d => s.dias.includes(d.value)).map(d => d.label).join(' ')} · ${s.hora_apertura} a ${s.hora_cierre}hs`}
                       </div>
                       <button onClick={() => startEditHorario(s)} className="text-xs font-medium text-teal-700 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300">Editar horario</button>
                     </div>

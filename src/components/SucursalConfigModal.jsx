@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Check, Loader2, Trash2, KeyRound, Clock } from 'lucide-react';
 import { adminFetch } from '../lib/adminAuth';
 import { DIAS } from '../lib/dias';
+import Toggle from './Toggle';
 
 // Modal flotante de configuración de UNA sucursal: datos de contacto
 // (nombre/dirección/maps/whatsapp), coordenadas, horario de atención y
@@ -21,6 +22,7 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
   const [dias, setDias] = useState(sucursal?.dias || [1, 2, 3, 4, 5, 6]);
   const [horaApertura, setHoraApertura] = useState(sucursal?.hora_apertura || '09:00');
   const [horaCierre, setHoraCierre] = useState(sucursal?.hora_cierre || '18:00');
+  const [abierta24hs, setAbierta24hs] = useState(sucursal?.abierta_24hs || false);
   const [username, setUsername] = useState(empleadoPrincipal?.username || '');
   const [password, setPassword] = useState('');
   const [saving, setSaving] = useState(false);
@@ -43,7 +45,7 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
       setError('Ingresá la dirección de la sucursal.');
       return;
     }
-    if (dias.length === 0) {
+    if (!abierta24hs && dias.length === 0) {
       setError('Elegí al menos un día de atención.');
       return;
     }
@@ -69,7 +71,8 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
         googleMapsUrl,
         dias,
         horaApertura,
-        horaCierre
+        horaCierre,
+        abierta24hs
       });
       const url = sucursal ? `/api/admin/staff/sucursales/${sucursal.id}` : '/api/admin/staff/sucursales';
       const method = sucursal ? 'PUT' : 'POST';
@@ -183,14 +186,21 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
           </div>
 
           <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-2">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
-              <Clock size={13} /> Horario de atención
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                <Clock size={13} /> Horario de atención
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Abierto 24hs</span>
+                <Toggle checked={abierta24hs} onChange={setAbierta24hs} />
+              </label>
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className={`flex flex-wrap gap-1.5 ${abierta24hs ? 'opacity-40 pointer-events-none' : ''}`}>
               {DIAS.map(d => (
                 <button
                   key={d.value}
                   type="button"
+                  disabled={abierta24hs}
                   onClick={() => toggleDia(d.value)}
                   className={`w-8 h-8 rounded-full text-xs font-semibold transition-colors ${dias.includes(d.value) ? 'bg-teal-600 text-white' : 'bg-gray-200 text-gray-500 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600'}`}
                 >
@@ -198,19 +208,21 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-3">
+            <div className={`flex items-center gap-3 ${abierta24hs ? 'opacity-40 pointer-events-none' : ''}`}>
               <input
                 type="time"
                 value={horaApertura}
+                disabled={abierta24hs}
                 onChange={(e) => { setHoraApertura(e.target.value); }}
-                className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm"
+                className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm disabled:opacity-50"
               />
               <span className="text-gray-400 text-xs">a</span>
               <input
                 type="time"
                 value={horaCierre}
+                disabled={abierta24hs}
                 onChange={(e) => { setHoraCierre(e.target.value); }}
-                className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm"
+                className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-sm disabled:opacity-50"
               />
             </div>
           </div>

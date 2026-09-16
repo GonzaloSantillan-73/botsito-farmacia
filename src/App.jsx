@@ -472,7 +472,10 @@ function App() {
         })
       });
 
-      if (!res.ok) throw new Error('El servidor no pudo enviar el mensaje');
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || 'El servidor no pudo enviar el mensaje');
+      }
 
       // Update conversation timestamp & last_message
       const previewText = mediaUrl ? `📎 Archivo enviado${inputToSave ? ' - ' + inputToSave : ''}` : inputToSave;
@@ -497,7 +500,7 @@ function App() {
       console.error('❌ [DEBUG-COMPONENT-App] Error contactando backend:', err);
       // El envío falló de verdad: sacamos el mensaje optimista para no mostrar algo que nunca se mandó.
       setMessages(prev => prev.filter(m => m.id !== messageId));
-      alert('No se pudo enviar el mensaje. Intentá de nuevo.');
+      alert(`No se pudo enviar el mensaje.\n\n${err.message || 'Intentá de nuevo.'}`);
     }
   };
 

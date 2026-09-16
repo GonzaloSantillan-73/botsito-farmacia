@@ -22,8 +22,8 @@ export const listarSucursales = async () => {
   return resultado;
 };
 
-export const crearSucursal = async ({ nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre }) => {
-  console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — parámetros recibidos:', { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre });
+export const crearSucursal = async ({ nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre, abierta24hs }) => {
+  console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — parámetros recibidos:', { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre, abierta24hs });
 
   if (!nombre?.trim()) {
     console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — falta nombre');
@@ -37,7 +37,7 @@ export const crearSucursal = async ({ nombre, direccion, googleMapsUrl, dias, ho
     console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — falta Google Maps URL');
     throw new Error('Ingresá el Link de Google Maps de la sucursal.');
   }
-  if (dias && dias.length === 0) {
+  if (!abierta24hs && dias && dias.length === 0) {
     console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — dias vacío');
     throw new Error('Elegí al menos un día de atención.');
   }
@@ -45,7 +45,8 @@ export const crearSucursal = async ({ nombre, direccion, googleMapsUrl, dias, ho
   const payload = {
     nombre: nombre.trim(),
     direccion: direccion.trim(),
-    google_maps_url: googleMapsUrl.trim()
+    google_maps_url: googleMapsUrl.trim(),
+    abierta_24hs: !!abierta24hs
   };
   if (dias) payload.dias = dias;
   if (horaApertura) payload.hora_apertura = horaApertura;
@@ -82,8 +83,8 @@ export const crearSucursal = async ({ nombre, direccion, googleMapsUrl, dias, ho
   return data;
 };
 
-export const actualizarSucursal = async (id, { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre }) => {
-  console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — parámetros recibidos:', { id, nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre });
+export const actualizarSucursal = async (id, { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre, abierta24hs }) => {
+  console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — parámetros recibidos:', { id, nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre, abierta24hs });
 
   if (!direccion?.trim()) {
     console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — falta dirección');
@@ -93,14 +94,15 @@ export const actualizarSucursal = async (id, { nombre, direccion, googleMapsUrl,
     console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — falta Google Maps URL');
     throw new Error('Ingresá el Link de Google Maps de la sucursal.');
   }
-  if (dias && dias.length === 0) {
+  if (!abierta24hs && dias && dias.length === 0) {
     console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — dias vacío');
     throw new Error('Elegí al menos un día de atención.');
   }
 
   const updates = {
     direccion: direccion.trim(),
-    google_maps_url: googleMapsUrl.trim()
+    google_maps_url: googleMapsUrl.trim(),
+    abierta_24hs: !!abierta24hs
   };
   if (nombre?.trim()) updates.nombre = nombre.trim();
   if (dias) updates.dias = dias;

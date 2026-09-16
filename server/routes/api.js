@@ -681,7 +681,7 @@ router.post('/messages/send', requireAuth, blockAdminRole, async (req, res) => {
       return res.status(400).json({ error: 'Faltan parámetros requeridos (phone o conversation_id)' });
     }
     
-    let cleanPhone = finalPhone.replace('+', '').replace(/\\s+/g, '').replace('-', '');
+    let cleanPhone = finalPhone.replace(/[\s+\-]/g, '');
     console.log(`[API] -> Teléfono limpio para Meta: ${cleanPhone}`);
     
     console.log(`\n------------------------------------------------------`);
@@ -761,7 +761,11 @@ router.post('/messages/send', requireAuth, blockAdminRole, async (req, res) => {
     console.error(`[API - CATCH BLOCK] ❌ ERROR FATAL PROCESANDO EL ENVÍO:`);
     console.error(error.stack || error);
     console.error(`!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n`);
-    res.status(500).json({ error: error.message || 'Error interno del servidor' });
+    res.status(500).json({
+      error: error.message || 'Error interno del servidor',
+      metaCode: error.metaCode,
+      metaSubcode: error.metaSubcode
+    });
   }
 });
 
