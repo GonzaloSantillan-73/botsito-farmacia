@@ -80,7 +80,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
   const location = parseLocationMessage(msg);
   const showTagControls = msg.sender_type === 'client' && msg.media_url && msg.media_type !== 'location';
   return (
-    <div className={`flex items-start gap-2 ${msg.sender_type === 'client' ? 'justify-start' : 'justify-end'}`}>
+    <div className={`flex items-center gap-2 ${msg.sender_type === 'client' ? 'justify-start' : 'justify-end'}`}>
       <div className={`relative max-w-[75%] rounded-lg p-3 shadow-sm ${msg.sender_type === 'client' ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-tl-none' : 'bg-teal-500 text-white rounded-tr-none'}`}>
         {msg.sender_type === 'bot' && <div className="text-[10px] font-bold uppercase opacity-70 mb-1">BOT</div>}
         {location && (
@@ -221,9 +221,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
         )}
       </div>
       {showTagControls && (
-        <div className="mt-3">
-          <AttachmentTagControls msg={msg} onTag={onTag} tagging={taggingId === msg.id} />
-        </div>
+        <AttachmentTagControls msg={msg} onTag={onTag} tagging={taggingId === msg.id} />
       )}
     </div>
   );
