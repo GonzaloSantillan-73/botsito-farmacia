@@ -11,7 +11,7 @@ const TAG_LABELS = {
 // "la" receta de la conversación (ver server/routes/api.js PATCH
 // /messages/:id/tag). Sólo tiene sentido sobre archivos que mandó el
 // cliente, nunca sobre lo que le mandamos nosotros.
-function AttachmentTagControls({ msg, onTag, tagging }) {
+export function AttachmentTagControls({ msg, onTag, tagging }) {
   const [open, setOpen] = useState(false);
   const tagActual = TAG_LABELS[msg.tagged_as];
 

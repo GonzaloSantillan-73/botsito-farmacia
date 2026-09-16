@@ -5,6 +5,7 @@ import { formatPhone } from '../lib/formatPhone';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
 import { isAdminRole, getStaffSucursalId, adminFetch } from '../lib/adminAuth';
 import { tomarConsulta } from '../lib/tomarConsulta';
+import { tagMessage } from '../lib/tagMessage';
 import HistoryPanel from './HistoryPanel';
 import OrderHistoryPanel from './OrderHistoryPanel';
 import { SALE_STATUS_BADGES, STATUS_BADGES } from './Sidebar';
@@ -121,12 +122,7 @@ export default function ChatArea({
   const handleTagMessage = async (msg, tag) => {
     setTaggingId(msg.id);
     try {
-      const res = await adminFetch(`/api/messages/${msg.id}/tag`, {
-        method: 'PATCH',
-        body: JSON.stringify({ tag })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'No se pudo marcar el archivo.');
+      await tagMessage(msg.id, tag);
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-ChatArea] Error marcando mensaje:', err);
       alert(err.message || 'No se pudo marcar el archivo.');

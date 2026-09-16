@@ -3,8 +3,10 @@ import { createPortal } from 'react-dom';
 import { X, History, FileText } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
+import { tagMessage, aplicarTagLocal } from '../lib/tagMessage';
 import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import ClientHistoryList from './ClientHistoryList';
+import { AttachmentTagControls } from './MessageBubble';
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -32,6 +34,7 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
   const [selectedMessages, setSelectedMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [taggingId, setTaggingId] = useState(null);
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -74,6 +77,22 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
       console.error('❌ [DEBUG-COMPONENT-HistoryPanel] error de supabase en "messages":', error);
     }
     setLoadingMessages(false);
+  };
+
+  // Igual que en ChatTraceModal: este panel no está suscripto a Realtime
+  // (trae los mensajes una sola vez al elegir la consulta de la izquierda),
+  // así que actualizamos el array local a mano tras marcar.
+  const handleTagMessage = async (msg, tag) => {
+    setTaggingId(msg.id);
+    try {
+      const actualizado = await tagMessage(msg.id, tag);
+      setSelectedMessages(prev => aplicarTagLocal(prev, actualizado));
+    } catch (err) {
+      console.error('❌ [DEBUG-COMPONENT-HistoryPanel] Error marcando mensaje:', err);
+      alert(err.message || 'No se pudo marcar el archivo.');
+    } finally {
+      setTaggingId(null);
+    }
   };
 
   return createPortal(
@@ -168,6 +187,9 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
                       <p className="whitespace-pre-wrap">
                         {searchQuery.trim() ? highlightMatches(msg.message_text, searchQuery) : msg.message_text}
                       </p>
+                      {msg.sender_type === 'client' && msg.media_url && (
+                        <AttachmentTagControls msg={msg} onTag={handleTagMessage} tagging={taggingId === msg.id} />
+                      )}
                       <span className={`text-[10px] block mt-1 text-right ${msg.sender_type === 'client' ? 'text-gray-400 dark:text-gray-500' : 'text-teal-100'}`}>
                         {new Date(msg.created_at).toLocaleString('es-AR', { hour: '2-digit', minute: '2-digit' })}
                       </span>

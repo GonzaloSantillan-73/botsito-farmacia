@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, MessagesSquare } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
+import { tagMessage, aplicarTagLocal } from '../lib/tagMessage';
 import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import MessageBubble from './MessageBubble';
 
@@ -15,6 +16,7 @@ export default function ChatTraceModal({ conversation, onClose }) {
 
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [taggingId, setTaggingId] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -31,6 +33,22 @@ export default function ChatTraceModal({ conversation, onClose }) {
       });
     return () => { cancelled = true; };
   }, [conversation.id]);
+
+  // Esta vista no está suscripta a Realtime (es una foto fija de una
+  // conversación ya finalizada), así que actualizamos el array local a mano
+  // para que el cambio se vea al instante sin recargar el modal.
+  const handleTagMessage = async (msg, tag) => {
+    setTaggingId(msg.id);
+    try {
+      const actualizado = await tagMessage(msg.id, tag);
+      setMessages(prev => aplicarTagLocal(prev, actualizado));
+    } catch (err) {
+      console.error('❌ [DEBUG-COMPONENT-ChatTraceModal] Error marcando mensaje:', err);
+      alert(err.message || 'No se pudo marcar el archivo.');
+    } finally {
+      setTaggingId(null);
+    }
+  };
 
 
   return createPortal(
@@ -73,6 +91,8 @@ export default function ChatTraceModal({ conversation, onClose }) {
                 key={msg.id}
                 msg={msg}
                 onImageClick={(m) => { window.open(m.media_url, '_blank', 'noopener,noreferrer'); }}
+                onTag={handleTagMessage}
+                taggingId={taggingId}
               />
             ))
           )}
