@@ -185,11 +185,11 @@ export default function ChatArea({
         .eq('client_phone', activeConversation.client_phone)
         .neq('id', activeConversation.id);
 
-      const soyStaff = !isAdminRole();
-      const miSucursalId = getStaffSucursalId();
-      // Un empleado no debe ver, ni acá, las consultas de otra sucursal.
-      const visibles = (convs || []).filter(c => !soyStaff || !c.sucursal_id || c.sucursal_id === miSucursalId);
-      convMap = Object.fromEntries(visibles.map(c => [c.id, c]));
+      // "Ver todo el chat" es justamente el acceso transversal explícito (a
+      // diferencia del Directorio de Clientes, que sí aísla por sucursal):
+      // trae el historial completo del cliente sin importar qué sucursal
+      // atendió cada consulta anterior.
+      convMap = Object.fromEntries((convs || []).map(c => [c.id, c]));
       setHistoryConversationsById(convMap);
     }
 

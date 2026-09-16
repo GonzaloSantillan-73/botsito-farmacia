@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, History, FileText } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
+import { isAdminRole } from '../lib/adminAuth';
 import { tagMessage, aplicarTagLocal } from '../lib/tagMessage';
 import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import ClientHistoryList from './ClientHistoryList';
@@ -27,7 +27,6 @@ const highlightMatches = (text, query) => {
 
 export default function HistoryPanel({ clientPhone, clientName, currentConversationId, onClose }) {
   const soyStaff = !isAdminRole();
-  const miSucursalId = getStaffSucursalId();
 
   const [pastConversations, setPastConversations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,10 +47,11 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
 
 
       if (!error && data) {
-        // Un empleado no debe ver, ni siquiera acá, las consultas de otra sucursal.
-        const visibles = data.filter(c =>
-          c.id !== currentConversationId && (!soyStaff || !c.sucursal_id || c.sucursal_id === miSucursalId)
-        );
+        // Este panel es justamente el acceso transversal explícito (a
+        // diferencia del Directorio de Clientes, que sí aísla por sucursal):
+        // una vez adentro del chat, se ve el historial completo del cliente
+        // sin importar qué sucursal atendió cada consulta anterior.
+        const visibles = data.filter(c => c.id !== currentConversationId);
         setPastConversations(visibles);
       } else if (error) {
         console.error('❌ [DEBUG-COMPONENT-HistoryPanel] error de supabase en "conversations":', error);

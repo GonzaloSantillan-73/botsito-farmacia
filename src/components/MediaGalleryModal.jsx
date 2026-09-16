@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Images, FileText, Film, Link2, Loader2, Download, Eye, Mic } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
 import { alertDialog } from '../lib/dialogService';
 
@@ -41,9 +40,6 @@ const clasificar = (msg) => {
 // historial completo, se amplía a todas las conversaciones del cliente sin
 // tener que cerrar y reabrir el modal.
 export default function MediaGalleryModal({ clientPhone, clientName, conversationId, showFullHistory = false, setModalImage, onClose }) {
-  const soyStaff = !isAdminRole();
-  const miSucursalId = getStaffSucursalId();
-
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState('todo');
@@ -57,7 +53,7 @@ export default function MediaGalleryModal({ clientPhone, clientName, conversatio
       if (showFullHistory) {
         const { data: convs, error: convError } = await supabase
           .from('conversations')
-          .select('id, sucursal_id')
+          .select('id')
           .eq('client_phone', clientPhone);
 
         if (convError || !convs) {
@@ -67,9 +63,11 @@ export default function MediaGalleryModal({ clientPhone, clientName, conversatio
           return;
         }
 
-        ids = convs
-          .filter(c => !soyStaff || !c.sucursal_id || c.sucursal_id === miSucursalId)
-          .map(c => c.id);
+        // A diferencia del Directorio de Clientes (que sí aísla por sucursal),
+        // este botón es justamente el acceso transversal explícito: una vez
+        // adentro del chat, se ve todo lo compartido en el historial completo
+        // del cliente, sin importar qué sucursal atendió cada consulta.
+        ids = convs.map(c => c.id);
       } else {
         ids = conversationId ? [conversationId] : [];
       }
