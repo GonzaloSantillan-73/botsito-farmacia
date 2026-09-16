@@ -134,6 +134,29 @@ export const actualizarSucursal = async (id, { nombre, direccion, googleMapsUrl,
   return data;
 };
 
+// Prende/apaga la sucursal para el bot y el CRM. A diferencia de
+// actualizarSucursal() (dirección, maps, horario), esto sólo toca la columna
+// `activo`: es la única propiedad que le corresponde exclusivamente al admin
+// (ver server/routes/staff.js, requireAdminRole aplicado a todo el router).
+export const actualizarEstadoSucursal = async (id, activo) => {
+  console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] actualizarEstadoSucursal() — parámetros recibidos:', { id, activo });
+
+  console.log('📡 [DEBUG-SERVICE-SUCURSALESADMIN] Query Supabase → tabla: sucursales, operación: update (solo activo), filtro: id =', id, ', valores:', { activo });
+  const { data, error } = await supabase
+    .from('sucursales')
+    .update({ activo })
+    .eq('id', id)
+    .select('*, staff_users(id, username, created_at)')
+    .single();
+  console.log('📡 [DEBUG-SERVICE-SUCURSALESADMIN] Resultado query sucursales (update estado) — data:', data, 'error:', error);
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] actualizarEstadoSucursal() — error actualizando estado:', error);
+    throw error;
+  }
+  console.log('✅ [DEBUG-SERVICE-SUCURSALESADMIN] actualizarEstadoSucursal() — valor de retorno:', data);
+  return data;
+};
+
 export const eliminarSucursal = async (id) => {
   console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] eliminarSucursal() — parámetros recibidos:', { id });
 

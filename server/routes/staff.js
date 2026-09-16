@@ -1,7 +1,7 @@
 import express from 'express';
 import { requireAuth, requireAdminRole } from './adminAuth.js';
 import { crearEmpleadoParaSucursal, actualizarEmpleado, eliminarEmpleado } from '../services/staffAuth.js';
-import { listarSucursales, crearSucursal, actualizarSucursal, eliminarSucursal } from '../services/sucursalesAdmin.js';
+import { listarSucursales, crearSucursal, actualizarSucursal, eliminarSucursal, actualizarEstadoSucursal } from '../services/sucursalesAdmin.js';
 
 const router = express.Router();
 
@@ -180,6 +180,44 @@ router.put('/sucursales/:id', async (req, res) => {
     console.error('[STAFF] Error actualizando sucursal:', error.message);
     const responseBody400 = { error: error.message || 'No se pudo guardar la sucursal.' };
     console.log('🔚 [DEBUG-ROUTES-STAFF] PUT /sucursales/:id - respondiendo status 400:', responseBody400);
+    res.status(400).json(responseBody400);
+  }
+});
+
+// Prender/apagar una sucursal (columna `activo`). Separado del PUT general de
+// arriba porque es la única escritura que tiene que quedar exclusivamente en
+// manos del admin desde el backend: antes se hacía con un UPDATE directo del
+// frontend a Supabase (anon key + RLS abierta), que no respetaba ningún rol.
+// Al apagarla, sucursalesMasCercanas()/getSucursalesActivas() ya la excluyen
+// solas de las recomendadas (filtran por activo=true), sin tocar nada más acá.
+router.patch('/sucursales/:id/estado', async (req, res) => {
+  console.log('🔍 [DEBUG-ROUTES-STAFF] PATCH /sucursales/:id/estado - req.method:', req.method, '| req.originalUrl:', req.originalUrl, '| req.path:', req.path);
+  console.log('🔍 [DEBUG-ROUTES-STAFF] PATCH /sucursales/:id/estado - req.body:', req.body);
+  console.log('🔍 [DEBUG-ROUTES-STAFF] PATCH /sucursales/:id/estado - req.params:', req.params);
+  console.log('🔍 [DEBUG-ROUTES-STAFF] PATCH /sucursales/:id/estado - req.admin (role, sucursalId, username, sub):', req.admin);
+
+  const { activo } = req.body;
+
+  if (typeof activo !== 'boolean') {
+    console.log('🔚 [DEBUG-ROUTES-STAFF] PATCH /sucursales/:id/estado - respondiendo status 400: activo no es boolean');
+    return res.status(400).json({ error: 'El campo "activo" debe ser true o false.' });
+  }
+
+  try {
+    console.log('🔍 [DEBUG-ROUTES-STAFF] PATCH /sucursales/:id/estado - llamando a actualizarEstadoSucursal (servicio) con id:', req.params.id, '| activo:', activo);
+    const sucursal = await actualizarEstadoSucursal(req.params.id, activo);
+    console.log('✅ [DEBUG-ROUTES-STAFF] PATCH /sucursales/:id/estado - resultado actualizarEstadoSucursal:', sucursal);
+    console.log(`[STAFF] Sucursal ${activo ? 'encendida' : 'apagada'}: ${sucursal.nombre} (${req.params.id})`);
+    const responseBody200 = { success: true, sucursal };
+    console.log('🔚 [DEBUG-ROUTES-STAFF] PATCH /sucursales/:id/estado - respondiendo status 200:', responseBody200);
+    res.status(200).json(responseBody200);
+  } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-STAFF] PATCH /sucursales/:id/estado - error capturado en catch:', error);
+    console.error('❌ [DEBUG-ROUTES-STAFF] PATCH /sucursales/:id/estado - error.message:', error.message);
+    console.error('❌ [DEBUG-ROUTES-STAFF] PATCH /sucursales/:id/estado - error.stack:', error.stack);
+    console.error('[STAFF] Error cambiando estado de sucursal:', error.message);
+    const responseBody400 = { error: error.message || 'No se pudo cambiar el estado de la sucursal.' };
+    console.log('🔚 [DEBUG-ROUTES-STAFF] PATCH /sucursales/:id/estado - respondiendo status 400:', responseBody400);
     res.status(400).json(responseBody400);
   }
 });

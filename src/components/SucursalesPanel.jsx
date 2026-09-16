@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Loader2, Check, X, EyeOff, MapPin, MessageCircle, Store, AlertTriangle, CheckCircle2, Plus, Trash2 } from 'lucide-react';
+import { Clock, Loader2, Check, X, MapPin, MessageCircle, Store, AlertTriangle, CheckCircle2, Plus, Trash2, Power } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { adminFetch } from '../lib/adminAuth';
 import SucursalConfigModal from './SucursalConfigModal';
@@ -29,6 +29,7 @@ export default function SucursalesPanel() {
   const [horarioForm, setHorarioForm] = useState(null);
   const [savingHorario, setSavingHorario] = useState(false);
   const [errorHorario, setErrorHorario] = useState('');
+  const [togglingId, setTogglingId] = useState(null);
 
   const fetchSucursales = async () => {
     console.log('📡 [DEBUG-COMPONENT-SucursalesPanel] fetchSucursales() — GET /api/admin/staff/sucursales');
@@ -62,9 +63,9 @@ export default function SucursalesPanel() {
   };
 
   const startEditHorario = (s) => {
-    console.log('🖱️ [DEBUG-COMPONENT-SucursalesPanel] startEditHorario() — sucursal id:', s.id, 'valores actuales:', { dias: s.dias, hora_apertura: s.hora_apertura, hora_cierre: s.hora_cierre, activo: s.activo });
+    console.log('🖱️ [DEBUG-COMPONENT-SucursalesPanel] startEditHorario() — sucursal id:', s.id, 'valores actuales:', { dias: s.dias, hora_apertura: s.hora_apertura, hora_cierre: s.hora_cierre });
     setEditingHorarioId(s.id);
-    setHorarioForm({ dias: s.dias, hora_apertura: s.hora_apertura, hora_cierre: s.hora_cierre, activo: s.activo });
+    setHorarioForm({ dias: s.dias, hora_apertura: s.hora_apertura, hora_cierre: s.hora_cierre });
     setErrorHorario('');
   };
   const cancelEditHorario = () => {
@@ -81,10 +82,10 @@ export default function SucursalesPanel() {
     if (horarioForm.dias.length === 0) { setErrorHorario('Elegí al menos un día de atención.'); return; }
     setSavingHorario(true);
     setErrorHorario('');
-    console.log('📡 [DEBUG-COMPONENT-SucursalesPanel] Supabase UPDATE sucursales — params:', { table: 'sucursales', id: editingHorarioId, updates: { dias: horarioForm.dias, hora_apertura: horarioForm.hora_apertura, hora_cierre: horarioForm.hora_cierre, activo: horarioForm.activo } });
+    console.log('📡 [DEBUG-COMPONENT-SucursalesPanel] Supabase UPDATE sucursales — params:', { table: 'sucursales', id: editingHorarioId, updates: { dias: horarioForm.dias, hora_apertura: horarioForm.hora_apertura, hora_cierre: horarioForm.hora_cierre } });
     const { error } = await supabase
       .from('sucursales')
-      .update({ dias: horarioForm.dias, hora_apertura: horarioForm.hora_apertura, hora_cierre: horarioForm.hora_cierre, activo: horarioForm.activo })
+      .update({ dias: horarioForm.dias, hora_apertura: horarioForm.hora_apertura, hora_cierre: horarioForm.hora_cierre })
       .eq('id', editingHorarioId);
     console.log('📡 [DEBUG-COMPONENT-SucursalesPanel] Supabase UPDATE sucursales — respuesta:', { error });
     setSavingHorario(false);
@@ -92,6 +93,34 @@ export default function SucursalesPanel() {
     console.log('✅ [DEBUG-COMPONENT-SucursalesPanel] Horario guardado correctamente');
     cancelEditHorario();
     await fetchSucursales();
+  };
+
+  // Prender/apagar la sucursal: a diferencia del horario (arriba, UPDATE directo
+  // a Supabase), esto pasa por el backend (PATCH /sucursales/:id/estado) para
+  // que quede protegido por requireAdminRole y no por la anon key de Supabase
+  // (ver server/routes/staff.js). Al apagarla, sucursalesMasCercanas() la saca
+  // sola de las 2 recomendadas por geolocalización.
+  const toggleActivo = async (s) => {
+    console.log('🖱️ [DEBUG-COMPONENT-SucursalesPanel] toggleActivo() — sucursal id:', s.id, 'activo actual:', s.activo);
+    if (togglingId) return;
+    setTogglingId(s.id);
+    try {
+      const res = await adminFetch(`/api/admin/staff/sucursales/${s.id}/estado`, {
+        method: 'PATCH',
+        body: JSON.stringify({ activo: !s.activo })
+      });
+      console.log('📡 [DEBUG-COMPONENT-SucursalesPanel] PATCH /sucursales/:id/estado — respuesta:', { ok: res.ok, status: res.status });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error('❌ [DEBUG-COMPONENT-SucursalesPanel] Error cambiando estado de sucursal:', data);
+        alert(data.error || 'No se pudo cambiar el estado de la sucursal.');
+        return;
+      }
+      console.log('✅ [DEBUG-COMPONENT-SucursalesPanel] Estado de sucursal cambiado — id:', s.id);
+      await fetchSucursales();
+    } finally {
+      setTogglingId(null);
+    }
   };
 
   console.log('🔍 [DEBUG-COMPONENT-SucursalesPanel] Render lista de sucursales — cantidad:', sucursales.length);
@@ -137,11 +166,6 @@ export default function SucursalesPanel() {
                           <AlertTriangle size={10} /> No disponible
                         </span>
                       )}
-                      {!s.activo && (
-                        <span className="flex items-center gap-1 text-[10px] font-medium text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
-                          <EyeOff size={10} /> Oculta
-                        </span>
-                      )}
                     </div>
                     {s.direccion && <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{s.direccion}</div>}
                     {!estaConfigurada && empleados.length === 0 && (
@@ -149,6 +173,15 @@ export default function SucursalesPanel() {
                     )}
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
+                    <button
+                      onClick={() => toggleActivo(s)}
+                      disabled={togglingId === s.id}
+                      title={s.activo ? 'Apagar sucursal (no la va a ofrecer más el bot ni las recomendaciones)' : 'Encender sucursal'}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold whitespace-nowrap transition-colors disabled:opacity-50 ${s.activo ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' : 'bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}`}
+                    >
+                      {togglingId === s.id ? <Loader2 size={11} className="animate-spin" /> : <Power size={11} />}
+                      {s.activo ? 'Encendida' : 'Apagada'}
+                    </button>
                     <button
                       onClick={() => { console.log('🖱️ [DEBUG-COMPONENT-SucursalesPanel] click Configurar — sucursal id:', s.id); setModalSucursal(s); }}
                       className="text-xs font-medium text-teal-700 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300 whitespace-nowrap"
@@ -198,10 +231,6 @@ export default function SucursalesPanel() {
                         <span className="text-gray-400 text-xs">a</span>
                         <input type="time" value={horarioForm.hora_cierre} onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SucursalesPanel] horarioForm.hora_cierre ->', e.target.value); setHorarioForm({ ...horarioForm, hora_cierre: e.target.value }); }}
                           className="px-2 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded text-xs" />
-                        <label className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
-                          <input type="checkbox" checked={horarioForm.activo} onChange={(e) => { console.log('🔄 [DEBUG-COMPONENT-SucursalesPanel] horarioForm.activo ->', e.target.checked); setHorarioForm({ ...horarioForm, activo: e.target.checked }); }} className="accent-teal-600" />
-                          Visible para el bot
-                        </label>
                       </div>
                       {errorHorario && <p className="text-xs text-rose-600 dark:text-rose-400">{errorHorario}</p>}
                       <div className="flex items-center gap-2">
