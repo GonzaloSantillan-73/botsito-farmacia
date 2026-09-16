@@ -112,37 +112,6 @@ router.post('/', async (req, res) => {
       console.log(`   - ID Mensaje: ${messageId}`);
       console.log(`🔍 [DEBUG-WEBHOOK] Rama de filtrado tomada: MENSAJE (changes.value.messages[0] presente) | tipo detectado: ${messageType}`);
 
-      if (messageType === 'reaction') {
-        // Una reacción no crea/usa una sesión ni pasa por el bot: solo
-        // refleja el emoji sobre el mensaje original (localizado por wamid).
-        // Meta manda emoji: "" cuando el cliente QUITA la reacción.
-        const reactedWamid = waMessage.reaction?.message_id;
-        const reactionEmoji = waMessage.reaction?.emoji || null;
-
-        console.log(`[WEBHOOK] -> Evento de tipo REACTION: emoji="${reactionEmoji}" sobre wamid="${reactedWamid}" (de ${clientPhone})`);
-        console.log(`🔍 [DEBUG-WEBHOOK] 📡 Consulta Supabase - tabla: messages, operación: update, filtros: { wamid: "${reactedWamid}" }, payload: { reaction_emoji: ${JSON.stringify(reactionEmoji)} }`);
-
-        try {
-          const { data: reactionUpdateData, error: reactionUpdateError } = await supabase
-            .from('messages')
-            .update({ reaction_emoji: reactionEmoji })
-            .eq('wamid', reactedWamid)
-            .select();
-
-          if (reactionUpdateError) {
-            console.error('[WEBHOOK] ❌ ERROR ACTUALIZANDO REACCIÓN EN SUPABASE:', reactionUpdateError);
-          } else {
-            console.log(`[WEBHOOK] ✅ Reacción guardada correctamente:`, reactionUpdateData);
-          }
-        } catch (error) {
-          console.error('[WEBHOOK] ❌ ERROR FATAL PROCESANDO REACCIÓN:', error);
-        }
-
-        console.log(`[WEBHOOK - POST /] ==> ✅ FIN PROCESAMIENTO DE REACCIÓN`);
-        console.log(`======================================================\n`);
-        return;
-      }
-
       try {
         console.log(`\n------------------------------------------------------`);
         console.log(`[WEBHOOK] ==> A. RESOLUCIÓN DE SESIÓN/CONSULTA (activa, expirada o nueva)`);
