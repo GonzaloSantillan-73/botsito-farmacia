@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "Botsito Farmacia CRM",
-  "short_name": "Botsito CRM",
+  "name": "CRM-Mi-Farma",
+  "short_name": "CRM-Mi-Farma",
   "description": "CRM de atención por WhatsApp para la farmacia: chats, pedidos y métricas en un solo lugar.",
   "start_url": "/",
   "scope": "/",
