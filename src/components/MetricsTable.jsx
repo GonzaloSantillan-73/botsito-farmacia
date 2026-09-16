@@ -160,9 +160,11 @@ export default function MetricsTable() {
           No hay consultas en el rango elegido.
         </div>
       ) : (
-        <div className="w-full max-h-[350px] overflow-auto">
-          <SortableDetailTable rows={rows} onRowClick={(row) => { setConversacionAbierta(row); }} />
-        </div>
+        <SortableDetailTable
+          rows={rows}
+          onRowClick={(row) => { setConversacionAbierta(row); }}
+          scrollContainerClassName="w-full max-h-[350px] overflow-auto scrollbar-thin border border-gray-200 dark:border-gray-700 rounded-xl"
+        />
       )}
 
       {conversacionAbierta && (

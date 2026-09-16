@@ -66,7 +66,7 @@ export const DETAIL_COLUMNS = [
 // Tabla ordenable de filas "detalle de consulta". `onRowClick` es opcional:
 // cuando se pasa, cada fila es clickeable (ej. el modal de "Ver" de una
 // barra de Métricas la usa para abrir la trazabilidad del chat).
-export default function SortableDetailTable({ rows, onRowClick, initialSortKey = 'fecha', initialSortDir = 'desc' }) {
+export default function SortableDetailTable({ rows, onRowClick, initialSortKey = 'fecha', initialSortDir = 'desc', scrollContainerClassName = 'overflow-x-auto scrollbar-thin border border-gray-200 dark:border-gray-700 rounded-xl' }) {
 
   const [sortKey, setSortKey] = useState(initialSortKey);
   const [sortDir, setSortDir] = useState(initialSortDir);
@@ -98,9 +98,9 @@ export default function SortableDetailTable({ rows, onRowClick, initialSortKey =
   }, [rows, sortKey, sortDir]);
 
   return (
-    <div className="overflow-x-auto scrollbar-thin border border-gray-200 dark:border-gray-700 rounded-xl">
+    <div className={scrollContainerClassName}>
       <table className="min-w-full text-sm">
-        <thead>
+        <thead className="sticky top-0 z-10">
           <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             {DETAIL_COLUMNS.map(col => {
               const isSorted = sortKey === col.key;
