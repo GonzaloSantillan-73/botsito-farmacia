@@ -42,17 +42,16 @@ const MENSAJE_UBICACION_INVALIDA = 'No pude reconocer esa ubicación. 😕\n\nPr
 // camino no se pierde lo ya cargado.
 const MENSAJE_PEDIR_NOMBRE = '¿Cuál es tu nombre completo?';
 const MENSAJE_PEDIR_DNI = '¿Cuál es tu número de DNI?';
-const MENSAJE_PEDIR_OBRA_SOCIAL = '¿Tenés obra social?\n\nSi es así, escribí cuál. Si no tenés, escribí "no".';
 const MENSAJE_ERROR_REGISTRO = 'Tuvimos un problema guardando tus datos.\n\nPor favor, intentá de nuevo en un momento.';
 
 const MENSAJE_POR_ESTADO_REGISTRO = {
   registro_nombre: MENSAJE_PEDIR_NOMBRE,
-  registro_dni: MENSAJE_PEDIR_DNI,
-  registro_obra_social: MENSAJE_PEDIR_OBRA_SOCIAL
+  registro_dni: MENSAJE_PEDIR_DNI
 };
 
 // Si el registro se había interrumpido a mitad de camino, retomamos desde el
-// primer dato que falte en vez de volver a pedir todo desde cero.
+// primer dato que falte en vez de volver a pedir todo desde cero. Devuelve
+// null cuando ya están los dos datos (registro completo, no queda nada por pedir).
 const determinarEstadoRegistro = (cliente) => {
   console.log('🔍 [DEBUG-SERVICE-BOT] determinarEstadoRegistro() — parámetros recibidos:', { cliente });
   if (!cliente?.nombre_completo) {
@@ -63,8 +62,8 @@ const determinarEstadoRegistro = (cliente) => {
     console.log('✅ [DEBUG-SERVICE-BOT] determinarEstadoRegistro() — falta dni, valor de retorno: registro_dni');
     return 'registro_dni';
   }
-  console.log('✅ [DEBUG-SERVICE-BOT] determinarEstadoRegistro() — nombre y dni presentes, valor de retorno: registro_obra_social');
-  return 'registro_obra_social';
+  console.log('✅ [DEBUG-SERVICE-BOT] determinarEstadoRegistro() — nombre y dni presentes, valor de retorno: null (registro completo)');
+  return null;
 };
 
 const mensajeDerivacionHumano = (keyword) => {
@@ -185,7 +184,7 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
     const estado = conv?.bot_state || null;
     console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — estado (bot_state) resuelto:', estado);
 
-    if (estado === 'registro_nombre' || estado === 'registro_dni' || estado === 'registro_obra_social') {
+    if (estado === 'registro_nombre' || estado === 'registro_dni') {
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — rama: estado de registro en curso (', estado, '). Se deriva a manejarPasoRegistro().');
       await manejarPasoRegistro(conversationId, telefono, t, estado, conv?.bot_context);
       console.log('✅ [DEBUG-SERVICE-BOT] procesarMensajeBot() — valor de retorno: undefined (cortado tras manejarPasoRegistro)');
@@ -422,45 +421,16 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado, botConte
       console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (error guardando DNI)');
       return;
     }
-    console.log('📡 [DEBUG-SERVICE-BOT] Query Supabase → tabla: conversations, operación: update, filtro: id =', conversationId, ', valores:', { bot_state: 'registro_obra_social' });
-    const { error: updError } = await supabase.from('conversations').update({ bot_state: 'registro_obra_social' }).eq('id', conversationId);
-    console.log('📡 [DEBUG-SERVICE-BOT] Resultado query conversations (update bot_state registro_obra_social) — error:', updError);
-    await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_OBRA_SOCIAL);
-    console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (avanzó a registro_obra_social)');
-    return;
+    const esActualizacion = !!botContext?.actualizando;
+    console.log('🔍 [DEBUG-SERVICE-BOT] manejarPasoRegistro() — esActualizacion:', esActualizacion);
+    await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
+    await enviarMensajeBot(
+      conversationId,
+      telefono,
+      `${esActualizacion ? '✅ ¡Listo! Actualizamos tus datos.' : '✅ ¡Gracias! Ya registramos tus datos.'}\n\n${await construirMensajeBienvenida()}`
+    );
+    console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (registro completado)');
   }
-
-  // registro_obra_social
-  console.log('🔍 [DEBUG-SERVICE-BOT] manejarPasoRegistro() — rama: registro_obra_social');
-  const respuesta = t.trim();
-  if (!respuesta) {
-    console.log('🔍 [DEBUG-SERVICE-BOT] manejarPasoRegistro() — respuesta vacía, se vuelve a pedir obra social.');
-    await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_OBRA_SOCIAL);
-    console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (respuesta vacía)');
-    return;
-  }
-  const sinObraSocial = ['no', 'no tengo', 'ninguna', 'n/a', 'nose', 'no se'].includes(respuesta.toLowerCase());
-  console.log('🔍 [DEBUG-SERVICE-BOT] manejarPasoRegistro() — sinObraSocial:', sinObraSocial, ', respuesta:', respuesta);
-
-  try {
-    await guardarDatoCliente(telefono, 'obra_social', sinObraSocial ? null : respuesta);
-  } catch (err) {
-    console.error('[BOT] Error guardando la obra social del cliente:', err);
-    console.error('❌ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — error guardando obra_social:', err?.message, err?.stack);
-    await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_REGISTRO);
-    console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (error guardando obra social)');
-    return;
-  }
-
-  const esActualizacion = !!botContext?.actualizando;
-  console.log('🔍 [DEBUG-SERVICE-BOT] manejarPasoRegistro() — esActualizacion:', esActualizacion);
-  await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
-  await enviarMensajeBot(
-    conversationId,
-    telefono,
-    `${esActualizacion ? '✅ ¡Listo! Actualizamos tus datos.' : '✅ ¡Gracias! Ya registramos tus datos.'}\n\n${await construirMensajeBienvenida()}`
-  );
-  console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (registro completado)');
 };
 
 const volverAlMenuPrincipal = async (conversationId, telefono) => {
