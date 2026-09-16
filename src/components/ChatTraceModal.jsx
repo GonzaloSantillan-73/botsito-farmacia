@@ -4,6 +4,7 @@ import { X, MessagesSquare } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import { tagMessage, aplicarTagLocal } from '../lib/tagMessage';
+import { alertDialog } from '../lib/dialogService';
 import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import MessageBubble from './MessageBubble';
 
@@ -44,7 +45,7 @@ export default function ChatTraceModal({ conversation, onClose }) {
       setMessages(prev => aplicarTagLocal(prev, actualizado));
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-ChatTraceModal] Error marcando mensaje:', err);
-      alert(err.message || 'No se pudo marcar el archivo.');
+      alertDialog(err.message || 'No se pudo marcar el archivo.', { danger: true });
     } finally {
       setTaggingId(null);
     }

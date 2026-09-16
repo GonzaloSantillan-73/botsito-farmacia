@@ -4,6 +4,7 @@ import { X, Images, FileText, Film, Link2, Loader2, Download, Eye, Mic } from 'l
 import { supabase } from '../lib/supabase';
 import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
+import { alertDialog } from '../lib/dialogService';
 
 const esNombreArchivoValido = (texto) => /\.[a-z0-9]{2,5}$/i.test((texto || '').trim());
 
@@ -113,7 +114,7 @@ export default function MediaGalleryModal({ clientPhone, clientName, conversatio
     const resultado = await downloadFile(msg.media_url, nombre);
     if (!resultado.ok) {
       console.error('❌ [DEBUG-COMPONENT-MediaGalleryModal] downloadFile() falló para msg.id:', msg.id);
-      alert('No se pudo descargar el archivo directamente. Se abrió en una pestaña nueva: desde ahí podés guardarlo con Ctrl+S o clic derecho → "Guardar como".');
+      alertDialog('No se pudo descargar el archivo directamente. Se abrió en una pestaña nueva: desde ahí podés guardarlo con Ctrl+S o clic derecho → "Guardar como".');
     } else {
     }
     setDownloadingId(null);

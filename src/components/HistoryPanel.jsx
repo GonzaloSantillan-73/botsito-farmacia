@@ -7,6 +7,7 @@ import { tagMessage, aplicarTagLocal } from '../lib/tagMessage';
 import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import ClientHistoryList from './ClientHistoryList';
 import { AttachmentTagControls } from './MessageBubble';
+import { alertDialog } from '../lib/dialogService';
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -89,7 +90,7 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
       setSelectedMessages(prev => aplicarTagLocal(prev, actualizado));
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-HistoryPanel] Error marcando mensaje:', err);
-      alert(err.message || 'No se pudo marcar el archivo.');
+      alertDialog(err.message || 'No se pudo marcar el archivo.', { danger: true });
     } finally {
       setTaggingId(null);
     }

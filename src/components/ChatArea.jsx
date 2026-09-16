@@ -13,6 +13,7 @@ import CloseChatModal from './CloseChatModal';
 import ReturnToQueueModal from './ReturnToQueueModal';
 import MessageBubble from './MessageBubble';
 import MediaGalleryModal from './MediaGalleryModal';
+import { alertDialog } from '../lib/dialogService';
 
 // Estados en los que la conversación ya está cerrada y no aplica el conteo de expiración.
 const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
@@ -110,7 +111,7 @@ export default function ChatArea({
     const nombre = esNombreArchivoValido(msg.message_text) ? msg.message_text.trim() : filenameFromUrl(msg.media_url);
     const resultado = await downloadFile(msg.media_url, nombre);
     if (!resultado.ok) {
-      alert('No se pudo descargar el archivo directamente. Se abrió en una pestaña nueva: desde ahí podés guardarlo con Ctrl+S o clic derecho → "Guardar como".');
+      alertDialog('No se pudo descargar el archivo directamente. Se abrió en una pestaña nueva: desde ahí podés guardarlo con Ctrl+S o clic derecho → "Guardar como".');
     }
     setDownloadingId(null);
   };
@@ -125,7 +126,7 @@ export default function ChatArea({
       await tagMessage(msg.id, tag);
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-ChatArea] Error marcando mensaje:', err);
-      alert(err.message || 'No se pudo marcar el archivo.');
+      alertDialog(err.message || 'No se pudo marcar el archivo.', { danger: true });
     } finally {
       setTaggingId(null);
     }
@@ -329,7 +330,7 @@ export default function ChatArea({
       if (!res.ok) throw new Error('No se pudo finalizar la consulta.');
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-ChatArea] Error finalizando la consulta:', err);
-      alert('No se pudo finalizar la consulta.');
+      alertDialog('No se pudo finalizar la consulta.', { danger: true });
     } finally {
       setClosingChat(false);
     }
@@ -349,7 +350,7 @@ export default function ChatArea({
       // confirme el UPDATE.
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-ChatArea] error en tomarConsulta():', err);
-      alert(err.message || 'No se pudo tomar la consulta.');
+      alertDialog(err.message || 'No se pudo tomar la consulta.', { danger: true });
     } finally {
       setTomandoConsulta(false);
     }
@@ -395,7 +396,7 @@ export default function ChatArea({
 
     if (error) {
       console.error('❌ [DEBUG-COMPONENT-ChatArea] Error subiendo el archivo:', error);
-      alert('No se pudo subir el archivo adjunto.');
+      alertDialog('No se pudo subir el archivo adjunto.', { danger: true });
       return;
     }
 

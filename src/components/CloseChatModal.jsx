@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Loader2, CheckCircle2, XCircle, MessageSquare } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { alertDialog } from '../lib/dialogService';
 
 export default function CloseChatModal({
   isOpen,
@@ -58,7 +59,7 @@ export default function CloseChatModal({
 
       if (error) {
         console.error('❌ [DEBUG-COMPONENT-CloseChatModal] Error actualizando el resultado:', error);
-        alert('Hubo un error al guardar el resultado de la gestión.');
+        alertDialog('Hubo un error al guardar el resultado de la gestión.', { danger: true });
         return;
       }
 
@@ -68,7 +69,7 @@ export default function CloseChatModal({
       onClose();
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-CloseChatModal] Error al confirmar cierre:', err);
-      alert('Hubo un error al finalizar la consulta.');
+      alertDialog('Hubo un error al finalizar la consulta.', { danger: true });
     } finally {
       setIsSubmitting(false);
     }

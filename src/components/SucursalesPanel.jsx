@@ -5,6 +5,7 @@ import { adminFetch } from '../lib/adminAuth';
 import SucursalConfigModal from './SucursalConfigModal';
 import Toggle from './Toggle';
 import { DIAS } from '../lib/dias';
+import { confirmDialog, alertDialog } from '../lib/dialogService';
 
 const normalizarWhatsappUrl = (valor) => {
   if (!valor) return null;
@@ -44,12 +45,13 @@ export default function SucursalesPanel() {
   }, []);
 
   const eliminarSucursal = async (s) => {
-    if (!window.confirm(`¿Eliminar la sucursal "${s.nombre}"? Se van a eliminar también sus accesos de personal.`)) return;
+    const confirmado = await confirmDialog(`¿Eliminar la sucursal "${s.nombre}"? Se van a eliminar también sus accesos de personal.`, { danger: true, confirmText: 'Eliminar' });
+    if (!confirmado) return;
     const res = await adminFetch(`/api/admin/staff/sucursales/${s.id}`, { method: 'DELETE' });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       console.error('❌ [DEBUG-COMPONENT-SucursalesPanel] Error eliminando sucursal:', data);
-      alert(data.error || 'No se pudo eliminar la sucursal.');
+      alertDialog(data.error || 'No se pudo eliminar la sucursal.', { danger: true });
       return;
     }
     await fetchSucursales();
@@ -97,7 +99,7 @@ export default function SucursalesPanel() {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         console.error('❌ [DEBUG-COMPONENT-SucursalesPanel] Error cambiando estado de sucursal:', data);
-        alert(data.error || 'No se pudo cambiar el estado de la sucursal.');
+        alertDialog(data.error || 'No se pudo cambiar el estado de la sucursal.', { danger: true });
         return;
       }
       await fetchSucursales();

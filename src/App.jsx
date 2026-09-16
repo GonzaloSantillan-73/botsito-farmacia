@@ -10,6 +10,8 @@ import ValidationPanel from './components/ValidationPanel';
 import ImageModal from './components/ImageModal';
 import ClientDirectory from './components/ClientDirectory';
 import LoginModal from './components/LoginModal';
+import DialogHost from './components/DialogHost';
+import { confirmDialog, alertDialog } from './lib/dialogService';
 import { getAdminToken, clearAdminSession, isAdminRole, getStaffSucursalId, getStaffSucursalNombre, adminFetch, getTheme, applyTheme } from './lib/adminAuth';
 
 function App() {
@@ -500,13 +502,14 @@ function App() {
       console.error('❌ [DEBUG-COMPONENT-App] Error contactando backend:', err);
       // El envío falló de verdad: sacamos el mensaje optimista para no mostrar algo que nunca se mandó.
       setMessages(prev => prev.filter(m => m.id !== messageId));
-      alert(`No se pudo enviar el mensaje.\n\n${err.message || 'Intentá de nuevo.'}`);
+      alertDialog(`No se pudo enviar el mensaje.\n\n${err.message || 'Intentá de nuevo.'}`, { danger: true });
     }
   };
 
   const handleDeleteConversation = async (conversationId) => {
     if (!conversationId) return;
-    if (!window.confirm('¿Seguro que querés eliminar esta conversación? Esta acción no se puede deshacer.')) return;
+    const confirmado = await confirmDialog('¿Seguro que querés eliminar esta conversación? Esta acción no se puede deshacer.', { danger: true, confirmText: 'Eliminar' });
+    if (!confirmado) return;
 
     try {
       // Borramos primero los datos dependientes para asegurar una baja limpia,
@@ -524,7 +527,7 @@ function App() {
       }
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-App] Error eliminando la conversación:', err);
-      alert('No se pudo eliminar la conversación.');
+      alertDialog('No se pudo eliminar la conversación.', { danger: true });
     }
   };
 
@@ -616,7 +619,7 @@ function App() {
       await fetchConversations();
     } catch (e) {
       console.error('❌ [DEBUG-COMPONENT-App] handleSeedData() — error:', e);
-      alert('Error al sembrar datos. Asegúrate de haber ejecutado el schema.sql primero.');
+      alertDialog('Error al sembrar datos. Asegúrate de haber ejecutado el schema.sql primero.', { danger: true });
     }
     setIsSeeding(false);
   };
@@ -695,6 +698,8 @@ function App() {
           }}
         />
       )}
+
+      <DialogHost />
 
     </div>
   );

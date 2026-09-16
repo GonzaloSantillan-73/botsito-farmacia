@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Check, Loader2, Trash2, KeyRound, Clock } from 'lucide-react';
 import { adminFetch } from '../lib/adminAuth';
 import { DIAS } from '../lib/dias';
+import { confirmDialog } from '../lib/dialogService';
 import Toggle from './Toggle';
 
 // Modal flotante de configuración de UNA sucursal: datos de contacto
@@ -112,7 +113,8 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
 
   const eliminarAcceso = async () => {
     if (!empleadoPrincipal) return;
-    if (!window.confirm('¿Eliminar este acceso? El empleado ya no va a poder entrar al CRM.')) return;
+    const confirmado = await confirmDialog('¿Eliminar este acceso? El empleado ya no va a poder entrar al CRM.', { danger: true, confirmText: 'Eliminar' });
+    if (!confirmado) return;
     const res = await adminFetch(`/api/admin/staff/${empleadoPrincipal.id}`, { method: 'DELETE' });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -127,7 +129,8 @@ export default function SucursalConfigModal({ sucursal, onClose, onSaved }) {
   };
 
   const eliminarExtra = async (id) => {
-    if (!window.confirm('¿Eliminar este acceso adicional?')) return;
+    const confirmado = await confirmDialog('¿Eliminar este acceso adicional?', { danger: true, confirmText: 'Eliminar' });
+    if (!confirmado) return;
     const res = await adminFetch(`/api/admin/staff/${id}`, { method: 'DELETE' });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));

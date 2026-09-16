@@ -4,6 +4,7 @@ import SettingsModal from './SettingsModal';
 import { formatPhone } from '../lib/formatPhone';
 import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
 import { tomarConsulta } from '../lib/tomarConsulta';
+import { confirmDialog, alertDialog } from '../lib/dialogService';
 
 // Formatea milisegundos transcurridos con precisión progresiva: segundos
 // (00s) mientras dure menos de un minuto, minutos:segundos (01:00m) mientras
@@ -183,7 +184,7 @@ export default function Sidebar({
       setActiveConversation({ ...conv, ...tomada });
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-Sidebar] error en tomarConsulta():', err);
-      alert(err.message || 'No se pudo tomar la consulta.');
+      alertDialog(err.message || 'No se pudo tomar la consulta.', { danger: true });
     } finally {
       setTakingId(null);
     }
@@ -249,8 +250,8 @@ export default function Sidebar({
               <Settings size={20} />
             </button>
             <button
-              onClick={() => {
-                if (window.confirm('¿Cerrar sesión del CRM?')) onLogout?.();
+              onClick={async () => {
+                if (await confirmDialog('¿Cerrar sesión del CRM?', { confirmText: 'Cerrar sesión' })) onLogout?.();
               }}
               title="Cerrar sesión"
               className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-full transition-colors"

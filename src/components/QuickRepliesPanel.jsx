@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, Loader2, Check, X, Globe } from 'lucide-react';
 import { adminFetch, isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
+import { confirmDialog, alertDialog } from '../lib/dialogService';
 
 // Mismo componente para admin y sucursal: el backend (server/routes/
 // quickReplies.js) ya decide qué filas devuelve según el rol/sucursal del
@@ -87,11 +88,12 @@ export default function QuickRepliesPanel() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Eliminar esta plantilla? Esta acción no se puede deshacer.')) return;
+    const confirmado = await confirmDialog('¿Eliminar esta plantilla? Esta acción no se puede deshacer.', { danger: true, confirmText: 'Eliminar' });
+    if (!confirmado) return;
     const res = await adminFetch(`/api/admin/quick-replies/${id}`, { method: 'DELETE' });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      alert(data.error || 'No se pudo eliminar la plantilla.');
+      alertDialog(data.error || 'No se pudo eliminar la plantilla.', { danger: true });
       return;
     }
     fetchReplies();

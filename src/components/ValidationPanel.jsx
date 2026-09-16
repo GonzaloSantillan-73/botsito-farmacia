@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { adminFetch } from '../lib/adminAuth';
 import { formatPhone } from '../lib/formatPhone';
 import ClientNotesPanel from './ClientNotesPanel';
+import { confirmDialog } from '../lib/dialogService';
 import OrderStatusPanel from './OrderStatusPanel';
 import { SALE_STATUS_BADGES } from './Sidebar';
 
@@ -208,8 +209,8 @@ export default function ValidationPanel({
   // operador puede seguir sumando o corrigiendo ítems del mismo pedido sin
   // rearmar el carrito de cero. Este botón es la forma explícita de arrancar
   // de nuevo cuando ya se terminó por completo con ese cliente.
-  const handleLimpiarCotizacion = () => {
-    if (quoteItems.length > 0 && !window.confirm('¿Vaciar el cotizador? Se van a borrar los productos cargados.')) return;
+  const handleLimpiarCotizacion = async () => {
+    if (quoteItems.length > 0 && !(await confirmDialog('¿Vaciar el cotizador? Se van a borrar los productos cargados.', { danger: true, confirmText: 'Vaciar' }))) return;
     resetCotizacion();
   };
 
