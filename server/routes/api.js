@@ -683,7 +683,43 @@ router.post('/messages/send', requireAuth, blockAdminRole, async (req, res) => {
     
     let cleanPhone = finalPhone.replace(/[\s+\-]/g, '');
     console.log(`[API] -> Teléfono limpio para Meta: ${cleanPhone}`);
-    
+
+    console.log(`\n------------------------------------------------------`);
+    console.log(`[API] ==> A.1 VERIFICACIÓN DE VENTANA DE 24HS DE META`);
+    // Meta acepta el POST igual (HTTP 200 con wamid) aunque la ventana de 24hs
+    // esté cerrada, y recién rechaza la entrega más tarde vía el webhook de
+    // "statuses" (error 131047) — para entonces el operador ya vio el mensaje
+    // como "enviado". Chequeamos acá antes de llamar a Meta para avisar al
+    // toque, en vez de que falle en silencio unos segundos después.
+    if (finalConversationId) {
+      const { data: lastClientMsgs, error: lastClientMsgError } = await supabase
+        .from('messages')
+        .select('created_at')
+        .eq('conversation_id', finalConversationId)
+        .eq('sender_type', 'client')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (lastClientMsgError) {
+        console.warn('[API] ⚠️ No se pudo verificar la ventana de 24hs (se continúa igual):', lastClientMsgError);
+      } else {
+        const lastClientMsg = lastClientMsgs?.[0];
+        const horasDesdeUltimoMensaje = lastClientMsg
+          ? (Date.now() - new Date(lastClientMsg.created_at).getTime()) / (1000 * 60 * 60)
+          : Infinity;
+        console.log(`[API] -> Última respuesta del cliente: ${lastClientMsg?.created_at || 'nunca'} (${horasDesdeUltimoMensaje.toFixed(1)}hs atrás)`);
+
+        if (horasDesdeUltimoMensaje > 24) {
+          console.warn('[API] ⚠️ ABORTO: ventana de 24hs de Meta cerrada, no se puede mandar texto/adjunto libre.');
+          console.log(`======================================================\n`);
+          return res.status(400).json({
+            error: 'No se puede enviar: pasaron más de 24hs desde el último mensaje del cliente. Meta solo permite reabrir la conversación con una plantilla aprobada, no con texto libre.',
+            metaCode: 131047
+          });
+        }
+      }
+    }
+
     console.log(`\n------------------------------------------------------`);
     console.log(`[API] ==> B. PERSISTENCIA INICIAL EN SUPABASE (estado: pendiente)`);
     
