@@ -122,7 +122,7 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
               <ExportPanel />
             ) : activeTab === 'admin' && isAdmin ? (
               <div className="space-y-3">
-                <Accordion title="Administrador" icon={ShieldCheck} defaultOpen>
+                <Accordion title="Administrador" icon={ShieldCheck}>
                   <AdminCredentialsPanel />
                 </Accordion>
 
