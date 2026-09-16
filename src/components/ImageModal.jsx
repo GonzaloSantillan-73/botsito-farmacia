@@ -120,7 +120,7 @@ export default function ImageModal({ imageUrl, onClose }) {
       </div>
 
       <div
-        className="max-w-[90vw] max-h-[90vh] overflow-hidden flex items-center justify-center"
+        className="w-full h-full flex items-center justify-center overflow-visible"
         onWheel={handleWheel}
       >
         <img
@@ -134,7 +134,7 @@ export default function ImageModal({ imageUrl, onClose }) {
             transition: isDragging ? 'none' : 'transform 0.15s ease-out',
             cursor: isDragging ? 'grabbing' : 'grab'
           }}
-          className="max-w-full max-h-[85vh] object-contain rounded shadow-2xl bg-white select-none"
+          className="max-w-[90vw] max-h-[85vh] object-contain rounded shadow-2xl bg-white select-none"
         />
       </div>
     </div>
