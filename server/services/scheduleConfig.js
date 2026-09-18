@@ -1,7 +1,6 @@
 import { supabase } from '../supabase.js';
 
 const BOT_SCHEDULE_KEY = 'bot_schedule';
-const HUMAN_SCHEDULE_KEY = 'human_schedule';
 
 // Zona horaria de la farmacia. Se usa esta en vez de la del server (que en
 // Render suele correr en UTC) para que la comparación de horario sea correcta.
@@ -15,13 +14,10 @@ const DEFAULT_BOT_SCHEDULE = {
   message: 'En este momento estamos fuera de nuestro horario de atención automática. Por favor, escribinos más tarde.'
 };
 
-const DEFAULT_HUMAN_SCHEDULE = {
-  enabled: true,
-  days: [1, 2, 3, 4, 5],
-  startTime: '09:00',
-  endTime: '18:00',
-  message: 'Nuestros asesores no se encuentran disponibles en este momento. Nuestro horario de atención es {horario}. Dejanos tu consulta y te responderemos apenas estemos disponibles.'
-};
+// Ya no existe un horario propio de "Asesores Humanos": la disponibilidad de
+// atención humana depende exclusivamente del horario de cada sucursal (ver
+// estaAbiertaAhora() en sucursales.js) según la ubicación que comparte el
+// cliente, no de un horario global. Ver server/services/geolocalizacion.js.
 
 const DAY_NAMES = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -101,20 +97,15 @@ export const getBotSchedule = () => {
   console.log('🔍 [DEBUG-SERVICE-SCHEDULECONFIG] getBotSchedule() — sin parámetros');
   return getSchedule(BOT_SCHEDULE_KEY, DEFAULT_BOT_SCHEDULE);
 };
-export const getHumanSchedule = () => {
-  console.log('🔍 [DEBUG-SERVICE-SCHEDULECONFIG] getHumanSchedule() — sin parámetros');
-  return getSchedule(HUMAN_SCHEDULE_KEY, DEFAULT_HUMAN_SCHEDULE);
-};
 export const setBotSchedule = (schedule) => {
   console.log('🔍 [DEBUG-SERVICE-SCHEDULECONFIG] setBotSchedule() — schedule:', schedule);
   return setSchedule(BOT_SCHEDULE_KEY, schedule);
 };
-export const setHumanSchedule = (schedule) => {
-  console.log('🔍 [DEBUG-SERVICE-SCHEDULECONFIG] setHumanSchedule() — schedule:', schedule);
-  return setSchedule(HUMAN_SCHEDULE_KEY, schedule);
-};
 
-const getNowInTimezone = () => {
+// Se exportan para que sucursales.js (estaAbiertaAhora) compare el horario de
+// cada sucursal contra el mismo "ahora" (misma zona horaria) que usa el
+// horario del bot, en vez de duplicar esta lógica.
+export const getNowInTimezone = () => {
   console.log('🔍 [DEBUG-SERVICE-SCHEDULECONFIG] getNowInTimezone() — sin parámetros');
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: TIMEZONE,
@@ -135,7 +126,7 @@ const getNowInTimezone = () => {
   return resultado;
 };
 
-const toMinutes = (hhmm) => {
+export const toMinutes = (hhmm) => {
   console.log('🔍 [DEBUG-SERVICE-SCHEDULECONFIG] toMinutes() — hhmm:', hhmm);
   const [h, m] = hhmm.split(':').map(Number);
   const resultado = h * 60 + m;

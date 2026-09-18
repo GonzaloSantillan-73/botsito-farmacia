@@ -11,7 +11,7 @@ const DAYS = [
   { value: 0, label: 'Dom' }
 ];
 
-function ScheduleEditor({ title, description, schedule, onChange, showPlaceholderHint }) {
+function ScheduleEditor({ title, description, schedule, onChange }) {
 
   const toggleDay = (d) => {
     const days = schedule.days.includes(d) ? schedule.days.filter(x => x !== d) : [...schedule.days, d];
@@ -78,7 +78,7 @@ function ScheduleEditor({ title, description, schedule, onChange, showPlaceholde
 
           <div>
             <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">
-              Mensaje de fuera de horario{showPlaceholderHint && ' (usá {horario} para insertar los días y el rango configurado)'}
+              Mensaje de fuera de horario (usá {'{horario}'} para insertar los días y el rango configurado)
             </label>
             <textarea
               value={schedule.message}
@@ -96,7 +96,6 @@ function ScheduleEditor({ title, description, schedule, onChange, showPlaceholde
 export default function SchedulePanel() {
 
   const [botSchedule, setBotSchedule] = useState(null);
-  const [humanSchedule, setHumanSchedule] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -108,7 +107,6 @@ export default function SchedulePanel() {
       .then(res => res.json())
       .then(data => {
         setBotSchedule(data.bot);
-        setHumanSchedule(data.human);
       })
       .catch(err => console.error('❌ [DEBUG-COMPONENT-SchedulePanel] Error obteniendo horarios:', err))
       .finally(() => setLoading(false));
@@ -124,7 +122,7 @@ export default function SchedulePanel() {
       const res = await fetch(`${API_URL}/api/schedules`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bot: botSchedule, human: humanSchedule })
+        body: JSON.stringify({ bot: botSchedule })
       });
       const data = await res.json();
 
@@ -140,14 +138,15 @@ export default function SchedulePanel() {
     }
   };
 
-  if (loading || !botSchedule || !humanSchedule) {
+  if (loading || !botSchedule) {
     return <div className="text-sm text-gray-400 py-10 text-center">Cargando horarios...</div>;
   }
 
   return (
     <div className="space-y-5">
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        Configurá cuándo responde el bot automáticamente y cuándo están disponibles los asesores humanos.
+        Configurá cuándo responde el bot automáticamente. La atención humana ya no tiene un horario propio: depende
+        pura y exclusivamente del horario de la sucursal más cercana al cliente (ver Sucursales, en Administración).
       </p>
 
       <ScheduleEditor
@@ -155,14 +154,6 @@ export default function SchedulePanel() {
         description="Fuera de este horario, el bot no procesa mensajes y responde con el aviso configurado."
         schedule={botSchedule}
         onChange={(next) => { setBotSchedule(next); }}
-      />
-
-      <ScheduleEditor
-        title="Asesores Humanos"
-        description='Si un cliente pide hablar con un humano fuera de este horario, el bot le avisa y le pide que deje su consulta.'
-        schedule={humanSchedule}
-        onChange={(next) => { setHumanSchedule(next); }}
-        showPlaceholderHint
       />
 
       {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}

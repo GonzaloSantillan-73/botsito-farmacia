@@ -6,7 +6,7 @@ import { finalizarConversacion } from '../services/ratingSurvey.js';
 import { devolverConversacionAEspera } from '../services/devolucionCola.js';
 import { tomarConsulta } from '../services/tomaConsulta.js';
 import { TERMINAL_STATUSES } from '../services/sessionManager.js';
-import { getBotSchedule, getHumanSchedule, setBotSchedule, setHumanSchedule } from '../services/scheduleConfig.js';
+import { getBotSchedule, setBotSchedule } from '../services/scheduleConfig.js';
 import { rowsToCsv, sendCsv } from '../services/csvExport.js';
 import { obtenerDetalleConsultas } from '../services/metricsDetalle.js';
 import { requireAuth, requireAdminRole, blockAdminRole } from './adminAuth.js';
@@ -353,14 +353,14 @@ router.get('/schedules', async (req, res) => {
     params: req.params,
     admin: req.admin || null
   });
-  const [bot, human] = await Promise.all([getBotSchedule(), getHumanSchedule()]);
-  console.log('✅ [DEBUG-ROUTES-API] Horarios obtenidos en GET /schedules:', { bot, human });
-  console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /schedules:', { status: 200, body: { bot, human } });
-  res.status(200).json({ bot, human });
+  const bot = await getBotSchedule();
+  console.log('✅ [DEBUG-ROUTES-API] Horarios obtenidos en GET /schedules:', { bot });
+  console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /schedules:', { status: 200, body: { bot } });
+  res.status(200).json({ bot });
 });
 
 router.put('/schedules', async (req, res) => {
-  const { bot, human } = req.body;
+  const { bot } = req.body;
   console.log('🔍 [DEBUG-ROUTES-API] Entrada a PUT /schedules:', {
     method: req.method,
     url: req.originalUrl,
@@ -374,10 +374,6 @@ router.put('/schedules', async (req, res) => {
     if (bot) {
       console.log('📡 [DEBUG-ROUTES-API] Actualizando horario de bot en PUT /schedules:', { bot });
       await setBotSchedule(bot);
-    }
-    if (human) {
-      console.log('📡 [DEBUG-ROUTES-API] Actualizando horario humano en PUT /schedules:', { human });
-      await setHumanSchedule(human);
     }
     console.log('[API] -> Horarios de atención actualizados.');
     console.log('🔚 [DEBUG-ROUTES-API] Respondiendo PUT /schedules:', { status: 200, body: { success: true } });

@@ -1,4 +1,4 @@
-import { getSucursalesActivas } from './sucursales.js';
+import { getSucursalesActivas, estaAbiertaAhora } from './sucursales.js';
 
 const toRad = (deg) => (deg * Math.PI) / 180;
 
@@ -31,38 +31,74 @@ const parseCoord = (valor) => {
   return resultado;
 };
 
-// Sucursales activas con coordenadas cargadas (se sacan solas del link de
-// Google Maps al crear/editar la sucursal, ver sucursalesAdmin.js), ordenadas
-// por cercanía al punto (lat, lng) del cliente. Una sucursal sin coordenadas
-// resueltas simplemente no entra en el cálculo: no hay con qué compararla.
-// `excluirIds` saca de la carrera a sucursales puntuales (ej. la que acaba de
-// devolver el chat a la cola, ver devolucionCola.js) para que no se le vuelva
-// a recomendar la misma que ya dijo que no podía atenderlo.
-export const sucursalesMasCercanas = async (lat, lng, cantidad = 2, excluirIds = []) => {
-  console.log('🔍 [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesMasCercanas() — lat:', lat, 'lng:', lng, 'cantidad:', cantidad, 'excluirIds:', excluirIds);
-
-  console.log('📡 [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesMasCercanas() — llamando a getSucursalesActivas()');
+// Todas las sucursales activas con coordenadas válidas, ordenadas por
+// cercanía al punto (lat, lng) del cliente, con `abierta_ahora` calculado
+// contra el horario propio de cada una (ver estaAbiertaAhora en
+// sucursales.js). Es la base tanto de sucursalesMasCercanas() como de
+// sucursalAbiertaMasCercana() más abajo.
+const sucursalesOrdenadasPorCercania = async (lat, lng, excluirIds = []) => {
+  console.log('📡 [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesOrdenadasPorCercania() — llamando a getSucursalesActivas()');
   const sucursales = await getSucursalesActivas();
-  console.log('📡 [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesMasCercanas() — sucursales activas obtenidas:', sucursales);
+  console.log('📡 [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesOrdenadasPorCercania() — sucursales activas obtenidas:', sucursales);
 
   const excluidos = new Set(excluirIds.filter(Boolean));
-  console.log('🔍 [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesMasCercanas() — set de excluidos:', excluidos);
+  console.log('🔍 [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesOrdenadasPorCercania() — set de excluidos:', excluidos);
 
+  // Una sucursal sin coordenadas resueltas simplemente no entra en el
+  // cálculo: no hay con qué compararla.
   const conCoordenadas = sucursales
     .filter(s => !excluidos.has(s.id))
     .map(s => ({ ...s, latitud: parseCoord(s.latitud), longitud: parseCoord(s.longitud) }))
     .filter(s => Number.isFinite(s.latitud) && Number.isFinite(s.longitud));
-  console.log('🔍 [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesMasCercanas() — sucursales con coordenadas válidas:', conCoordenadas);
+  console.log('🔍 [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesOrdenadasPorCercania() — sucursales con coordenadas válidas:', conCoordenadas);
 
   const resultado = conCoordenadas
     .map(s => ({
       id: s.id,
       nombre: s.nombre,
-      distancia_km: Number(distanciaHaversineKm(lat, lng, s.latitud, s.longitud).toFixed(2))
+      distancia_km: Number(distanciaHaversineKm(lat, lng, s.latitud, s.longitud).toFixed(2)),
+      abierta_ahora: estaAbiertaAhora(s)
     }))
-    .sort((a, b) => a.distancia_km - b.distancia_km)
-    .slice(0, cantidad);
+    .sort((a, b) => a.distancia_km - b.distancia_km);
+
+  console.log('✅ [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesOrdenadasPorCercania() — resultado:', resultado);
+  return resultado;
+};
+
+// `excluirIds` saca de la carrera a sucursales puntuales (ej. la que acaba de
+// devolver el chat a la cola, ver devolucionCola.js) para que no se le vuelva
+// a recomendar la misma que ya dijo que no podía atenderlo.
+//
+// Prioriza las sucursales que están ABIERTAS en este momento por sobre las
+// cerradas, aunque estén un poco más lejos: si la más cercana está cerrada,
+// se la salta y se recomienda la siguiente más cercana que sí esté abierta
+// (ver estaAbiertaAhora en sucursales.js). Sólo se completa con sucursales
+// cerradas si no hay suficientes abiertas para llegar a `cantidad`, para que
+// la recomendación nunca quede vacía sin necesidad.
+export const sucursalesMasCercanas = async (lat, lng, cantidad = 2, excluirIds = []) => {
+  console.log('🔍 [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesMasCercanas() — lat:', lat, 'lng:', lng, 'cantidad:', cantidad, 'excluirIds:', excluirIds);
+
+  const ordenadas = await sucursalesOrdenadasPorCercania(lat, lng, excluirIds);
+
+  const abiertas = ordenadas.filter(s => s.abierta_ahora);
+  const cerradas = ordenadas.filter(s => !s.abierta_ahora);
+  const resultado = [...abiertas, ...cerradas].slice(0, cantidad);
 
   console.log('✅ [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesMasCercanas() — resultado a devolver:', resultado);
+  return resultado;
+};
+
+// La UNA sucursal a la que efectivamente se deriva la atención humana: la más
+// cercana que esté abierta ahora mismo, sin importar si hay otra más cerca
+// pero cerrada. `null` cuando ninguna sucursal con coordenadas está abierta
+// en este momento (ver manejarUbicacionHumano en bot.js: ahí se decide qué
+// avisarle al cliente si esto devuelve null).
+export const sucursalAbiertaMasCercana = async (lat, lng, excluirIds = []) => {
+  console.log('🔍 [DEBUG-SERVICE-GEOLOCALIZACION] sucursalAbiertaMasCercana() — lat:', lat, 'lng:', lng, 'excluirIds:', excluirIds);
+
+  const ordenadas = await sucursalesOrdenadasPorCercania(lat, lng, excluirIds);
+  const resultado = ordenadas.find(s => s.abierta_ahora) || null;
+
+  console.log('✅ [DEBUG-SERVICE-GEOLOCALIZACION] sucursalAbiertaMasCercana() — resultado:', resultado);
   return resultado;
 };

@@ -1,7 +1,7 @@
 import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from './whatsapp.js';
 import { getBotKeyword, getWelcomeMessage } from './appConfig.js';
-import { getBotSchedule, getHumanSchedule, isWithinSchedule, renderScheduleMessage } from './scheduleConfig.js';
+import { getBotSchedule, isWithinSchedule, renderScheduleMessage } from './scheduleConfig.js';
 import { getSucursalesActivas, formatearMensajeSucursales } from './sucursales.js';
 import { getCliente, tieneRegistroCompleto, guardarDatoCliente } from './clientes.js';
 import { sucursalesMasCercanas } from './geolocalizacion.js';
@@ -34,6 +34,11 @@ const MENSAJE_ERROR_DERIVACION = 'Tuvimos un problema derivándote con un asesor
 // texto un link de Google Maps (largo o acortado tipo maps.app.goo.gl).
 const MENSAJE_PEDIR_UBICACION = 'Para poder recomendarte la sucursal más cercana, compartí tu ubicación 📍\n\nPodés usar el botón de "Ubicación" de WhatsApp (📎 → Ubicación → Ubicación actual), o pegar acá el link de Google Maps de dónde estás.';
 const MENSAJE_UBICACION_INVALIDA = 'No pude reconocer esa ubicación. 😕\n\nProbá compartiendo tu ubicación con el botón de WhatsApp, o pegando un link de Google Maps (por ejemplo: https://maps.app.goo.gl/...).';
+// Ninguna sucursal cercana está atendiendo en este momento (ver
+// sucursalAbiertaMasCercana en geolocalizacion.js): ya no existe un horario
+// global de "Asesores Humanos", así que este es el único mensaje de "fuera
+// de horario" para la derivación a un humano.
+const MENSAJE_SIN_SUCURSAL_DISPONIBLE = 'En este momento no tenemos ninguna sucursal cercana a tu ubicación atendiendo. 🕒\n\nEscribinos tu consulta y te vamos a responder apenas abramos, o intentá de nuevo más tarde.';
 
 // Registro de datos personales: se le pide al cliente la primera vez que
 // escribe (antes de mostrarle el menú) y puede volver a hacerse desde
@@ -202,17 +207,10 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
     const tLower = t.toLowerCase();
     console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — rama: menú principal. Opción elegida (tLower):', tLower);
     if (tLower === '1') {
-      console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — opción "1" (Hablar con un humano). Consultando horario humano.');
-      const humanSchedule = await getHumanSchedule();
-      console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — humanSchedule:', humanSchedule);
-      if (!isWithinSchedule(humanSchedule)) {
-        console.log(`[BOT] Se pidió un humano fuera de su horario de atención para ${conversationId}.`);
-        console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — rama: fuera de horario humano. Se envía aviso y se corta el flujo.');
-        await enviarMensajeBot(conversationId, telefono, renderScheduleMessage(humanSchedule));
-        console.log('✅ [DEBUG-SERVICE-BOT] procesarMensajeBot() — valor de retorno: undefined (cortado por fuera de horario humano)');
-        return;
-      }
-
+      // Ya no hay un horario global de "Asesores Humanos": la disponibilidad
+      // depende de la sucursal que corresponda según dónde esté el cliente,
+      // y eso recién se sabe cuando comparte la ubicación (ver
+      // manejarUbicacionHumano más abajo), así que acá se pide directo.
       console.log(`[BOT] Pidiendo ubicación antes de derivar a un asesor humano para ID: ${conversationId}`);
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — se pasa a estado esperando_ubicacion.');
       await actualizarEstadoConversacion(conversationId, { bot_state: 'esperando_ubicacion', bot_context: null });
@@ -313,6 +311,23 @@ const manejarUbicacionHumano = async (conversationId, telefono, t) => {
     // operador puede recomendar la sucursal a mano igual.
     console.error('[BOT] Error calculando sucursales más cercanas:', err);
     console.error('❌ [DEBUG-SERVICE-BOT] manejarUbicacionHumano() — error calculando sucursales más cercanas (no se corta el flujo):', err?.message, err?.stack);
+  }
+
+  // Ya no hay horario global de "Asesores Humanos": la disponibilidad se
+  // valida acá, contra el horario real de las sucursales cercanas a la
+  // ubicación que el cliente acaba de compartir (sucursalesMasCercanas ya
+  // prioriza las que están abiertas ahora). Si hay candidatas pero NINGUNA
+  // está atendiendo en este momento, no se lo deriva a la cola: se le avisa
+  // en vez de dejarlo esperando a alguien que no va a aparecer. Si el
+  // cálculo falló o no hay sucursales con coordenadas (recomendadas vacío),
+  // no se bloquea: el operador puede recomendarle la sucursal a mano igual.
+  if (recomendadas.length > 0 && !recomendadas.some(s => s.abierta_ahora)) {
+    console.log(`[BOT] Ninguna sucursal cercana está atendiendo ahora mismo para ${conversationId}.`);
+    console.log('🔍 [DEBUG-SERVICE-BOT] manejarUbicacionHumano() — rama: ninguna sucursal cercana abierta. Se avisa y se corta el flujo.');
+    await actualizarEstadoConversacion(conversationId, { bot_state: null, bot_context: null });
+    await enviarMensajeBot(conversationId, telefono, MENSAJE_SIN_SUCURSAL_DISPONIBLE);
+    console.log('✅ [DEBUG-SERVICE-BOT] manejarUbicacionHumano() — valor de retorno: undefined (cortado por ninguna sucursal abierta)');
+    return;
   }
 
   const botKeyword = await getBotKeyword();
