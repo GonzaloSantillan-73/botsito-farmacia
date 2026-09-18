@@ -45,12 +45,16 @@ export const crearSucursal = async ({ nombre, direccion, googleMapsUrl, dias, ho
   const payload = {
     nombre: nombre.trim(),
     direccion: direccion.trim(),
-    google_maps_url: googleMapsUrl.trim(),
-    abierta_24hs: !!abierta24hs
+    google_maps_url: googleMapsUrl.trim()
   };
+  // El horario ahora se carga aparte, desde el modal dedicado "Editar
+  // horario" (ver SucursalHorarioModal.jsx) una vez creada la sucursal: si no
+  // viene en el body, se deja que la tabla aplique sus propios defaults
+  // (dias/hora_apertura/hora_cierre/abierta_24hs) en vez de pisarlos.
   if (dias) payload.dias = dias;
   if (horaApertura) payload.hora_apertura = horaApertura;
   if (horaCierre) payload.hora_cierre = horaCierre;
+  if (abierta24hs !== undefined) payload.abierta_24hs = !!abierta24hs;
 
   // Las coordenadas se resuelven solas a partir del link de Maps (que ya es
   // obligatorio) para no pedirle al admin que cargue lat/lng a mano. Si no se
@@ -101,13 +105,17 @@ export const actualizarSucursal = async (id, { nombre, direccion, googleMapsUrl,
 
   const updates = {
     direccion: direccion.trim(),
-    google_maps_url: googleMapsUrl.trim(),
-    abierta_24hs: !!abierta24hs
+    google_maps_url: googleMapsUrl.trim()
   };
   if (nombre?.trim()) updates.nombre = nombre.trim();
+  // El horario se edita aparte, desde el modal dedicado "Editar horario"
+  // (ver SucursalHorarioModal.jsx): si esta llamada no lo manda (ej. al
+  // editar sólo nombre/dirección/maps desde el modal general), no hay que
+  // pisarlo con un default — se deja el horario que ya tenía la sucursal.
   if (dias) updates.dias = dias;
   if (horaApertura) updates.hora_apertura = horaApertura;
   if (horaCierre) updates.hora_cierre = horaCierre;
+  if (abierta24hs !== undefined) updates.abierta_24hs = !!abierta24hs;
 
   console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — resolviendo coordenadas desde URL:', googleMapsUrl.trim());
   const coords = await extraerCoordenadasDeUrl(googleMapsUrl.trim()).catch((err) => {
