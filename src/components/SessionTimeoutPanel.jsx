@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, Check } from 'lucide-react';
+import Toggle from './Toggle';
 
 const msToHms = (ms) => {
   const totalSeconds = Math.max(0, Math.round((ms ?? 0) / 1000));
@@ -24,11 +25,17 @@ const NumberBox = ({ label, value, onChange, max }) => (
   </div>
 );
 
-export default function SessionTimeoutPanel({ sessionTimeoutMs, onSave }) {
+export default function SessionTimeoutPanel({ sessionTimeoutMs, sessionPrewarningMs, onSave }) {
 
   const [hours, setHours] = useState(0);
   const [mins, setMins] = useState(0);
   const [secs, setSecs] = useState(0);
+
+  // El aviso preventivo se configura aparte, en minutos (no hace falta la
+  // precisión de h/m/s del tiempo total): 0 o deshabilitado = no se manda.
+  const [prewarningEnabled, setPrewarningEnabled] = useState(false);
+  const [prewarningMins, setPrewarningMins] = useState(5);
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
@@ -42,11 +49,28 @@ export default function SessionTimeoutPanel({ sessionTimeoutMs, onSave }) {
     }
   }, [sessionTimeoutMs]);
 
+  useEffect(() => {
+    if (sessionPrewarningMs != null) {
+      setPrewarningEnabled(sessionPrewarningMs > 0);
+      if (sessionPrewarningMs > 0) setPrewarningMins(Math.round(sessionPrewarningMs / 60000));
+    }
+  }, [sessionPrewarningMs]);
+
   const handleSave = async () => {
     const totalMs = ((Number(hours) || 0) * 3600 + (Number(mins) || 0) * 60 + (Number(secs) || 0)) * 1000;
 
     if (totalMs <= 0) {
       setError('El tiempo de inactividad debe ser mayor a 0.');
+      return;
+    }
+
+    const prewarningMs = prewarningEnabled ? (Number(prewarningMins) || 0) * 60000 : 0;
+    if (prewarningEnabled && prewarningMs <= 0) {
+      setError('El aviso preventivo debe ser de al menos 1 minuto.');
+      return;
+    }
+    if (prewarningEnabled && prewarningMs >= totalMs) {
+      setError('El aviso preventivo debe mandarse antes del tiempo total: elegí menos minutos.');
       return;
     }
 
@@ -59,13 +83,13 @@ export default function SessionTimeoutPanel({ sessionTimeoutMs, onSave }) {
       const res = await fetch(`${API_URL}/api/session-config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionTimeoutMs: totalMs })
+        body: JSON.stringify({ sessionTimeoutMs: totalMs, sessionPrewarningMs: prewarningMs })
       });
       const data = await res.json();
 
       if (!res.ok) throw new Error(data.error || 'No se pudo guardar el tiempo de inactividad.');
 
-      onSave && onSave(totalMs);
+      onSave && onSave(totalMs, prewarningMs);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
@@ -88,6 +112,28 @@ export default function SessionTimeoutPanel({ sessionTimeoutMs, onSave }) {
         <NumberBox label="Minutos" value={mins} onChange={setMins} max={59} />
         <span className="text-2xl text-gray-300 pb-5">:</span>
         <NumberBox label="Segundos" value={secs} onChange={setSecs} max={59} />
+      </div>
+
+      <div className="pt-3 border-t border-gray-100 dark:border-gray-800 space-y-2">
+        <label className="flex items-center justify-between gap-3 cursor-pointer">
+          <span className="text-sm text-gray-700 dark:text-gray-300">
+            Mandar un aviso ("¿Seguís ahí?") antes de cerrar la consulta
+          </span>
+          <Toggle checked={prewarningEnabled} onChange={setPrewarningEnabled} />
+        </label>
+
+        {prewarningEnabled && (
+          <div className="flex items-center gap-2 pl-1">
+            <input
+              type="number"
+              min="1"
+              value={prewarningMins}
+              onChange={(e) => { setPrewarningMins(e.target.value); }}
+              className="w-16 text-center px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm font-semibold tabular-nums"
+            />
+            <span className="text-xs text-gray-500 dark:text-gray-400">minutos antes del cierre</span>
+          </div>
+        )}
       </div>
 
       {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}

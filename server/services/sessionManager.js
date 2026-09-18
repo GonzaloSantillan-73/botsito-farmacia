@@ -8,11 +8,14 @@ export const TERMINAL_STATUSES = ['finalizada', 'resolved', 'rejected'];
 export const getLastActivityTime = async (conversation) => {
   console.log('🔍 [DEBUG-SERVICE-SESSIONMANAGER] getLastActivityTime() — conversation:', conversation);
   try {
-    console.log('📡 [DEBUG-SERVICE-SESSIONMANAGER] getLastActivityTime() — SELECT messages, filtros: { conversation_id:', conversation.id, ' }, order created_at desc, limit 1');
+    console.log('📡 [DEBUG-SERVICE-SESSIONMANAGER] getLastActivityTime() — SELECT messages, filtros: { conversation_id:', conversation.id, ', is_auto_reminder: false }, order created_at desc, limit 1');
+    // is_auto_reminder=false: mismo criterio que sessionExpiryChecker.js — el
+    // aviso preventivo "¿Seguís ahí?" no cuenta como actividad real.
     const { data, error } = await supabase
       .from('messages')
       .select('created_at')
       .eq('conversation_id', conversation.id)
+      .eq('is_auto_reminder', false)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();

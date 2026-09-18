@@ -451,16 +451,19 @@ const volverAlMenuPrincipal = async (conversationId, telefono) => {
   console.log('✅ [DEBUG-SERVICE-BOT] volverAlMenuPrincipal() — valor de retorno: undefined (fin normal)');
 };
 
-export const enviarMensajeBot = async (conversationId, telefono, mensaje) => {
-  console.log('🔍 [DEBUG-SERVICE-BOT] enviarMensajeBot() — parámetros recibidos:', { conversationId, telefono, mensaje });
+export const enviarMensajeBot = async (conversationId, telefono, mensaje, extraFields = {}) => {
+  console.log('🔍 [DEBUG-SERVICE-BOT] enviarMensajeBot() — parámetros recibidos:', { conversationId, telefono, mensaje, extraFields });
   console.log(`[BOT] Enviando respuesta a ${telefono}...`);
-  // Guardar mensaje en base de datos como pendiente
-  console.log('📡 [DEBUG-SERVICE-BOT] Query Supabase → tabla: messages, operación: insert, valores:', { conversation_id: conversationId, sender_type: 'bot', message_text: mensaje, estado: 'pendiente' });
+  // Guardar mensaje en base de datos como pendiente. `extraFields` permite
+  // marcar mensajes especiales (ej. is_auto_reminder para el aviso de
+  // inactividad, ver sessionExpiryChecker.js) sin duplicar todo este flujo.
+  console.log('📡 [DEBUG-SERVICE-BOT] Query Supabase → tabla: messages, operación: insert, valores:', { conversation_id: conversationId, sender_type: 'bot', message_text: mensaje, estado: 'pendiente', ...extraFields });
   const { data: insertData, error: insertError } = await supabase.from('messages').insert([{
     conversation_id: conversationId,
     sender_type: 'bot', // Usamos 'bot' para distinguirlo de 'agent'
     message_text: mensaje,
-    estado: 'pendiente'
+    estado: 'pendiente',
+    ...extraFields
   }]).select().single();
   console.log('📡 [DEBUG-SERVICE-BOT] Resultado query messages (insert mensaje bot) — data:', insertData, 'error:', insertError);
 

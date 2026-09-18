@@ -15,7 +15,7 @@ import CredentialsPanel from './CredentialsPanel';
 import AliasPanel from './AliasPanel';
 import ThemeToggle from './ThemeToggle';
 
-export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdmin = true }) {
+export default function SettingsModal({ sessionTimeoutMs, sessionPrewarningMs, onSave, onClose, isAdmin = true }) {
 
   // Una cuenta de sucursal sólo tiene acceso a "Apariencia" (modo oscuro,
   // ver [[dark-mode-por-cuenta]]) y a sus propias Respuestas Rápidas: el
@@ -96,7 +96,7 @@ export default function SettingsModal({ sessionTimeoutMs, onSave, onClose, isAdm
             ) : activeTab === 'chat' && isAdmin ? (
               <div className="space-y-3">
                 <Accordion title="Tiempo de inactividad para cerrar un chat" icon={Clock}>
-                  <SessionTimeoutPanel sessionTimeoutMs={sessionTimeoutMs} onSave={onSave} />
+                  <SessionTimeoutPanel sessionTimeoutMs={sessionTimeoutMs} sessionPrewarningMs={sessionPrewarningMs} onSave={onSave} />
                 </Accordion>
 
                 <Accordion title="Mensaje de bienvenida del bot" icon={MessageSquareText}>

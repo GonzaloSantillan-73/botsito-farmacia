@@ -71,8 +71,10 @@ function App() {
   const [isSeeding, setIsSeeding] = useState(false);
   const [modalImage, setModalImage] = useState(null);
 
-  // Límite de expiración de sesiones (configurable desde el panel de ajustes).
+  // Límite de expiración de sesiones y umbral del aviso preventivo
+  // ("¿Seguís ahí?"), configurables desde el panel de ajustes.
   const [sessionTimeoutMs, setSessionTimeoutMs] = useState(null);
+  const [sessionPrewarningMs, setSessionPrewarningMs] = useState(null);
 
   const messagesEndRef = useRef(null);
 
@@ -82,6 +84,7 @@ function App() {
       .then(res => res.json())
       .then(data => {
         setSessionTimeoutMs(data.sessionTimeoutMs);
+        setSessionPrewarningMs(data.sessionPrewarningMs ?? 0);
       })
       .catch(err => console.error('❌ [DEBUG-COMPONENT-App] Error obteniendo config de sesión:', err));
   }, []);
@@ -650,6 +653,8 @@ function App() {
         isSeeding={isSeeding}
         sessionTimeoutMs={sessionTimeoutMs}
         onSessionTimeoutChange={setSessionTimeoutMs}
+        sessionPrewarningMs={sessionPrewarningMs}
+        onSessionPrewarningChange={setSessionPrewarningMs}
         showClientDirectory={showClientDirectory}
         onShowClientDirectory={handleShowClientDirectory}
         onLogout={handleLogout}

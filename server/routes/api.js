@@ -1,7 +1,7 @@
 import express from 'express';
 import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
-import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getBotKeyword, setBotKeyword, getWelcomeMessage, setWelcomeMessage } from '../services/appConfig.js';
+import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getSessionPrewarningMs, setSessionPrewarningMs, getBotKeyword, setBotKeyword, getWelcomeMessage, setWelcomeMessage } from '../services/appConfig.js';
 import { finalizarConversacion } from '../services/ratingSurvey.js';
 import { devolverConversacionAEspera } from '../services/devolucionCola.js';
 import { tomarConsulta } from '../services/tomaConsulta.js';
@@ -587,14 +587,14 @@ router.get('/session-config', async (req, res) => {
     params: req.params,
     admin: req.admin || null
   });
-  const sessionTimeoutMs = await getSessionTimeoutMs();
-  const respBody = { sessionTimeoutMs, minSessionTimeoutMs: MIN_SESSION_TIMEOUT_MS, maxSessionTimeoutMs: MAX_SESSION_TIMEOUT_MS };
+  const [sessionTimeoutMs, sessionPrewarningMs] = await Promise.all([getSessionTimeoutMs(), getSessionPrewarningMs()]);
+  const respBody = { sessionTimeoutMs, sessionPrewarningMs, minSessionTimeoutMs: MIN_SESSION_TIMEOUT_MS, maxSessionTimeoutMs: MAX_SESSION_TIMEOUT_MS };
   console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /session-config:', { status: 200, body: respBody });
   res.status(200).json(respBody);
 });
 
 router.put('/session-config', async (req, res) => {
-  const { sessionTimeoutMs } = req.body;
+  const { sessionTimeoutMs, sessionPrewarningMs } = req.body;
   console.log('🔍 [DEBUG-ROUTES-API] Entrada a PUT /session-config:', {
     method: req.method,
     url: req.originalUrl,
@@ -607,7 +607,11 @@ router.put('/session-config', async (req, res) => {
   try {
     await setSessionTimeoutMs(Number(sessionTimeoutMs));
     console.log(`[API] -> Límite de expiración de sesión actualizado a ${sessionTimeoutMs} ms.`);
-    const respBody = { success: true, sessionTimeoutMs: Number(sessionTimeoutMs) };
+    if (sessionPrewarningMs !== undefined) {
+      await setSessionPrewarningMs(Number(sessionPrewarningMs));
+      console.log(`[API] -> Umbral de aviso preventivo actualizado a ${sessionPrewarningMs} ms.`);
+    }
+    const respBody = { success: true, sessionTimeoutMs: Number(sessionTimeoutMs), sessionPrewarningMs: sessionPrewarningMs !== undefined ? Number(sessionPrewarningMs) : undefined };
     console.log('🔚 [DEBUG-ROUTES-API] Respondiendo PUT /session-config:', { status: 200, body: respBody });
     res.status(200).json(respBody);
   } catch (error) {

@@ -161,6 +161,8 @@ export default function Sidebar({
   isSeeding,
   sessionTimeoutMs,
   onSessionTimeoutChange,
+  sessionPrewarningMs,
+  onSessionPrewarningChange,
   showClientDirectory,
   onShowClientDirectory,
   onLogout,
@@ -423,7 +425,11 @@ export default function Sidebar({
       {showSettings && (
         <SettingsModal
           sessionTimeoutMs={sessionTimeoutMs}
-          onSave={(newMs) => { onSessionTimeoutChange && onSessionTimeoutChange(newMs); }}
+          sessionPrewarningMs={sessionPrewarningMs}
+          onSave={(newMs, newPrewarningMs) => {
+            onSessionTimeoutChange && onSessionTimeoutChange(newMs);
+            if (newPrewarningMs !== undefined) onSessionPrewarningChange && onSessionPrewarningChange(newPrewarningMs);
+          }}
           onClose={() => { setShowSettings(false); }}
           isAdmin={isAdmin}
         />

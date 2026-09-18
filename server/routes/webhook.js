@@ -325,11 +325,14 @@ router.post('/', async (req, res) => {
 
         console.log(`\n------------------------------------------------------`);
         console.log(`[WEBHOOK] ==> D. ACTUALIZACIÓN DE ÚLTIMO MENSAJE EN CONVERSACIÓN`);
-        console.log(`[WEBHOOK] -> Payload update 'conversations': { last_message: "${previewText}" } para ID: ${conversationId}`);
+        console.log(`[WEBHOOK] -> Payload update 'conversations': { last_message: "${previewText}", prewarning_sent_at: null } para ID: ${conversationId}`);
         console.log(`🔍 [DEBUG-WEBHOOK] 📡 Consulta Supabase - tabla: conversations, operación: update, filtros: { id: "${conversationId}" }`);
 
+        // prewarning_sent_at se limpia acá: el cliente escribió, así que si más
+        // adelante vuelve a quedar inactivo tiene que poder recibir el aviso
+        // preventivo de nuevo (ver server/services/sessionExpiryChecker.js).
         const { data: updateData, error: updateError } = await supabase.from('conversations')
-          .update({ last_message: previewText })
+          .update({ last_message: previewText, prewarning_sent_at: null })
           .eq('id', conversationId)
           .select();
           

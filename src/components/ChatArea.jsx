@@ -43,9 +43,14 @@ const formatDateDivider = (iso) => {
   return fecha.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
 };
 
+// Mismo criterio que el backend (server/services/sessionExpiryChecker.js):
+// el aviso automático "¿Seguís ahí?" no cuenta como actividad real, para que
+// el contador en pantalla siga bajando exactamente igual que el que decide
+// el cierre del lado del servidor.
 const getLastActivityTime = (conversation, messages) => {
-  if (!messages || messages.length === 0) return conversation.created_at;
-  return messages.reduce((latest, m) => (new Date(m.created_at) > new Date(latest) ? m.created_at : latest), messages[0].created_at);
+  const reales = (messages || []).filter(m => !m.is_auto_reminder);
+  if (reales.length === 0) return conversation.created_at;
+  return reales.reduce((latest, m) => (new Date(m.created_at) > new Date(latest) ? m.created_at : latest), reales[0].created_at);
 };
 
 // Checks de estado (estilo WhatsApp) para mensajes salientes del operador o el bot.
@@ -458,6 +463,15 @@ export default function ChatArea({
                 <Timer size={14} />
                 {remainingMs <= 0 ? 'Expirado' : `Expira en ${formatCountdown(remainingMs)}`}
               </div>
+            )}
+
+            {!isConversacionCerrada && activeConversation?.prewarning_sent_at && (
+              <span
+                title={`Se le mandó el aviso de inactividad a las ${new Date(activeConversation.prewarning_sent_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`}
+                className="text-[11px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+              >
+                ⏰ Aviso enviado
+              </span>
             )}
 
             <div className="flex items-center gap-2 shrink-0">

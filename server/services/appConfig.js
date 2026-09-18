@@ -51,6 +51,64 @@ export const setSessionTimeoutMs = async (ms) => {
   console.log('✅ [DEBUG-SERVICE-APPCONFIG] setSessionTimeoutMs() — completado sin valor de retorno (undefined)');
 };
 
+const SESSION_PREWARNING_KEY = 'session_prewarning_ms';
+const DEFAULT_SESSION_PREWARNING_MS = 0; // 0 = deshabilitado (no se manda ningún aviso previo)
+
+// Cuánto tiempo antes del cierre por inactividad se manda el aviso
+// preventivo "¿Seguís ahí?" (ver sessionExpiryChecker.js). 0 lo deshabilita.
+export const getSessionPrewarningMs = async () => {
+  console.log('🔍 [DEBUG-SERVICE-APPCONFIG] getSessionPrewarningMs() — sin parámetros');
+
+  console.log('📡 [DEBUG-SERVICE-APPCONFIG] Query Supabase → tabla: app_settings, operación: select, filtro: key =', SESSION_PREWARNING_KEY);
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', SESSION_PREWARNING_KEY)
+    .maybeSingle();
+  console.log('📡 [DEBUG-SERVICE-APPCONFIG] Resultado query app_settings (select session_prewarning_ms) — data:', data, 'error:', error);
+
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-APPCONFIG] getSessionPrewarningMs() — error leyendo session_prewarning_ms, se usa el default:', error);
+    console.error('[APP CONFIG] Error leyendo session_prewarning_ms, se usa el default:', error);
+    console.log('✅ [DEBUG-SERVICE-APPCONFIG] getSessionPrewarningMs() — valor de retorno (default por error):', DEFAULT_SESSION_PREWARNING_MS);
+    return DEFAULT_SESSION_PREWARNING_MS;
+  }
+
+  const ms = Number(data?.value);
+  const resultado = Number.isFinite(ms) && ms >= 0 ? ms : DEFAULT_SESSION_PREWARNING_MS;
+  console.log('✅ [DEBUG-SERVICE-APPCONFIG] getSessionPrewarningMs() — valor de retorno:', resultado);
+  return resultado;
+};
+
+export const setSessionPrewarningMs = async (ms) => {
+  console.log('🔍 [DEBUG-SERVICE-APPCONFIG] setSessionPrewarningMs() — parámetros recibidos:', { ms });
+
+  if (!Number.isFinite(ms) || ms < 0) {
+    console.error('❌ [DEBUG-SERVICE-APPCONFIG] setSessionPrewarningMs() — valor inválido:', ms);
+    throw new Error('El aviso previo debe ser 0 (deshabilitado) o un número de milisegundos mayor a 0.');
+  }
+
+  if (ms > 0) {
+    const sessionTimeoutMs = await getSessionTimeoutMs();
+    if (ms >= sessionTimeoutMs) {
+      console.error('❌ [DEBUG-SERVICE-APPCONFIG] setSessionPrewarningMs() — el aviso previo debe ser menor al tiempo total:', { ms, sessionTimeoutMs });
+      throw new Error('El aviso previo debe ser menor al tiempo total de inactividad configurado.');
+    }
+  }
+
+  console.log('📡 [DEBUG-SERVICE-APPCONFIG] Query Supabase → tabla: app_settings, operación: upsert, valores:', { key: SESSION_PREWARNING_KEY, value: ms });
+  const { error } = await supabase
+    .from('app_settings')
+    .upsert({ key: SESSION_PREWARNING_KEY, value: ms, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+  console.log('📡 [DEBUG-SERVICE-APPCONFIG] Resultado query app_settings (upsert session_prewarning_ms) — error:', error);
+
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-APPCONFIG] setSessionPrewarningMs() — error guardando session_prewarning_ms:', error);
+    throw error;
+  }
+  console.log('✅ [DEBUG-SERVICE-APPCONFIG] setSessionPrewarningMs() — completado sin valor de retorno (undefined)');
+};
+
 const BOT_KEYWORD_KEY = 'bot_reactivation_keyword';
 const DEFAULT_BOT_KEYWORD = 'BOT';
 
