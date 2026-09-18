@@ -9,17 +9,23 @@ import {
 
 const router = express.Router();
 
-// Tanto el admin (plantillas globales) como el staff (globales + las suyas)
-// usan estas rutas; el ámbito de lectura/escritura de cada uno lo decide el
-// servicio a partir de req.admin.role/sucursalId, nunca de lo que mande el
-// cliente en el body/query.
+// Todas las cuentas autenticadas (admin o staff) pueden leer y usar las
+// respuestas rápidas en el chat; sólo el admin puede crearlas, editarlas o
+// borrarlas (ver soloAdmin más abajo).
 router.use(requireAuth);
+
+const soloAdmin = (req, res, next) => {
+  if (req.admin.role !== 'admin') {
+    console.log('🔒 [DEBUG-ROUTES-QUICKREPLIES] soloAdmin() — bloqueado, role:', req.admin.role);
+    return res.status(403).json({ error: 'Solo el administrador puede gestionar respuestas rápidas.' });
+  }
+  next();
+};
 
 router.get('/', async (req, res) => {
   console.log('🔍 [DEBUG-ROUTES-QUICKREPLIES] GET / - req.admin:', req.admin);
-  const sucursalId = req.admin.role === 'admin' ? null : req.admin.sucursalId;
   try {
-    const replies = await listarRespuestasRapidas({ sucursalId });
+    const replies = await listarRespuestasRapidas();
     res.status(200).json({ replies });
   } catch (error) {
     console.error('[QUICK REPLIES] ❌ Error listando respuestas rápidas:', error.message);
@@ -27,11 +33,10 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', soloAdmin, async (req, res) => {
   console.log('🔍 [DEBUG-ROUTES-QUICKREPLIES] POST / - req.body:', req.body, '| req.admin:', req.admin);
-  const sucursalId = req.admin.role === 'admin' ? null : req.admin.sucursalId;
   try {
-    const reply = await crearRespuestaRapida({ shortcut: req.body?.shortcut, messageText: req.body?.messageText, sucursalId });
+    const reply = await crearRespuestaRapida({ shortcut: req.body?.shortcut, messageText: req.body?.messageText });
     res.status(201).json({ reply });
   } catch (error) {
     console.error('[QUICK REPLIES] ❌ Error creando respuesta rápida:', error.message);
@@ -39,14 +44,10 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.put('/:id', async (req, res) => {
+router.put('/:id', soloAdmin, async (req, res) => {
   console.log('🔍 [DEBUG-ROUTES-QUICKREPLIES] PUT /:id - params:', req.params, 'body:', req.body, '| req.admin:', req.admin);
   try {
-    const reply = await actualizarRespuestaRapida(
-      req.params.id,
-      { shortcut: req.body?.shortcut, messageText: req.body?.messageText },
-      { role: req.admin.role, sucursalId: req.admin.sucursalId }
-    );
+    const reply = await actualizarRespuestaRapida(req.params.id, { shortcut: req.body?.shortcut, messageText: req.body?.messageText });
     res.status(200).json({ reply });
   } catch (error) {
     console.error('[QUICK REPLIES] ❌ Error actualizando respuesta rápida:', error.message);
@@ -54,10 +55,10 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', soloAdmin, async (req, res) => {
   console.log('🔍 [DEBUG-ROUTES-QUICKREPLIES] DELETE /:id - params:', req.params, '| req.admin:', req.admin);
   try {
-    await eliminarRespuestaRapida(req.params.id, { role: req.admin.role, sucursalId: req.admin.sucursalId });
+    await eliminarRespuestaRapida(req.params.id);
     res.status(200).json({ success: true });
   } catch (error) {
     console.error('[QUICK REPLIES] ❌ Error eliminando respuesta rápida:', error.message);

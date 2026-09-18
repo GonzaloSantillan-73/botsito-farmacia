@@ -17,8 +17,9 @@ import ThemeToggle from './ThemeToggle';
 
 export default function SettingsModal({ sessionTimeoutMs, sessionPrewarningMs, onSave, onClose, isAdmin = true }) {
 
-  // Una cuenta de sucursal sólo tiene acceso a "Apariencia" (modo oscuro,
-  // ver [[dark-mode-por-cuenta]]) y a sus propias Respuestas Rápidas: el
+  // Una cuenta de sucursal sólo tiene acceso a "Apariencia" (modo oscuro, ver
+  // [[dark-mode-por-cuenta]]), a "Respuestas Rápidas" (de solo lectura: las
+  // usa pero no las gestiona, eso es exclusivo del admin) y a "Cuenta": el
   // resto de los ajustes (chat global, métricas, exportación, administración)
   // son exclusivos del administrador, así que ni siquiera se listan acá para
   // una sucursal.
@@ -30,7 +31,7 @@ export default function SettingsModal({ sessionTimeoutMs, sessionPrewarningMs, o
     { id: 'admin', label: 'Administración', icon: UserCog }
   ] : [
     { id: 'apariencia', label: 'Apariencia', icon: Moon },
-    { id: 'respuestas', label: 'Mis Respuestas Rápidas', icon: Zap },
+    { id: 'respuestas', label: 'Respuestas Rápidas', icon: Zap },
     { id: 'cuenta', label: 'Cuenta', icon: KeyRound }
   ];
 

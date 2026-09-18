@@ -1,18 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, Loader2, Check, X, Globe } from 'lucide-react';
-import { adminFetch, isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
+import { Plus, Pencil, Trash2, Loader2, Check, X } from 'lucide-react';
+import { adminFetch, isAdminRole } from '../lib/adminAuth';
 import { confirmDialog, alertDialog } from '../lib/dialogService';
 
-// Mismo componente para admin y sucursal: el backend (server/routes/
-// quickReplies.js) ya decide qué filas devuelve según el rol/sucursal del
-// JWT, así que acá sólo hace falta distinguir cuáles puede editar/borrar
-// quien está mirando. El admin siempre gestiona únicamente las globales
-// (sucursal_id null); una sucursal ve además las suyas propias, exclusivas
-// de ella, y las globales le llegan de sólo lectura (no puede tocarlas).
+// Mismo componente para admin y sucursal: todas las respuestas rápidas son
+// globales (las ve y las usa cualquier cuenta), pero sólo el admin puede
+// crearlas/editarlas/borrarlas (el backend en server/routes/quickReplies.js
+// rechaza esas operaciones con 403 si no es admin) — acá sólo hace falta
+// ocultar los controles de gestión para que una sucursal no los vea siquiera.
 export default function QuickRepliesPanel() {
 
   const soyAdmin = isAdminRole();
-  const miSucursalId = getStaffSucursalId();
 
   const [replies, setReplies] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,8 +32,6 @@ export default function QuickRepliesPanel() {
   useEffect(() => {
     fetchReplies();
   }, []);
-
-  const esPropia = (reply) => (soyAdmin ? reply.sucursal_id === null : reply.sucursal_id === miSucursalId);
 
   const startNew = () => {
     setEditingId('new');
@@ -104,10 +100,10 @@ export default function QuickRepliesPanel() {
       <div className="flex items-center justify-between mb-4">
         <p className="text-xs text-gray-500 dark:text-gray-400">
           {soyAdmin
-            ? 'El operador las usa escribiendo "/" o tocando el ícono de rayo en el chat. Estas son globales: las ve cualquier sucursal.'
-            : 'Las tuyas son exclusivas de esta sucursal: ninguna otra las ve. Las globales (con el ícono de mundo) las administra el admin y no se pueden editar ni borrar desde acá.'}
+            ? 'El operador las usa escribiendo "/" o tocando el ícono de rayo en el chat. Son globales: las ve y las usa cualquier sucursal.'
+            : 'El administrador es quien las gestiona. Vos podés usarlas escribiendo "/" o tocando el ícono de rayo en el chat.'}
         </p>
-        {editingId === null && (
+        {soyAdmin && editingId === null && (
           <button
             onClick={startNew}
             className="flex items-center gap-1.5 text-sm font-medium text-teal-700 hover:text-teal-800 transition-colors shrink-0 ml-3"
@@ -117,7 +113,7 @@ export default function QuickRepliesPanel() {
         )}
       </div>
 
-      {(editingId === 'new' || replies.some(r => r.id === editingId)) && (
+      {soyAdmin && (editingId === 'new' || replies.some(r => r.id === editingId)) && (
         <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4 space-y-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Atajo</label>
@@ -165,42 +161,34 @@ export default function QuickRepliesPanel() {
         <div className="text-sm text-gray-400 py-8 text-center">Todavía no hay plantillas creadas.</div>
       ) : (
         <div className="space-y-2">
-          {replies.map(reply => {
-            const propia = esPropia(reply);
-            return (
-              <div key={reply.id} className="flex items-start justify-between gap-3 p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-semibold text-teal-700 dark:text-teal-400">{reply.shortcut}</span>
-                    {!soyAdmin && reply.sucursal_id === null && (
-                      <span title="Plantilla global del administrador" className="flex items-center gap-0.5 text-[10px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full">
-                        <Globe size={10} /> Global
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xs text-gray-600 dark:text-gray-300 mt-0.5 line-clamp-2">{reply.message_text}</div>
+          {replies.map(reply => (
+            <div key={reply.id} className="flex items-start justify-between gap-3 p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-semibold text-teal-700 dark:text-teal-400">{reply.shortcut}</span>
                 </div>
-                {propia && (
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => startEdit(reply)}
-                      title="Editar"
-                      className="p-1.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950 rounded-full transition-colors"
-                    >
-                      <Pencil size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(reply.id)}
-                      title="Eliminar"
-                      className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-full transition-colors"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                )}
+                <div className="text-xs text-gray-600 dark:text-gray-300 mt-0.5 line-clamp-2">{reply.message_text}</div>
               </div>
-            );
-          })}
+              {soyAdmin && (
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => startEdit(reply)}
+                    title="Editar"
+                    className="p-1.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950 rounded-full transition-colors"
+                  >
+                    <Pencil size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(reply.id)}
+                    title="Eliminar"
+                    className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-full transition-colors"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
