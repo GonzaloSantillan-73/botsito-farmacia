@@ -706,7 +706,7 @@ export default function ValidationPanel({
                     </div>
                     {totalDiscount > 0 && (
                       <div className="flex justify-between text-green-600 dark:text-green-400">
-                        <span>Descuento OS:</span>
+                        <span>Descuento:</span>
                         <span>-${totalDiscount.toFixed(2)}</span>
                       </div>
                     )}
