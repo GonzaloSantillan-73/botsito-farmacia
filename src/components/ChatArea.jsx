@@ -267,19 +267,11 @@ export default function ChatArea({
   };
 
   const soyAdmin = isAdminRole();
-  let displayedMessages = showFullHistory ? [...historyMessages, ...messages] : messages;
-
-  if (!soyAdmin) {
-    const encuestasVistas = new Set();
-    displayedMessages = displayedMessages.filter(msg => {
-      if (encuestasVistas.has(msg.conversation_id)) return false;
-      if (msg.sender_type === 'bot' && typeof msg.message_text === 'string' && msg.message_text.includes('Tu consulta ha finalizado')) {
-        encuestasVistas.add(msg.conversation_id);
-        return true;
-      }
-      return true;
-    });
-  }
+  // La encuesta de calificación (y la respuesta numérica del cliente) ya no
+  // se le oculta a la sucursal: antes se cortaba el chat apenas aparecía
+  // "Tu consulta ha finalizado", así que el operador nunca veía qué puntaje
+  // había puesto el cliente ni el resto del intercambio de la encuesta.
+  const displayedMessages = showFullHistory ? [...historyMessages, ...messages] : messages;
 
   const isConversacionCerrada = activeConversation && ESTADOS_CERRADOS.includes(activeConversation.status);
   // Ojo: un chat tomado por una sucursal sigue teniendo status 'esperando'

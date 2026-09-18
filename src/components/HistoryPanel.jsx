@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, History, FileText } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { isAdminRole } from '../lib/adminAuth';
 import { tagMessage, aplicarTagLocal } from '../lib/tagMessage';
 import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import ClientHistoryList from './ClientHistoryList';
@@ -26,8 +25,6 @@ const highlightMatches = (text, query) => {
 };
 
 export default function HistoryPanel({ clientPhone, clientName, currentConversationId, onClose }) {
-  const soyStaff = !isAdminRole();
-
   const [pastConversations, setPastConversations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedConv, setSelectedConv] = useState(null);
@@ -158,21 +155,7 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
               <div className="flex-1 flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm">Esta consulta no tiene mensajes.</div>
             ) : (
               <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-2.5">
-                {(() => {
-                  let displayMsgs = selectedMessages;
-                  if (soyStaff) {
-                    let surveyStarted = false;
-                    displayMsgs = selectedMessages.filter(msg => {
-                      if (surveyStarted) return false;
-                      if (msg.sender_type === 'bot' && typeof msg.message_text === 'string' && msg.message_text.includes('Tu consulta ha finalizado')) {
-                        surveyStarted = true;
-                        return true;
-                      }
-                      return true;
-                    });
-                  }
-                  return displayMsgs;
-                })().map(msg => (
+                {selectedMessages.map(msg => (
                   <div key={msg.id} className={`flex ${msg.sender_type === 'client' ? 'justify-start' : 'justify-end'}`}>
                     <div className={`max-w-[70%] rounded-lg px-3 py-2 text-sm shadow-sm ${msg.sender_type === 'client' ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100' : 'bg-teal-500 text-white'}`}>
                       {msg.sender_type === 'bot' && <div className="text-[10px] font-bold uppercase opacity-70 mb-1">BOT</div>}

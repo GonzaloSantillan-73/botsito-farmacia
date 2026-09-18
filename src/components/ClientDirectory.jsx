@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Search, ArrowLeft, ArrowUpDown, History, List } from 'lucide-react';
 import { formatPhone } from '../lib/formatPhone';
-import { isAdminRole, adminFetch } from '../lib/adminAuth';
+import { adminFetch } from '../lib/adminAuth';
 import { ESTADOS_HISTORIAL } from './Sidebar';
 import ClientHistoryList from './ClientHistoryList';
 import StarRating from './StarRating';
@@ -10,7 +10,7 @@ const SORT_OPTIONS = [
   { value: 'recent', label: 'Fecha (más reciente)' },
   { value: 'name', label: 'Nombre (A-Z)' },
   { value: 'interactions', label: 'Interacciones (más primero)' },
-  { value: 'rating', label: 'Calificación (mejor primero)', adminOnly: true }
+  { value: 'rating', label: 'Calificación (mejor primero)' }
 ];
 
 const ordenarClientes = (clients, sortBy) => {
@@ -76,12 +76,6 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
   // puntual): arranca en el historial de consultas, como pidió el negocio.
   const [vista, setVista] = useState('historial');
 
-  const soyStaff = !isAdminRole();
-  // La calificación individual de un cliente (o el promedio de sus consultas)
-  // es información sensible que solo un admin debe poder ver acá; un operador
-  // o sucursal común no la ve ni en la tabla ni en la ficha de detalle.
-  const sortOptions = soyStaff ? SORT_OPTIONS.filter(o => !o.adminOnly) : SORT_OPTIONS;
-
   useEffect(() => {
     // El filtrado por sucursal para el staff lo aplica el backend a partir
     // del sucursalId del JWT (ver server/routes/clientDirectory.js): acá no
@@ -141,35 +135,31 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin p-6">
-          <div className={`grid ${soyStaff ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'} gap-3 mb-6`}>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
             <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
               <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{selectedClient.total}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mt-1">Interacciones</div>
             </div>
-            {!soyStaff && (
-              <>
-                <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                  <div className="text-2xl font-bold">
-                    {selectedClient.avgRating != null ? (
-                      <StarRating value={selectedClient.avgRating.toFixed(1)} type="atencion" size={16} className="text-2xl font-bold" />
-                    ) : (
-                      <span className="text-gray-900 dark:text-gray-100">—</span>
-                    )}
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mt-1">Calificación de atención</div>
-                </div>
-                <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                  <div className="text-2xl font-bold">
-                    {selectedClient.avgProductRating != null ? (
-                      <StarRating value={selectedClient.avgProductRating.toFixed(1)} type="producto" size={16} className="text-2xl font-bold" />
-                    ) : (
-                      <span className="text-gray-900 dark:text-gray-100">—</span>
-                    )}
-                  </div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mt-1">Calificación de producto</div>
-                </div>
-              </>
-            )}
+            <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+              <div className="text-2xl font-bold">
+                {selectedClient.avgRating != null ? (
+                  <StarRating value={selectedClient.avgRating.toFixed(1)} type="atencion" size={16} className="text-2xl font-bold" />
+                ) : (
+                  <span className="text-gray-900 dark:text-gray-100">—</span>
+                )}
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mt-1">Calificación de atención</div>
+            </div>
+            <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+              <div className="text-2xl font-bold">
+                {selectedClient.avgProductRating != null ? (
+                  <StarRating value={selectedClient.avgProductRating.toFixed(1)} type="producto" size={16} className="text-2xl font-bold" />
+                ) : (
+                  <span className="text-gray-900 dark:text-gray-100">—</span>
+                )}
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mt-1">Calificación de producto</div>
+            </div>
             <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
               <div className="text-sm font-bold text-gray-900 dark:text-gray-100">{formatDateTime(selectedClient.lastContact)}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400 uppercase font-medium mt-1">Último contacto</div>
@@ -228,7 +218,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
                 onChange={(e) => { setSortBy(e.target.value); }}
                 className="pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 appearance-none"
               >
-                {sortOptions.map(opt => (
+                {SORT_OPTIONS.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
@@ -260,8 +250,8 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
                   <th className="px-4 py-3 font-medium">Teléfono</th>
                   <th className="px-4 py-3 font-medium">Último contacto</th>
                   <th className="px-4 py-3 font-medium text-center">Interacciones</th>
-                  {!soyStaff && <th className="px-4 py-3 font-medium text-center">Atención</th>}
-                  {!soyStaff && <th className="px-4 py-3 font-medium text-center">Producto</th>}
+                  <th className="px-4 py-3 font-medium text-center">Atención</th>
+                  <th className="px-4 py-3 font-medium text-center">Producto</th>
                 </tr>
               </thead>
               <tbody>
@@ -275,24 +265,20 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{formatPhone(cl.client_phone)}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{new Date(cl.lastContact).toLocaleDateString('es-AR')}</td>
                     <td className="px-4 py-3 text-center text-gray-700 dark:text-gray-300">{cl.total}</td>
-                    {!soyStaff && (
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
-                        {cl.avgRating != null ? (
-                          <StarRating value={cl.avgRating.toFixed(1)} type="atencion" size={12} className="font-medium" />
-                        ) : (
-                          <span className="text-gray-400 dark:text-gray-500">Sin datos</span>
-                        )}
-                      </td>
-                    )}
-                    {!soyStaff && (
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
-                        {cl.avgProductRating != null ? (
-                          <StarRating value={cl.avgProductRating.toFixed(1)} type="producto" size={12} className="font-medium" />
-                        ) : (
-                          <span className="text-gray-400 dark:text-gray-500">Sin datos</span>
-                        )}
-                      </td>
-                    )}
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      {cl.avgRating != null ? (
+                        <StarRating value={cl.avgRating.toFixed(1)} type="atencion" size={12} className="font-medium" />
+                      ) : (
+                        <span className="text-gray-400 dark:text-gray-500">Sin datos</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      {cl.avgProductRating != null ? (
+                        <StarRating value={cl.avgProductRating.toFixed(1)} type="producto" size={12} className="font-medium" />
+                      ) : (
+                        <span className="text-gray-400 dark:text-gray-500">Sin datos</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

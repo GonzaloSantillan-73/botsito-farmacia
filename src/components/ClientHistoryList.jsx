@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, CalendarRange, ArrowUpDown, Loader2, Clock, Store } from 'lucide-react';
 import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import { formatPhone } from '../lib/formatPhone';
-import { isAdminRole, adminFetch } from '../lib/adminAuth';
+import { adminFetch } from '../lib/adminAuth';
 import StarRating from './StarRating';
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -231,13 +231,10 @@ export default function ClientHistoryList({
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
-                  {/* La calificación individual de un cliente solo la ve un admin;
-                      a un operador/sucursal común no se le muestra (ver Métricas
-                      para el promedio agregado, que sí está disponible para todos). */}
-                  {isAdminRole() && conv.rating != null && (
+                  {conv.rating != null && (
                     <StarRating value={conv.rating} type="atencion" size={12} className="text-xs font-medium" />
                   )}
-                  {isAdminRole() && conv.product_rating != null && (
+                  {conv.product_rating != null && (
                     <StarRating value={conv.product_rating} type="producto" size={12} className="text-xs font-medium" />
                   )}
                   {badge && <span className={`text-[10px] font-medium px-2 py-0.5 rounded whitespace-nowrap ${badge.className}`}>{badge.label}</span>}
