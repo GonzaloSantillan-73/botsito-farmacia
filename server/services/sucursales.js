@@ -1,7 +1,10 @@
 import { supabase } from '../supabase.js';
 import { getNowInTimezone, toMinutes } from './scheduleConfig.js';
 
-const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+// Orden natural de la semana (Lun a Dom) en el que se recorren los días para
+// armar el resumen — no el orden numérico 0..6 que usa la base (0=domingo).
+const ORDEN_SEMANA = [1, 2, 3, 4, 5, 6, 0];
+const DAY_ABBR = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 
 // "00:00" como FIN de una franja significa medianoche (fin de ese mismo
 // día), no el inicio del día siguiente — así se puede armar un horario tipo
@@ -59,70 +62,43 @@ export const estaAbiertaAhora = (sucursal) => {
   return resultado;
 };
 
-// Junta días consecutivos en rangos (ej: [1,2,3,4,5] -> "Lun a Vie") para que
-// el mensaje del bot no liste cada día suelto cuando el horario es corrido.
-const formatearDias = (dias) => {
-  console.log('🔍 [DEBUG-SERVICE-SUCURSALES] formatearDias() — parámetros recibidos:', { dias });
-
-  const ordenados = [...dias].sort((a, b) => a - b);
-  const rangos = [];
-  let inicio = ordenados[0];
-  let anterior = ordenados[0];
-
-  for (let i = 1; i <= ordenados.length; i++) {
-    const actual = ordenados[i];
-    if (actual === anterior + 1) {
-      anterior = actual;
-      continue;
-    }
-    rangos.push(inicio === anterior ? DAY_NAMES[inicio] : `${DAY_NAMES[inicio]} a ${DAY_NAMES[anterior]}`);
-    inicio = actual;
-    anterior = actual;
-  }
-
-  const resultado = rangos.join(', ');
-  console.log('✅ [DEBUG-SERVICE-SUCURSALES] formatearDias() — valor de retorno:', resultado);
-  return resultado;
+// Texto del estado de UN día: "cerrado", "abierto 24hs", o sus franjas
+// ordenadas de más temprano a más tarde (por si se cargaron fuera de orden),
+// ej. "08:00 a 13:00 y 17:00 a 23:59hs".
+const textoEstadoDia = (info) => {
+  if (info.abierta24hs) return 'abierto 24hs';
+  if (!info.franjas || info.franjas.length === 0) return 'cerrado';
+  const ordenadas = [...info.franjas].sort((a, b) => toMinutes(a.inicio) - toMinutes(b.inicio));
+  return `${ordenadas.map(f => `${f.inicio} a ${f.fin}`).join(' y ')}hs`;
 };
 
-const formatearFranjas = (franjas) => (franjas || []).map(f => `${f.inicio} a ${f.fin}`).join(' y ');
-const textoDia = (info) => (info.abierta24hs ? '24 hs' : `${formatearFranjas(info.franjas)}hs`);
-
-// Resumen legible del horario completo de una sucursal, para el mensaje de
-// WhatsApp del bot (la interfaz del CRM ya no muestra este texto, ver
-// SucursalesPanel.jsx/SucursalHorarioModal.jsx). Agrupa días consecutivos
-// que tienen exactamente el mismo horario (misma lógica que
-// resumenHorarioSucursal en src/lib/horarioSucursal.js, del lado del
-// frontend, que no puede importar este módulo de server/).
+// Resumen del horario completo de una sucursal, como un array de líneas
+// ("lun, mar, mié: 08:00 a 13:00hs", "jue, vie, dom: cerrado", ...), una por
+// cada grupo de días con EXACTAMENTE el mismo estado — sin importar si son
+// consecutivos o no (a diferencia de la versión anterior, que sólo unía
+// corridas consecutivas). Los días se recorren en orden natural de semana
+// (lun a dom) y cada grupo se etiqueta con el estado del primer día que lo
+// originó, en el orden en que ese estado apareció por primera vez.
 export const resumenHorarioSucursal = (sucursal) => {
   console.log('🔍 [DEBUG-SERVICE-SUCURSALES] resumenHorarioSucursal() — parámetros recibidos:', { horarios_dias: sucursal?.horarios_dias, abierta_24hs: sucursal?.abierta_24hs });
 
-  if (sucursal?.abierta_24hs) return 'Abierto 24 hs';
+  if (sucursal?.abierta_24hs) {
+    console.log('✅ [DEBUG-SERVICE-SUCURSALES] resumenHorarioSucursal() — abierta_24hs=true (global)');
+    return ['Abierto 24 hs'];
+  }
 
   const horarios = sucursal?.horarios_dias || {};
   const diaDe = (d) => normalizarDia(horarios[String(d)]);
-  const tieneServicio = (d) => { const info = diaDe(d); return info.abierta24hs || info.franjas.length > 0; };
-  const diasConHorario = [0, 1, 2, 3, 4, 5, 6].filter(tieneServicio);
-  if (diasConHorario.length === 0) {
-    console.log('✅ [DEBUG-SERVICE-SUCURSALES] resumenHorarioSucursal() — sin ningún día con horario configurado');
-    return 'Sin horario configurado';
+
+  const grupos = new Map(); // texto del estado -> lista de días (en orden de semana)
+  for (const d of ORDEN_SEMANA) {
+    const texto = textoEstadoDia(diaDe(d));
+    if (!grupos.has(texto)) grupos.set(texto, []);
+    grupos.get(texto).push(d);
   }
 
-  const firma = (d) => JSON.stringify(diaDe(d));
-  const grupos = [];
-  let grupoActual = null;
-  for (const d of diasConHorario) {
-    if (grupoActual && firma(d) === grupoActual.firma) {
-      grupoActual.dias.push(d);
-    } else {
-      grupoActual = { firma: firma(d), dias: [d] };
-      grupos.push(grupoActual);
-    }
-  }
-
-  const resultado = grupos
-    .map(g => `${formatearDias(g.dias)} ${textoDia(diaDe(g.dias[0]))}`)
-    .join(', ');
+  const resultado = Array.from(grupos.entries())
+    .map(([texto, dias]) => `${dias.map(d => DAY_ABBR[d]).join(', ')}: ${texto}`);
   console.log('✅ [DEBUG-SERVICE-SUCURSALES] resumenHorarioSucursal() — valor de retorno:', resultado);
   return resultado;
 };
@@ -159,10 +135,19 @@ export const formatearMensajeSucursales = (sucursales) => {
 
   const lista = sucursales
     .map(s => {
+      const horarioLineas = resumenHorarioSucursal(s);
+      // Un solo estado para toda la semana (24hs global o ningún día
+      // configurado) se muestra en una línea; varios estados distintos se
+      // listan como viñetas, una por grupo de días, para que se pueda leer
+      // de un vistazo sin tener que descifrar un párrafo largo.
+      const bloqueHorario = horarioLineas.length === 1
+        ? `🕒 ${horarioLineas[0]}`
+        : [`🕒 Horarios:`, ...horarioLineas.map(l => `   • ${l}`)].join('\n');
+
       const lineas = [
         `📍 *${s.nombre}*`,
         s.direccion,
-        `🕒 ${resumenHorarioSucursal(s)}`
+        bloqueHorario
       ];
       if (s.google_maps_url) lineas.push(`🗺️ Ver en Google Maps: ${s.google_maps_url}`);
       return lineas.join('\n');

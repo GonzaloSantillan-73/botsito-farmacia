@@ -10,7 +10,10 @@
 // Ver también server/services/sucursales.js, que duplica esta misma lógica
 // del lado del backend (para el bot y la recomendación por cercanía) porque
 // no comparte módulos con el frontend.
-const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+// Orden natural de la semana (Lun a Dom) en el que se recorren los días para
+// armar el resumen — no el orden numérico 0..6 que usa la base (0=domingo).
+const ORDEN_SEMANA = [1, 2, 3, 4, 5, 6, 0];
+const DAY_ABBR = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 
 export const toMinutes = (hhmm) => {
   const [h, m] = (hhmm || '00:00').split(':').map(Number);
@@ -36,60 +39,36 @@ export const normalizarDia = (raw) => {
 
 const diaDe = (horarios, d) => normalizarDia(horarios?.[String(d)]);
 
-// Junta días consecutivos en rangos (ej: [1,2,3,4,5] -> "Lun a Vie").
-const formatearDias = (dias) => {
-  const ordenados = [...dias].sort((a, b) => a - b);
-  const rangos = [];
-  let inicio = ordenados[0];
-  let anterior = ordenados[0];
-
-  for (let i = 1; i <= ordenados.length; i++) {
-    const actual = ordenados[i];
-    if (actual === anterior + 1) {
-      anterior = actual;
-      continue;
-    }
-    rangos.push(inicio === anterior ? DAY_NAMES[inicio] : `${DAY_NAMES[inicio]} a ${DAY_NAMES[anterior]}`);
-    inicio = actual;
-    anterior = actual;
-  }
-
-  return rangos.join(', ');
+// Texto del estado de UN día: "cerrado", "abierto 24hs", o sus franjas
+// ordenadas de más temprano a más tarde (por si se cargaron fuera de orden),
+// ej. "08:00 a 13:00 y 17:00 a 23:59hs".
+const textoEstadoDia = (info) => {
+  if (info.abierta24hs) return 'abierto 24hs';
+  if (!info.franjas || info.franjas.length === 0) return 'cerrado';
+  const ordenadas = [...info.franjas].sort((a, b) => toMinutes(a.inicio) - toMinutes(b.inicio));
+  return `${ordenadas.map(f => `${f.inicio} a ${f.fin}`).join(' y ')}hs`;
 };
 
-const formatearFranjas = (franjas) => (franjas || []).map(f => `${f.inicio} a ${f.fin}`).join(' y ');
-
-const textoDia = (info) => (info.abierta24hs ? '24 hs' : `${formatearFranjas(info.franjas)}hs`);
-
-// Resumen legible del horario completo de una sucursal (usado hoy sólo para
-// el mensaje de WhatsApp del bot, ver formatearMensajeSucursales en
-// server/services/sucursales.js: la interfaz del CRM ya no muestra este
-// texto). Agrupa días consecutivos que tienen exactamente el mismo horario
-// (mismo 24hs propio y mismas franjas), para no repetir el mismo rango día
-// por día cuando el horario es corrido.
+// Resumen del horario completo de una sucursal, como un array de líneas
+// ("lun, mar, mié: 08:00 a 13:00hs", "jue, vie, dom: cerrado", ...), una por
+// cada grupo de días con EXACTAMENTE el mismo estado — sin importar si son
+// consecutivos o no. Usado hoy sólo para el mensaje de WhatsApp del bot (ver
+// formatearMensajeSucursales en server/services/sucursales.js, que duplica
+// esta misma lógica del lado del backend); la interfaz del CRM ya no
+// muestra este texto.
 export const resumenHorarioSucursal = (sucursal) => {
-  if (sucursal?.abierta_24hs) return 'Abierto 24 hs';
+  if (sucursal?.abierta_24hs) return ['Abierto 24 hs'];
 
   const horarios = sucursal?.horarios_dias || {};
-  const tieneServicio = (d) => { const info = diaDe(horarios, d); return info.abierta24hs || info.franjas.length > 0; };
-  const diasConHorario = [0, 1, 2, 3, 4, 5, 6].filter(tieneServicio);
-  if (diasConHorario.length === 0) return 'Sin horario configurado';
-
-  const firma = (d) => JSON.stringify(diaDe(horarios, d));
-  const grupos = [];
-  let grupoActual = null;
-  for (const d of diasConHorario) {
-    if (grupoActual && firma(d) === grupoActual.firma) {
-      grupoActual.dias.push(d);
-    } else {
-      grupoActual = { firma: firma(d), dias: [d] };
-      grupos.push(grupoActual);
-    }
+  const grupos = new Map(); // texto del estado -> lista de días (en orden de semana)
+  for (const d of ORDEN_SEMANA) {
+    const texto = textoEstadoDia(diaDe(horarios, d));
+    if (!grupos.has(texto)) grupos.set(texto, []);
+    grupos.get(texto).push(d);
   }
 
-  return grupos
-    .map(g => `${formatearDias(g.dias)} ${textoDia(diaDe(horarios, g.dias[0]))}`)
-    .join(', ');
+  return Array.from(grupos.entries())
+    .map(([texto, dias]) => `${dias.map(d => DAY_ABBR[d]).join(', ')}: ${texto}`);
 };
 
 // Valida las franjas de UN día (sólo tiene sentido si ese día no es 24hs):
