@@ -118,8 +118,6 @@ export default function ValidationPanel({
   const [newItemDiscount, setNewItemDiscount] = useState('0');
   const [shippingCost, setShippingCost] = useState('');
 
-  const discountOptions = ['0', '40', '70', '100'];
-
   const rejectionReasons = [
     'Ilegible',
     'Vencida',
@@ -140,7 +138,7 @@ export default function ValidationPanel({
       name: newItemName,
       price: parseFloat(newItemPrice),
       quantity: Math.max(1, parseInt(newItemQuantity) || 1),
-      discount: parseInt(newItemDiscount)
+      discount: Math.min(100, Math.max(0, parseInt(newItemDiscount) || 0))
     }]);
     setNewItemName('');
     setNewItemPrice('');
@@ -640,16 +638,23 @@ export default function ValidationPanel({
                       onChange={e => { setNewItemQuantity(e.target.value); }}
                     />
                   </div>
-                  <div className="col-span-8 @sm:col-span-3">
-                    <select
-                      className="w-full text-sm p-2 border border-gray-300 dark:border-gray-600 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none bg-white dark:bg-gray-900 dark:text-gray-100"
+                  <div className="col-span-8 @sm:col-span-3 relative">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder="0"
+                      title="Descuento (%)"
+                      className="w-full text-sm p-2 pr-6 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                       value={newItemDiscount}
-                      onChange={e => { setNewItemDiscount(e.target.value); }}
-                    >
-                      {discountOptions.map(d => (
-                        <option key={d} value={d}>{d}% Desc</option>
-                      ))}
-                    </select>
+                      onChange={e => {
+                        const raw = e.target.value;
+                        if (raw === '') { setNewItemDiscount(''); return; }
+                        const clamped = Math.min(100, Math.max(0, Number(raw)));
+                        setNewItemDiscount(String(clamped));
+                      }}
+                    />
+                    <span className="absolute right-2 top-2 text-gray-400 text-sm pointer-events-none">%</span>
                   </div>
                   <div className="col-span-4 @sm:col-span-2">
                     <button
