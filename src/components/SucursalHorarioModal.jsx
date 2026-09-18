@@ -3,26 +3,32 @@ import { createPortal } from 'react-dom';
 import { X, Check, Loader2, Clock, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { DIAS } from '../lib/dias';
-import { validarFranjasDia, resumenHorarioSucursal } from '../lib/horarioSucursal';
+import { validarFranjasDia, normalizarDia } from '../lib/horarioSucursal';
 import Toggle from './Toggle';
 
-// Arma el estado inicial con las 7 claves ('0'..'6') siempre presentes (aunque
-// vengan vacías), para no tener que chequear undefined en todos lados.
+// Arma el estado inicial con las 7 claves ('0'..'6') siempre presentes, cada
+// una como { abierta24hs, franjas } (ver normalizarDia en
+// src/lib/horarioSucursal.js), para no tener que chequear undefined ni
+// distintas formas de dato en todos lados.
 const normalizarHorarios = (horariosDias) => {
   const base = {};
   for (let d = 0; d <= 6; d++) {
-    const franjas = horariosDias?.[String(d)] || [];
-    base[String(d)] = franjas.map(f => ({ inicio: f.inicio, fin: f.fin }));
+    const info = normalizarDia(horariosDias?.[String(d)]);
+    base[String(d)] = { abierta24hs: info.abierta24hs, franjas: info.franjas.map(f => ({ inicio: f.inicio, fin: f.fin })) };
   }
   return base;
 };
 
 // Modal flotante independiente para editar sólo el horario de atención de
-// UNA sucursal: abierto 24hs, y por cada día de la semana hasta 2 franjas
-// horarias ("horario cortado", ej. mañana y tarde). Antes había un único
-// rango que se aplicaba igual a todos los días marcados; ahora cada día se
-// configura aparte, desplegando su propio panel con la flecha "v" debajo de
-// la burbuja del día (sólo uno a la vez, como un acordeón).
+// UNA sucursal:
+// - "Abierto 24hs" (arriba de todo) es el override global: 24/7 todos los
+//   días, sin excepción.
+// - Cada día de la semana tiene su propio toggle "Abierto 24hs" (dentro del
+//   panel que despliega la flecha "v"), independiente del global — permite
+//   que, por ejemplo, sólo el sábado sea 24hs.
+// - Si un día no es 24hs, se le configuran hasta 2 franjas horarias
+//   ("horario cortado", ej. mañana y tarde).
+// Sólo un panel de día abierto a la vez (acordeón).
 export default function SucursalHorarioModal({ sucursal, onClose, onSaved }) {
 
   const [abierta24hs, setAbierta24hs] = useState(sucursal.abierta_24hs || false);
@@ -31,58 +37,62 @@ export default function SucursalHorarioModal({ sucursal, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const tieneServicio = (d) => (horarios[String(d)] || []).length > 0;
+  const infoDia = (d) => horarios[String(d)];
+  const tieneServicio = (d) => { const info = infoDia(d); return info.abierta24hs || info.franjas.length > 0; };
 
   // La burbuja del día prende/apaga ese día por completo: al prenderlo se le
   // da una franja default (09:00 a 18:00) para no abrir el panel vacío; al
-  // apagarlo se le vacían las franjas y, si tenía el panel abierto, se cierra.
+  // apagarlo se le vacían las franjas, se le saca el 24hs propio y, si tenía
+  // el panel abierto, se cierra.
   const toggleDiaActivo = (d) => {
     const key = String(d);
-    setHorarios(prev => {
-      const activo = (prev[key] || []).length > 0;
-      return { ...prev, [key]: activo ? [] : [{ inicio: '09:00', fin: '18:00' }] };
-    });
-    setDiaAbierto(prev => {
-      const seEstaApagando = tieneServicio(d);
-      return seEstaApagando && prev === d ? null : prev;
-    });
+    const activo = tieneServicio(d);
+    setHorarios(prev => ({
+      ...prev,
+      [key]: activo ? { abierta24hs: false, franjas: [] } : { abierta24hs: false, franjas: [{ inicio: '09:00', fin: '18:00' }] }
+    }));
+    setDiaAbierto(prev => (activo && prev === d ? null : prev));
     setError('');
   };
 
   // La flecha "v" despliega el panel de ESE día y cierra cualquier otro que
   // estuviera abierto (nunca hay más de uno abierto a la vez). Si el día
-  // todavía no tenía ninguna franja, se le da una default para que el panel
-  // no se abra vacío (equivale a prenderlo desde la burbuja).
+  // todavía no tenía ningún servicio, se le da una franja default para que
+  // el panel no se abra vacío.
   const toggleDiaAbierto = (d) => {
     setDiaAbierto(prev => (prev === d ? null : d));
     if (!tieneServicio(d)) {
       const key = String(d);
-      setHorarios(prev => ({ ...prev, [key]: [{ inicio: '09:00', fin: '18:00' }] }));
+      setHorarios(prev => ({ ...prev, [key]: { abierta24hs: false, franjas: [{ inicio: '09:00', fin: '18:00' }] } }));
     }
     setError('');
+  };
+
+  const toggleDia24hs = (d) => {
+    const key = String(d);
+    setHorarios(prev => ({ ...prev, [key]: { ...prev[key], abierta24hs: !prev[key].abierta24hs } }));
   };
 
   const actualizarFranja = (d, idx, campo, valor) => {
     const key = String(d);
     setHorarios(prev => {
-      const franjas = [...(prev[key] || [])];
+      const franjas = [...prev[key].franjas];
       franjas[idx] = { ...franjas[idx], [campo]: valor };
-      return { ...prev, [key]: franjas };
+      return { ...prev, [key]: { ...prev[key], franjas } };
     });
   };
 
   const agregarFranja = (d) => {
     const key = String(d);
     setHorarios(prev => {
-      const franjas = prev[key] || [];
-      if (franjas.length >= 2) return prev;
-      return { ...prev, [key]: [...franjas, { inicio: '13:00', fin: '18:00' }] };
+      if (prev[key].franjas.length >= 2) return prev;
+      return { ...prev, [key]: { ...prev[key], franjas: [...prev[key].franjas, { inicio: '13:00', fin: '18:00' }] } };
     });
   };
 
   const quitarFranja = (d, idx) => {
     const key = String(d);
-    setHorarios(prev => ({ ...prev, [key]: (prev[key] || []).filter((_, i) => i !== idx) }));
+    setHorarios(prev => ({ ...prev, [key]: { ...prev[key], franjas: prev[key].franjas.filter((_, i) => i !== idx) } }));
   };
 
   const handleGuardar = async () => {
@@ -95,7 +105,9 @@ export default function SucursalHorarioModal({ sucursal, onClose, onSaved }) {
         return;
       }
       for (const d of DIAS) {
-        const err = validarFranjasDia(horarios[String(d.value)]);
+        const info = infoDia(d.value);
+        if (info.abierta24hs) continue;
+        const err = validarFranjasDia(info.franjas);
         if (err) {
           setError(`${d.label}: ${err}`);
           setDiaAbierto(d.value);
@@ -122,7 +134,8 @@ export default function SucursalHorarioModal({ sucursal, onClose, onSaved }) {
   };
 
   const diaAbiertoLabel = DIAS.find(d => d.value === diaAbierto)?.label;
-  const errorDiaAbierto = diaAbierto !== null ? validarFranjasDia(horarios[String(diaAbierto)]) : null;
+  const infoDiaAbierto = diaAbierto !== null ? infoDia(diaAbierto) : null;
+  const errorDiaAbierto = infoDiaAbierto && !infoDiaAbierto.abierta24hs ? validarFranjasDia(infoDiaAbierto.franjas) : null;
 
   return createPortal(
     <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4">
@@ -140,7 +153,7 @@ export default function SucursalHorarioModal({ sucursal, onClose, onSaved }) {
         <div className="flex-1 overflow-y-auto scrollbar-thin p-5 space-y-3">
           <label className="flex items-center gap-2 cursor-pointer w-fit">
             <Toggle checked={abierta24hs} onChange={setAbierta24hs} />
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Abierto 24hs</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Abierto 24hs (todos los días)</span>
           </label>
 
           <div className={abierta24hs ? 'opacity-40 pointer-events-none' : ''}>
@@ -169,53 +182,59 @@ export default function SucursalHorarioModal({ sucursal, onClose, onSaved }) {
               ))}
             </div>
 
-            {diaAbierto !== null && (
+            {diaAbierto !== null && infoDiaAbierto && (
               <div className="mt-3 bg-gray-50 dark:bg-gray-800 rounded-lg p-3 space-y-2.5">
-                <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">{diaAbiertoLabel}</div>
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase">{diaAbiertoLabel}</div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Abierto 24hs este día</span>
+                    <Toggle checked={infoDiaAbierto.abierta24hs} onChange={() => toggleDia24hs(diaAbierto)} />
+                  </label>
+                </div>
 
-                {(horarios[String(diaAbierto)] || []).map((f, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <input
-                      type="time"
-                      value={f.inicio}
-                      onChange={(e) => { actualizarFranja(diaAbierto, idx, 'inicio', e.target.value); }}
-                      className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                    />
-                    <span className="text-gray-400 text-xs">a</span>
-                    <input
-                      type="time"
-                      value={f.fin}
-                      onChange={(e) => { actualizarFranja(diaAbierto, idx, 'fin', e.target.value); }}
-                      className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                    />
-                    {(horarios[String(diaAbierto)] || []).length > 1 && (
+                {!infoDiaAbierto.abierta24hs && (
+                  <>
+                    {infoDiaAbierto.franjas.map((f, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <input
+                          type="time"
+                          value={f.inicio}
+                          onChange={(e) => { actualizarFranja(diaAbierto, idx, 'inicio', e.target.value); }}
+                          className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                        />
+                        <span className="text-gray-400 text-xs">a</span>
+                        <input
+                          type="time"
+                          value={f.fin}
+                          onChange={(e) => { actualizarFranja(diaAbierto, idx, 'fin', e.target.value); }}
+                          className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                        />
+                        {infoDiaAbierto.franjas.length > 1 && (
+                          <button
+                            onClick={() => { quitarFranja(diaAbierto, idx); }}
+                            title="Quitar este horario"
+                            className="p-1 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+
+                    {infoDiaAbierto.franjas.length < 2 && (
                       <button
-                        onClick={() => { quitarFranja(diaAbierto, idx); }}
-                        title="Quitar este horario"
-                        className="p-1 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                        onClick={() => { agregarFranja(diaAbierto); }}
+                        className="flex items-center gap-1 text-xs font-medium text-teal-700 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300"
                       >
-                        <Trash2 size={14} />
+                        <Plus size={13} /> Agregar otro horario
                       </button>
                     )}
-                  </div>
-                ))}
 
-                {(horarios[String(diaAbierto)] || []).length < 2 && (
-                  <button
-                    onClick={() => { agregarFranja(diaAbierto); }}
-                    className="flex items-center gap-1 text-xs font-medium text-teal-700 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300"
-                  >
-                    <Plus size={13} /> Agregar otro horario
-                  </button>
+                    {errorDiaAbierto && <p className="text-xs text-rose-600 dark:text-rose-400">{errorDiaAbierto}</p>}
+                  </>
                 )}
-
-                {errorDiaAbierto && <p className="text-xs text-rose-600 dark:text-rose-400">{errorDiaAbierto}</p>}
               </div>
             )}
-
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
-              {resumenHorarioSucursal({ abierta_24hs: false, horarios_dias: horarios })}
-            </p>
           </div>
 
           {error && <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>}

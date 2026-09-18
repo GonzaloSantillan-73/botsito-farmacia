@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Loader2, MapPin, MessageCircle, Store, AlertTriangle, CheckCircle2, Plus, Trash2, Power } from 'lucide-react';
+import { Loader2, MapPin, MessageCircle, Store, AlertTriangle, CheckCircle2, Plus, Trash2, Power } from 'lucide-react';
 import { adminFetch } from '../lib/adminAuth';
 import SucursalConfigModal from './SucursalConfigModal';
 import SucursalHorarioModal from './SucursalHorarioModal';
-import { resumenHorarioSucursal } from '../lib/horarioSucursal';
 import { confirmDialog, alertDialog } from '../lib/dialogService';
 
 const normalizarWhatsappUrl = (valor) => {
@@ -167,13 +166,9 @@ export default function SucursalesPanel() {
                     </div>
                   )}
 
-                  {/* Horario: sólo lectura acá, se edita en su propio modal (SucursalHorarioModal) */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5 min-w-0">
-                      <Clock size={12} className="shrink-0" />
-                      <span className="truncate">{resumenHorarioSucursal(s)}</span>
-                    </div>
-                    <button onClick={() => { setHorarioSucursal(s); }} className="text-xs font-medium text-teal-700 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300 shrink-0">Editar horario</button>
+                  {/* El horario se edita en su propio modal (SucursalHorarioModal); acá no se muestra ningún resumen de texto. */}
+                  <div className="flex items-center justify-end">
+                    <button onClick={() => { setHorarioSucursal(s); }} className="text-xs font-medium text-teal-700 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300">Editar horario</button>
                   </div>
                 </div>
               </div>
