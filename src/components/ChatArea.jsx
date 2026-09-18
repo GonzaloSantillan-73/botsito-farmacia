@@ -457,15 +457,6 @@ export default function ChatArea({
               </div>
             )}
 
-            {!isConversacionCerrada && activeConversation?.prewarning_sent_at && (
-              <span
-                title={`Se le mandó el aviso de inactividad a las ${new Date(activeConversation.prewarning_sent_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`}
-                className="text-[11px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
-              >
-                ⏰ Aviso enviado
-              </span>
-            )}
-
             <div className="flex items-center gap-2 shrink-0">
                <button
                  onClick={() => { setShowGallery(true); }}
