@@ -3,7 +3,7 @@ import { Clock, Loader2, MapPin, MessageCircle, Store, AlertTriangle, CheckCircl
 import { adminFetch } from '../lib/adminAuth';
 import SucursalConfigModal from './SucursalConfigModal';
 import SucursalHorarioModal from './SucursalHorarioModal';
-import { DIAS } from '../lib/dias';
+import { resumenHorarioSucursal } from '../lib/horarioSucursal';
 import { confirmDialog, alertDialog } from '../lib/dialogService';
 
 const normalizarWhatsappUrl = (valor) => {
@@ -168,14 +168,12 @@ export default function SucursalesPanel() {
                   )}
 
                   {/* Horario: sólo lectura acá, se edita en su propio modal (SucursalHorarioModal) */}
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
-                      <Clock size={12} />
-                      {s.abierta_24hs
-                        ? 'Abierto 24 hs'
-                        : `${DIAS.filter(d => s.dias.includes(d.value)).map(d => d.label).join(' ')} · ${s.hora_apertura} a ${s.hora_cierre}hs`}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5 min-w-0">
+                      <Clock size={12} className="shrink-0" />
+                      <span className="truncate">{resumenHorarioSucursal(s)}</span>
                     </div>
-                    <button onClick={() => { setHorarioSucursal(s); }} className="text-xs font-medium text-teal-700 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300">Editar horario</button>
+                    <button onClick={() => { setHorarioSucursal(s); }} className="text-xs font-medium text-teal-700 hover:text-teal-800 dark:text-teal-400 dark:hover:text-teal-300 shrink-0">Editar horario</button>
                   </div>
                 </div>
               </div>

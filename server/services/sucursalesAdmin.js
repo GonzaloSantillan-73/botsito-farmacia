@@ -22,8 +22,8 @@ export const listarSucursales = async () => {
   return resultado;
 };
 
-export const crearSucursal = async ({ nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre, abierta24hs }) => {
-  console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — parámetros recibidos:', { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre, abierta24hs });
+export const crearSucursal = async ({ nombre, direccion, googleMapsUrl }) => {
+  console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — parámetros recibidos:', { nombre, direccion, googleMapsUrl });
 
   if (!nombre?.trim()) {
     console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — falta nombre');
@@ -37,24 +37,16 @@ export const crearSucursal = async ({ nombre, direccion, googleMapsUrl, dias, ho
     console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — falta Google Maps URL');
     throw new Error('Ingresá el Link de Google Maps de la sucursal.');
   }
-  if (!abierta24hs && dias && dias.length === 0) {
-    console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] crearSucursal() — dias vacío');
-    throw new Error('Elegí al menos un día de atención.');
-  }
 
+  // El horario (abierta_24hs / horarios_dias) se carga aparte, desde el
+  // modal dedicado "Editar horario" (ver SucursalHorarioModal.jsx) una vez
+  // creada la sucursal: nace sin horario configurado (horarios_dias: {}) y
+  // por lo tanto "cerrada" hasta que se le cargue uno.
   const payload = {
     nombre: nombre.trim(),
     direccion: direccion.trim(),
     google_maps_url: googleMapsUrl.trim()
   };
-  // El horario ahora se carga aparte, desde el modal dedicado "Editar
-  // horario" (ver SucursalHorarioModal.jsx) una vez creada la sucursal: si no
-  // viene en el body, se deja que la tabla aplique sus propios defaults
-  // (dias/hora_apertura/hora_cierre/abierta_24hs) en vez de pisarlos.
-  if (dias) payload.dias = dias;
-  if (horaApertura) payload.hora_apertura = horaApertura;
-  if (horaCierre) payload.hora_cierre = horaCierre;
-  if (abierta24hs !== undefined) payload.abierta_24hs = !!abierta24hs;
 
   // Las coordenadas se resuelven solas a partir del link de Maps (que ya es
   // obligatorio) para no pedirle al admin que cargue lat/lng a mano. Si no se
@@ -87,8 +79,8 @@ export const crearSucursal = async ({ nombre, direccion, googleMapsUrl, dias, ho
   return data;
 };
 
-export const actualizarSucursal = async (id, { nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre, abierta24hs }) => {
-  console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — parámetros recibidos:', { id, nombre, direccion, googleMapsUrl, dias, horaApertura, horaCierre, abierta24hs });
+export const actualizarSucursal = async (id, { nombre, direccion, googleMapsUrl }) => {
+  console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — parámetros recibidos:', { id, nombre, direccion, googleMapsUrl });
 
   if (!direccion?.trim()) {
     console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — falta dirección');
@@ -98,24 +90,14 @@ export const actualizarSucursal = async (id, { nombre, direccion, googleMapsUrl,
     console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — falta Google Maps URL');
     throw new Error('Ingresá el Link de Google Maps de la sucursal.');
   }
-  if (!abierta24hs && dias && dias.length === 0) {
-    console.error('❌ [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — dias vacío');
-    throw new Error('Elegí al menos un día de atención.');
-  }
 
+  // El horario se edita aparte, desde el modal dedicado "Editar horario"
+  // (ver SucursalHorarioModal.jsx): esta llamada nunca lo toca.
   const updates = {
     direccion: direccion.trim(),
     google_maps_url: googleMapsUrl.trim()
   };
   if (nombre?.trim()) updates.nombre = nombre.trim();
-  // El horario se edita aparte, desde el modal dedicado "Editar horario"
-  // (ver SucursalHorarioModal.jsx): si esta llamada no lo manda (ej. al
-  // editar sólo nombre/dirección/maps desde el modal general), no hay que
-  // pisarlo con un default — se deja el horario que ya tenía la sucursal.
-  if (dias) updates.dias = dias;
-  if (horaApertura) updates.hora_apertura = horaApertura;
-  if (horaCierre) updates.hora_cierre = horaCierre;
-  if (abierta24hs !== undefined) updates.abierta_24hs = !!abierta24hs;
 
   console.log('🔍 [DEBUG-SERVICE-SUCURSALESADMIN] actualizarSucursal() — resolviendo coordenadas desde URL:', googleMapsUrl.trim());
   const coords = await extraerCoordenadasDeUrl(googleMapsUrl.trim()).catch((err) => {

@@ -3,40 +3,43 @@ import { getNowInTimezone, toMinutes } from './scheduleConfig.js';
 
 const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
+// "00:00" como FIN de una franja significa medianoche (fin de ese mismo
+// día), no el inicio del día siguiente — así se puede armar un horario tipo
+// "17:00 a 00:00" sin tener que soportar franjas que cruzan la medianoche
+// (ver validarFranjasDia en src/lib/horarioSucursal.js, misma regla del
+// lado del frontend).
+const finEnMinutos = (fin) => {
+  const m = toMinutes(fin);
+  return m === 0 ? 1440 : m;
+};
+
 // Reemplaza al viejo horario global de "Asesores Humanos": la disponibilidad
-// de atención humana ahora depende pura y exclusivamente del horario de cada
-// sucursal (dias/hora_apertura/hora_cierre/abierta_24hs), evaluado contra el
-// día y la hora actual en la misma zona horaria que usa el horario del bot
-// (ver getNowInTimezone en scheduleConfig.js).
+// de atención humana depende del horario de cada sucursal, evaluado contra
+// el día y la hora actual en la misma zona horaria que usa el horario del
+// bot (ver getNowInTimezone en scheduleConfig.js). Desde que el horario es
+// "por día" (horarios_dias, hasta 2 franjas por día), una sucursal puede
+// estar abierta en más de un rango dentro del mismo día.
 export const estaAbiertaAhora = (sucursal) => {
-  console.log('🔍 [DEBUG-SERVICE-SUCURSALES] estaAbiertaAhora() — parámetros recibidos:', { id: sucursal?.id, nombre: sucursal?.nombre, dias: sucursal?.dias, hora_apertura: sucursal?.hora_apertura, hora_cierre: sucursal?.hora_cierre, abierta_24hs: sucursal?.abierta_24hs });
+  console.log('🔍 [DEBUG-SERVICE-SUCURSALES] estaAbiertaAhora() — parámetros recibidos:', { id: sucursal?.id, nombre: sucursal?.nombre, horarios_dias: sucursal?.horarios_dias, abierta_24hs: sucursal?.abierta_24hs });
 
   if (sucursal?.abierta_24hs) {
     console.log('✅ [DEBUG-SERVICE-SUCURSALES] estaAbiertaAhora() — abierta_24hs=true, resultado: true');
     return true;
   }
 
-  if (!Array.isArray(sucursal?.dias) || !sucursal.hora_apertura || !sucursal.hora_cierre) {
-    console.log('✅ [DEBUG-SERVICE-SUCURSALES] estaAbiertaAhora() — falta horario configurado, resultado: false');
-    return false;
-  }
-
   const { day, minutes } = getNowInTimezone();
-  if (!sucursal.dias.includes(day)) {
-    console.log('✅ [DEBUG-SERVICE-SUCURSALES] estaAbiertaAhora() — día actual (', day, ') no está entre los días de atención, resultado: false');
+  const franjas = sucursal?.horarios_dias?.[String(day)];
+  if (!Array.isArray(franjas) || franjas.length === 0) {
+    console.log('✅ [DEBUG-SERVICE-SUCURSALES] estaAbiertaAhora() — sin franjas configuradas para el día actual (', day, '), resultado: false');
     return false;
   }
 
-  const apertura = toMinutes(sucursal.hora_apertura);
-  const cierre = toMinutes(sucursal.hora_cierre);
-
-  let resultado;
-  if (apertura <= cierre) {
-    resultado = minutes >= apertura && minutes <= cierre;
-  } else {
-    // Horario que cruza la medianoche (ej: 22:00 a 06:00).
-    resultado = minutes >= apertura || minutes <= cierre;
-  }
+  const resultado = franjas.some(f => {
+    if (!f?.inicio || !f?.fin) return false;
+    const inicio = toMinutes(f.inicio);
+    const fin = finEnMinutos(f.fin);
+    return minutes >= inicio && minutes <= fin;
+  });
   console.log('✅ [DEBUG-SERVICE-SUCURSALES] estaAbiertaAhora() — resultado:', resultado);
   return resultado;
 };
@@ -64,6 +67,44 @@ const formatearDias = (dias) => {
 
   const resultado = rangos.join(', ');
   console.log('✅ [DEBUG-SERVICE-SUCURSALES] formatearDias() — valor de retorno:', resultado);
+  return resultado;
+};
+
+const formatearFranjas = (franjas) => (franjas || []).map(f => `${f.inicio} a ${f.fin}`).join(' y ');
+
+// Resumen legible del horario completo de una sucursal, agrupando días
+// consecutivos que tienen exactamente las mismas franjas (misma lógica que
+// resumenHorarioSucursal en src/lib/horarioSucursal.js, del lado del
+// frontend, que no puede importar este módulo de server/).
+export const resumenHorarioSucursal = (sucursal) => {
+  console.log('🔍 [DEBUG-SERVICE-SUCURSALES] resumenHorarioSucursal() — parámetros recibidos:', { horarios_dias: sucursal?.horarios_dias, abierta_24hs: sucursal?.abierta_24hs });
+
+  if (sucursal?.abierta_24hs) return 'Abierto 24 hs';
+
+  const horarios = sucursal?.horarios_dias || {};
+  const franjasDe = (d) => horarios[String(d)] || [];
+  const diasConHorario = [0, 1, 2, 3, 4, 5, 6].filter(d => franjasDe(d).length > 0);
+  if (diasConHorario.length === 0) {
+    console.log('✅ [DEBUG-SERVICE-SUCURSALES] resumenHorarioSucursal() — sin ningún día con horario configurado');
+    return 'Sin horario configurado';
+  }
+
+  const firma = (d) => JSON.stringify(franjasDe(d));
+  const grupos = [];
+  let grupoActual = null;
+  for (const d of diasConHorario) {
+    if (grupoActual && firma(d) === grupoActual.firma) {
+      grupoActual.dias.push(d);
+    } else {
+      grupoActual = { firma: firma(d), dias: [d] };
+      grupos.push(grupoActual);
+    }
+  }
+
+  const resultado = grupos
+    .map(g => `${formatearDias(g.dias)} ${formatearFranjas(franjasDe(g.dias[0]))}hs`)
+    .join(', ');
+  console.log('✅ [DEBUG-SERVICE-SUCURSALES] resumenHorarioSucursal() — valor de retorno:', resultado);
   return resultado;
 };
 
@@ -102,7 +143,7 @@ export const formatearMensajeSucursales = (sucursales) => {
       const lineas = [
         `📍 *${s.nombre}*`,
         s.direccion,
-        s.abierta_24hs ? '🕒 Abierto 24 hs' : `🕒 ${formatearDias(s.dias)} de ${s.hora_apertura} a ${s.hora_cierre}hs`
+        `🕒 ${resumenHorarioSucursal(s)}`
       ];
       if (s.google_maps_url) lineas.push(`🗺️ Ver en Google Maps: ${s.google_maps_url}`);
       return lineas.join('\n');
