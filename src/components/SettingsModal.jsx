@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Settings, BarChart3, Sliders, Hash, Zap, CalendarClock, Download, Bell, Clock, Store, ShieldCheck, UserCog, CreditCard, MessageSquareText, Moon, KeyRound } from 'lucide-react';
+import { X, Settings, BarChart3, Sliders, Hash, Zap, CalendarClock, Download, Bell, Clock, Store, ShieldCheck, UserCog, CreditCard, MessageSquareText, Moon, KeyRound, Heart } from 'lucide-react';
 import Accordion from './Accordion';
 import SessionTimeoutPanel from './SessionTimeoutPanel';
 import WelcomeMessagePanel from './WelcomeMessagePanel';
+import FrequentClientPanel from './FrequentClientPanel';
 import BotKeywordPanel from './BotKeywordPanel';
 import QuickRepliesPanel from './QuickRepliesPanel';
 import SchedulePanel from './SchedulePanel';
@@ -99,6 +100,10 @@ export default function SettingsModal({ sessionTimeoutMs, sessionPrewarningMs, o
 
                 <Accordion title="Mensaje de bienvenida del bot" icon={MessageSquareText}>
                   <WelcomeMessagePanel />
+                </Accordion>
+
+                <Accordion title="Saludo para clientes frecuentes" icon={Heart}>
+                  <FrequentClientPanel />
                 </Accordion>
 
                 <Accordion title="Palabra clave del bot" icon={Hash}>

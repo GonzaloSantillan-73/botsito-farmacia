@@ -1,7 +1,7 @@
 import express from 'express';
 import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
-import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getSessionPrewarningMs, setSessionPrewarningMs, getBotKeyword, setBotKeyword, getWelcomeMessage, setWelcomeMessage } from '../services/appConfig.js';
+import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getSessionPrewarningMs, setSessionPrewarningMs, getBotKeyword, setBotKeyword, getWelcomeMessage, setWelcomeMessage, getFrequentClientMessage, setFrequentClientMessage, getFrequentClientThreshold, setFrequentClientThreshold, MIN_FREQUENT_CLIENT_THRESHOLD, MAX_FREQUENT_CLIENT_THRESHOLD } from '../services/appConfig.js';
 import { finalizarConversacion } from '../services/ratingSurvey.js';
 import { devolverConversacionAEspera } from '../services/devolucionCola.js';
 import { tomarConsulta } from '../services/tomaConsulta.js';
@@ -38,6 +38,11 @@ const parseDateRange = (query) => {
 // Exportación y métricas del negocio: sólo el administrador puede verlas o
 // descargarlas (incluyen teléfonos y montos de venta de todos los clientes).
 router.use(['/export/chats', '/export/metrics', '/metrics/negocio', '/metrics/detalle'], requireAuth, requireAdminRole);
+
+// Saludo de "cliente frecuente": ni siquiera un empleado de sucursal puede
+// verlo o editarlo (es parte de "Ajustes de Chat", ya admin-only en el
+// SettingsModal del frontend); acá se revalida del lado del servidor.
+router.use(['/frequent-client-config'], requireAuth, requireAdminRole);
 
 // Exporta el historial de mensajes (con datos del cliente y la consulta) en el rango de fechas dado.
 router.get('/export/chats', async (req, res) => {
@@ -461,6 +466,60 @@ router.put('/welcome-message', async (req, res) => {
   } catch (error) {
     console.error('❌ [DEBUG-ROUTES-API] Error en PUT /welcome-message:', { error, message: error.message, stack: error.stack });
     console.error('[API] ❌ Error actualizando welcome-message:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Saludo especial + umbral de "cliente frecuente" (ver appConfig.js y
+// procesarMensajeBot en bot.js). Admin-only: ver el router.use() más arriba.
+router.get('/frequent-client-config', async (req, res) => {
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a GET /frequent-client-config:', {
+    method: req.method,
+    url: req.originalUrl,
+    query: req.query,
+    params: req.params,
+    admin: req.admin || null
+  });
+  const [frequentClientMessage, frequentClientThreshold] = await Promise.all([
+    getFrequentClientMessage(),
+    getFrequentClientThreshold()
+  ]);
+  const respBody = {
+    frequentClientMessage,
+    frequentClientThreshold,
+    minFrequentClientThreshold: MIN_FREQUENT_CLIENT_THRESHOLD,
+    maxFrequentClientThreshold: MAX_FREQUENT_CLIENT_THRESHOLD
+  };
+  console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /frequent-client-config:', { status: 200, body: respBody });
+  res.status(200).json(respBody);
+});
+
+router.put('/frequent-client-config', async (req, res) => {
+  const { frequentClientMessage, frequentClientThreshold } = req.body;
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a PUT /frequent-client-config:', {
+    method: req.method,
+    url: req.originalUrl,
+    body: redactBodyForLog(req.body),
+    query: req.query,
+    params: req.params,
+    admin: req.admin || null
+  });
+
+  try {
+    if (frequentClientMessage !== undefined) await setFrequentClientMessage(frequentClientMessage);
+    if (frequentClientThreshold !== undefined) await setFrequentClientThreshold(frequentClientThreshold);
+
+    const respBody = {
+      success: true,
+      frequentClientMessage: await getFrequentClientMessage(),
+      frequentClientThreshold: await getFrequentClientThreshold()
+    };
+    console.log(`[API] -> Configuración de cliente frecuente actualizada.`);
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo PUT /frequent-client-config:', { status: 200, body: respBody });
+    res.status(200).json(respBody);
+  } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en PUT /frequent-client-config:', { error, message: error.message, stack: error.stack });
+    console.error('[API] ❌ Error actualizando frequent-client-config:', error.message);
     res.status(400).json({ error: error.message });
   }
 });

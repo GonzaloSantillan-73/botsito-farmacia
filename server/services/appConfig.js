@@ -220,3 +220,113 @@ export const setWelcomeMessage = async (mensaje) => {
   }
   console.log('✅ [DEBUG-SERVICE-APPCONFIG] setWelcomeMessage() — completado sin valor de retorno (undefined)');
 };
+
+const FREQUENT_CLIENT_MESSAGE_KEY = 'frequent_client_message';
+export const DEFAULT_FREQUENT_CLIENT_MESSAGE = '¡Hola! Nos alegra verte de nuevo por acá. 😊';
+
+const FREQUENT_CLIENT_THRESHOLD_KEY = 'frequent_client_threshold';
+export const DEFAULT_FREQUENT_CLIENT_THRESHOLD = 3;
+export const MIN_FREQUENT_CLIENT_THRESHOLD = 1;
+export const MAX_FREQUENT_CLIENT_THRESHOLD = 1000;
+
+// Saludo alternativo que reemplaza a welcome_message (el menú fijo de abajo
+// se sigue agregando igual, ver construirMensajeBienvenida en bot.js) cuando
+// el cliente ya usó el bot frequent_client_threshold veces o más antes de
+// esta sesión (ver clientes.interacciones_bot / procesarMensajeBot).
+export const getFrequentClientMessage = async () => {
+  console.log('🔍 [DEBUG-SERVICE-APPCONFIG] getFrequentClientMessage() — sin parámetros');
+
+  console.log('📡 [DEBUG-SERVICE-APPCONFIG] Query Supabase → tabla: app_settings, operación: select, filtro: key =', FREQUENT_CLIENT_MESSAGE_KEY);
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', FREQUENT_CLIENT_MESSAGE_KEY)
+    .maybeSingle();
+  console.log('📡 [DEBUG-SERVICE-APPCONFIG] Resultado query app_settings (select frequent_client_message) — data:', data, 'error:', error);
+
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-APPCONFIG] getFrequentClientMessage() — error leyendo frequent_client_message, se usa el default:', error);
+    console.log('✅ [DEBUG-SERVICE-APPCONFIG] getFrequentClientMessage() — valor de retorno (default por error):', DEFAULT_FREQUENT_CLIENT_MESSAGE);
+    return DEFAULT_FREQUENT_CLIENT_MESSAGE;
+  }
+
+  const mensaje = typeof data?.value === 'string' ? data.value.trim() : '';
+  const resultado = mensaje || DEFAULT_FREQUENT_CLIENT_MESSAGE;
+  console.log('✅ [DEBUG-SERVICE-APPCONFIG] getFrequentClientMessage() — valor de retorno:', resultado);
+  return resultado;
+};
+
+export const setFrequentClientMessage = async (mensaje) => {
+  console.log('🔍 [DEBUG-SERVICE-APPCONFIG] setFrequentClientMessage() — parámetros recibidos:', { mensaje });
+
+  const clean = (mensaje ?? '').toString().trim();
+
+  if (!clean) {
+    console.error('❌ [DEBUG-SERVICE-APPCONFIG] setFrequentClientMessage() — mensaje vacío');
+    throw new Error('El mensaje para clientes frecuentes no puede estar vacío.');
+  }
+  if (clean.length > 500) {
+    console.error('❌ [DEBUG-SERVICE-APPCONFIG] setFrequentClientMessage() — mensaje demasiado largo:', clean.length);
+    throw new Error('El mensaje para clientes frecuentes no puede tener más de 500 caracteres.');
+  }
+
+  console.log('📡 [DEBUG-SERVICE-APPCONFIG] Query Supabase → tabla: app_settings, operación: upsert, valores:', { key: FREQUENT_CLIENT_MESSAGE_KEY, value: clean });
+  const { error } = await supabase
+    .from('app_settings')
+    .upsert({ key: FREQUENT_CLIENT_MESSAGE_KEY, value: clean, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+  console.log('📡 [DEBUG-SERVICE-APPCONFIG] Resultado query app_settings (upsert frequent_client_message) — error:', error);
+
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-APPCONFIG] setFrequentClientMessage() — error guardando frequent_client_message:', error);
+    throw error;
+  }
+  console.log('✅ [DEBUG-SERVICE-APPCONFIG] setFrequentClientMessage() — completado sin valor de retorno (undefined)');
+};
+
+// Cantidad de sesiones previas con el bot (clientes.interacciones_bot) a
+// partir de la cual un cliente se considera "frecuente" y recibe
+// frequent_client_message en vez del saludo normal.
+export const getFrequentClientThreshold = async () => {
+  console.log('🔍 [DEBUG-SERVICE-APPCONFIG] getFrequentClientThreshold() — sin parámetros');
+
+  console.log('📡 [DEBUG-SERVICE-APPCONFIG] Query Supabase → tabla: app_settings, operación: select, filtro: key =', FREQUENT_CLIENT_THRESHOLD_KEY);
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', FREQUENT_CLIENT_THRESHOLD_KEY)
+    .maybeSingle();
+  console.log('📡 [DEBUG-SERVICE-APPCONFIG] Resultado query app_settings (select frequent_client_threshold) — data:', data, 'error:', error);
+
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-APPCONFIG] getFrequentClientThreshold() — error leyendo frequent_client_threshold, se usa el default:', error);
+    console.log('✅ [DEBUG-SERVICE-APPCONFIG] getFrequentClientThreshold() — valor de retorno (default por error):', DEFAULT_FREQUENT_CLIENT_THRESHOLD);
+    return DEFAULT_FREQUENT_CLIENT_THRESHOLD;
+  }
+
+  const n = Number(data?.value);
+  const resultado = Number.isInteger(n) && n >= MIN_FREQUENT_CLIENT_THRESHOLD ? n : DEFAULT_FREQUENT_CLIENT_THRESHOLD;
+  console.log('✅ [DEBUG-SERVICE-APPCONFIG] getFrequentClientThreshold() — valor de retorno:', resultado);
+  return resultado;
+};
+
+export const setFrequentClientThreshold = async (umbral) => {
+  console.log('🔍 [DEBUG-SERVICE-APPCONFIG] setFrequentClientThreshold() — parámetros recibidos:', { umbral });
+
+  const n = Number(umbral);
+  if (!Number.isInteger(n) || n < MIN_FREQUENT_CLIENT_THRESHOLD || n > MAX_FREQUENT_CLIENT_THRESHOLD) {
+    console.error('❌ [DEBUG-SERVICE-APPCONFIG] setFrequentClientThreshold() — valor fuera de rango:', umbral);
+    throw new Error(`El umbral debe ser un número entero entre ${MIN_FREQUENT_CLIENT_THRESHOLD} y ${MAX_FREQUENT_CLIENT_THRESHOLD}.`);
+  }
+
+  console.log('📡 [DEBUG-SERVICE-APPCONFIG] Query Supabase → tabla: app_settings, operación: upsert, valores:', { key: FREQUENT_CLIENT_THRESHOLD_KEY, value: n });
+  const { error } = await supabase
+    .from('app_settings')
+    .upsert({ key: FREQUENT_CLIENT_THRESHOLD_KEY, value: n, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+  console.log('📡 [DEBUG-SERVICE-APPCONFIG] Resultado query app_settings (upsert frequent_client_threshold) — error:', error);
+
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-APPCONFIG] setFrequentClientThreshold() — error guardando frequent_client_threshold:', error);
+    throw error;
+  }
+  console.log('✅ [DEBUG-SERVICE-APPCONFIG] setFrequentClientThreshold() — completado sin valor de retorno (undefined)');
+};

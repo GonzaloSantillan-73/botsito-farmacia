@@ -23,6 +23,28 @@ export const tieneRegistroCompleto = (cliente) => {
   return resultado;
 };
 
+// Se llama una vez por cada sesión NUEVA con el bot (no por cada mensaje
+// suelto dentro de la misma consulta, ver procesarMensajeBot en bot.js), para
+// poder evaluar después el saludo de "cliente frecuente" (ver appConfig:
+// getFrequentClientThreshold). No es un incremento atómico en la base (lee
+// el valor actual y lo pisa +1), pero alcanza acá: un mismo teléfono no
+// manda dos mensajes que arranquen sesión nueva al mismo tiempo.
+export const incrementarInteraccionesBot = async (clientPhone, valorActual) => {
+  console.log('🔍 [DEBUG-SERVICE-CLIENTES] incrementarInteraccionesBot() — parámetros recibidos:', { clientPhone, valorActual });
+
+  const nuevoValor = (Number.isFinite(valorActual) ? valorActual : 0) + 1;
+  console.log('📡 [DEBUG-SERVICE-CLIENTES] Query Supabase → tabla: clientes, operación: upsert, valores:', { client_phone: clientPhone, interacciones_bot: nuevoValor });
+  const { error } = await supabase
+    .from('clientes')
+    .upsert({ client_phone: clientPhone, interacciones_bot: nuevoValor, updated_at: new Date().toISOString() }, { onConflict: 'client_phone' });
+  console.log('📡 [DEBUG-SERVICE-CLIENTES] Resultado query clientes (upsert interacciones_bot) — error:', error);
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-CLIENTES] incrementarInteraccionesBot() — error guardando interacciones_bot:', error);
+    throw error;
+  }
+  console.log('✅ [DEBUG-SERVICE-CLIENTES] incrementarInteraccionesBot() — completado sin valor de retorno (undefined)');
+};
+
 // Update parcial: si la fila ya existe, sólo pisa el campo dado (el resto
 // de columnas quedan como estaban) gracias al upsert por client_phone.
 export const guardarDatoCliente = async (clientPhone, campo, valor) => {

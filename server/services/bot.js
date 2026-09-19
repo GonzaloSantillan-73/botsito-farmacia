@@ -1,9 +1,9 @@
 import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from './whatsapp.js';
-import { getBotKeyword, getWelcomeMessage } from './appConfig.js';
+import { getBotKeyword, getWelcomeMessage, getFrequentClientMessage, getFrequentClientThreshold } from './appConfig.js';
 import { getBotSchedule, isWithinSchedule, renderScheduleMessage } from './scheduleConfig.js';
 import { getSucursalesActivas, formatearMensajeSucursales } from './sucursales.js';
-import { getCliente, tieneRegistroCompleto, guardarDatoCliente } from './clientes.js';
+import { getCliente, tieneRegistroCompleto, guardarDatoCliente, incrementarInteraccionesBot } from './clientes.js';
 import { sucursalesMasCercanas } from './geolocalizacion.js';
 import { extraerCoordenadasDeMensaje } from './mapsLocation.js';
 
@@ -17,9 +17,13 @@ import { extraerCoordenadasDeMensaje } from './mapsLocation.js';
 // los números están atados 1:1 a los manejadores de abajo (tLower === '1'/'2'/'3').
 const MENU_OPCIONES = '¿Qué querés hacer?\n\n1. Hablar con un humano\n2. Horarios y sucursales\n3. Actualizar mis datos';
 
-const construirMensajeBienvenida = async () => {
-  console.log('🔍 [DEBUG-SERVICE-BOT] construirMensajeBienvenida() — sin parámetros');
-  const saludo = await getWelcomeMessage();
+// esFrecuente reemplaza el saludo personalizable por frequent_client_message
+// (ver appConfig.js) cuando el cliente ya usó el bot frequent_client_threshold
+// veces o más antes de esta sesión — el menú numerado de abajo se agrega
+// siempre igual, en los dos casos.
+const construirMensajeBienvenida = async (esFrecuente = false) => {
+  console.log('🔍 [DEBUG-SERVICE-BOT] construirMensajeBienvenida() — parámetros recibidos:', { esFrecuente });
+  const saludo = esFrecuente ? await getFrequentClientMessage() : await getWelcomeMessage();
   const resultado = `${saludo}\n\n${MENU_OPCIONES}`;
   console.log('✅ [DEBUG-SERVICE-BOT] construirMensajeBienvenida() — valor de retorno:', resultado);
   return resultado;
@@ -128,6 +132,19 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
 
       const cliente = await getCliente(telefono);
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — cliente obtenido:', cliente);
+
+      // Se cuenta esta sesión nueva ACÁ (una vez por consulta, no en cada
+      // mensaje suelto) y el umbral se compara contra las sesiones previas
+      // SIN contar esta: con threshold=3, el saludo especial aparece recién
+      // a partir de la 4ta consulta del cliente (ya usó el bot 3 veces antes).
+      const interaccionesPrevias = cliente?.interacciones_bot || 0;
+      try {
+        await incrementarInteraccionesBot(telefono, interaccionesPrevias);
+      } catch (err) {
+        // No debe impedir que el cliente arranque su consulta si esto falla.
+        console.error('❌ [DEBUG-SERVICE-BOT] procesarMensajeBot() — error incrementando interacciones_bot (no corta el flujo):', err?.message, err?.stack);
+      }
+
       if (!tieneRegistroCompleto(cliente)) {
         console.log(`[BOT] Cliente ${telefono} sin datos registrados. Iniciando registro antes del menú.`);
         console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — rama: cliente sin registro completo (sesión nueva). Se deriva a iniciarRegistro().');
@@ -136,8 +153,10 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
         return;
       }
 
-      console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — rama: sesión nueva con cliente ya registrado. Se deriva a volverAlMenuPrincipal().');
-      await volverAlMenuPrincipal(conversationId, telefono);
+      const threshold = await getFrequentClientThreshold();
+      const esFrecuente = interaccionesPrevias >= threshold;
+      console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — rama: sesión nueva con cliente ya registrado. interaccionesPrevias:', interaccionesPrevias, ', threshold:', threshold, ', esFrecuente:', esFrecuente, '. Se deriva a volverAlMenuPrincipal().');
+      await volverAlMenuPrincipal(conversationId, telefono, esFrecuente);
       console.log('✅ [DEBUG-SERVICE-BOT] procesarMensajeBot() — valor de retorno: undefined (cortado tras volver al menú principal en sesión nueva)');
       return;
     }
@@ -457,12 +476,12 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado, botConte
   }
 };
 
-const volverAlMenuPrincipal = async (conversationId, telefono) => {
-  console.log('🔍 [DEBUG-SERVICE-BOT] volverAlMenuPrincipal() — parámetros recibidos:', { conversationId, telefono });
+const volverAlMenuPrincipal = async (conversationId, telefono, esFrecuente = false) => {
+  console.log('🔍 [DEBUG-SERVICE-BOT] volverAlMenuPrincipal() — parámetros recibidos:', { conversationId, telefono, esFrecuente });
   // 'open' saca a la conversación del modo humano ('esperando') y la vuelve a
   // dejar en la cola de "Entrantes" (bot respondiendo automáticamente).
   await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
-  await enviarMensajeBot(conversationId, telefono, await construirMensajeBienvenida());
+  await enviarMensajeBot(conversationId, telefono, await construirMensajeBienvenida(esFrecuente));
   console.log('✅ [DEBUG-SERVICE-BOT] volverAlMenuPrincipal() — valor de retorno: undefined (fin normal)');
 };
 
