@@ -101,13 +101,21 @@ router.post('/', async (req, res) => {
       
       const rawPhone = waMessage.from;
       const clientPhone = normalizarTelefono(rawPhone);
-      const clientName = contactInfo?.profile?.name || 'Cliente de WhatsApp';
+      // El pushName (nombre de perfil de WhatsApp) NO se usa como nombre del
+      // cliente: lo pone el propio usuario en su teléfono como quiera (apodo,
+      // emoji, nombre de otra persona) y no está validado. El nombre "de
+      // verdad" sale únicamente del flujo de identificación por DNI (ver
+      // clientes.nombre_completo en bot.js/clientes.js) — hasta que el
+      // cliente pase por ahí, la conversación queda sin nombre y el CRM cae
+      // al teléfono formateado como fallback (ver Sidebar.jsx: conv.real_name
+      // || conv.client_name || formatPhone(...)).
+      const clientName = null;
       const messageType = waMessage.type;
       const messageId = waMessage.id;
-      
+
       console.log(`[WEBHOOK - POST /] ==> DATOS EXTRAÍDOS:`);
       console.log(`   - Teléfono: ${clientPhone}`);
-      console.log(`   - Nombre: ${clientName}`);
+      console.log(`   - Nombre de perfil de WhatsApp (pushName, ignorado a propósito, no se guarda): ${contactInfo?.profile?.name || '(sin nombre de perfil)'}`);
       console.log(`   - Tipo de mensaje: ${messageType}`);
       console.log(`   - ID Mensaje: ${messageId}`);
       console.log(`🔍 [DEBUG-WEBHOOK] Rama de filtrado tomada: MENSAJE (changes.value.messages[0] presente) | tipo detectado: ${messageType}`);
