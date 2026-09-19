@@ -147,7 +147,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
            <button
               onClick={() => { onDownload && onDownload(msg); }}
               disabled={downloadingId === msg.id}
-              className={`mb-2 w-full flex items-center gap-2 p-2 rounded-lg text-sm transition-colors disabled:opacity-50 ${msg.sender_type === 'client' ? 'bg-gray-100 text-teal-700 hover:bg-gray-200' : 'bg-teal-600 text-white hover:bg-teal-700'}`}
+              className={`mb-2 w-full flex items-center gap-2 p-2 rounded-lg text-sm transition-colors disabled:opacity-50 ${msg.sender_type === 'client' ? 'bg-gray-100 dark:bg-gray-700 text-teal-700 dark:text-teal-400 hover:bg-gray-200 dark:hover:bg-gray-600' : 'bg-teal-600 text-white hover:bg-teal-700'}`}
            >
               {downloadingId === msg.id ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
               Descargar documento adjunto
@@ -155,27 +155,27 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
            </button>
         )}
         {msg.media_url && msg.media_type === 'pdf' && (
-          <div className={`mb-2 rounded-lg border overflow-hidden ${msg.sender_type === 'client' ? 'border-gray-200 bg-gray-50' : 'border-teal-400 bg-teal-600/20'}`}>
+          <div className={`mb-2 rounded-lg border overflow-hidden ${msg.sender_type === 'client' ? 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700' : 'border-teal-400 bg-teal-600/20'}`}>
             <div className="flex items-center gap-2 p-2.5">
-              <div className={`p-2 rounded-lg shrink-0 ${msg.sender_type === 'client' ? 'bg-rose-100 text-rose-600' : 'bg-white/20 text-white'}`}>
+              <div className={`p-2 rounded-lg shrink-0 ${msg.sender_type === 'client' ? 'bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400' : 'bg-white/20 text-white'}`}>
                 <FileText size={18} />
               </div>
-              <span className="text-sm font-medium truncate">{msg.message_text || 'Documento PDF'}</span>
+              <span className={`text-sm font-medium truncate ${msg.sender_type === 'client' ? 'text-gray-800 dark:text-gray-100' : ''}`}>{msg.message_text || 'Documento PDF'}</span>
             </div>
-            <div className={`flex border-t ${msg.sender_type === 'client' ? 'border-gray-200' : 'border-teal-400/50'}`}>
+            <div className={`flex border-t ${msg.sender_type === 'client' ? 'border-gray-200 dark:border-gray-600' : 'border-teal-400/50'}`}>
               <a
                 href={msg.media_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${msg.sender_type === 'client' ? 'text-teal-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${msg.sender_type === 'client' ? 'text-teal-700 dark:text-teal-400 hover:bg-gray-100 dark:hover:bg-gray-600' : 'text-white hover:bg-white/10'}`}
               >
                 <Eye size={14} /> Visualizar
               </a>
-              <div className={`w-px ${msg.sender_type === 'client' ? 'bg-gray-200' : 'bg-teal-400/50'}`} />
+              <div className={`w-px ${msg.sender_type === 'client' ? 'bg-gray-200 dark:bg-gray-600' : 'bg-teal-400/50'}`} />
               <button
                 onClick={() => { onDownload && onDownload(msg); }}
                 disabled={downloadingId === msg.id}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors disabled:opacity-50 ${msg.sender_type === 'client' ? 'text-teal-700 hover:bg-gray-100' : 'text-white hover:bg-white/10'}`}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors disabled:opacity-50 ${msg.sender_type === 'client' ? 'text-teal-700 dark:text-teal-400 hover:bg-gray-100 dark:hover:bg-gray-600' : 'text-white hover:bg-white/10'}`}
               >
                 {downloadingId === msg.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Descargar
               </button>
@@ -196,7 +196,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
           </div>
         )}
         {msg.media_type === 'blocked_pdf' && (
-          <div className="mb-2 flex items-start gap-2 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700">
+          <div className="mb-2 flex items-start gap-2 p-3 rounded-lg bg-rose-50 dark:bg-rose-950 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-400">
             <ShieldAlert size={18} className="shrink-0 mt-0.5" />
             <div className="text-xs">
               <span className="font-semibold block mb-0.5">PDF bloqueado por seguridad</span>
