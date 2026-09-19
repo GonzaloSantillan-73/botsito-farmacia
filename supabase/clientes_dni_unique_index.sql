@@ -1,0 +1,12 @@
+-- El DNI pasa a ser el identificador "de verdad" de una persona (no el
+-- client_phone, que puede cambiar si recicla su línea) — ver
+-- migrar_cliente_por_dni.sql. Índice único parcial (ignora los NULL: un
+-- cliente todavía sin DNI cargado no debe chocar con otro en la misma
+-- situación) para que la base garantice que nunca haya dos fichas de
+-- clientes con el mismo DNI, más allá de lo que valide el código.
+--
+-- OJO: si ya existen DNIs duplicados cargados de antes, este CREATE va a
+-- fallar (unique_violation) en vez de aplicarse a medias — hay que
+-- resolverlos a mano primero (ej. `SELECT dni, count(*) FROM clientes WHERE
+-- dni IS NOT NULL GROUP BY dni HAVING count(*) > 1;`).
+CREATE UNIQUE INDEX IF NOT EXISTS clientes_dni_unique_idx ON public.clientes (dni) WHERE dni IS NOT NULL;

@@ -3,7 +3,7 @@ import { sendWhatsAppMessage } from './whatsapp.js';
 import { getBotKeyword, getWelcomeMessage, getFrequentClientMessage, getFrequentClientThreshold } from './appConfig.js';
 import { getBotSchedule, isWithinSchedule, renderScheduleMessage } from './scheduleConfig.js';
 import { getSucursalesActivas, formatearMensajeSucursales } from './sucursales.js';
-import { getCliente, tieneRegistroCompleto, guardarDatoCliente, incrementarInteraccionesBot, dniPerteneceAOtroCliente } from './clientes.js';
+import { getCliente, tieneRegistroCompleto, guardarDatoCliente, incrementarInteraccionesBot, dniPerteneceAOtroCliente, migrarOCrearClientePorDni } from './clientes.js';
 import { sucursalesMasCercanas } from './geolocalizacion.js';
 import { extraerCoordenadasDeMensaje } from './mapsLocation.js';
 
@@ -483,22 +483,48 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado) => {
       console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (DNI inválido)');
       return;
     }
+    // El nombre ya quedó guardado en el paso anterior (registro_nombre) sobre
+    // la ficha de ESTE teléfono; hace falta releerlo acá por si el DNI
+    // termina perteneciendo a una ficha vieja en OTRO teléfono (ver
+    // migrarOCrearClientePorDni): sin esto, el nombre recién cargado se
+    // perdería al migrar en vez de conservarse con COALESCE.
+    let clienteActual;
     try {
-      await guardarDatoCliente(telefono, 'dni', dni);
+      clienteActual = await getCliente(telefono);
     } catch (err) {
-      console.error('[BOT] Error guardando el DNI del cliente:', err);
-      console.error('❌ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — error guardando dni:', err?.message, err?.stack);
+      console.error('[BOT] Error releyendo el cliente antes de guardar el DNI:', err);
+      console.error('❌ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — error en getCliente previo a migrar/guardar dni:', err?.message, err?.stack);
       await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_REGISTRO);
-      console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (error guardando DNI)');
+      console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (error releyendo cliente)');
       return;
     }
+
+    let resultado;
+    try {
+      resultado = await migrarOCrearClientePorDni(dni, telefono, clienteActual?.nombre_completo || null);
+    } catch (err) {
+      console.error('[BOT] Error guardando/migrando el DNI del cliente:', err);
+      console.error('❌ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — error en migrarOCrearClientePorDni:', err?.message, err?.stack);
+      await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_REGISTRO);
+      console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (error guardando/migrando DNI)');
+      return;
+    }
+
     await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
+
+    // "migrado" = este DNI ya tenía ficha bajo otro teléfono (el cliente
+    // cambió de número): se le avisa distinto, porque además de registrarlo
+    // le estamos recuperando su historial anterior.
+    const mensajeConfirmacion = resultado.accion === 'migrado'
+      ? '✅ ¡Listo, actualizamos tu número! Encontramos tu registro anterior por tu DNI y lo vinculamos a este teléfono, junto con tu historial.'
+      : '✅ ¡Gracias! Ya registramos tus datos.';
+
     await enviarMensajeBot(
       conversationId,
       telefono,
-      `✅ ¡Gracias! Ya registramos tus datos.\n\n${await construirMensajeBienvenida()}`
+      `${mensajeConfirmacion}\n\n${await construirMensajeBienvenida()}`
     );
-    console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (registro completado)');
+    console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (registro completado, accion:', resultado.accion, ')');
   }
 };
 
