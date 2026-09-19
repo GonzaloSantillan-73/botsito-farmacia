@@ -53,10 +53,34 @@ const ESTADOS_TERMINALES = ['finalizada', 'resolved', 'rejected'];
 export const finalizarConversacion = async (conversationId, clientPhone, motivo = 'por inactividad') => {
   console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — conversationId:', conversationId, 'clientPhone:', clientPhone, 'motivo:', motivo);
   try {
-    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — UPDATE condicional conversations, filtros: { id:', conversationId, ', status NOT IN:', ESTADOS_TERMINALES, '}, valores:', { status: 'finalizada', bot_state: 'awaiting_rating' });
+    // Si el pago ya quedó confirmado (payment_status, cargado a mano en el
+    // panel "Estado del Pedido") y nadie marcó todavía el resultado de la
+    // venta a mano (sale_status, panel de cierre), se toma automáticamente
+    // como concretada al cerrar. Si el vendedor ya la había marcado
+    // explícitamente (concretada, no_concretada u otra), esa decisión manual
+    // no se pisa.
+    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — SELECT conversations, filtros: { id:', conversationId, '}, columnas: payment_status, sale_status');
+    const { data: conv, error: convError } = await supabase
+      .from('conversations')
+      .select('payment_status, sale_status')
+      .eq('id', conversationId)
+      .maybeSingle();
+    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — resultado SELECT conversations — data:', conv, 'error:', convError);
+    if (convError) {
+      console.error('❌ [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — error consultando payment_status/sale_status:', convError);
+      throw convError;
+    }
+
+    const updates = { status: 'finalizada', bot_state: 'awaiting_rating' };
+    if (conv?.payment_status === 'confirmado' && !conv?.sale_status) {
+      updates.sale_status = 'concretada';
+      console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — pago confirmado sin sale_status manual: se toma como venta concretada.');
+    }
+
+    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — UPDATE condicional conversations, filtros: { id:', conversationId, ', status NOT IN:', ESTADOS_TERMINALES, '}, valores:', updates);
     const { data: filaActualizada, error: updateError } = await supabase
       .from('conversations')
-      .update({ status: 'finalizada', bot_state: 'awaiting_rating' })
+      .update(updates)
       .eq('id', conversationId)
       .not('status', 'in', `(${ESTADOS_TERMINALES.join(',')})`)
       .select('id')
