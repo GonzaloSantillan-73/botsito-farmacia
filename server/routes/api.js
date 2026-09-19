@@ -11,6 +11,7 @@ import { TERMINAL_STATUSES } from '../services/sessionManager.js';
 import { getBotSchedule, setBotSchedule } from '../services/scheduleConfig.js';
 import { rowsToCsv, sendCsv } from '../services/csvExport.js';
 import { obtenerDetalleConsultas } from '../services/metricsDetalle.js';
+import { resolverNombresPorTelefono } from '../services/clientes.js';
 import { requireAuth, requireAdminRole, blockAdminRole } from './adminAuth.js';
 
 const router = express.Router();
@@ -69,11 +70,10 @@ router.get('/export/chats', async (req, res) => {
     if (error) throw error;
 
     const phones = [...new Set((data || []).map(r => r.conversations?.client_phone).filter(Boolean))];
-    console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(clientes) select en /export/chats:', { operacion: 'select', phones });
-    const { data: clientes, error: clientesError } = await supabase.from('clientes').select('client_phone, nombre_completo').in('client_phone', phones);
-    console.log('📡 [DEBUG-ROUTES-API] Resultado supabase.from(clientes) select en /export/chats:', { clientes, error: clientesError });
-    const phoneMap = {};
-    clientes?.forEach(c => { if (c.nombre_completo) phoneMap[c.client_phone] = c.nombre_completo; });
+    // Resuelve también los teléfonos viejos de alguien que ya migró de número
+    // (ver resolverNombresPorTelefono en clientes.js), para no exportar sin
+    // nombre un chat viejo de un cliente que hoy está identificado.
+    const phoneMap = await resolverNombresPorTelefono(phones);
 
     const columns = [
       { label: 'Fecha y hora', value: r => new Date(r.created_at).toLocaleString('es-AR') },

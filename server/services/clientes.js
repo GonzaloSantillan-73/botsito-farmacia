@@ -1,5 +1,69 @@
 import { supabase } from '../supabase.js';
 
+// Arma un phone -> nombre_completo para una tanda de teléfonos, resolviendo
+// TAMBIÉN los que son un teléfono VIEJO de alguien que migró (ver
+// migrar_cliente_por_dni.sql / clientesAdmin.js y clientes_telefonos_historicos):
+// una conversación histórica se queda con el client_phone real de esa sesión
+// a propósito (nunca se reescribe, ver clientDirectory.js), así que un simple
+// `clientes.select(...).in('client_phone', phones)` no encuentra la ficha de
+// nadie que ya cambió de número desde entonces — el teléfono vigente de esa
+// ficha ya no es ninguno de los `phones` pedidos. Sin esto, el Historial de
+// Consultas, las Métricas y las exportaciones muestran esas filas viejas sin
+// nombre aunque el cliente esté perfectamente identificado hoy.
+//
+// Se usa para HISTORIALES (conversaciones/mensajes/pedidos ya ocurridos). Los
+// listados de bandejas activas (App.jsx: withClientNames) no lo necesitan:
+// una conversación activa siempre está sobre el teléfono con el que el
+// cliente está escribiendo ahora mismo, que por definición ya es el vigente.
+export const resolverNombresPorTelefono = async (phones) => {
+  console.log('🔍 [DEBUG-SERVICE-CLIENTES] resolverNombresPorTelefono() — parámetros recibidos:', { cantidadTelefonos: phones?.length });
+  if (!phones || phones.length === 0) return {};
+
+  const { data: fichasDirectas, error: fichasError } = await supabase
+    .from('clientes')
+    .select('id, client_phone, nombre_completo')
+    .in('client_phone', phones);
+  if (fichasError) {
+    console.error('❌ [DEBUG-SERVICE-CLIENTES] resolverNombresPorTelefono() — error consultando clientes:', fichasError);
+    throw fichasError;
+  }
+
+  const idsYaEncontrados = new Set((fichasDirectas || []).map(f => f.id));
+
+  const { data: historicos, error: histError } = await supabase
+    .from('clientes_telefonos_historicos')
+    .select('cliente_id, client_phone')
+    .in('client_phone', phones);
+  if (histError) {
+    console.error('❌ [DEBUG-SERVICE-CLIENTES] resolverNombresPorTelefono() — error consultando clientes_telefonos_historicos:', histError);
+    throw histError;
+  }
+
+  const idsFaltantes = [...new Set((historicos || []).map(h => h.cliente_id).filter(id => !idsYaEncontrados.has(id)))];
+  const { data: fichasPorHistorico, error: fichasHistError } = idsFaltantes.length
+    ? await supabase.from('clientes').select('id, nombre_completo').in('id', idsFaltantes)
+    : { data: [] };
+  if (fichasHistError) {
+    console.error('❌ [DEBUG-SERVICE-CLIENTES] resolverNombresPorTelefono() — error consultando fichas por histórico:', fichasHistError);
+    throw fichasHistError;
+  }
+
+  const nombrePorFichaId = {};
+  [...(fichasDirectas || []), ...(fichasPorHistorico || [])].forEach(f => {
+    if (f.nombre_completo) nombrePorFichaId[f.id] = f.nombre_completo;
+  });
+
+  const phoneMap = {};
+  (fichasDirectas || []).forEach(f => { if (f.nombre_completo) phoneMap[f.client_phone] = f.nombre_completo; });
+  (historicos || []).forEach(h => {
+    const nombre = nombrePorFichaId[h.cliente_id];
+    if (nombre) phoneMap[h.client_phone] = nombre;
+  });
+
+  console.log('✅ [DEBUG-SERVICE-CLIENTES] resolverNombresPorTelefono() — valor de retorno, entradas:', Object.keys(phoneMap).length);
+  return phoneMap;
+};
+
 export const getCliente = async (clientPhone) => {
   console.log('🔍 [DEBUG-SERVICE-CLIENTES] getCliente() — parámetros recibidos:', { clientPhone });
 

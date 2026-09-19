@@ -1,4 +1,5 @@
 import { supabase } from '../supabase.js';
+import { resolverNombresPorTelefono } from './clientes.js';
 
 const CONVERSATION_SELECT = '*, sucursal_actual:sucursales!sucursal_id(nombre), sucursal_primera:sucursales!primera_sucursal_id(nombre)';
 
@@ -27,18 +28,12 @@ export const obtenerConversacionesDirectorio = async ({ sucursalId } = {}) => {
   const phones = [...new Set((conversations || []).map(c => c.client_phone).filter(Boolean))];
   console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerConversacionesDirectorio() — teléfonos únicos encontrados:', phones);
 
-  console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] Query Supabase → tabla: clientes, operación: select, filtro: client_phone in', phones);
-  const { data: clientes, error: clientesError } = phones.length
-    ? await supabase.from('clientes').select('client_phone, nombre_completo').in('client_phone', phones)
-    : { data: [] };
-  console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] Resultado query clientes (select nombres) — data:', clientes, 'error:', clientesError);
-  if (clientesError) {
-    console.error('❌ [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerConversacionesDirectorio() — error consultando clientes:', clientesError);
-    throw clientesError;
-  }
-
-  const phoneMap = {};
-  (clientes || []).forEach(c => { if (c.nombre_completo) phoneMap[c.client_phone] = c.nombre_completo; });
+  // Resuelve también los teléfonos VIEJOS de alguien que ya migró de número
+  // (ver resolverNombresPorTelefono en clientes.js): conv.client_phone es el
+  // snapshot real de esa sesión y no se toca, pero el nombre mostrado tiene
+  // que ser el de la ficha vigente de esa persona, la tenga hoy en éste
+  // teléfono o en otro.
+  const phoneMap = await resolverNombresPorTelefono(phones);
   console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerConversacionesDirectorio() — phoneMap construido:', phoneMap);
 
   const resultado = (conversations || []).map(c => ({ ...c, real_name: phoneMap[c.client_phone] || null }));

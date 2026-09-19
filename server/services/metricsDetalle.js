@@ -1,5 +1,6 @@
 import { supabase } from '../supabase.js';
 import { TERMINAL_STATUSES } from './sessionManager.js';
+import { resolverNombresPorTelefono } from './clientes.js';
 
 // Media que razonablemente puede ser un comprobante de pago (foto o PDF del
 // depósito/transferencia) que el cliente manda por el chat.
@@ -53,11 +54,9 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
     const phones = [...new Set(conversations.map(c => c.client_phone).filter(Boolean))];
     console.log('🔍 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — ids de conversaciones:', ids.length, '— phones únicos:', phones.length);
 
-    console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — disparando queries paralelas: clientes (in client_phone), messages (in conversation_id), pedidos_confirmados (in conversation_id)');
-    const [{ data: clientes, error: clientesError }, { data: mensajes, error: msgError }, { data: pedidos, error: pedidosError }] = await Promise.all([
-      phones.length
-        ? supabase.from('clientes').select('client_phone, nombre_completo').in('client_phone', phones)
-        : Promise.resolve({ data: [] }),
+    console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — disparando en paralelo: resolverNombresPorTelefono, messages (in conversation_id), pedidos_confirmados (in conversation_id)');
+    const [phoneMap, { data: mensajes, error: msgError }, { data: pedidos, error: pedidosError }] = await Promise.all([
+      resolverNombresPorTelefono(phones),
       ids.length
         ? supabase.from('messages').select('conversation_id, sender_type, media_type, media_url, tagged_as, created_at').in('conversation_id', ids).order('created_at', { ascending: true })
         : Promise.resolve({ data: [] }),
@@ -65,14 +64,10 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
         ? supabase.from('pedidos_confirmados').select('conversation_id, total').in('conversation_id', ids)
         : Promise.resolve({ data: [] })
     ]);
-    console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — resultado SELECT clientes — cantidad de filas:', clientes?.length, 'error:', clientesError);
+    console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — resultado resolverNombresPorTelefono — entradas:', Object.keys(phoneMap).length);
     console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — resultado SELECT messages — cantidad de filas:', mensajes?.length, 'error:', msgError);
     console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — resultado SELECT pedidos_confirmados — cantidad de filas:', pedidos?.length, 'error:', pedidosError);
 
-    if (clientesError) {
-      console.error('❌ [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — error SELECT clientes:', clientesError);
-      throw clientesError;
-    }
     if (msgError) {
       console.error('❌ [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — error SELECT messages:', msgError);
       throw msgError;
@@ -81,10 +76,6 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
       console.error('❌ [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — error SELECT pedidos_confirmados:', pedidosError);
       throw pedidosError;
     }
-
-    const phoneMap = {};
-    (clientes || []).forEach(c => { if (c.nombre_completo) phoneMap[c.client_phone] = c.nombre_completo; });
-    console.log('🔍 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — phoneMap construido, entradas:', Object.keys(phoneMap).length);
 
     // Una conversación puede tener varios pedidos confirmados (el Cotizador se
     // vacía después de cada pago para que el próximo pedido del mismo cliente
