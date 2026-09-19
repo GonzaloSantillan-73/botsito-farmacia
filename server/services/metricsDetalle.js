@@ -2,10 +2,6 @@ import { supabase } from '../supabase.js';
 import { TERMINAL_STATUSES } from './sessionManager.js';
 import { resolverNombresPorTelefono } from './clientes.js';
 
-// Media que razonablemente puede ser un comprobante de pago (foto o PDF del
-// depósito/transferencia) que el cliente manda por el chat.
-const MEDIA_COMPROBANTE = ['image', 'document', 'pdf'];
-
 const msDiff = (desde, hasta) => (desde && hasta ? new Date(hasta).getTime() - new Date(desde).getTime() : null);
 
 // Fila por fila para la tabla interactiva de "Métricas y Estadísticas" y para
@@ -96,28 +92,23 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
         primeraRespuestaAgente: null,
         ultimoMensaje: null,
         comprobanteUrl: null,
-        comprobanteTagUrl: null,
         recetaUrl: null
       });
 
       if (m.sender_type === 'client') acc.msgsCliente += 1;
       if (m.sender_type === 'agent' && !acc.primeraRespuestaAgente) acc.primeraRespuestaAgente = m.created_at;
       acc.ultimoMensaje = m.created_at;
-      // Los mensajes ya vienen ordenados ascendente, así que el último que
-      // matchea queda como "el" comprobante (el más reciente que mandó).
-      // Esta heurística es sólo un fallback para conversaciones viejas: si
-      // alguien marcó explícitamente un mensaje como comprobante/receta
-      // (tagged_as), eso tiene prioridad (ver más abajo).
-      if (m.sender_type === 'client' && m.media_url && MEDIA_COMPROBANTE.includes(m.media_type)) {
-        acc.comprobanteUrl = m.media_url;
-      }
-      if (m.tagged_as === 'comprobante' && m.media_url) acc.comprobanteTagUrl = m.media_url;
+      // Comprobante/receta salen ÚNICAMENTE de un etiquetado explícito
+      // (tagged_as, ver AttachmentTagControls en MessageBubble.jsx): un
+      // adjunto de imagen/documento del cliente sin marcar no cuenta como
+      // comprobante ni receta, por más que "parezca" uno.
+      if (m.tagged_as === 'comprobante' && m.media_url) acc.comprobanteUrl = m.media_url;
       if (m.tagged_as === 'receta' && m.media_url) acc.recetaUrl = m.media_url;
     });
     console.log('🔍 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — porConversacion agregado, conversaciones con mensajes:', Object.keys(porConversacion).length);
 
     let resultado = conversations.map(c => {
-      const agg = porConversacion[c.id] || { msgsCliente: 0, primeraRespuestaAgente: null, ultimoMensaje: null, comprobanteUrl: null, comprobanteTagUrl: null, recetaUrl: null };
+      const agg = porConversacion[c.id] || { msgsCliente: 0, primeraRespuestaAgente: null, ultimoMensaje: null, comprobanteUrl: null, recetaUrl: null };
       const inicioEspera = c.waiting_since || c.created_at;
 
       return {
@@ -134,7 +125,7 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
           ? montoPorConversacion[c.id]
           : (c.sale_amount != null ? Number(c.sale_amount) : null),
         medioPago: c.payment_method || '',
-        comprobanteUrl: agg.comprobanteTagUrl || agg.comprobanteUrl,
+        comprobanteUrl: agg.comprobanteUrl,
         recetaUrl: agg.recetaUrl,
         msjsCliente: agg.msgsCliente,
         demoraInicialMs: msDiff(inicioEspera, agg.primeraRespuestaAgente),
