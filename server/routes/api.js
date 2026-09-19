@@ -933,7 +933,14 @@ const TAGS_VALIDOS = ['comprobante', 'receta'];
 // comprobante o "la" receta oficial de su conversación. Sólo puede haber un
 // mensaje con cada tag por conversación: al marcar uno nuevo, se desmarca
 // automáticamente el anterior que tuviera el mismo tag.
-router.patch('/messages/:id/tag', requireAuth, blockAdminRole, async (req, res) => {
+//
+// A propósito, SIN blockAdminRole (a diferencia del resto de las acciones de
+// esta sección): etiquetar un adjunto no es "operar" el flujo de atención al
+// cliente (no manda mensajes ni mueve el chat de cola), es prolijidad de
+// datos para que "Detalle de Consultas" y su export a CSV (ver
+// metricsDetalle.js) puedan resolver comprobante/receta — algo que al admin
+// le sirve poder corregir aunque no atienda chats.
+router.patch('/messages/:id/tag', requireAuth, async (req, res) => {
   const { id } = req.params;
   const { tag } = req.body;
 
