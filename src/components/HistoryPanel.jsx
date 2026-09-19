@@ -125,7 +125,7 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
           </div>
 
           {/* Panel derecho: transcripción de la sesión elegida, liviana y de solo lectura */}
-          <div className="flex-1 min-w-0 flex flex-col overflow-hidden bg-[#f0f2f5]">
+          <div className="flex-1 min-w-0 flex flex-col overflow-hidden bg-[#f0f2f5] dark:bg-gray-900">
             {selectedConv && (
               <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex items-center gap-2 shrink-0">
                 {STATUS_BADGES[selectedConv.status] && (

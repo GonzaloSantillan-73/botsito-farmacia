@@ -433,7 +433,7 @@ export default function ChatArea({
   };
 
   return (
-    <div className="flex-1 min-w-0 flex flex-col bg-[#f0f2f5] relative">
+    <div className="flex-1 min-w-0 flex flex-col bg-[#f0f2f5] dark:bg-gray-900 relative">
       {activeConversation ? (
         <>
           {/* Header */}

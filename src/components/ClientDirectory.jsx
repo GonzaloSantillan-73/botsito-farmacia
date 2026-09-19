@@ -123,7 +123,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
   // --- Vista de detalle de un cliente ---
   if (selectedClient) {
     return (
-      <div className="flex-1 flex flex-col bg-[#f0f2f5] overflow-hidden">
+      <div className="flex-1 flex flex-col bg-[#f0f2f5] dark:bg-gray-900 overflow-hidden">
         <div className="px-6 py-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center gap-3 shrink-0">
           <button onClick={() => { setSelectedPhone(null); }} className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
             <ArrowLeft size={20} />
@@ -179,7 +179,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
 
   // --- Vista de lista general ---
   return (
-    <div className="flex-1 flex flex-col bg-[#f0f2f5] overflow-hidden">
+    <div className="flex-1 flex flex-col bg-[#f0f2f5] dark:bg-gray-900 overflow-hidden">
       <div className="px-6 py-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shrink-0">
         <h2 className="font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-3">
           <Users size={20} className="text-teal-600 dark:text-teal-400" /> Directorio de Clientes
