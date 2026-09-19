@@ -123,22 +123,26 @@ export const getConversationAwaitingRating = async (clientPhone) => {
 };
 
 // Primera respuesta de la encuesta: calificación de la atención recibida.
-// Se guarda en `rating` y, dependiendo del estado de venta (sale_status),
-// se encadena la pregunta sobre el producto o se finaliza el flujo.
+// Se guarda en `rating` y, dependiendo de si el pago quedó confirmado
+// (payment_status, cargado a mano por el vendedor en el panel "Estado del
+// Pedido" — ver OrderStatusPanel.jsx), se encadena la pregunta sobre el
+// producto o se finaliza el flujo. No se usa sale_status a propósito: el
+// pago puede confirmarse aunque la venta todavía no se haya marcado como
+// "concretada" al cerrar la consulta.
 export const guardarCalificacionAtencion = async (conversationId, clientPhone, rating) => {
   console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — conversationId:', conversationId, 'clientPhone:', clientPhone, 'rating:', rating);
   try {
-    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — SELECT conversations, filtros: { id:', conversationId, '}, columnas: sale_status');
+    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — SELECT conversations, filtros: { id:', conversationId, '}, columnas: payment_status');
     const { data: conv, error: convError } = await supabase
       .from('conversations')
-      .select('sale_status')
+      .select('payment_status')
       .eq('id', conversationId)
       .single();
     console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — resultado SELECT conversations — data:', conv, 'error:', convError);
 
-    if (conv && conv.sale_status === 'concretada') {
-      // Si la venta fue concretada, pedimos la calificación del producto
-      console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — venta concretada, UPDATE conversations, filtros: { id:', conversationId, '}, valores:', { rating, bot_state: 'awaiting_product_rating' });
+    if (conv && conv.payment_status === 'confirmado') {
+      // Si el pago está confirmado, pedimos la calificación del producto
+      console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — pago confirmado, UPDATE conversations, filtros: { id:', conversationId, '}, valores:', { rating, bot_state: 'awaiting_product_rating' });
       const updateResp = await supabase
         .from('conversations')
         .update({ rating, bot_state: 'awaiting_product_rating' })
@@ -147,8 +151,8 @@ export const guardarCalificacionAtencion = async (conversationId, clientPhone, r
 
       await enviarMensajeBot(conversationId, clientPhone, MENSAJE_PEDIR_RATING_PRODUCTO);
     } else {
-      // Si no hubo venta concretada, cerramos la encuesta agradeciendo por la atención
-      console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — sin venta concretada, UPDATE conversations, filtros: { id:', conversationId, '}, valores:', { rating, bot_state: null });
+      // Sin pago confirmado, cerramos la encuesta agradeciendo por la atención
+      console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — sin pago confirmado, UPDATE conversations, filtros: { id:', conversationId, '}, valores:', { rating, bot_state: null });
       const updateResp = await supabase
         .from('conversations')
         .update({ rating, bot_state: null })
