@@ -334,7 +334,14 @@ function App() {
 
   const fetchConversations = async () => {
     setLoading(true);
-    let query = supabase.from('conversations').select('*');
+    // Este estado sólo alimenta las bandejas de Sidebar (Entrantes/Atendiendo/
+    // Derivados), que ya descartan del lado del cliente cualquier conversación
+    // en ESTADOS_HISTORIAL (ver esBotAutomatico/necesitaHumano/esDerivado en
+    // Sidebar.jsx): sin este filtro, cada login traía TODO el historial de
+    // consultas cerradas de la farmacia entera (crece para siempre) sólo para
+    // tirarlo a la basura en el primer render. El Directorio de Clientes tiene
+    // su propia consulta aparte para ver ese historial.
+    let query = supabase.from('conversations').select('*').not('status', 'in', `(${ESTADOS_HISTORIAL.join(',')})`);
     // Un empleado solo trae las conversaciones de su sucursal + las que
     // todavía no tienen sucursal asignada.
     if (soyStaff) {
