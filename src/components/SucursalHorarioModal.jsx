@@ -145,7 +145,7 @@ export default function SucursalHorarioModal({ sucursal, onClose, onSaved }) {
             <Clock size={16} className="text-teal-600 dark:text-teal-400 shrink-0" />
             <span className="truncate">Horario — {sucursal.nombre}</span>
           </h3>
-          <button onClick={() => { onClose(); }} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-800 rounded-full transition-colors shrink-0">
+          <button onClick={() => { onClose(); }} disabled={saving} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 dark:hover:text-gray-300 dark:hover:bg-gray-800 rounded-full transition-colors shrink-0 disabled:opacity-50">
             <X size={18} />
           </button>
         </div>
@@ -251,7 +251,8 @@ export default function SucursalHorarioModal({ sucursal, onClose, onSaved }) {
           </button>
           <button
             onClick={() => { onClose(); }}
-            className="flex items-center justify-center gap-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
+            disabled={saving}
+            className="flex items-center justify-center gap-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
           >
             <X size={16} /> Cancelar
           </button>

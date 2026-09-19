@@ -119,6 +119,8 @@ export default function ValidationPanel({
   const [newItemQuantity, setNewItemQuantity] = useState('1');
   const [newItemDiscount, setNewItemDiscount] = useState('0');
   const [shippingCost, setShippingCost] = useState('');
+  const [enviandoCotizacion, setEnviandoCotizacion] = useState(false);
+  const [errorCotizacion, setErrorCotizacion] = useState('');
 
   const rejectionReasons = [
     'Ilegible',
@@ -227,7 +229,9 @@ export default function ValidationPanel({
   const pagoConfirmado = activeConversation?.payment_status === 'confirmado';
 
   const handleSendQuote = async () => {
-    if (quoteItems.length === 0) return;
+    if (quoteItems.length === 0 || enviandoCotizacion) return;
+    setEnviandoCotizacion(true);
+    setErrorCotizacion('');
 
     let message = `📋 *Cotización de Receta*\n`;
     message += envioGratis
@@ -264,25 +268,29 @@ export default function ValidationPanel({
     }
     message += `💲 *Total a Pagar:* $${total.toFixed(2)}\n`;
 
-    if (handleSendMessage) {
-      handleSendMessage(message);
-    }
+    try {
+      if (handleSendMessage) {
+        await handleSendMessage(message);
+      }
 
-    // Además del mensaje de texto al chat, guardamos la cotización de forma
-    // estructurada para poder listarla después en el Historial de Pedidos.
-    const { error } = await supabase.from('pedidos_cotizados').insert([{
-      conversation_id: activeConversation?.id || null,
-      client_phone: activeConversation?.client_phone,
-      items: itemsParaGuardar,
-      subtotal,
-      descuento_total: totalDiscount,
-      costo_envio: finalShippingCost,
-      envio_gratis: envioGratis,
-      total
-    }]);
-    if (error) {
-      console.error('❌ [DEBUG-COMPONENT-ValidationPanel] Error guardando la cotización en el historial de pedidos:', error);
-    } else {
+      // Además del mensaje de texto al chat, guardamos la cotización de forma
+      // estructurada para poder listarla después en el Historial de Pedidos.
+      const { error } = await supabase.from('pedidos_cotizados').insert([{
+        conversation_id: activeConversation?.id || null,
+        client_phone: activeConversation?.client_phone,
+        items: itemsParaGuardar,
+        subtotal,
+        descuento_total: totalDiscount,
+        costo_envio: finalShippingCost,
+        envio_gratis: envioGratis,
+        total
+      }]);
+      if (error) throw error;
+    } catch (err) {
+      console.error('❌ [DEBUG-COMPONENT-ValidationPanel] Error enviando/guardando la cotización:', err);
+      setErrorCotizacion(err.message || 'No se pudo guardar la cotización en el historial de pedidos.');
+    } finally {
+      setEnviandoCotizacion(false);
     }
   };
 
@@ -748,18 +756,22 @@ export default function ValidationPanel({
                       }
                     </div>
 
+                    {errorCotizacion && <p className="text-xs text-rose-600 dark:text-rose-400 mt-2">{errorCotizacion}</p>}
+
                     <div className="flex gap-2 mt-3">
                       <button
                         onClick={handleSendQuote}
-                        className="flex-1 flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white p-2 rounded-lg font-medium transition-colors shadow-sm"
+                        disabled={enviandoCotizacion}
+                        className="flex-1 flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white p-2 rounded-lg font-medium transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <Send size={16} />
-                        Enviar Cotización al Chat
+                        {enviandoCotizacion ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                        {enviandoCotizacion ? 'Enviando...' : 'Enviar Cotización al Chat'}
                       </button>
                       <button
                         onClick={handleLimpiarCotizacion}
+                        disabled={enviandoCotizacion}
                         title="Limpiar / Nuevo presupuesto"
-                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Eraser size={16} />
                       </button>
