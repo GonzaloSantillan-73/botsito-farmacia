@@ -65,6 +65,13 @@ const MENSAJE_POR_ESTADO_REGISTRO = {
 // principal, sólo cuando el registro ya está completo (si todavía falta
 // algún dato, "3" sigue yendo al registro obligatorio de siempre).
 const MENU_EDITAR_DATOS = '¿Qué dato querés modificar?\n\n1. Nombre completo\n2. DNI\n3. Volver al menú principal';
+
+// Resumen de los datos ya cargados, para que el cliente vea qué tiene
+// guardado antes de elegir qué corregir (sólo los dos campos que este menú
+// permite editar). "_No cargado_" en vez de dejar el campo vacío, para que
+// no parezca un error de formato del mensaje.
+const construirResumenDatosActuales = (cliente) =>
+  `📋 *Tus datos actuales:*\n- Nombre: ${cliente?.nombre_completo || '_No cargado_'}\n- DNI: ${cliente?.dni || '_No cargado_'}`;
 const MENSAJE_CANCELAR_HINT = '\n\n(Escribí 0 para cancelar y volver)';
 const MENSAJE_PEDIR_NUEVO_NOMBRE = `¿Cuál es tu nuevo nombre completo?${MENSAJE_CANCELAR_HINT}`;
 const MENSAJE_PEDIR_NUEVO_DNI = `¿Cuál es tu nuevo DNI?${MENSAJE_CANCELAR_HINT}`;
@@ -532,7 +539,9 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado) => {
 const iniciarEdicionDatos = async (conversationId, telefono) => {
   console.log('🔍 [DEBUG-SERVICE-BOT] iniciarEdicionDatos() — parámetros recibidos:', { conversationId, telefono });
   await actualizarEstadoConversacion(conversationId, { bot_state: 'editar_datos_menu', bot_context: null });
-  await enviarMensajeBot(conversationId, telefono, MENU_EDITAR_DATOS);
+  const cliente = await getCliente(telefono);
+  const resumen = construirResumenDatosActuales(cliente);
+  await enviarMensajeBot(conversationId, telefono, `${resumen}\n\n${MENU_EDITAR_DATOS}`);
   console.log('✅ [DEBUG-SERVICE-BOT] iniciarEdicionDatos() — valor de retorno: undefined (fin normal)');
 };
 
