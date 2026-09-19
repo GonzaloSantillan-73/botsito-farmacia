@@ -53,19 +53,10 @@ const ESTADOS_TERMINALES = ['finalizada', 'resolved', 'rejected'];
 export const finalizarConversacion = async (conversationId, clientPhone, motivo = 'por inactividad') => {
   console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — conversationId:', conversationId, 'clientPhone:', clientPhone, 'motivo:', motivo);
   try {
-    // Decisión de producto: el cierre automático por inactividad ya no le pide
-    // al cliente que califique la atención (a diferencia del cierre manual
-    // desde el CRM, que sí encuesta). Por eso acá tampoco se deja bot_state en
-    // 'awaiting_rating': si quedara así, un "1"-"5" que el cliente mande después
-    // por cualquier otro motivo se interpretaría como respuesta a una encuesta
-    // que nunca se le hizo (ver getConversationAwaitingRating()).
-    const cierrePorInactividad = motivo === 'por inactividad';
-    const nuevoBotState = cierrePorInactividad ? null : 'awaiting_rating';
-
-    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — UPDATE condicional conversations, filtros: { id:', conversationId, ', status NOT IN:', ESTADOS_TERMINALES, '}, valores:', { status: 'finalizada', bot_state: nuevoBotState });
+    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — UPDATE condicional conversations, filtros: { id:', conversationId, ', status NOT IN:', ESTADOS_TERMINALES, '}, valores:', { status: 'finalizada', bot_state: 'awaiting_rating' });
     const { data: filaActualizada, error: updateError } = await supabase
       .from('conversations')
-      .update({ status: 'finalizada', bot_state: nuevoBotState })
+      .update({ status: 'finalizada', bot_state: 'awaiting_rating' })
       .eq('id', conversationId)
       .not('status', 'in', `(${ESTADOS_TERMINALES.join(',')})`)
       .select('id')
@@ -84,9 +75,7 @@ export const finalizarConversacion = async (conversationId, clientPhone, motivo 
       return;
     }
 
-    if (cierrePorInactividad) {
-      console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — cierre por inactividad: se omite el mensaje de despedida/encuesta a', clientPhone, '(decisión de producto, no es un bug de duplicados).');
-    } else if (clientPhone) {
+    if (clientPhone) {
       // instanceId/commit: si algún día vuelve a aparecer un mensaje de
       // cierre duplicado, comparar esta línea entre los dos envíos dice de
       // una si salieron del mismo proceso (bug acá) o de dos procesos
@@ -134,53 +123,21 @@ export const getConversationAwaitingRating = async (clientPhone) => {
 };
 
 // Primera respuesta de la encuesta: calificación de la atención recibida.
-// Se guarda en `rating` SIEMPRE (la atención se puede calificar aunque no
-// haya habido compra). La segunda pregunta (producto) sólo se encadena si
-// esta consulta tuvo una venta efectivamente concretada (sale_status del
-// SaleStatusPanel — ver ValidationPanel.jsx/SaleStatusPanel.jsx): no tiene
-// sentido preguntarle a alguien qué tan satisfecho está con un producto que
-// nunca compró (cierre por inactividad, o el operador la marcó como "no
-// concretada"/"otra"). product_rating queda así atado a transacciones
-// reales, tanto en el registro como en los promedios que se calculan sobre
-// esa columna (ClientDirectory, MetricsPanel).
+// Se guarda en `rating` y SIEMPRE se encadena la segunda pregunta sobre el
+// producto (antes se omitía si la venta no estaba marcada como "concretada",
+// lo que cortaba la encuesta de golpe en cualquier cierre por inactividad
+// sin venta registrada — ver guardarCalificacionProducto para el cierre real).
 export const guardarCalificacionAtencion = async (conversationId, clientPhone, rating) => {
   console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — conversationId:', conversationId, 'clientPhone:', clientPhone, 'rating:', rating);
   try {
-    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — SELECT conversations, filtros: { id:', conversationId, '}, columnas: sale_status');
-    const { data: conv, error: convError } = await supabase
+    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — UPDATE conversations, filtros: { id:', conversationId, '}, valores:', { rating, bot_state: 'awaiting_product_rating' });
+    const updateResp = await supabase
       .from('conversations')
-      .select('sale_status')
-      .eq('id', conversationId)
-      .maybeSingle();
-    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — resultado SELECT conversations — data:', conv, 'error:', convError);
-    if (convError) {
-      console.error('❌ [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — error consultando sale_status:', convError);
-      throw convError;
-    }
+      .update({ rating, bot_state: 'awaiting_product_rating' })
+      .eq('id', conversationId);
+    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — resultado UPDATE conversations — data:', updateResp.data, 'error:', updateResp.error);
 
-    const huboVentaConcretada = conv?.sale_status === 'concretada';
-    console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — sale_status:', conv?.sale_status, ', huboVentaConcretada:', huboVentaConcretada);
-
-    if (huboVentaConcretada) {
-      console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — UPDATE conversations, filtros: { id:', conversationId, '}, valores:', { rating, bot_state: 'awaiting_product_rating' });
-      const updateResp = await supabase
-        .from('conversations')
-        .update({ rating, bot_state: 'awaiting_product_rating' })
-        .eq('id', conversationId);
-      console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — resultado UPDATE conversations — data:', updateResp.data, 'error:', updateResp.error);
-
-      await enviarMensajeBot(conversationId, clientPhone, MENSAJE_PEDIR_RATING_PRODUCTO);
-    } else {
-      // Sin venta concretada: la encuesta termina acá, no se pregunta por el producto.
-      console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — UPDATE conversations (sin venta, cierra la encuesta), filtros: { id:', conversationId, '}, valores:', { rating, bot_state: null });
-      const updateResp = await supabase
-        .from('conversations')
-        .update({ rating, bot_state: null })
-        .eq('id', conversationId);
-      console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — resultado UPDATE conversations — data:', updateResp.data, 'error:', updateResp.error);
-
-      await enviarMensajeBot(conversationId, clientPhone, MENSAJE_DESPEDIDA_ENCUESTA);
-    }
+    await enviarMensajeBot(conversationId, clientPhone, MENSAJE_PEDIR_RATING_PRODUCTO);
 
     console.log('✅ [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — finalizado sin valor de retorno explícito');
     return;
