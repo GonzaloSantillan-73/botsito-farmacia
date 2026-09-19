@@ -18,31 +18,42 @@ router.get('/conversations', async (req, res) => {
   console.log('🔍 [DEBUG-ROUTES-CLIENTDIRECTORY] req.admin:', req.admin);
 
   const sucursalId = req.admin.role === 'admin' ? null : req.admin.sucursalId;
-  console.log('🔍 [DEBUG-ROUTES-CLIENTDIRECTORY] sucursalId calculado:', sucursalId);
-  try {
-    console.log('📡 [DEBUG-ROUTES-CLIENTDIRECTORY] llamando servicios obtenerConversacionesDirectorio + obtenerListaClientesDirectorio — filtros:', { sucursalId });
-    // Dos consultas separadas a propósito: "Historial de Consultas" necesita
-    // el client_phone tal cual quedó en cada conversación (snapshot de esa
-    // sesión); "Lista de Clientes" necesita el client_phone vigente en la
-    // ficha de `clientes` (identidad actual) — no deben mezclarse ni
-    // pisarse entre sí (ver comentarios en clientDirectory.js).
-    const [conversations, clients] = await Promise.all([
-      obtenerConversacionesDirectorio({ sucursalId }),
-      obtenerListaClientesDirectorio({ sucursalId })
-    ]);
-    console.log('📡 [DEBUG-ROUTES-CLIENTDIRECTORY] resultado obtenerConversacionesDirectorio — conversations:', conversations);
-    console.log('📡 [DEBUG-ROUTES-CLIENTDIRECTORY] resultado obtenerListaClientesDirectorio — clients:', clients);
-    console.log('✅ [DEBUG-ROUTES-CLIENTDIRECTORY] éxito — conversations count:', Array.isArray(conversations) ? conversations.length : 'N/A', ', clients count:', Array.isArray(clients) ? clients.length : 'N/A');
-    console.log('🔚 [DEBUG-ROUTES-CLIENTDIRECTORY] respondiendo status: 200 body:', { conversations, clients });
-    res.status(200).json({ conversations, clients });
-  } catch (error) {
-    console.error('❌ [DEBUG-ROUTES-CLIENTDIRECTORY] error completo:', error);
-    console.error('❌ [DEBUG-ROUTES-CLIENTDIRECTORY] error.message:', error?.message);
-    console.error('❌ [DEBUG-ROUTES-CLIENTDIRECTORY] error.stack:', error?.stack);
-    console.error('[CLIENT DIRECTORY] ❌ Error obteniendo conversaciones:', error.message);
-    console.log('🔚 [DEBUG-ROUTES-CLIENTDIRECTORY] respondiendo status: 500 body:', { error: 'No se pudo cargar el directorio de clientes.' });
-    res.status(500).json({ error: 'No se pudo cargar el directorio de clientes.' });
+  console.log('🔍 [DEBUG-ROUTES-CLIENTDIRECTORY] sucursalId calculado:', sucursalId, '— role:', req.admin.role);
+
+  // Dos consultas independientes a propósito ("Historial de Consultas"
+  // necesita el client_phone tal cual quedó en cada conversación; "Lista de
+  // Clientes" necesita el vigente en `clientes`, ver clientDirectory.js) —
+  // Promise.allSettled en vez de Promise.all: si UNA falla (ej. falta correr
+  // alguna migración de supabase/*.sql y una tabla/columna todavía no
+  // existe), la otra igual llega al frontend en vez de que todo el endpoint
+  // devuelva 500 y las dos pestañas se vean vacías sin ninguna pista de por
+  // qué (justo el síntoma reportado: "vistas vacías a pesar de haber datos").
+  const [conversationsResult, clientsResult] = await Promise.allSettled([
+    obtenerConversacionesDirectorio({ sucursalId }),
+    obtenerListaClientesDirectorio({ sucursalId })
+  ]);
+
+  if (conversationsResult.status === 'rejected') {
+    console.error('❌ [DEBUG-ROUTES-CLIENTDIRECTORY] obtenerConversacionesDirectorio() falló:', conversationsResult.reason);
   }
+  if (clientsResult.status === 'rejected') {
+    console.error('❌ [DEBUG-ROUTES-CLIENTDIRECTORY] obtenerListaClientesDirectorio() falló:', clientsResult.reason);
+  }
+
+  const conversations = conversationsResult.status === 'fulfilled' ? conversationsResult.value : [];
+  const clients = clientsResult.status === 'fulfilled' ? clientsResult.value : [];
+  // Mensaje tal cual lo devuelve Postgres/PostgREST (ej. "relation
+  // \"clientes_telefonos_historicos\" does not exist"): a propósito, para que
+  // una migración pendiente se note de una en el frontend en vez de
+  // disfrazarse de "no hay datos".
+  const errors = {
+    conversations: conversationsResult.status === 'rejected' ? (conversationsResult.reason?.message || 'Error desconocido.') : null,
+    clients: clientsResult.status === 'rejected' ? (clientsResult.reason?.message || 'Error desconocido.') : null
+  };
+
+  console.log('✅ [DEBUG-ROUTES-CLIENTDIRECTORY] conversations count:', conversations.length, ', clients count:', clients.length, ', errors:', errors);
+  console.log('🔚 [DEBUG-ROUTES-CLIENTDIRECTORY] respondiendo status: 200 body:', { conversations, clients, errors });
+  res.status(200).json({ conversations, clients, errors });
 });
 
 router.post('/messages-search', async (req, res) => {

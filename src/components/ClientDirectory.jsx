@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, ArrowLeft, ArrowUpDown, History, List } from 'lucide-react';
+import { Users, Search, ArrowLeft, ArrowUpDown, History, List, AlertTriangle } from 'lucide-react';
 import { formatPhone } from '../lib/formatPhone';
 import { adminFetch } from '../lib/adminAuth';
 import { ESTADOS_HISTORIAL } from './Sidebar';
@@ -41,6 +41,12 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
   // fila es el vigente en la ficha, no un agrupado de conversaciones armado
   // acá. No hay que recalcularlo en el frontend.
   const [clients, setClients] = useState([]);
+  // Errores por sección (no un solo error general): el backend puede traer
+  // bien una pestaña y fallar la otra (ver Promise.allSettled en
+  // server/routes/clientDirectory.js) — por ejemplo, si falta correr alguna
+  // migración de supabase/*.sql. Mostrar el mensaje real acá evita que una
+  // falla se disfrace de "no hay datos" sin ninguna pista de qué pasó.
+  const [errors, setErrors] = useState({ conversations: null, clients: null });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedPhone, setSelectedPhone] = useState(initialSelectedPhone);
@@ -56,17 +62,17 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
     // sucursales aunque se manipule el request.
     adminFetch('/api/admin/client-directory/conversations')
       .then(res => res.json())
-      .then(({ conversations: data, clients: clientsData, error }) => {
-        if (!error) {
-          setConversations(data || []);
-          setClients(clientsData || []);
-        } else {
-          console.error('❌ [DEBUG-COMPONENT-ClientDirectory] error recibido del backend:', error);
-        }
+      .then(({ conversations: data, clients: clientsData, errors: sectionErrors }) => {
+        setConversations(data || []);
+        setClients(clientsData || []);
+        if (sectionErrors?.conversations) console.error('❌ [DEBUG-COMPONENT-ClientDirectory] error cargando conversations:', sectionErrors.conversations);
+        if (sectionErrors?.clients) console.error('❌ [DEBUG-COMPONENT-ClientDirectory] error cargando clients:', sectionErrors.clients);
+        setErrors({ conversations: sectionErrors?.conversations || null, clients: sectionErrors?.clients || null });
         setLoading(false);
       })
       .catch((err) => {
         console.error('❌ [DEBUG-COMPONENT-ClientDirectory] excepción en fetch conversations:', err);
+        setErrors({ conversations: 'No se pudo conectar con el servidor.', clients: 'No se pudo conectar con el servidor.' });
         setLoading(false);
       });
   }, []);
@@ -211,6 +217,15 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin p-6">
+        {(vista === 'historial' ? errors.conversations : errors.clients) && (
+          <div className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-rose-50 dark:bg-rose-950 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-400 text-sm">
+            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">No se pudo cargar esta sección.</p>
+              <p className="text-xs opacity-90">{vista === 'historial' ? errors.conversations : errors.clients}</p>
+            </div>
+          </div>
+        )}
         {vista === 'historial' ? (
           <ClientHistoryList
             conversations={historialConsultas}
