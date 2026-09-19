@@ -41,13 +41,19 @@ CREATE POLICY "Allow all on messages" ON public.messages FOR ALL USING (true) WI
 CREATE POLICY "Allow all on prescriptions" ON public.prescriptions FOR ALL USING (true) WITH CHECK (true);
 
 -- 4. Enable Realtime
--- Drop existing publication if modifying, or just add to the default 'supabase_realtime' publication
-BEGIN;
-  -- Remove tables from the publication first to avoid errors if they already exist
-  ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS public.conversations, public.messages, public.prescriptions;
-  -- Add them back
+-- ALTER PUBLICATION ... DROP TABLE no acepta IF EXISTS (nunca fue sintaxis
+-- válida de Postgres), así que el intento de "sacarlas primero para evitar
+-- error si ya estaban" fallaba directamente con syntax error. En cambio,
+-- agregamos directo y atrapamos el error puntual de "ya es miembro de la
+-- publicación" para que sea seguro correr esto tanto en una base nueva como
+-- en una que ya las tenía agregadas.
+DO $$
+BEGIN
   ALTER PUBLICATION supabase_realtime ADD TABLE public.conversations, public.messages, public.prescriptions;
-COMMIT;
+EXCEPTION
+  WHEN duplicate_object THEN
+    NULL;
+END $$;
 
 -- 5. Insert Seed Data
 -- 5.1 Patient 1: María (Pending Validation)
