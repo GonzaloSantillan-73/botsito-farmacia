@@ -86,7 +86,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
         {location && (
           <div
             onClick={() => { window.open(`https://www.google.com/maps?q=${location.lat},${location.lng}`, '_blank', 'noopener,noreferrer'); }}
-            className="mb-2 rounded-lg overflow-hidden border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity w-64 max-w-full"
+            className="mb-2 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90 transition-opacity w-64 max-w-full"
             title="Abrir ubicación en Google Maps"
           >
             {/* El iframe de OpenStreetMap trae su propia franja de atribución
@@ -94,7 +94,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
                 no podemos aplicarle CSS para ocultarla, así que lo agrandamos y
                 lo corremos hacia arriba dentro de un contenedor más bajo con
                 overflow:hidden, recortando esa franja fuera del área visible. */}
-            <div className="h-32 w-full overflow-hidden relative bg-gray-100">
+            <div className="h-32 w-full overflow-hidden relative bg-gray-100 dark:bg-gray-700">
               <iframe
                 src={`https://www.openstreetmap.org/export/embed.html?bbox=${location.lng - 0.01}%2C${location.lat - 0.01}%2C${location.lng + 0.01}%2C${location.lat + 0.01}&marker=${location.lat}%2C${location.lng}`}
                 className="absolute top-0 left-0 w-full border-0 pointer-events-none"
@@ -103,7 +103,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
                 title="Vista previa de ubicación"
               />
             </div>
-            <div className={`flex items-center gap-2 p-2 text-xs font-medium ${msg.sender_type === 'client' ? 'bg-gray-100 text-teal-700' : 'bg-teal-600 text-white'}`}>
+            <div className={`flex items-center gap-2 p-2 text-xs font-medium ${msg.sender_type === 'client' ? 'bg-gray-100 dark:bg-gray-800 text-teal-700 dark:text-teal-400' : 'bg-teal-600 text-white'}`}>
               <MapPin size={14} className="shrink-0" />
               <span className="truncate">{location.name || location.address || 'Ver ubicación en Google Maps'}</span>
             </div>
@@ -111,7 +111,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
         )}
         {msg.media_url && msg.media_type === 'image' && (
           <div
-            className="mb-2 w-40 h-40 rounded overflow-hidden relative cursor-pointer group bg-gray-100"
+            className="mb-2 w-40 h-40 rounded overflow-hidden relative cursor-pointer group bg-gray-100 dark:bg-gray-700"
             onClick={() => { onImageClick && onImageClick(msg); }}
           >
             <img src={msg.media_url} alt="Media" className="w-full h-full object-cover" />
@@ -155,7 +155,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
            </button>
         )}
         {msg.media_url && msg.media_type === 'pdf' && (
-          <div className={`mb-2 rounded-lg border overflow-hidden ${msg.sender_type === 'client' ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60' : 'border-teal-400 bg-teal-600/20'}`}>
+          <div className={`mb-2 rounded-lg border overflow-hidden ${msg.sender_type === 'client' ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950' : 'border-teal-400 bg-teal-600/20'}`}>
             <div className="flex items-center gap-2 p-2.5">
               <div className={`p-2 rounded-lg shrink-0 ${msg.sender_type === 'client' ? 'bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400' : 'bg-white/20 text-white'}`}>
                 <FileText size={18} />

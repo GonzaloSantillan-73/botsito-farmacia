@@ -337,7 +337,7 @@ export default function MetricsPanel() {
         icon={Store}
       >
         <div className="space-y-2">
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-teal-50 dark:bg-teal-950 border border-teal-100">
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-teal-50 dark:bg-teal-950 border border-teal-100 dark:border-teal-900">
             <div className="p-2 rounded-lg bg-white dark:bg-gray-900 text-teal-600 dark:text-teal-400 shrink-0"><Store size={16} /></div>
             <span className="flex-1 text-sm font-semibold text-teal-800 dark:text-teal-400">Promedio general (todas las sucursales)</span>
             <StarRating

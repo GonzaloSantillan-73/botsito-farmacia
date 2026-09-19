@@ -465,10 +465,10 @@ export default function ChatArea({
                 title="Tiempo restante antes de que la consulta se cierre por inactividad"
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold tabular-nums transition-colors shrink-0 ${
                   remainingMs <= 0
-                    ? 'bg-gray-100 text-gray-500'
+                    ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
                     : remainingMs <= 30000
-                      ? 'bg-rose-50 text-rose-600'
-                      : 'bg-amber-50 text-amber-700'
+                      ? 'bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400'
+                      : 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400'
                 }`}
               >
                 <Timer size={14} />
@@ -578,15 +578,15 @@ export default function ChatArea({
                 <React.Fragment key={msg.id}>
                   {cambioDeDia && (
                     <div className="flex justify-center my-2">
-                      <span className="bg-white/90 text-gray-500 text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
+                      <span className="bg-white/90 dark:bg-gray-800/90 text-gray-500 dark:text-gray-300 text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
                         {formatDateDivider(msg.created_at)}
                       </span>
                     </div>
                   )}
                   {cambioDeSesion && (
                     <div className="flex items-center gap-2 my-3">
-                      <div className="flex-1 h-px bg-gray-300/60" />
-                      <span className="text-[11px] text-gray-500 font-medium px-1 flex items-center gap-1.5 whitespace-nowrap">
+                      <div className="flex-1 h-px bg-gray-300/60 dark:bg-gray-600/60" />
+                      <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium px-1 flex items-center gap-1.5 whitespace-nowrap">
                         Nueva consulta
                         {conv && STATUS_BADGES[conv.status] && (
                           <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_BADGES[conv.status].className}`}>
@@ -594,7 +594,7 @@ export default function ChatArea({
                           </span>
                         )}
                       </span>
-                      <div className="flex-1 h-px bg-gray-300/60" />
+                      <div className="flex-1 h-px bg-gray-300/60 dark:bg-gray-600/60" />
                     </div>
                   )}
                   <MessageBubble
@@ -622,8 +622,8 @@ export default function ChatArea({
               Modo supervisión: estás viendo este chat como espectador. El administrador no puede enviar mensajes ni intervenir en la atención.
             </div>
           ) : requiereTomarParaResponder ? (
-            <div className="p-4 bg-amber-50 border-t border-amber-200 flex items-center justify-between gap-3">
-              <span className="text-sm text-amber-800">
+            <div className="p-4 bg-amber-50 dark:bg-amber-950 border-t border-amber-200 dark:border-amber-900 flex items-center justify-between gap-3">
+              <span className="text-sm text-amber-800 dark:text-amber-400">
                 Esta consulta todavía no fue tomada por ninguna sucursal. Tomala para poder responderle al cliente.
               </span>
               <button
