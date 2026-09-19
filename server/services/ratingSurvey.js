@@ -11,15 +11,11 @@ export const isValidRatingReply = (text) => {
   return resultado;
 };
 
-// Escala visual que acompaña ambas preguntas de la encuesta (atención y
-// producto), siempre con el mismo formato de extremos + números.
-const ESCALA_1_A_5 = 'Mala 1-2-3-4-5 Buena';
-
 const mensajeFinalizacion = (motivo) =>
-  `Tu consulta ha finalizado${motivo ? ` ${motivo}` : ''}. ¡Gracias por contactarnos! Nos ayudaría mucho que calificaras la atención recibida respondiendo con un número del 1 al 5.\n${ESCALA_1_A_5}`;
+  `Tu consulta ha finalizado${motivo ? ` ${motivo}` : ''}. ¡Gracias por contactarnos! Nos ayudaría mucho que calificaras la atención recibida respondiendo con un número del 1 (muy mala) al 5 (excelente).`;
 
 const MENSAJE_PEDIR_RATING_PRODUCTO =
-  `¡Gracias! Una última pregunta: ¿qué tan satisfecho/a estás con el producto que recibiste? Respondé con un número del 1 al 5.\n${ESCALA_1_A_5}`;
+  '¡Gracias! Una última pregunta: ¿qué tan satisfecho/a estás con el producto que recibiste? Respondé con un número del 1 (nada satisfecho) al 5 (muy satisfecho).';
 
 const MENSAJE_DESPEDIDA_ENCUESTA = '¡Gracias por tu calificación! Que tengas un buen día. 😊';
 
@@ -123,21 +119,40 @@ export const getConversationAwaitingRating = async (clientPhone) => {
 };
 
 // Primera respuesta de la encuesta: calificación de la atención recibida.
-// Se guarda en `rating` y SIEMPRE se encadena la segunda pregunta sobre el
-// producto (antes se omitía si la venta no estaba marcada como "concretada",
-// lo que cortaba la encuesta de golpe en cualquier cierre por inactividad
-// sin venta registrada — ver guardarCalificacionProducto para el cierre real).
+// Se guarda en `rating` y, dependiendo del estado de venta (sale_status),
+// se encadena la pregunta sobre el producto o se finaliza el flujo.
 export const guardarCalificacionAtencion = async (conversationId, clientPhone, rating) => {
   console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — conversationId:', conversationId, 'clientPhone:', clientPhone, 'rating:', rating);
   try {
-    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — UPDATE conversations, filtros: { id:', conversationId, '}, valores:', { rating, bot_state: 'awaiting_product_rating' });
-    const updateResp = await supabase
+    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — SELECT conversations, filtros: { id:', conversationId, '}, columnas: sale_status');
+    const { data: conv, error: convError } = await supabase
       .from('conversations')
-      .update({ rating, bot_state: 'awaiting_product_rating' })
-      .eq('id', conversationId);
-    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — resultado UPDATE conversations — data:', updateResp.data, 'error:', updateResp.error);
+      .select('sale_status')
+      .eq('id', conversationId)
+      .single();
+    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — resultado SELECT conversations — data:', conv, 'error:', convError);
 
-    await enviarMensajeBot(conversationId, clientPhone, MENSAJE_PEDIR_RATING_PRODUCTO);
+    if (conv && conv.sale_status === 'concretada') {
+      // Si la venta fue concretada, pedimos la calificación del producto
+      console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — venta concretada, UPDATE conversations, filtros: { id:', conversationId, '}, valores:', { rating, bot_state: 'awaiting_product_rating' });
+      const updateResp = await supabase
+        .from('conversations')
+        .update({ rating, bot_state: 'awaiting_product_rating' })
+        .eq('id', conversationId);
+      console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — resultado UPDATE conversations — data:', updateResp.data, 'error:', updateResp.error);
+
+      await enviarMensajeBot(conversationId, clientPhone, MENSAJE_PEDIR_RATING_PRODUCTO);
+    } else {
+      // Si no hubo venta concretada, cerramos la encuesta agradeciendo por la atención
+      console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — sin venta concretada, UPDATE conversations, filtros: { id:', conversationId, '}, valores:', { rating, bot_state: null });
+      const updateResp = await supabase
+        .from('conversations')
+        .update({ rating, bot_state: null })
+        .eq('id', conversationId);
+      console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — resultado UPDATE conversations — data:', updateResp.data, 'error:', updateResp.error);
+
+      await enviarMensajeBot(conversationId, clientPhone, MENSAJE_DESPEDIDA_ENCUESTA);
+    }
 
     console.log('✅ [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — finalizado sin valor de retorno explícito');
     return;
