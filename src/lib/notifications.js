@@ -1,3 +1,5 @@
+import { isAdminRole } from './adminAuth';
+
 const STORAGE_KEY = 'botsito_notification_prefs';
 const DEFAULT_PREFS = { sound: true, desktop: false };
 
@@ -92,8 +94,13 @@ export const playAlertSound = () => {
 
 // Punto de entrada único: lee las preferencias guardadas y dispara lo que
 // corresponda. Se usa desde el listener de Realtime en App.jsx.
+//
+// El sonido operativo (chat nuevo, mensaje entrante, cliente esperando)
+// nunca se puede silenciar para una cuenta de sucursal (staff): sólo el
+// admin puede mutear el suyo desde NotificationsPanel.jsx. Las notificaciones
+// de escritorio sí siguen la preferencia guardada para cualquier rol.
 export const notifyNewEvent = ({ title, body }) => {
   const prefs = getNotificationPrefs();
-  if (prefs.sound) playAlertSound();
+  if (prefs.sound || !isAdminRole()) playAlertSound();
   if (prefs.desktop) showDesktopNotification(title, body);
 };

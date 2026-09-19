@@ -192,7 +192,14 @@ function App() {
               });
               scrollToBottom();
               // Ya la está viendo: un mensaje entrante acá no debe sumar al
-              // contador de no leídos (por eso este branch no lo toca).
+              // contador de no leídos (por eso este branch no lo toca), pero
+              // sí suena la alerta igual que en cualquier otra bandeja.
+              if (payload.new?.sender_type === 'client') {
+                notifyNewEvent({
+                  title: 'Nuevo mensaje',
+                  body: `${active.real_name || active.client_name || active.client_phone} te escribió.`
+                });
+              }
             } else if (payload.eventType === 'UPDATE') {
               // Actualiza el estado del mensaje (enviado/entregado/leído/error) que
               // llega vía el webhook de "statuses" de Meta, para que los checks del
@@ -207,6 +214,16 @@ function App() {
             // se procesó.
             const conv = conversationsRef.current.find(c => c.id === payload.new.conversation_id);
             recontarNoLeidos(payload.new.conversation_id, conv?.last_read_at);
+            // Sólo suena si la conversación está en el ámbito visible del
+            // operador (conversationsRef ya viene filtrado por
+            // perteneceAMiAmbito): si "conv" no aparece acá, ni siquiera está
+            // en su bandeja, así que tampoco debe sonar.
+            if (conv) {
+              notifyNewEvent({
+                title: 'Nuevo mensaje',
+                body: `${conv.real_name || conv.client_name || conv.client_phone || 'Un cliente'} te escribió.`
+              });
+            }
           }
         }
       )
