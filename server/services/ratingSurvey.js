@@ -11,11 +11,15 @@ export const isValidRatingReply = (text) => {
   return resultado;
 };
 
+// Escala visual que acompaña ambas preguntas de la encuesta (atención y
+// producto), siempre con el mismo formato de extremos + números.
+const ESCALA_1_A_5 = 'malo 1-2-3-4-5 bueno';
+
 const mensajeFinalizacion = (motivo) =>
-  `Tu consulta ha finalizado${motivo ? ` ${motivo}` : ''}. ¡Gracias por contactarnos! Nos ayudaría mucho que calificaras la atención recibida respondiendo con un número del 1 (muy mala) al 5 (excelente).`;
+  `Tu consulta ha finalizado${motivo ? ` ${motivo}` : ''}. ¡Gracias por contactarnos! Nos ayudaría mucho que calificaras la atención recibida respondiendo con un número del 1 al 5.\n${ESCALA_1_A_5}`;
 
 const MENSAJE_PEDIR_RATING_PRODUCTO =
-  '¡Gracias! Una última pregunta: ¿qué tan satisfecho/a estás con el producto que recibiste? Respondé con un número del 1 (nada satisfecho) al 5 (muy satisfecho).';
+  `¡Gracias! Una última pregunta: ¿qué tan satisfecho/a estás con el producto que recibiste? Respondé con un número del 1 al 5.\n${ESCALA_1_A_5}`;
 
 const MENSAJE_DESPEDIDA_ENCUESTA = '¡Gracias por tu calificación! Que tengas un buen día. 😊';
 
