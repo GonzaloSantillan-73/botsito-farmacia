@@ -1,10 +1,10 @@
 import { supabase } from '../supabase.js';
 import { enviarMensajeBot } from './bot.js';
 
-const mensajeConsultaTomada = (sucursal) => {
-  const ubicacion = sucursal?.direccion ? `, ubicada en ${sucursal.direccion}` : '';
-  return `¡Buenas noticias! 🎉 Tu consulta va a ser atendida por la sucursal *${sucursal?.nombre || 'nuestro equipo'}*${ubicacion}.\n\nEn breve un asesor se va a poner en contacto contigo. 🙂`;
-};
+// Sin nombre ni dirección de sucursal a propósito: de cara al cliente la
+// atención tiene que sentirse unificada bajo una sola marca, sin rastro de
+// qué sucursal puntual tomó la consulta.
+const MENSAJE_CONSULTA_TOMADA = '¡Buenas noticias! 🎉 Ya estamos atendiendo tu consulta.\n\nEn breve un asesor se va a poner en contacto contigo. 🙂';
 
 // Un empleado de sucursal reclama una conversación de la cola general. El
 // UPDATE queda condicionado a que siga en 'esperando' y sin sucursal
@@ -74,7 +74,7 @@ export const tomarConsulta = async (conversationId, sucursalId) => {
     if (conv.client_phone) {
       console.log('🔍 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — enviando mensaje de consulta tomada a', conv.client_phone);
       try {
-        await enviarMensajeBot(conversationId, conv.client_phone, mensajeConsultaTomada(sucursal));
+        await enviarMensajeBot(conversationId, conv.client_phone, MENSAJE_CONSULTA_TOMADA);
       } catch (avisoError) {
         // La asignación (el UPDATE de arriba) ya quedó confirmada en la base:
         // si sólo falla el aviso por WhatsApp (ej. ventana de 24hs cerrada), no

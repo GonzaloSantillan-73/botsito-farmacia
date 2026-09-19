@@ -1,11 +1,5 @@
 import { supabase } from '../supabase.js';
-import { enviarMensajeBot } from './bot.js';
 import { estaAbiertaAhora } from './sucursales.js';
-
-const mensajeDerivacion = (sucursal) => {
-  const ubicacion = sucursal?.direccion ? `, ubicada en ${sucursal.direccion}` : '';
-  return `Tu consulta fue derivada a la sucursal *${sucursal?.nombre || 'otra sucursal'}*${ubicacion}.\n\nEn breve un asesor de esa sucursal se va a poner en contacto contigo. 🙂`;
-};
 
 // Un empleado de sucursal deriva DIRECTAMENTE la conversación que está
 // atendiendo a otra sucursal puntual que él elige — a diferencia de
@@ -94,19 +88,10 @@ export const derivarASucursal = async (conversationId, sucursalDestinoId) => {
       throw new Error('La consulta no existe.');
     }
 
-    if (conv.client_phone) {
-      console.log('🔍 [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — enviando mensaje de derivación a', conv.client_phone);
-      try {
-        await enviarMensajeBot(conversationId, conv.client_phone, mensajeDerivacion(sucursal));
-      } catch (avisoError) {
-        // La derivación (el UPDATE de arriba) ya quedó confirmada en la base:
-        // si sólo falla el aviso por WhatsApp, no hay que tirar la operación
-        // entera, o el operador ve "no se pudo derivar" cuando en realidad sí
-        // se reasignó a la otra sucursal.
-        console.error('❌ [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — la derivación se guardó pero falló el aviso por WhatsApp:', avisoError?.message, avisoError?.stack);
-      }
-    }
-
+    // A propósito, NO se le manda ningún aviso al cliente por esta derivación:
+    // de cara a él, la atención tiene que sentirse continua y unificada bajo
+    // una sola marca, sin ningún rastro de que la consulta cambió de mano
+    // entre sucursales (ni el nombre de la sucursal, ni que hubo un cambio).
     console.log('✅ [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — resultado a devolver:', conv);
     return conv;
   } catch (err) {

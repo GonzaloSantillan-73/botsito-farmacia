@@ -2,16 +2,10 @@ import { supabase } from '../supabase.js';
 import { enviarMensajeBot } from './bot.js';
 import { sucursalesMasCercanas } from './geolocalizacion.js';
 
-const mensajeDevolucion = (motivoTexto, sucursal) => {
-  const razon = motivoTexto?.trim() || 'no pudimos continuar la atención en esta sucursal';
-
-  const ubicacion = sucursal?.direccion ? ` (${sucursal.direccion})` : '';
-  const origen = sucursal?.nombre
-    ? `La sucursal *${sucursal.nombre}*${ubicacion} te devolvió a la cola de espera: ${razon}.`
-    : `Tu consulta fue retomada por la cola de espera: ${razon}.`;
-
-  return `${origen}\n\nEn breve otro asesor se va a poner en contacto contigo. Perdón por la demora. 🙏`;
-};
+// Sin nombre de sucursal ni motivo interno a propósito: de cara al cliente
+// la atención tiene que sentirse unificada bajo una sola marca, sin rastro
+// de que la consulta pasó de una sucursal a otra ni por qué.
+const MENSAJE_DEVOLUCION = 'Seguimos trabajando en tu consulta.\n\nEn breve un asesor se va a poner en contacto contigo. Perdón por la demora. 🙏';
 
 // Un operador que no puede seguir atendiendo (ej. sin stock) devuelve el chat
 // a la cola general de "En espera": vuelve a estar disponible para cualquier
@@ -37,20 +31,6 @@ export const devolverConversacionAEspera = async (conversationId, { motivoTexto 
 
     const sucursalQueDevuelve = conv.sucursal_id;
     console.log('🔍 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — CAMBIO DE ESTADO — sucursal que devuelve la conversación:', sucursalQueDevuelve, '(estado actual de la conversación pasará de tomada por esta sucursal a "esperando" sin sucursal asignada)');
-
-    // Se usa tanto para el mensaje ("qué sucursal te devolvió y dónde queda")
-    // como para excluirla del recálculo de recomendadas más abajo.
-    let sucursalInfo = null;
-    if (sucursalQueDevuelve) {
-      console.log('📡 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — SELECT sucursales, filtros: { id:', sucursalQueDevuelve, '}, columnas: nombre, direccion');
-      const { data, error: sucursalInfoError } = await supabase
-        .from('sucursales')
-        .select('nombre, direccion')
-        .eq('id', sucursalQueDevuelve)
-        .maybeSingle();
-      console.log('📡 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — resultado SELECT sucursales — data:', data, 'error:', sucursalInfoError);
-      sucursalInfo = data;
-    }
 
     // Sólo tiene sentido recalcular si en su momento se guardó la ubicación del
     // cliente (ver bot.js: manejarUbicacionHumano). Si no la tenía, simplemente
@@ -109,7 +89,7 @@ export const devolverConversacionAEspera = async (conversationId, { motivoTexto 
 
     if (conv.client_phone) {
       console.log('🔍 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — enviando mensaje de devolución a', conv.client_phone);
-      await enviarMensajeBot(conversationId, conv.client_phone, mensajeDevolucion(motivoTexto, sucursalInfo));
+      await enviarMensajeBot(conversationId, conv.client_phone, MENSAJE_DEVOLUCION);
     }
 
     const resultado = { sucursalesRecomendadas };
