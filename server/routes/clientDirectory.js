@@ -1,6 +1,6 @@
 import express from 'express';
 import { requireAuth } from './adminAuth.js';
-import { obtenerConversacionesDirectorio, buscarEnMensajesDirectorio } from '../services/clientDirectory.js';
+import { obtenerConversacionesDirectorio, obtenerListaClientesDirectorio, buscarEnMensajesDirectorio } from '../services/clientDirectory.js';
 
 const router = express.Router();
 
@@ -20,12 +20,21 @@ router.get('/conversations', async (req, res) => {
   const sucursalId = req.admin.role === 'admin' ? null : req.admin.sucursalId;
   console.log('🔍 [DEBUG-ROUTES-CLIENTDIRECTORY] sucursalId calculado:', sucursalId);
   try {
-    console.log('📡 [DEBUG-ROUTES-CLIENTDIRECTORY] llamando servicio obtenerConversacionesDirectorio — filtros:', { sucursalId });
-    const conversations = await obtenerConversacionesDirectorio({ sucursalId });
+    console.log('📡 [DEBUG-ROUTES-CLIENTDIRECTORY] llamando servicios obtenerConversacionesDirectorio + obtenerListaClientesDirectorio — filtros:', { sucursalId });
+    // Dos consultas separadas a propósito: "Historial de Consultas" necesita
+    // el client_phone tal cual quedó en cada conversación (snapshot de esa
+    // sesión); "Lista de Clientes" necesita el client_phone vigente en la
+    // ficha de `clientes` (identidad actual) — no deben mezclarse ni
+    // pisarse entre sí (ver comentarios en clientDirectory.js).
+    const [conversations, clients] = await Promise.all([
+      obtenerConversacionesDirectorio({ sucursalId }),
+      obtenerListaClientesDirectorio({ sucursalId })
+    ]);
     console.log('📡 [DEBUG-ROUTES-CLIENTDIRECTORY] resultado obtenerConversacionesDirectorio — conversations:', conversations);
-    console.log('✅ [DEBUG-ROUTES-CLIENTDIRECTORY] éxito — conversations count:', Array.isArray(conversations) ? conversations.length : 'N/A');
-    console.log('🔚 [DEBUG-ROUTES-CLIENTDIRECTORY] respondiendo status: 200 body:', { conversations });
-    res.status(200).json({ conversations });
+    console.log('📡 [DEBUG-ROUTES-CLIENTDIRECTORY] resultado obtenerListaClientesDirectorio — clients:', clients);
+    console.log('✅ [DEBUG-ROUTES-CLIENTDIRECTORY] éxito — conversations count:', Array.isArray(conversations) ? conversations.length : 'N/A', ', clients count:', Array.isArray(clients) ? clients.length : 'N/A');
+    console.log('🔚 [DEBUG-ROUTES-CLIENTDIRECTORY] respondiendo status: 200 body:', { conversations, clients });
+    res.status(200).json({ conversations, clients });
   } catch (error) {
     console.error('❌ [DEBUG-ROUTES-CLIENTDIRECTORY] error completo:', error);
     console.error('❌ [DEBUG-ROUTES-CLIENTDIRECTORY] error.message:', error?.message);

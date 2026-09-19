@@ -31,43 +31,16 @@ const ordenarClientes = (clients, sortBy) => {
 const formatDateTime = (iso) =>
   new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-// Agrupa las conversaciones (una fila por consulta) en un directorio de
-// clientes únicos por teléfono, con sus métricas agregadas.
-const groupByClient = (conversations) => {
-  const map = new Map();
-
-  for (const c of conversations) {
-    if (!c.client_phone) continue;
-    if (!map.has(c.client_phone)) {
-      map.set(c.client_phone, { client_phone: c.client_phone, client_name: c.client_name, real_name: c.real_name, conversations: [] });
-    }
-    const entry = map.get(c.client_phone);
-    entry.conversations.push(c);
-    if (!entry.real_name && c.real_name) entry.real_name = c.real_name;
-    if (!entry.client_name && c.client_name) entry.client_name = c.client_name;
-  }
-
-  return Array.from(map.values())
-    .map(entry => {
-      const sorted = [...entry.conversations].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-      const rated = entry.conversations.filter(c => c.rating != null);
-      const avgRating = rated.length > 0 ? rated.reduce((sum, c) => sum + c.rating, 0) / rated.length : null;
-      const ratedProduct = entry.conversations.filter(c => c.product_rating != null);
-      const avgProductRating = ratedProduct.length > 0 ? ratedProduct.reduce((sum, c) => sum + c.product_rating, 0) / ratedProduct.length : null;
-      return {
-        ...entry,
-        conversations: sorted,
-        total: entry.conversations.length,
-        avgRating,
-        avgProductRating,
-        lastContact: sorted[0]?.created_at
-      };
-    })
-    .sort((a, b) => new Date(b.lastContact) - new Date(a.lastContact));
-};
-
 export default function ClientDirectory({ onOpenConversation, initialSelectedPhone = null }) {
   const [conversations, setConversations] = useState([]);
+  // A diferencia de `conversations` (una fila por CONSULTA, con el
+  // client_phone tal cual quedó en esa sesión — ver "Historial de
+  // Consultas"), `clients` es el registro maestro de PERSONAS que arma el
+  // backend a partir de la tabla `clientes` (ver obtenerListaClientesDirectorio
+  // en server/services/clientDirectory.js): el client_phone que trae cada
+  // fila es el vigente en la ficha, no un agrupado de conversaciones armado
+  // acá. No hay que recalcularlo en el frontend.
+  const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedPhone, setSelectedPhone] = useState(initialSelectedPhone);
@@ -83,9 +56,10 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
     // sucursales aunque se manipule el request.
     adminFetch('/api/admin/client-directory/conversations')
       .then(res => res.json())
-      .then(({ conversations: data, error }) => {
+      .then(({ conversations: data, clients: clientsData, error }) => {
         if (!error) {
           setConversations(data || []);
+          setClients(clientsData || []);
         } else {
           console.error('❌ [DEBUG-COMPONENT-ClientDirectory] error recibido del backend:', error);
         }
@@ -100,8 +74,6 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
   const historialConsultas = conversations
     .filter(c => c?.client_phone && ESTADOS_HISTORIAL.includes(c.status));
 
-  const clients = groupByClient(conversations.filter(c => c?.client_phone));
-
   const filteredClients = clients.filter(cl => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
@@ -111,6 +83,13 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
   const sortedClients = ordenarClientes(filteredClients, sortBy);
 
   const selectedClient = selectedPhone ? clients.find(c => c.client_phone === selectedPhone) : null;
+  // El detalle de un cliente sí necesita sus consultas una por una (para el
+  // historial de abajo): salen del mismo `conversations` ya cargado (el
+  // client_phone de cada consulta es el snapshot de esa sesión, sin pisar),
+  // filtradas por el teléfono VIGENTE que identifica a este cliente.
+  const selectedClientConversations = selectedPhone
+    ? conversations.filter(c => c.client_phone === selectedPhone).sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    : [];
 
   if (loading) {
     return (
@@ -168,7 +147,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
 
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Historial de consultas</h3>
           <ClientHistoryList
-            conversations={selectedClient.conversations}
+            conversations={selectedClientConversations}
             onSelect={(conv) => { onOpenConversation && onOpenConversation(conv); }}
             emptyMessage="Este cliente todavía no tiene consultas."
           />
