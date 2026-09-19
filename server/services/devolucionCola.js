@@ -2,10 +2,8 @@ import { supabase } from '../supabase.js';
 import { enviarMensajeBot } from './bot.js';
 import { sucursalesMasCercanas } from './geolocalizacion.js';
 
-const mensajeDevolucion = (motivo, motivoTexto, sucursal) => {
-  const razon = motivo === 'stock'
-    ? 'no contamos con stock disponible para tu pedido en esta sucursal'
-    : (motivoTexto?.trim() || 'no pudimos continuar la atención en esta sucursal');
+const mensajeDevolucion = (motivoTexto, sucursal) => {
+  const razon = motivoTexto?.trim() || 'no pudimos continuar la atención en esta sucursal';
 
   const ubicacion = sucursal?.direccion ? ` (${sucursal.direccion})` : '';
   const origen = sucursal?.nombre
@@ -19,9 +17,10 @@ const mensajeDevolucion = (motivo, motivoTexto, sucursal) => {
 // a la cola general de "En espera": vuelve a estar disponible para cualquier
 // sucursal (se libera sucursal_id), se recalculan las sucursales recomendadas
 // EXCLUYENDO a la que lo devolvió (para no volver a sugerirle la misma al
-// próximo asesor) y se le avisa al cliente por WhatsApp del motivo.
-export const devolverConversacionAEspera = async (conversationId, { motivo, motivoTexto } = {}) => {
-  console.log('🔍 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — conversationId:', conversationId, 'motivo:', motivo, 'motivoTexto:', motivoTexto);
+// próximo asesor) y se le avisa al cliente por WhatsApp con el motivo que
+// escribió el operador (texto libre, sin opciones predefinidas).
+export const devolverConversacionAEspera = async (conversationId, { motivoTexto } = {}) => {
+  console.log('🔍 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — conversationId:', conversationId, 'motivoTexto:', motivoTexto);
   try {
     console.log('📡 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — SELECT conversations, filtros: { id:', conversationId, '}, columnas: id, client_phone, sucursal_id, client_lat, client_lng');
     const { data: conv, error: fetchError } = await supabase
@@ -106,7 +105,7 @@ export const devolverConversacionAEspera = async (conversationId, { motivo, moti
 
     if (conv.client_phone) {
       console.log('🔍 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — enviando mensaje de devolución a', conv.client_phone);
-      await enviarMensajeBot(conversationId, conv.client_phone, mensajeDevolucion(motivo, motivoTexto, sucursalInfo));
+      await enviarMensajeBot(conversationId, conv.client_phone, mensajeDevolucion(motivoTexto, sucursalInfo));
     }
 
     const resultado = { sucursalesRecomendadas };

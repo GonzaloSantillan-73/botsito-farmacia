@@ -5,6 +5,8 @@ import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_S
 import { finalizarConversacion } from '../services/ratingSurvey.js';
 import { devolverConversacionAEspera } from '../services/devolucionCola.js';
 import { tomarConsulta } from '../services/tomaConsulta.js';
+import { derivarASucursal } from '../services/derivacionSucursal.js';
+import { getSucursalesActivas, estaAbiertaAhora } from '../services/sucursales.js';
 import { TERMINAL_STATUSES } from '../services/sessionManager.js';
 import { getBotSchedule, setBotSchedule } from '../services/scheduleConfig.js';
 import { rowsToCsv, sendCsv } from '../services/csvExport.js';
@@ -506,7 +508,7 @@ router.post('/conversations/:id/close', requireAuth, blockAdminRole, async (req,
 // excluyendo a la que lo devuelve y avisa al cliente por WhatsApp.
 router.post('/conversations/:id/return-to-queue', requireAuth, blockAdminRole, async (req, res) => {
   const { id } = req.params;
-  const { motivo, motivoTexto } = req.body;
+  const { motivoTexto } = req.body;
   console.log('🔍 [DEBUG-ROUTES-API] Entrada a POST /conversations/:id/return-to-queue:', {
     method: req.method,
     url: req.originalUrl,
@@ -516,26 +518,86 @@ router.post('/conversations/:id/return-to-queue', requireAuth, blockAdminRole, a
     admin: req.admin || null
   });
 
-  if (motivo !== 'stock' && motivo !== 'otra') {
-    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo POST /conversations/:id/return-to-queue:', { status: 400, body: { error: 'Motivo inválido: debe ser "stock" u "otra".' } });
-    return res.status(400).json({ error: 'Motivo inválido: debe ser "stock" u "otra".' });
-  }
-  if (motivo === 'otra' && !motivoTexto?.trim()) {
-    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo POST /conversations/:id/return-to-queue:', { status: 400, body: { error: 'Ingresá el motivo por el cual se devuelve el chat.' } });
-    return res.status(400).json({ error: 'Ingresá el motivo por el cual se devuelve el chat.' });
+  if (!motivoTexto?.trim()) {
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo POST /conversations/:id/return-to-queue:', { status: 400, body: { error: 'Ingresá el motivo por el cual devolvés el chat a la cola.' } });
+    return res.status(400).json({ error: 'Ingresá el motivo por el cual devolvés el chat a la cola.' });
   }
 
   try {
-    console.log('📡 [DEBUG-ROUTES-API] Llamando devolverConversacionAEspera en /conversations/:id/return-to-queue:', { id, motivo, motivoTexto });
-    const { sucursalesRecomendadas } = await devolverConversacionAEspera(id, { motivo, motivoTexto });
+    console.log('📡 [DEBUG-ROUTES-API] Llamando devolverConversacionAEspera en /conversations/:id/return-to-queue:', { id, motivoTexto });
+    const { sucursalesRecomendadas } = await devolverConversacionAEspera(id, { motivoTexto });
     console.log('📡 [DEBUG-ROUTES-API] Resultado devolverConversacionAEspera en /conversations/:id/return-to-queue:', { sucursalesRecomendadas });
-    console.log(`[API] -> Consulta ${id} devuelta a la cola de espera (motivo: ${motivo}).`);
+    console.log(`[API] -> Consulta ${id} devuelta a la cola de espera (motivo: ${motivoTexto}).`);
     console.log('🔚 [DEBUG-ROUTES-API] Respondiendo POST /conversations/:id/return-to-queue:', { status: 200, body: { success: true, sucursalesRecomendadas } });
     res.status(200).json({ success: true, sucursalesRecomendadas });
   } catch (error) {
     console.error('❌ [DEBUG-ROUTES-API] Error en POST /conversations/:id/return-to-queue:', { error, message: error.message, stack: error.stack });
     console.error('[API] ❌ Error devolviendo la conversación a la cola:', error.message);
     res.status(400).json({ error: error.message || 'No se pudo devolver el chat a la cola de espera.' });
+  }
+});
+
+// Un empleado de sucursal deriva DIRECTAMENTE la conversación que está
+// atendiendo a otra sucursal puntual que él elige (ver derivacionSucursal.js),
+// a diferencia de /return-to-queue que la manda a la cola general sin dueño.
+router.post('/conversations/:id/derivar', requireAuth, blockAdminRole, async (req, res) => {
+  const { id } = req.params;
+  const { sucursalId } = req.body;
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a POST /conversations/:id/derivar:', {
+    method: req.method,
+    url: req.originalUrl,
+    body: redactBodyForLog(req.body),
+    query: req.query,
+    params: req.params,
+    admin: req.admin || null
+  });
+
+  if (!sucursalId) {
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo POST /conversations/:id/derivar:', { status: 400, body: { error: 'Elegí la sucursal a la que querés derivar la consulta.' } });
+    return res.status(400).json({ error: 'Elegí la sucursal a la que querés derivar la consulta.' });
+  }
+
+  try {
+    console.log('📡 [DEBUG-ROUTES-API] Llamando derivarASucursal en /conversations/:id/derivar:', { id, sucursalId });
+    const conversation = await derivarASucursal(id, sucursalId);
+    console.log('📡 [DEBUG-ROUTES-API] Resultado derivarASucursal en /conversations/:id/derivar:', { conversation });
+    console.log(`[API] -> Consulta ${id} derivada a la sucursal ${sucursalId}.`);
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo POST /conversations/:id/derivar:', { status: 200, body: { success: true, conversation } });
+    res.status(200).json({ success: true, conversation });
+  } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en POST /conversations/:id/derivar:', { error, message: error.message, stack: error.stack });
+    console.error('[API] ❌ Error derivando la conversación:', error.message);
+    res.status(400).json({ error: error.message || 'No se pudo derivar la consulta.' });
+  }
+});
+
+// Listado de sucursales activas para el selector de derivación directa (ver
+// /conversations/:id/derivar más arriba): accesible para cualquier cuenta
+// autenticada (admin o staff), no sólo admin — a diferencia de GET
+// /api/admin/staff/sucursales, que es admin-only y trae de más (credenciales,
+// horario completo). Acá sólo interesa con qué sucursales se puede derivar
+// AHORA MISMO, por eso incluye `abierta_ahora` ya calculado.
+router.get('/sucursales', requireAuth, async (req, res) => {
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a GET /sucursales:', {
+    method: req.method,
+    url: req.originalUrl,
+    query: req.query,
+    params: req.params,
+    admin: req.admin || null
+  });
+  try {
+    const sucursales = await getSucursalesActivas();
+    const resultado = sucursales.map(s => ({
+      id: s.id,
+      nombre: s.nombre,
+      direccion: s.direccion,
+      abierta_ahora: estaAbiertaAhora(s)
+    }));
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /sucursales:', { status: 200, count: resultado.length });
+    res.status(200).json({ sucursales: resultado });
+  } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en GET /sucursales:', { error, message: error.message, stack: error.stack });
+    res.status(500).json({ error: error.message || 'No se pudieron cargar las sucursales.' });
   }
 });
 

@@ -353,17 +353,35 @@ export default function ChatArea({
     }
   };
 
-  const executeReturnToQueue = async ({ motivo, motivoTexto }) => {
+  const executeReturnToQueue = async ({ motivoTexto }) => {
     if (!activeConversation) return;
 
     const res = await adminFetch(`/api/conversations/${activeConversation.id}/return-to-queue`, {
       method: 'POST',
-      body: JSON.stringify({ motivo, motivoTexto })
+      body: JSON.stringify({ motivoTexto })
     });
     const data = await res.json();
     if (!res.ok) {
       console.error('❌ [DEBUG-COMPONENT-ChatArea] error return-to-queue:', data.error);
       throw new Error(data.error || 'No se pudo devolver el chat a la cola de espera.');
+    }
+  };
+
+  // Derivación directa a otra sucursal puntual (a diferencia de
+  // executeReturnToQueue, que la manda a la cola general sin dueño): no hace
+  // falta actualizar el estado local a mano, la suscripción de Realtime en
+  // App.jsx trae el sucursal_id nuevo apenas Postgres confirme el UPDATE.
+  const executeDerivarASucursal = async (sucursalId) => {
+    if (!activeConversation) return;
+
+    const res = await adminFetch(`/api/conversations/${activeConversation.id}/derivar`, {
+      method: 'POST',
+      body: JSON.stringify({ sucursalId })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      console.error('❌ [DEBUG-COMPONENT-ChatArea] error derivar:', data.error);
+      throw new Error(data.error || 'No se pudo derivar la consulta.');
     }
   };
 
@@ -485,7 +503,7 @@ export default function ChatArea({
                {!isConversacionCerrada && !estaEnColaGeneral && !soyAdmin && (
                  <button
                    onClick={() => { setIsReturnModalOpen(true); }}
-                   title="Devolver este chat a la lista de espera general (ej. no hay stock)"
+                   title="Derivar a otra sucursal o devolver este chat a la lista de espera general"
                    className="p-2 text-gray-500 hover:bg-amber-50 hover:text-amber-600 rounded-full transition-colors"
                  >
                    <Undo2 size={20} />
@@ -741,7 +759,9 @@ export default function ChatArea({
           <ReturnToQueueModal
             isOpen={isReturnModalOpen}
             onClose={() => { setIsReturnModalOpen(false); }}
-            onConfirm={executeReturnToQueue}
+            onReturnToQueue={executeReturnToQueue}
+            onDerivar={executeDerivarASucursal}
+            miSucursalId={miSucursalId}
           />
         </>
       ) : (

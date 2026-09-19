@@ -1,35 +1,73 @@
-import React, { useState } from 'react';
-import { X, Loader2, PackageX, MessageSquare } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Loader2, Send, Undo2 } from 'lucide-react';
+import { adminFetch } from '../lib/adminAuth';
 
-// Modal obligatorio para devolver un chat activo a la cola general de "En
-// espera": el operador tiene que elegir un motivo (no hay forma de cerrarlo
-// sin elegir uno) porque ese motivo se le informa al cliente por WhatsApp.
-export default function ReturnToQueueModal({ isOpen, onClose, onConfirm }) {
+// Panel unificado de reasignación de un chat activo, con dos acciones
+// independientes:
+// 1. Derivar directo a una sucursal puntual que el operador elige (las
+//    sucursales cerradas en este momento aparecen deshabilitadas).
+// 2. Devolver el chat a la cola general de "En espera" (sin dueño), con un
+//    motivo de texto libre que se le informa al cliente por WhatsApp.
+export default function ReturnToQueueModal({ isOpen, onClose, onReturnToQueue, onDerivar, miSucursalId }) {
 
-  const [motivo, setMotivo] = useState('');
+  const [sucursales, setSucursales] = useState([]);
+  const [loadingSucursales, setLoadingSucursales] = useState(true);
+  const [sucursalDestino, setSucursalDestino] = useState('');
+  const [derivando, setDerivando] = useState(false);
+  const [errorDerivar, setErrorDerivar] = useState('');
+
   const [motivoTexto, setMotivoTexto] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [devolviendo, setDevolviendo] = useState(false);
+  const [errorDevolver, setErrorDevolver] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setSucursalDestino('');
+    setErrorDerivar('');
+    setMotivoTexto('');
+    setErrorDevolver('');
+    setLoadingSucursales(true);
+    adminFetch('/api/sucursales')
+      .then(res => res.json())
+      .then(data => { setSucursales(data.sucursales || []); })
+      .catch(err => console.error('❌ [DEBUG-COMPONENT-RETURNTOQUEUEMODAL] Error cargando sucursales:', err))
+      .finally(() => setLoadingSucursales(false));
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const isFormValid = motivo === 'stock' || (motivo === 'otra' && motivoTexto.trim().length > 0);
+  const busy = derivando || devolviendo;
+  // La propia sucursal no tiene sentido como destino de una derivación.
+  const sucursalesElegibles = sucursales.filter(s => s.id !== miSucursalId);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!isFormValid || isSubmitting) return;
-
-    setIsSubmitting(true);
-    setError('');
+  const handleDerivar = async () => {
+    if (!sucursalDestino || busy) return;
+    setDerivando(true);
+    setErrorDerivar('');
     try {
-      const payload = { motivo, motivoTexto: motivo === 'otra' ? motivoTexto.trim() : '' };
-      await onConfirm(payload);
+      await onDerivar(sucursalDestino);
       onClose();
     } catch (err) {
-      console.error('❌ [DEBUG-COMPONENT-ReturnToQueueModal] Error al devolver a la cola:', err);
-      setError(err.message || 'No se pudo devolver el chat a la cola de espera.');
+      console.error('❌ [DEBUG-COMPONENT-RETURNTOQUEUEMODAL] Error al derivar:', err);
+      setErrorDerivar(err.message || 'No se pudo derivar la consulta.');
     } finally {
-      setIsSubmitting(false);
+      setDerivando(false);
+    }
+  };
+
+  const handleDevolver = async (e) => {
+    e.preventDefault();
+    if (!motivoTexto.trim() || busy) return;
+    setDevolviendo(true);
+    setErrorDevolver('');
+    try {
+      await onReturnToQueue({ motivoTexto: motivoTexto.trim() });
+      onClose();
+    } catch (err) {
+      console.error('❌ [DEBUG-COMPONENT-RETURNTOQUEUEMODAL] Error al devolver a la cola:', err);
+      setErrorDevolver(err.message || 'No se pudo devolver el chat a la cola de espera.');
+    } finally {
+      setDevolviendo(false);
     }
   };
 
@@ -37,95 +75,106 @@ export default function ReturnToQueueModal({ isOpen, onClose, onConfirm }) {
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden animate-fade-in-up">
         <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50 shrink-0">
-          <h3 className="font-bold text-gray-900 dark:text-gray-100">Devolver a la lista de espera</h3>
+          <h3 className="font-bold text-gray-900 dark:text-gray-100">Reasignar consulta</h3>
           <button
             onClick={() => { onClose(); }}
-            disabled={isSubmitting}
+            disabled={busy}
             className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-50"
           >
             <X size={20} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto scrollbar-thin">
-          <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-            El chat vuelve a la cola general para que cualquier sucursal lo pueda tomar. Elegí el motivo por el cual no podés continuar la atención (se le va a informar al cliente):
-          </div>
-
+        <div className="p-5 space-y-5 overflow-y-auto scrollbar-thin">
+          {/* Sección 1: Derivar a sucursal específica */}
           <div className="space-y-3">
-            <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${motivo === 'stock' ? 'border-amber-500 bg-amber-50 dark:bg-amber-950' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
-              <input
-                type="radio"
-                name="motivo_devolucion"
-                value="stock"
-                checked={motivo === 'stock'}
-                onChange={(e) => { setMotivo(e.target.value); }}
-                className="w-4 h-4 text-amber-600 focus:ring-amber-500"
-              />
-              <div className="flex items-center gap-2">
-                <PackageX size={18} className={motivo === 'stock' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'} />
-                <span className={`font-medium ${motivo === 'stock' ? 'text-amber-800 dark:text-amber-400' : 'text-gray-700 dark:text-gray-300'}`}>Falta de stock</span>
-              </div>
-            </label>
-
-            <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${motivo === 'otra' ? 'border-teal-500 bg-teal-50 dark:bg-teal-950' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
-              <input
-                type="radio"
-                name="motivo_devolucion"
-                value="otra"
-                checked={motivo === 'otra'}
-                onChange={(e) => { setMotivo(e.target.value); }}
-                className="w-4 h-4 text-teal-600 focus:ring-teal-500"
-              />
-              <div className="flex items-center gap-2">
-                <MessageSquare size={18} className={motivo === 'otra' ? 'text-teal-600 dark:text-teal-400' : 'text-gray-400'} />
-                <span className={`font-medium ${motivo === 'otra' ? 'text-teal-800 dark:text-teal-400' : 'text-gray-700 dark:text-gray-300'}`}>Otra razón</span>
-              </div>
-            </label>
-          </div>
-
-          {motivo === 'otra' && (
-            <div className="animate-fade-in-up">
-              <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-1">
-                Motivo <span className="text-rose-500">*</span>
-              </label>
-              <textarea
-                value={motivoTexto}
-                onChange={(e) => { setMotivoTexto(e.target.value); }}
-                placeholder="Escribí el motivo por el cual no podés continuar la atención..."
-                className="w-full p-3 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none resize-none h-24"
-                required
-              />
+            <div>
+              <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-100">
+                <Send size={16} className="text-teal-600 dark:text-teal-400" /> Derivar a sucursal específica
+              </h4>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Pasa el chat directamente a otra sucursal. Las que estén cerradas en este momento no se pueden elegir.
+              </p>
             </div>
-          )}
 
-          {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
+            {loadingSucursales ? (
+              <div className="text-sm text-gray-400 dark:text-gray-500 py-1 flex items-center gap-2">
+                <Loader2 size={14} className="animate-spin" /> Cargando sucursales...
+              </div>
+            ) : (
+              <select
+                value={sucursalDestino}
+                onChange={(e) => { setSucursalDestino(e.target.value); }}
+                disabled={busy}
+                className="w-full p-2.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none disabled:opacity-50"
+              >
+                <option value="">Elegí una sucursal...</option>
+                {sucursalesElegibles.map(s => (
+                  <option key={s.id} value={s.id} disabled={!s.abierta_ahora}>
+                    {s.nombre}{!s.abierta_ahora ? ' (cerrada ahora)' : ''}
+                  </option>
+                ))}
+              </select>
+            )}
 
-          <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
+            {errorDerivar && <p className="text-sm text-rose-600 dark:text-rose-400">{errorDerivar}</p>}
+
             <button
               type="button"
-              onClick={() => { onClose(); }}
-              disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+              onClick={() => { handleDerivar(); }}
+              disabled={!sucursalDestino || busy}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={!isFormValid || isSubmitting}
-              className="flex items-center gap-2 px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  Devolviendo...
-                </>
-              ) : (
-                'Devolver a la espera'
-              )}
+              {derivando ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+              {derivando ? 'Derivando...' : 'Derivar'}
             </button>
           </div>
-        </form>
+
+          <div className="border-t border-gray-100 dark:border-gray-800" />
+
+          {/* Sección 2: Devolver a la cola general */}
+          <form onSubmit={handleDevolver} className="space-y-3">
+            <div>
+              <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-100">
+                <Undo2 size={16} className="text-amber-600 dark:text-amber-400" /> Devolver a la lista de espera
+              </h4>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                El chat vuelve a la cola general para que cualquier sucursal lo pueda tomar. Escribí el motivo (se le va a informar al cliente):
+              </p>
+            </div>
+
+            <textarea
+              value={motivoTexto}
+              onChange={(e) => { setMotivoTexto(e.target.value); }}
+              placeholder="Ej: no tenemos stock del producto que pidió..."
+              disabled={busy}
+              className="w-full p-3 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none resize-none h-24 disabled:opacity-50"
+              required
+            />
+
+            {errorDevolver && <p className="text-sm text-rose-600 dark:text-rose-400">{errorDevolver}</p>}
+
+            <button
+              type="submit"
+              disabled={!motivoTexto.trim() || busy}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {devolviendo ? <Loader2 size={16} className="animate-spin" /> : <Undo2 size={16} />}
+              {devolviendo ? 'Devolviendo...' : 'Devolver a lista de espera'}
+            </button>
+          </form>
+        </div>
+
+        <div className="p-4 border-t border-gray-100 dark:border-gray-800 flex justify-end shrink-0">
+          <button
+            type="button"
+            onClick={() => { onClose(); }}
+            disabled={busy}
+            className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+        </div>
       </div>
     </div>
   );
