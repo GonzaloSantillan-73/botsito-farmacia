@@ -6,17 +6,24 @@
 -- que el cliente termina de escribir su DNI por primera vez en ESE teléfono:
 --
 --   - Si el DNI ya tenía ficha bajo OTRO teléfono (mismo cliente, número
---     nuevo): migra esa ficha vieja al teléfono actual, arrastrando también
---     su historial de conversations/pedidos_confirmados/pedidos_cotizados —
---     para que el Directorio de Clientes lo siga mostrando como una sola
---     persona con toda su consulta anterior, en vez de una ficha "fantasma"
---     bajo el número viejo y otra nueva sin historial. De paso, borra
---     cualquier fila que ya estuviera ocupando el teléfono nuevo (el
+--     nuevo): migra esa ficha vieja al teléfono actual Y ANOTA el teléfono
+--     viejo en clientes_telefonos_historicos (ver ese archivo). Borra,
+--     además, cualquier fila que ya estuviera ocupando el teléfono nuevo (el
 --     "placeholder" que deja el paso anterior del registro, registro_nombre,
 --     antes de saber si iba a haber migración; o, en el caso raro de una
 --     línea reciclada, la ficha de otra persona que ya no la usa).
 --   - Si el DNI no existe en ningún lado (o ya es de este mismo teléfono):
 --     alta/actualización normal, upsert por client_phone como ya funcionaba.
+--
+-- IMPORTANTE: a propósito, esta función NO reescribe client_phone en
+-- conversations/pedidos_confirmados/pedidos_cotizados. Esas filas son el
+-- snapshot histórico de con qué número se habló/compró en ese momento puntual
+-- (el chat y el Historial de Consultas tienen que seguir mostrando ESE
+-- número, no el actual — ver ChatArea/ClientHistoryList/metricsDetalle), así
+-- que no se tocan. Lo que sí cambia de identidad es la FICHA (clientes), y
+-- clientes_telefonos_historicos es lo que permite después sumar el historial
+-- completo de una persona en la Lista de Clientes sin alterar esas filas
+-- viejas (ver obtenerListaClientesDirectorio en clientDirectory.js).
 --
 -- Todo dentro de una sola transacción de Postgres (la función completa es
 -- atómica: si algo falla a mitad de camino, Postgres deshace todo), y con un
@@ -68,9 +75,11 @@ BEGIN
     WHERE id = v_existente.id
     RETURNING * INTO v_resultado;
 
-    UPDATE public.conversations SET client_phone = p_telefono_nuevo WHERE client_phone = v_telefono_viejo;
-    UPDATE public.pedidos_confirmados SET client_phone = p_telefono_nuevo WHERE client_phone = v_telefono_viejo;
-    UPDATE public.pedidos_cotizados SET client_phone = p_telefono_nuevo WHERE client_phone = v_telefono_viejo;
+    -- Deja constancia de que este teléfono viejo también fue de esta
+    -- persona, para que la Lista de Clientes pueda sumar sus conversaciones
+    -- de antes de la migración sin tener que reescribirlas.
+    INSERT INTO public.clientes_telefonos_historicos (cliente_id, client_phone)
+    VALUES (v_existente.id, v_telefono_viejo);
 
     v_accion := 'migrado';
   ELSE

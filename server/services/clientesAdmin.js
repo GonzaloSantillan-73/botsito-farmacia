@@ -4,10 +4,17 @@ import { normalizarTelefono } from './whatsapp.js';
 // Edición completa de la ficha del cliente desde el CRM (nombre, DNI, obra
 // social y, opcionalmente, el teléfono). A diferencia de guardarDatoCliente
 // (que sólo pisa un campo a la vez desde el propio bot), acá el operador
-// puede corregir varios datos juntos y, si además cambia el teléfono,
-// hace falta renombrar la fila (el client_phone es la clave) y re-vincular
-// todas las conversaciones que tenía con el número viejo, para no perder el
-// historial ni romper el enganche con el bot.
+// puede corregir varios datos juntos y, si además cambia el teléfono, hace
+// falta renombrar la fila (el client_phone es la clave). El teléfono viejo
+// NO se reescribe en conversations/pedidos_confirmados/pedidos_cotizados
+// (esas filas son el snapshot de con qué número se habló/compró en ese
+// momento puntual — el chat y el Historial de Consultas tienen que seguir
+// mostrando ESE número, no el actual); en cambio se anota en
+// clientes_telefonos_historicos, que es lo que usa la Lista de Clientes
+// (obtenerListaClientesDirectorio en clientDirectory.js) para sumar todo el
+// historial de la persona sin importar cuántas veces cambió de línea. Mismo
+// criterio que migrar_cliente_por_dni.js (el bot, cuando el cliente cambia de
+// número él mismo).
 export const actualizarDatosCliente = async (clientPhoneActual, { nombreCompleto, dni, obraSocial, nuevoTelefono } = {}) => {
   console.log('🔍 [DEBUG-SERVICE-CLIENTESADMIN] actualizarDatosCliente() — parámetros recibidos:', { clientPhoneActual, nombreCompleto, dni, obraSocial, nuevoTelefono });
 
@@ -102,19 +109,18 @@ export const actualizarDatosCliente = async (clientPhoneActual, { nombreCompleto
     cliente = data;
   }
 
-  // El client_phone vincula todas las conversaciones de este cliente (no sólo
-  // la que está abierta ahora mismo en el CRM): si se corrigió el teléfono,
-  // las re-apuntamos todas al valor nuevo para no perder el historial.
+  // Deja constancia de que telefonoActual también fue de esta persona, para
+  // que la Lista de Clientes pueda seguir sumando sus conversaciones de
+  // antes del cambio (ver clientes_telefonos_historicos.sql).
   if (cambiaTelefono) {
-    console.log('📡 [DEBUG-SERVICE-CLIENTESADMIN] Query Supabase → tabla: conversations, operación: update, filtro: client_phone =', telefonoActual, ', valores:', { client_phone: telefonoFinal });
-    const { error: convError } = await supabase
-      .from('conversations')
-      .update({ client_phone: telefonoFinal })
-      .eq('client_phone', telefonoActual);
-    console.log('📡 [DEBUG-SERVICE-CLIENTESADMIN] Resultado query conversations (update client_phone) — error:', convError);
-    if (convError) {
-      console.error('❌ [DEBUG-SERVICE-CLIENTESADMIN] actualizarDatosCliente() — error re-vinculando conversaciones:', convError);
-      throw convError;
+    console.log('📡 [DEBUG-SERVICE-CLIENTESADMIN] Query Supabase → tabla: clientes_telefonos_historicos, operación: insert, valores:', { cliente_id: cliente.id, client_phone: telefonoActual });
+    const { error: histError } = await supabase
+      .from('clientes_telefonos_historicos')
+      .insert([{ cliente_id: cliente.id, client_phone: telefonoActual }]);
+    console.log('📡 [DEBUG-SERVICE-CLIENTESADMIN] Resultado query clientes_telefonos_historicos (insert) — error:', histError);
+    if (histError) {
+      console.error('❌ [DEBUG-SERVICE-CLIENTESADMIN] actualizarDatosCliente() — error registrando teléfono histórico:', histError);
+      throw histError;
     }
   }
 

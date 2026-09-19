@@ -86,9 +86,12 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
   // El detalle de un cliente sí necesita sus consultas una por una (para el
   // historial de abajo): salen del mismo `conversations` ya cargado (el
   // client_phone de cada consulta es el snapshot de esa sesión, sin pisar),
-  // filtradas por el teléfono VIGENTE que identifica a este cliente.
-  const selectedClientConversations = selectedPhone
-    ? conversations.filter(c => c.client_phone === selectedPhone).sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  // filtradas contra TODOS los teléfonos que tuvo esta persona (no sólo el
+  // vigente): si migró de número, sus consultas viejas se quedaron con el
+  // client_phone de entonces — `telefonos` (vigente + históricos) es lo que
+  // arma obtenerListaClientesDirectorio en el backend.
+  const selectedClientConversations = selectedClient
+    ? conversations.filter(c => selectedClient.telefonos.includes(c.client_phone)).sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     : [];
 
   if (loading) {
