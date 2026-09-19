@@ -123,21 +123,53 @@ export const getConversationAwaitingRating = async (clientPhone) => {
 };
 
 // Primera respuesta de la encuesta: calificación de la atención recibida.
-// Se guarda en `rating` y SIEMPRE se encadena la segunda pregunta sobre el
-// producto (antes se omitía si la venta no estaba marcada como "concretada",
-// lo que cortaba la encuesta de golpe en cualquier cierre por inactividad
-// sin venta registrada — ver guardarCalificacionProducto para el cierre real).
+// Se guarda en `rating` SIEMPRE (la atención se puede calificar aunque no
+// haya habido compra). La segunda pregunta (producto) sólo se encadena si
+// esta consulta tuvo una venta efectivamente concretada (sale_status del
+// SaleStatusPanel — ver ValidationPanel.jsx/SaleStatusPanel.jsx): no tiene
+// sentido preguntarle a alguien qué tan satisfecho está con un producto que
+// nunca compró (cierre por inactividad, o el operador la marcó como "no
+// concretada"/"otra"). product_rating queda así atado a transacciones
+// reales, tanto en el registro como en los promedios que se calculan sobre
+// esa columna (ClientDirectory, MetricsPanel).
 export const guardarCalificacionAtencion = async (conversationId, clientPhone, rating) => {
   console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — conversationId:', conversationId, 'clientPhone:', clientPhone, 'rating:', rating);
   try {
-    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — UPDATE conversations, filtros: { id:', conversationId, '}, valores:', { rating, bot_state: 'awaiting_product_rating' });
-    const updateResp = await supabase
+    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — SELECT conversations, filtros: { id:', conversationId, '}, columnas: sale_status');
+    const { data: conv, error: convError } = await supabase
       .from('conversations')
-      .update({ rating, bot_state: 'awaiting_product_rating' })
-      .eq('id', conversationId);
-    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — resultado UPDATE conversations — data:', updateResp.data, 'error:', updateResp.error);
+      .select('sale_status')
+      .eq('id', conversationId)
+      .maybeSingle();
+    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — resultado SELECT conversations — data:', conv, 'error:', convError);
+    if (convError) {
+      console.error('❌ [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — error consultando sale_status:', convError);
+      throw convError;
+    }
 
-    await enviarMensajeBot(conversationId, clientPhone, MENSAJE_PEDIR_RATING_PRODUCTO);
+    const huboVentaConcretada = conv?.sale_status === 'concretada';
+    console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — sale_status:', conv?.sale_status, ', huboVentaConcretada:', huboVentaConcretada);
+
+    if (huboVentaConcretada) {
+      console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — UPDATE conversations, filtros: { id:', conversationId, '}, valores:', { rating, bot_state: 'awaiting_product_rating' });
+      const updateResp = await supabase
+        .from('conversations')
+        .update({ rating, bot_state: 'awaiting_product_rating' })
+        .eq('id', conversationId);
+      console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — resultado UPDATE conversations — data:', updateResp.data, 'error:', updateResp.error);
+
+      await enviarMensajeBot(conversationId, clientPhone, MENSAJE_PEDIR_RATING_PRODUCTO);
+    } else {
+      // Sin venta concretada: la encuesta termina acá, no se pregunta por el producto.
+      console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — UPDATE conversations (sin venta, cierra la encuesta), filtros: { id:', conversationId, '}, valores:', { rating, bot_state: null });
+      const updateResp = await supabase
+        .from('conversations')
+        .update({ rating, bot_state: null })
+        .eq('id', conversationId);
+      console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — resultado UPDATE conversations — data:', updateResp.data, 'error:', updateResp.error);
+
+      await enviarMensajeBot(conversationId, clientPhone, MENSAJE_DESPEDIDA_ENCUESTA);
+    }
 
     console.log('✅ [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — finalizado sin valor de retorno explícito');
     return;
