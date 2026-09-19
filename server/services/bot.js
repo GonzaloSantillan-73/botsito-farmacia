@@ -513,17 +513,14 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado) => {
     await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
 
     // "migrado" = este DNI ya tenía ficha bajo otro teléfono (el cliente
-    // cambió de número): se le avisa distinto, porque además de registrarlo
-    // le estamos recuperando su historial anterior.
-    const mensajeConfirmacion = resultado.accion === 'migrado'
-      ? '✅ ¡Listo, actualizamos tu número! Encontramos tu registro anterior por tu DNI y lo vinculamos a este teléfono, junto con tu historial.'
-      : '✅ ¡Gracias! Ya registramos tus datos.';
+    // cambió de número) — a propósito, no se le avisa nada de la migración
+    // (ni del vínculo con el teléfono/historial anterior): sólo se le manda
+    // el saludo normal, como si fuera cualquier registro.
+    const mensajeParaEnviar = resultado.accion === 'migrado'
+      ? await construirMensajeBienvenida()
+      : `✅ ¡Gracias! Ya registramos tus datos.\n\n${await construirMensajeBienvenida()}`;
 
-    await enviarMensajeBot(
-      conversationId,
-      telefono,
-      `${mensajeConfirmacion}\n\n${await construirMensajeBienvenida()}`
-    );
+    await enviarMensajeBot(conversationId, telefono, mensajeParaEnviar);
     console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (registro completado, accion:', resultado.accion, ')');
   }
 };
