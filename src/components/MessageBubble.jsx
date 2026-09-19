@@ -155,27 +155,27 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
            </button>
         )}
         {msg.media_url && msg.media_type === 'pdf' && (
-          <div className={`mb-2 rounded-lg border overflow-hidden ${msg.sender_type === 'client' ? 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700' : 'border-teal-400 bg-teal-600/20'}`}>
+          <div className={`mb-2 rounded-lg border overflow-hidden ${msg.sender_type === 'client' ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60' : 'border-teal-400 bg-teal-600/20'}`}>
             <div className="flex items-center gap-2 p-2.5">
               <div className={`p-2 rounded-lg shrink-0 ${msg.sender_type === 'client' ? 'bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400' : 'bg-white/20 text-white'}`}>
                 <FileText size={18} />
               </div>
               <span className={`text-sm font-medium truncate ${msg.sender_type === 'client' ? 'text-gray-800 dark:text-gray-100' : ''}`}>{msg.message_text || 'Documento PDF'}</span>
             </div>
-            <div className={`flex border-t ${msg.sender_type === 'client' ? 'border-gray-200 dark:border-gray-600' : 'border-teal-400/50'}`}>
+            <div className={`flex flex-col border-t ${msg.sender_type === 'client' ? 'border-gray-200 dark:border-gray-700' : 'border-teal-400/50'}`}>
               <a
                 href={msg.media_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${msg.sender_type === 'client' ? 'text-teal-700 dark:text-teal-400 hover:bg-gray-100 dark:hover:bg-gray-600' : 'text-white hover:bg-white/10'}`}
+                className={`flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${msg.sender_type === 'client' ? 'text-teal-700 dark:text-teal-400 hover:bg-gray-100 dark:hover:bg-gray-800' : 'text-white hover:bg-white/10'}`}
               >
                 <Eye size={14} /> Visualizar
               </a>
-              <div className={`w-px ${msg.sender_type === 'client' ? 'bg-gray-200 dark:bg-gray-600' : 'bg-teal-400/50'}`} />
+              <div className={`h-px ${msg.sender_type === 'client' ? 'bg-gray-200 dark:bg-gray-700' : 'bg-teal-400/50'}`} />
               <button
                 onClick={() => { onDownload && onDownload(msg); }}
                 disabled={downloadingId === msg.id}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors disabled:opacity-50 ${msg.sender_type === 'client' ? 'text-teal-700 dark:text-teal-400 hover:bg-gray-100 dark:hover:bg-gray-600' : 'text-white hover:bg-white/10'}`}
+                className={`flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors disabled:opacity-50 ${msg.sender_type === 'client' ? 'text-teal-700 dark:text-teal-400 hover:bg-gray-100 dark:hover:bg-gray-800' : 'text-white hover:bg-white/10'}`}
               >
                 {downloadingId === msg.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Descargar
               </button>
