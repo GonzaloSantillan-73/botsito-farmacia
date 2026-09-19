@@ -1,6 +1,6 @@
 import express from 'express';
 import { requireAuth } from './adminAuth.js';
-import { obtenerConversacionesDirectorio, obtenerListaClientesDirectorio, buscarEnMensajesDirectorio } from '../services/clientDirectory.js';
+import { obtenerConversacionesDirectorio, obtenerListaClientesDirectorio, buscarEnMensajesDirectorio, obtenerHistorialClienteParaChat } from '../services/clientDirectory.js';
 
 const router = express.Router();
 
@@ -54,6 +54,37 @@ router.get('/conversations', async (req, res) => {
   console.log('✅ [DEBUG-ROUTES-CLIENTDIRECTORY] conversations count:', conversations.length, ', clients count:', clients.length, ', errors:', errors);
   console.log('🔚 [DEBUG-ROUTES-CLIENTDIRECTORY] respondiendo status: 200 body:', { conversations, clients, errors });
   res.status(200).json({ conversations, clients, errors });
+});
+
+// Historial de un cliente puntual (ícono "Historial de consultas" dentro de
+// un chat activo, ver HistoryPanel.jsx) — no confundir con GET /conversations
+// de arriba, que es la vista global de la pestaña "Historial de Consultas"
+// del Directorio.
+router.get('/history', async (req, res) => {
+  console.log('🔍 [DEBUG-ROUTES-CLIENTDIRECTORY] GET', req.originalUrl, '— method:', req.method, 'path:', req.path);
+  console.log('🔍 [DEBUG-ROUTES-CLIENTDIRECTORY] params:', req.params, 'query:', req.query);
+  console.log('🔍 [DEBUG-ROUTES-CLIENTDIRECTORY] req.admin:', req.admin);
+
+  const { clientPhone, excludeConversationId } = req.query;
+  if (!clientPhone) {
+    const responseBody400 = { error: 'Falta clientPhone.' };
+    console.log('🔚 [DEBUG-ROUTES-CLIENTDIRECTORY] GET /history - respondiendo status 400:', responseBody400);
+    return res.status(400).json(responseBody400);
+  }
+
+  const sucursalId = req.admin.role === 'admin' ? null : req.admin.sucursalId;
+  console.log('🔍 [DEBUG-ROUTES-CLIENTDIRECTORY] GET /history - sucursalId calculado:', sucursalId, '— role:', req.admin.role);
+
+  try {
+    const conversations = await obtenerHistorialClienteParaChat({ clientPhone, excludeConversationId, sucursalId });
+    console.log('✅ [DEBUG-ROUTES-CLIENTDIRECTORY] GET /history - cantidad de conversaciones:', conversations.length);
+    console.log('🔚 [DEBUG-ROUTES-CLIENTDIRECTORY] GET /history - respondiendo status 200, cantidad:', conversations.length);
+    res.status(200).json({ conversations });
+  } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-CLIENTDIRECTORY] GET /history - error:', error);
+    console.log('🔚 [DEBUG-ROUTES-CLIENTDIRECTORY] GET /history - respondiendo status 500');
+    res.status(500).json({ error: error.message || 'No se pudo obtener el historial del cliente.' });
+  }
 });
 
 router.post('/messages-search', async (req, res) => {

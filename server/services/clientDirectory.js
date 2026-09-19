@@ -1,5 +1,5 @@
 import { supabase } from '../supabase.js';
-import { resolverNombresPorTelefono } from './clientes.js';
+import { resolverNombresPorTelefono, obtenerTelefonosDeLaMismaPersona } from './clientes.js';
 
 const CONVERSATION_SELECT = '*, sucursal_actual:sucursales!sucursal_id(nombre), sucursal_primera:sucursales!primera_sucursal_id(nombre)';
 
@@ -197,6 +197,59 @@ const construirFilaCliente = ({ client_phone, real_name, dni, telefonos, convs }
     avgProductRating,
     lastContact: sorted[0]?.created_at || null
   };
+};
+
+// Historial de un cliente puntual, para el ícono "Historial de consultas"
+// dentro de un chat activo (ChatArea.jsx -> HistoryPanel.jsx). A diferencia
+// de obtenerConversacionesDirectorio (que sólo filtra por sucursal_id de la
+// conversación), acá hay que:
+//   1) Juntar TODOS los teléfonos históricos de esta persona (si migró de
+//      número, sus consultas viejas quedan con el teléfono de entonces).
+//   2) Aplicar la MISMA regla de sucursal que el resto del Directorio (propia
+//      sucursal + sin asignar todavía), PERO con una excepción: si esta
+//      sucursal ya tuvo un pedido confirmado con este cliente alguna vez
+//      (cualquiera de sus teléfonos), se le habilita ver el historial
+//      completo con cualquier sucursal — se asume que ya hay una relación
+//      comercial directa con esa persona, no sólo con "la farmacia" en general.
+export const obtenerHistorialClienteParaChat = async ({ clientPhone, excludeConversationId, sucursalId }) => {
+  console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerHistorialClienteParaChat() — parámetros recibidos:', { clientPhone, excludeConversationId, sucursalId });
+
+  const telefonos = await obtenerTelefonosDeLaMismaPersona(clientPhone);
+  console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerHistorialClienteParaChat() — teléfonos de la misma persona:', telefonos);
+
+  let query = supabase.from('conversations').select(CONVERSATION_SELECT).in('client_phone', telefonos);
+  if (excludeConversationId) query = query.neq('id', excludeConversationId);
+  const { data: conversations, error } = await query.order('created_at', { ascending: false });
+  console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerHistorialClienteParaChat() — resultado SELECT conversations — cantidad:', conversations?.length, 'error:', error);
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerHistorialClienteParaChat() — error consultando conversaciones:', error);
+    throw error;
+  }
+
+  if (!sucursalId) {
+    // admin: acceso transversal completo, sin restricción por sucursal.
+    console.log('✅ [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerHistorialClienteParaChat() — sin sucursalId (admin), valor de retorno sin filtrar, cantidad:', conversations?.length);
+    return conversations || [];
+  }
+
+  const { data: pedidoEnComun, error: pedidoError } = await supabase
+    .from('pedidos_confirmados')
+    .select('id')
+    .in('client_phone', telefonos)
+    .eq('sucursal_id', sucursalId)
+    .limit(1)
+    .maybeSingle();
+  console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerHistorialClienteParaChat() — resultado SELECT pedidos_confirmados (pedido en común) — data:', pedidoEnComun, 'error:', pedidoError);
+  if (pedidoError) {
+    console.error('❌ [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerHistorialClienteParaChat() — error consultando pedido en común:', pedidoError);
+    throw pedidoError;
+  }
+  const hayPedidoEnComun = !!pedidoEnComun;
+  console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerHistorialClienteParaChat() — hayPedidoEnComun:', hayPedidoEnComun);
+
+  const resultado = (conversations || []).filter(c => !c.sucursal_id || c.sucursal_id === sucursalId || hayPedidoEnComun);
+  console.log('✅ [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerHistorialClienteParaChat() — valor de retorno, cantidad:', resultado.length, 'de', conversations?.length, 'totales');
+  return resultado;
 };
 
 // Recalcula del lado del servidor qué conversation_id son visibles para este

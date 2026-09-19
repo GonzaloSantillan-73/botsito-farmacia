@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, History, FileText } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { adminFetch } from '../lib/adminAuth';
 import { tagMessage, aplicarTagLocal } from '../lib/tagMessage';
 import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import ClientHistoryList from './ClientHistoryList';
@@ -36,22 +37,24 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
   useEffect(() => {
     const fetchHistory = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('conversations')
-        .select('*, sucursal_actual:sucursales!sucursal_id(nombre), sucursal_primera:sucursales!primera_sucursal_id(nombre)')
-        .eq('client_phone', clientPhone)
-        .order('created_at', { ascending: false });
-
-
-      if (!error && data) {
-        // Este panel es justamente el acceso transversal explícito (a
-        // diferencia del Directorio de Clientes, que sí aísla por sucursal):
-        // una vez adentro del chat, se ve el historial completo del cliente
-        // sin importar qué sucursal atendió cada consulta anterior.
-        const visibles = data.filter(c => c.id !== currentConversationId);
-        setPastConversations(visibles);
-      } else if (error) {
-        console.error('❌ [DEBUG-COMPONENT-HistoryPanel] error de supabase en "conversations":', error);
+      try {
+        // Resuelto en el backend (ver server/services/clientDirectory.js:
+        // obtenerHistorialClienteParaChat): junta también los teléfonos
+        // viejos de este cliente si migró de número, y aplica la regla de
+        // sucursal (propia sucursal + sin asignar + excepción por pedido en
+        // común) según el JWT del operador logueado — no hay forma de
+        // pedirlo "sin filtrar" cambiando algo del lado del navegador.
+        const params = new URLSearchParams({ clientPhone });
+        if (currentConversationId) params.set('excludeConversationId', currentConversationId);
+        const res = await adminFetch(`/api/admin/client-directory/history?${params.toString()}`);
+        const { conversations, error } = await res.json();
+        if (!error) {
+          setPastConversations(conversations || []);
+        } else {
+          console.error('❌ [DEBUG-COMPONENT-HistoryPanel] error del backend en /history:', error);
+        }
+      } catch (err) {
+        console.error('❌ [DEBUG-COMPONENT-HistoryPanel] excepción pidiendo /history:', err);
       }
       setLoading(false);
     };

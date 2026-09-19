@@ -64,6 +64,67 @@ export const resolverNombresPorTelefono = async (phones) => {
   return phoneMap;
 };
 
+// Dado CUALQUIER teléfono que haya identificado a una persona (el vigente o
+// uno viejo de antes de migrar, ver clientes_telefonos_historicos), devuelve
+// TODOS los teléfonos que alguna vez fueron de esa misma persona, incluido el
+// que se pidió. Si el teléfono no tiene ninguna ficha asociada (cliente sin
+// registrar todavía), devuelve sólo ese teléfono tal cual.
+export const obtenerTelefonosDeLaMismaPersona = async (clientPhone) => {
+  console.log('🔍 [DEBUG-SERVICE-CLIENTES] obtenerTelefonosDeLaMismaPersona() — parámetros recibidos:', { clientPhone });
+
+  const { data: fichaDirecta, error: fichaError } = await supabase
+    .from('clientes')
+    .select('id, client_phone')
+    .eq('client_phone', clientPhone)
+    .maybeSingle();
+  if (fichaError) {
+    console.error('❌ [DEBUG-SERVICE-CLIENTES] obtenerTelefonosDeLaMismaPersona() — error consultando clientes:', fichaError);
+    throw fichaError;
+  }
+
+  let fichaId = fichaDirecta?.id || null;
+  let telefonoVigente = fichaDirecta?.client_phone || null;
+
+  if (!fichaId) {
+    const { data: historico, error: histError } = await supabase
+      .from('clientes_telefonos_historicos')
+      .select('cliente_id')
+      .eq('client_phone', clientPhone)
+      .maybeSingle();
+    if (histError) {
+      console.error('❌ [DEBUG-SERVICE-CLIENTES] obtenerTelefonosDeLaMismaPersona() — error consultando clientes_telefonos_historicos:', histError);
+      throw histError;
+    }
+    if (historico) {
+      fichaId = historico.cliente_id;
+      const { data: ficha, error: fichaPorIdError } = await supabase.from('clientes').select('client_phone').eq('id', fichaId).maybeSingle();
+      if (fichaPorIdError) {
+        console.error('❌ [DEBUG-SERVICE-CLIENTES] obtenerTelefonosDeLaMismaPersona() — error consultando ficha por id:', fichaPorIdError);
+        throw fichaPorIdError;
+      }
+      telefonoVigente = ficha?.client_phone || null;
+    }
+  }
+
+  if (!fichaId) {
+    console.log('✅ [DEBUG-SERVICE-CLIENTES] obtenerTelefonosDeLaMismaPersona() — sin ficha asociada, valor de retorno:', [clientPhone]);
+    return [clientPhone];
+  }
+
+  const { data: historicos, error: todosHistError } = await supabase
+    .from('clientes_telefonos_historicos')
+    .select('client_phone')
+    .eq('cliente_id', fichaId);
+  if (todosHistError) {
+    console.error('❌ [DEBUG-SERVICE-CLIENTES] obtenerTelefonosDeLaMismaPersona() — error consultando todos los históricos:', todosHistError);
+    throw todosHistError;
+  }
+
+  const resultado = [...new Set([clientPhone, telefonoVigente, ...(historicos || []).map(h => h.client_phone)].filter(Boolean))];
+  console.log('✅ [DEBUG-SERVICE-CLIENTES] obtenerTelefonosDeLaMismaPersona() — valor de retorno:', resultado);
+  return resultado;
+};
+
 export const getCliente = async (clientPhone) => {
   console.log('🔍 [DEBUG-SERVICE-CLIENTES] getCliente() — parámetros recibidos:', { clientPhone });
 
