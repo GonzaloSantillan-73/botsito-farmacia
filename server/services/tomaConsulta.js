@@ -45,7 +45,7 @@ export const tomarConsulta = async (conversationId, sucursalId) => {
       .maybeSingle();
     console.log('📡 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — resultado SELECT conversations — data:', actual, 'error:', actualError);
 
-    const updates = { sucursal_id: sucursalId, devuelta_por_sucursal_id: null };
+    const updates = { sucursal_id: sucursalId, devuelta_por_sucursal_id: null, derivado_por_sucursal_id: null, derivado_por_sucursal_nombre: null };
     if (!actual?.primera_sucursal_id) updates.primera_sucursal_id = sucursalId;
     console.log('🔍 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — CAMBIO DE ESTADO — conversationId:', conversationId, 'de "esperando" (sin sucursal) a tomada por sucursal:', sucursalId, '— updates a aplicar:', updates);
 

@@ -42,11 +42,44 @@ export const derivarASucursal = async (conversationId, sucursalDestinoId) => {
       throw new Error(`La sucursal ${sucursal.nombre} está cerrada en este momento.`);
     }
 
-    console.log('🔍 [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — CAMBIO DE ESTADO — conversationId:', conversationId, 'pasa a estar a cargo de sucursal:', sucursalDestinoId, '(', sucursal.nombre, ')');
-    console.log('📡 [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — UPDATE conversations, filtros: { id:', conversationId, '}, valores:', { sucursal_id: sucursalDestinoId, devuelta_por_sucursal_id: null });
+    // La sucursal de origen se lee de la propia conversación (nunca de lo que
+    // mande el frontend) para que "Derivado de X" sea confiable: es quien la
+    // tenía asignada justo antes de este UPDATE.
+    console.log('📡 [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — SELECT conversations, filtros: { id:', conversationId, '}, columnas: sucursal_id');
+    const { data: convActual, error: convActualError } = await supabase
+      .from('conversations')
+      .select('sucursal_id')
+      .eq('id', conversationId)
+      .maybeSingle();
+    console.log('📡 [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — resultado SELECT conversations (actual) — data:', convActual, 'error:', convActualError);
+    if (convActualError) {
+      console.error('❌ [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — convActualError:', convActualError);
+      throw convActualError;
+    }
+
+    const sucursalOrigenId = convActual?.sucursal_id || null;
+    let sucursalOrigenNombre = null;
+    if (sucursalOrigenId) {
+      const { data: origen, error: origenError } = await supabase
+        .from('sucursales')
+        .select('nombre')
+        .eq('id', sucursalOrigenId)
+        .maybeSingle();
+      if (origenError) console.error('❌ [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — error consultando sucursal de origen:', origenError);
+      sucursalOrigenNombre = origen?.nombre || null;
+    }
+
+    console.log('🔍 [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — CAMBIO DE ESTADO — conversationId:', conversationId, 'pasa a estar a cargo de sucursal:', sucursalDestinoId, '(', sucursal.nombre, ') — derivada desde:', sucursalOrigenId, '(', sucursalOrigenNombre, ')');
+    const updates = {
+      sucursal_id: sucursalDestinoId,
+      devuelta_por_sucursal_id: null,
+      derivado_por_sucursal_id: sucursalOrigenId,
+      derivado_por_sucursal_nombre: sucursalOrigenNombre
+    };
+    console.log('📡 [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — UPDATE conversations, filtros: { id:', conversationId, '}, valores:', updates);
     const { data: conv, error: updateError } = await supabase
       .from('conversations')
-      .update({ sucursal_id: sucursalDestinoId, devuelta_por_sucursal_id: null })
+      .update(updates)
       .eq('id', conversationId)
       .select()
       .maybeSingle();

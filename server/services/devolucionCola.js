@@ -93,7 +93,11 @@ export const devolverConversacionAEspera = async (conversationId, { motivoTexto 
         sucursales_recomendadas: sucursalesRecomendadas,
         // Queda registrado hasta que otra sucursal la tome (ver tomarConsulta.js),
         // para mostrarle "Devolviste" a esta sucursal y "Devuelta" al resto.
-        devuelta_por_sucursal_id: sucursalQueDevuelve || null
+        devuelta_por_sucursal_id: sucursalQueDevuelve || null,
+        // Ya no está "recién derivada": vuelve a la cola general, así que esa
+        // marca deja de aplicar (queda devuelta_por_sucursal_id en su lugar).
+        derivado_por_sucursal_id: null,
+        derivado_por_sucursal_nombre: null
       })
       .eq('id', conversationId);
     console.log('📡 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — resultado UPDATE conversations — error:', updateError);

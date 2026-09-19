@@ -1,5 +1,5 @@
 import React, { useState, useEffect, memo } from 'react';
-import { Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut, MapPin, Hand } from 'lucide-react';
+import { Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut, MapPin, Hand, Send } from 'lucide-react';
 import SettingsModal from './SettingsModal';
 import { formatPhone } from '../lib/formatPhone';
 import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
@@ -77,6 +77,26 @@ const DevueltaBadge = ({ devueltaPorSucursalId }) => {
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap ${fuiYo ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
       {fuiYo ? 'Devolviste' : 'Devuelta'}
+    </span>
+  );
+};
+
+// Marca que este chat llegó a la sucursal actual por una derivación DIRECTA
+// desde otra sucursal (ver server/services/derivacionSucursal.js) — a
+// diferencia de DevueltaBadge, que es sobre una devolución a la cola general.
+// Sólo la sucursal receptora puede ver esta conversación (el fetch de
+// App.jsx ya la filtra por sucursal_id), así que alcanza con mostrar el
+// nombre de origen sin necesidad de compararlo contra "mi" sucursal. El
+// nombre viaja ya resuelto en la fila (no se arma acá con un join).
+const DerivadoBadge = ({ nombreSucursalOrigen }) => {
+  if (!nombreSucursalOrigen) return null;
+  return (
+    <span
+      title={`Derivado desde ${nombreSucursalOrigen}`}
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-400 max-w-[160px] truncate"
+    >
+      <Send size={10} className="shrink-0" />
+      <span className="truncate">Derivado de {nombreSucursalOrigen}</span>
     </span>
   );
 };
@@ -414,6 +434,11 @@ export default function Sidebar({
                     <DevueltaBadge devueltaPorSucursalId={conv.devuelta_por_sucursal_id} />
                     <SucursalesRecomendadas sucursales={conv.sucursales_recomendadas} />
                   </div>
+                </div>
+              )}
+              {isDerivadoTab && conv.derivado_por_sucursal_nombre && (
+                <div className="flex items-center gap-1 flex-wrap">
+                  <DerivadoBadge nombreSucursalOrigen={conv.derivado_por_sucursal_nombre} />
                 </div>
               )}
             </div>
