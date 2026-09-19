@@ -22,20 +22,57 @@ const MENSAJE_PEDIR_RATING_PRODUCTO =
 
 const MENSAJE_DESPEDIDA_ENCUESTA = '¡Gracias por tu calificación! Que tengas un buen día. 😊';
 
+// Mismo criterio que sessionManager.js (TERMINAL_STATUSES), duplicado a
+// propósito acá en vez de importado: sessionManager.js importa
+// finalizarConversacion DESDE este archivo, así que importar en sentido
+// contrario crearía un ciclo entre los dos módulos. Es una lista chica y
+// estable (ya está duplicada igual en el frontend, ver Sidebar.jsx:
+// ESTADOS_HISTORIAL), el costo de mantenerla en dos lugares es bajo.
+const ESTADOS_TERMINALES = ['finalizada', 'resolved', 'rejected'];
+
 // Cierra una consulta (por inactividad o manualmente) y le pide al cliente que
 // califique la atención recibida del 1 al 5. Queda a la espera de esa
 // respuesta vía bot_state; una vez respondida (ver guardarCalificacionAtencion)
 // se encadena una segunda pregunta sobre el producto antes de dar la encuesta
 // por terminada, guardando ambas valoraciones en columnas independientes.
+//
+// Hay TRES disparadores independientes que pueden llamar a esta función para
+// la MISMA conversación casi al mismo tiempo: el checker de fondo por
+// inactividad (sessionExpiryChecker.js), el chequeo que hace
+// findOrCreateSession() apenas llega un mensaje nuevo del cliente
+// (sessionManager.js), y el cierre manual desde el CRM (routes/api.js). Antes,
+// los tres hacían un UPDATE incondicional y mandaban el mensaje de despedida
+// sin fijarse si otro ya la había cerrado un instante antes — un típico race
+// de "leer end vez de haber leido después de escribir" (TOCTOU) que terminaba
+// mandando el aviso de cierre duplicado. Ahora el UPDATE es condicional
+// (WHERE status NOT IN estados terminales): sólo transiciona, y sólo se manda
+// el mensaje, si esta llamada es la que efectivamente saca a la conversación
+// de un estado activo. Si ya la había cerrado otro disparador, el UPDATE no
+// afecta ninguna fila y no se reenvía nada.
 export const finalizarConversacion = async (conversationId, clientPhone, motivo = 'por inactividad') => {
   console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — conversationId:', conversationId, 'clientPhone:', clientPhone, 'motivo:', motivo);
   try {
-    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — UPDATE conversations, filtros: { id:', conversationId, '}, valores:', { status: 'finalizada', bot_state: 'awaiting_rating' });
-    const updateResp = await supabase
+    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — UPDATE condicional conversations, filtros: { id:', conversationId, ', status NOT IN:', ESTADOS_TERMINALES, '}, valores:', { status: 'finalizada', bot_state: 'awaiting_rating' });
+    const { data: filaActualizada, error: updateError } = await supabase
       .from('conversations')
       .update({ status: 'finalizada', bot_state: 'awaiting_rating' })
-      .eq('id', conversationId);
-    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — resultado UPDATE conversations — data:', updateResp.data, 'error:', updateResp.error);
+      .eq('id', conversationId)
+      .not('status', 'in', `(${ESTADOS_TERMINALES.join(',')})`)
+      .select('id')
+      .maybeSingle();
+    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — resultado UPDATE condicional conversations — filaActualizada:', filaActualizada, 'error:', updateError);
+
+    if (updateError) {
+      console.error('❌ [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — error en el UPDATE condicional:', updateError);
+      throw updateError;
+    }
+
+    if (!filaActualizada) {
+      // Ya estaba en un estado terminal: otro disparador la cerró un instante
+      // antes (o ya estaba cerrada por otro motivo). No se reenvía el mensaje.
+      console.log('⚠️ [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — la conversación', conversationId, 'ya estaba en un estado terminal, se omite el mensaje de cierre (evita duplicado por carrera entre disparadores).');
+      return;
+    }
 
     if (clientPhone) {
       console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — enviando mensaje de finalización a', clientPhone);
