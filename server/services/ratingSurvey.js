@@ -53,10 +53,19 @@ const ESTADOS_TERMINALES = ['finalizada', 'resolved', 'rejected'];
 export const finalizarConversacion = async (conversationId, clientPhone, motivo = 'por inactividad') => {
   console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — conversationId:', conversationId, 'clientPhone:', clientPhone, 'motivo:', motivo);
   try {
-    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — UPDATE condicional conversations, filtros: { id:', conversationId, ', status NOT IN:', ESTADOS_TERMINALES, '}, valores:', { status: 'finalizada', bot_state: 'awaiting_rating' });
+    // Decisión de producto: el cierre automático por inactividad ya no le pide
+    // al cliente que califique la atención (a diferencia del cierre manual
+    // desde el CRM, que sí encuesta). Por eso acá tampoco se deja bot_state en
+    // 'awaiting_rating': si quedara así, un "1"-"5" que el cliente mande después
+    // por cualquier otro motivo se interpretaría como respuesta a una encuesta
+    // que nunca se le hizo (ver getConversationAwaitingRating()).
+    const cierrePorInactividad = motivo === 'por inactividad';
+    const nuevoBotState = cierrePorInactividad ? null : 'awaiting_rating';
+
+    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — UPDATE condicional conversations, filtros: { id:', conversationId, ', status NOT IN:', ESTADOS_TERMINALES, '}, valores:', { status: 'finalizada', bot_state: nuevoBotState });
     const { data: filaActualizada, error: updateError } = await supabase
       .from('conversations')
-      .update({ status: 'finalizada', bot_state: 'awaiting_rating' })
+      .update({ status: 'finalizada', bot_state: nuevoBotState })
       .eq('id', conversationId)
       .not('status', 'in', `(${ESTADOS_TERMINALES.join(',')})`)
       .select('id')
@@ -75,7 +84,9 @@ export const finalizarConversacion = async (conversationId, clientPhone, motivo 
       return;
     }
 
-    if (clientPhone) {
+    if (cierrePorInactividad) {
+      console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — cierre por inactividad: se omite el mensaje de despedida/encuesta a', clientPhone, '(decisión de producto, no es un bug de duplicados).');
+    } else if (clientPhone) {
       // instanceId/commit: si algún día vuelve a aparecer un mensaje de
       // cierre duplicado, comparar esta línea entre los dos envíos dice de
       // una si salieron del mismo proceso (bug acá) o de dos procesos
