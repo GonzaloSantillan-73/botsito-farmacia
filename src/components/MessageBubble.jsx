@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Image as ImageIcon, FileText, Loader2, MapPin, Download, Eye, ShieldAlert, Tag, Check, X } from 'lucide-react';
 import { renderWhatsAppText } from '../lib/whatsappFormat';
+import { adminFetch } from '../lib/adminAuth';
 
 const TAG_LABELS = {
   comprobante: { texto: '🧾 Comprobante', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' },
@@ -72,42 +73,110 @@ export const parseLocationMessage = (msg) => {
   }
 };
 
+// Mismo whitelist de hosts que usa el backend (server/services/mapsLocation.js)
+// para decidir si vale la pena pedirle al servidor que resuelva el link: un
+// cliente puede pegar cualquier URL como texto, y no toda URL es de Maps.
+const MAPS_HOSTS = new Set(['maps.app.goo.gl', 'goo.gl', 'www.google.com', 'google.com', 'maps.google.com']);
+const REGEX_URL = /https?:\/\/[^\s]+/i;
+
+// Busca un link de Google Maps dentro de un mensaje de texto plano (a
+// diferencia de parseLocationMessage, que es para el botón nativo de
+// "Compartir ubicación" de WhatsApp). Sólo tiene sentido llamarlo sobre
+// mensajes sin adjunto: un caption de imagen que mencione un link no debe
+// tapar la imagen.
+export const extraerLinkDeMaps = (texto) => {
+  const match = texto?.match(REGEX_URL);
+  if (!match) return null;
+  try {
+    return MAPS_HOSTS.has(new URL(match[0]).hostname.toLowerCase()) ? match[0] : null;
+  } catch {
+    return null;
+  }
+};
+
+// Tarjeta de vista previa de ubicación (mapa embebido + link a Google Maps),
+// compartida entre la ubicación nativa de WhatsApp y un link de Maps pegado
+// como texto (ver MapsLinkPreview) para que se vean idénticas.
+export const LocationCard = ({ lat, lng, label, senderType }) => (
+  <div
+    onClick={() => { window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank', 'noopener,noreferrer'); }}
+    className="mb-2 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90 transition-opacity w-64 max-w-full"
+    title="Abrir ubicación en Google Maps"
+  >
+    {/* El iframe de OpenStreetMap trae su propia franja de atribución
+        anclada al fondo del documento embebido; como es de otro origen
+        no podemos aplicarle CSS para ocultarla, así que lo agrandamos y
+        lo corremos hacia arriba dentro de un contenedor más bajo con
+        overflow:hidden, recortando esa franja fuera del área visible. */}
+    <div className="h-32 w-full overflow-hidden relative bg-gray-100 dark:bg-gray-700">
+      <iframe
+        src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.01}%2C${lat - 0.01}%2C${lng + 0.01}%2C${lat + 0.01}&marker=${lat}%2C${lng}`}
+        className="absolute top-0 left-0 w-full border-0 pointer-events-none"
+        style={{ height: 'calc(100% + 70px)' }}
+        loading="lazy"
+        title="Vista previa de ubicación"
+      />
+    </div>
+    <div className={`flex items-center gap-2 p-2 text-xs font-medium ${senderType === 'client' ? 'bg-gray-100 dark:bg-gray-800 text-teal-700 dark:text-teal-400' : 'bg-teal-600 text-white'}`}>
+      <MapPin size={14} className="shrink-0" />
+      <span className="truncate">{label || 'Ver ubicación en Google Maps'}</span>
+    </div>
+  </div>
+);
+
+// Un link de Maps pegado como texto no trae lat/lng en el propio mensaje (a
+// diferencia de la ubicación nativa): hay que resolverlo contra el backend
+// (GET /api/resolve-maps-url, ver server/routes/api.js), que reutiliza la
+// misma lógica que ya usa el bot y sabe seguir la redirección de los links
+// cortos (maps.app.goo.gl) — algo que el navegador no puede hacer por CORS.
+// Mientras se resuelve (o si falla / no es realmente un link de Maps válido)
+// se ve el texto plano de siempre, sin romper el mensaje.
+const cacheLinksDeMaps = new Map();
+
+export function MapsLinkPreview({ url, senderType, texto }) {
+  const [coords, setCoords] = useState(() => (cacheLinksDeMaps.has(url) ? cacheLinksDeMaps.get(url) : undefined));
+
+  useEffect(() => {
+    if (coords !== undefined) return;
+    let cancelado = false;
+    adminFetch(`/api/resolve-maps-url?url=${encodeURIComponent(url)}`)
+      .then(res => res.json())
+      .then(({ coords: resueltas }) => {
+        if (cancelado) return;
+        cacheLinksDeMaps.set(url, resueltas || null);
+        setCoords(resueltas || null);
+      })
+      .catch(() => {
+        if (cancelado) return;
+        cacheLinksDeMaps.set(url, null);
+        setCoords(null);
+      });
+    return () => { cancelado = true; };
+  }, [url, coords]);
+
+  if (coords) {
+    return <LocationCard lat={coords.lat} lng={coords.lng} senderType={senderType} />;
+  }
+  return <p className="text-sm whitespace-pre-wrap">{renderWhatsAppText(texto)}</p>;
+}
+
 // Renderiza un mensaje del chat (texto, imagen, video, documento, PDF o
 // ubicación) exactamente igual en el chat en vivo, el historial completo del
 // cliente y la galería multimedia, para que los tres lugares se vean y se
 // comporten de forma idéntica.
 export default function MessageBubble({ msg, onImageClick, onDownload, downloadingId, onTag, taggingId, statusIcon }) {
   const location = parseLocationMessage(msg);
+  // Sólo tiene sentido buscar un link de Maps en mensajes de puro texto: si
+  // ya hay un adjunto (imagen, documento, etc.), lo que diga message_text es
+  // un caption y no debe tapar ese adjunto.
+  const linkDeMaps = !location && !msg.media_url ? extraerLinkDeMaps(msg.message_text) : null;
   const showTagControls = msg.sender_type === 'client' && msg.media_url && msg.media_type !== 'location';
   return (
     <div className={`flex items-center gap-2 ${msg.sender_type === 'client' ? 'justify-start' : 'justify-end'}`}>
       <div className={`relative max-w-[75%] rounded-lg p-3 shadow-sm ${msg.sender_type === 'client' ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-tl-none' : 'bg-teal-500 text-white rounded-tr-none'}`}>
         {msg.sender_type === 'bot' && <div className="text-[10px] font-bold uppercase opacity-70 mb-1">BOT</div>}
         {location && (
-          <div
-            onClick={() => { window.open(`https://www.google.com/maps?q=${location.lat},${location.lng}`, '_blank', 'noopener,noreferrer'); }}
-            className="mb-2 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 cursor-pointer hover:opacity-90 transition-opacity w-64 max-w-full"
-            title="Abrir ubicación en Google Maps"
-          >
-            {/* El iframe de OpenStreetMap trae su propia franja de atribución
-                anclada al fondo del documento embebido; como es de otro origen
-                no podemos aplicarle CSS para ocultarla, así que lo agrandamos y
-                lo corremos hacia arriba dentro de un contenedor más bajo con
-                overflow:hidden, recortando esa franja fuera del área visible. */}
-            <div className="h-32 w-full overflow-hidden relative bg-gray-100 dark:bg-gray-700">
-              <iframe
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${location.lng - 0.01}%2C${location.lat - 0.01}%2C${location.lng + 0.01}%2C${location.lat + 0.01}&marker=${location.lat}%2C${location.lng}`}
-                className="absolute top-0 left-0 w-full border-0 pointer-events-none"
-                style={{ height: 'calc(100% + 70px)' }}
-                loading="lazy"
-                title="Vista previa de ubicación"
-              />
-            </div>
-            <div className={`flex items-center gap-2 p-2 text-xs font-medium ${msg.sender_type === 'client' ? 'bg-gray-100 dark:bg-gray-800 text-teal-700 dark:text-teal-400' : 'bg-teal-600 text-white'}`}>
-              <MapPin size={14} className="shrink-0" />
-              <span className="truncate">{location.name || location.address || 'Ver ubicación en Google Maps'}</span>
-            </div>
-          </div>
+          <LocationCard lat={location.lat} lng={location.lng} label={location.name || location.address} senderType={msg.sender_type} />
         )}
         {msg.media_url && msg.media_type === 'image' && (
           <div
@@ -204,7 +273,13 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
             </div>
           </div>
         )}
-        {!location && msg.media_type !== 'pdf' && msg.media_type !== 'audio' && <p className="text-sm whitespace-pre-wrap">{renderWhatsAppText(msg.message_text)}</p>}
+        {!location && msg.media_type !== 'pdf' && msg.media_type !== 'audio' && (
+          linkDeMaps ? (
+            <MapsLinkPreview url={linkDeMaps} senderType={msg.sender_type} texto={msg.message_text} />
+          ) : (
+            <p className="text-sm whitespace-pre-wrap">{renderWhatsAppText(msg.message_text)}</p>
+          )
+        )}
         <div className="flex items-center justify-end gap-1 mt-1">
           <span className={`text-[10px] ${msg.sender_type === 'client' ? 'text-gray-400' : 'text-teal-100'}`}>
             {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

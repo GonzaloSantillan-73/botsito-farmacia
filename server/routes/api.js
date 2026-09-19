@@ -12,6 +12,7 @@ import { getBotSchedule, setBotSchedule } from '../services/scheduleConfig.js';
 import { rowsToCsv, sendCsv } from '../services/csvExport.js';
 import { obtenerDetalleConsultas } from '../services/metricsDetalle.js';
 import { resolverNombresPorTelefono } from '../services/clientes.js';
+import { extraerCoordenadasDeUrl } from '../services/mapsLocation.js';
 import { requireAuth, requireAdminRole, blockAdminRole } from './adminAuth.js';
 
 const router = express.Router();
@@ -984,6 +985,27 @@ router.patch('/messages/:id/tag', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('[API] ❌ ERROR marcando mensaje:', error);
     res.status(500).json({ error: error.message || 'No se pudo marcar el mensaje.' });
+  }
+});
+
+// Resuelve lat/lng de un link de Google Maps pegado como texto plano en un
+// mensaje del chat, para que el frontend pueda mostrar la misma tarjeta
+// enriquecida que ya usa para ubicaciones nativas de WhatsApp (ver
+// MessageBubble.jsx: parseLocationMessage / MapsLinkPreview). Reutiliza
+// extraerCoordenadasDeUrl (mismo whitelist de hosts que ya usa el bot para no
+// abrir una puerta a SSRF) en vez de que el navegador intente resolver el
+// link cortado (maps.app.goo.gl) directo, que falla por CORS.
+router.get('/resolve-maps-url', requireAuth, async (req, res) => {
+  const { url } = req.query;
+  if (!url) {
+    return res.status(400).json({ error: 'Falta url.' });
+  }
+  try {
+    const coords = await extraerCoordenadasDeUrl(url);
+    res.status(200).json({ coords });
+  } catch (error) {
+    console.error('[API] ❌ ERROR resolviendo link de Maps:', error);
+    res.status(500).json({ error: 'No se pudo resolver el link de Maps.' });
   }
 });
 

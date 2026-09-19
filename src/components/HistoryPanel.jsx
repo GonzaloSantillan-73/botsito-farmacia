@@ -6,7 +6,7 @@ import { adminFetch } from '../lib/adminAuth';
 import { tagMessage, aplicarTagLocal } from '../lib/tagMessage';
 import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import ClientHistoryList from './ClientHistoryList';
-import { AttachmentTagControls } from './MessageBubble';
+import { AttachmentTagControls, parseLocationMessage, extraerLinkDeMaps, LocationCard, MapsLinkPreview } from './MessageBubble';
 import { alertDialog } from '../lib/dialogService';
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -158,10 +158,16 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
               <div className="flex-1 flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm">Esta consulta no tiene mensajes.</div>
             ) : (
               <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-2.5">
-                {selectedMessages.map(msg => (
+                {selectedMessages.map(msg => {
+                  const location = parseLocationMessage(msg);
+                  const linkDeMaps = !location && !msg.media_url ? extraerLinkDeMaps(msg.message_text) : null;
+                  return (
                   <div key={msg.id} className={`flex ${msg.sender_type === 'client' ? 'justify-start' : 'justify-end'}`}>
                     <div className={`max-w-[70%] rounded-lg px-3 py-2 text-sm shadow-sm ${msg.sender_type === 'client' ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100' : 'bg-teal-500 text-white'}`}>
                       {msg.sender_type === 'bot' && <div className="text-[10px] font-bold uppercase opacity-70 mb-1">BOT</div>}
+                      {location && (
+                        <LocationCard lat={location.lat} lng={location.lng} label={location.name || location.address} senderType={msg.sender_type} />
+                      )}
                       {msg.media_url && msg.media_type === 'image' && (
                         <img src={msg.media_url} alt="Media" className="mb-1.5 max-w-full h-auto object-cover rounded" />
                       )}
@@ -171,9 +177,15 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
                           Ver documento adjunto
                         </a>
                       )}
-                      <p className="whitespace-pre-wrap">
-                        {searchQuery.trim() ? highlightMatches(msg.message_text, searchQuery) : msg.message_text}
-                      </p>
+                      {!location && (
+                        linkDeMaps ? (
+                          <MapsLinkPreview url={linkDeMaps} senderType={msg.sender_type} texto={msg.message_text} />
+                        ) : (
+                          <p className="whitespace-pre-wrap">
+                            {searchQuery.trim() ? highlightMatches(msg.message_text, searchQuery) : msg.message_text}
+                          </p>
+                        )
+                      )}
                       {msg.sender_type === 'client' && msg.media_url && (
                         <AttachmentTagControls msg={msg} onTag={handleTagMessage} tagging={taggingId === msg.id} />
                       )}
@@ -182,7 +194,8 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
                       </span>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
