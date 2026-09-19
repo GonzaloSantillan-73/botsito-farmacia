@@ -98,6 +98,11 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
     setUpdatingKey(paso.key);
     const updates = { [paso.campo]: paso.valor };
     if (paso.key === 'pagook') updates.payment_method = MEDIO_PAGO_UNICO;
+    // "Envío realizado" es el momento en que se toma la venta como
+    // concretada (a diferencia de antes, que se inferia automáticamente al
+    // cerrar la consulta según payment_status): acá es donde el vendedor
+    // confirma que el pedido efectivamente salió/se entregó.
+    if (paso.key === 'enviado') updates.sale_status = 'concretada';
     const { error } = await supabase.from('conversations').update(updates).eq('id', activeConversation.id);
     const textoPlantilla = textoDe(paso.shortcut);
     handleSendMessage?.(textoPlantilla);
