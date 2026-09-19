@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { WifiOff } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { notifyNewEvent } from './lib/notifications';
 import { withClientNames } from './lib/clientUtils';
@@ -23,6 +24,24 @@ function App() {
   // claro hasta volver a tocar el toggle.
   useEffect(() => {
     applyTheme(getTheme());
+  }, []);
+
+  // Estado de red: cuando se pierde la conexión, se corta la suscripción de
+  // Realtime (ver más abajo) para que el navegador no quede reintentando
+  // reconectar el WebSocket en bucle contra una red caída, y se pausan los
+  // re-fetch manuales de mensajes/receta/conversaciones (ver fetchMessages,
+  // fetchPrescription y fetchConversations). Al volver "online" se resuscribe
+  // y se dispara UNA sola resincronización, no un polling continuo.
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  useEffect(() => {
+    const handleOnline = () => { setIsOnline(true); };
+    const handleOffline = () => { setIsOnline(false); };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   // Un empleado solo ve conversaciones de su propia sucursal, más las que
@@ -128,11 +147,36 @@ function App() {
     setShowValidationMobile(false);
   }, [activeConversation]);
 
-  // 3. Realtime Subscriptions. Se suscribe UNA sola vez (nunca en base a
-  // activeConversation): recrear el canal en cada cambio de conversación activa
-  // abría una ventana de desuscripción/resuscripción donde se podían perder o
-  // duplicar eventos, dejando filas fantasma en el sidebar.
+  // Al recuperar la conexión, la suscripción de Realtime (efecto de abajo) se
+  // reabre sola porque depende de isOnline, pero lo que haya cambiado
+  // MIENTRAS estuvo offline no llega retroactivamente por ahí: se dispara acá
+  // una única resincronización puntual (no un polling) para traer lo que se
+  // haya perdido. wasOnlineRef evita que esto se dispare también en el primer
+  // render (ya cubierto por los efectos 1 y 2 de arriba).
+  const wasOnlineRef = useRef(isOnline);
   useEffect(() => {
+    if (isOnline && !wasOnlineRef.current) {
+      console.log('🔍 [DEBUG-COMPONENT-App] Conexión recuperada — resincronizando (fetchConversations + conversación activa).');
+      if (adminToken) fetchConversations();
+      const activa = activeConversationRef.current;
+      if (activa) {
+        fetchMessages(activa.id);
+        fetchPrescription(activa.id);
+      }
+    }
+    wasOnlineRef.current = isOnline;
+  }, [isOnline]);
+
+  // 3. Realtime Subscriptions. Se suscribe UNA sola vez por cada vez que hay
+  // conexión (nunca en base a activeConversation: recrear el canal en cada
+  // cambio de conversación activa abría una ventana de desuscripción/
+  // resuscripción donde se podían perder o duplicar eventos, dejando filas
+  // fantasma en el sidebar). Si isOnline es false, ni se intenta abrir: sin
+  // esto, el cliente de Supabase Realtime queda reintentando reconectar el
+  // WebSocket en bucle contra una red caída, ensuciando la pestaña Network.
+  useEffect(() => {
+    if (!isOnline) return;
+
     const channel = supabase.channel('schema-db-changes')
       .on(
         'postgres_changes',
@@ -290,7 +334,7 @@ function App() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [isOnline]);
 
   const scrollToBottom = () => {
     setTimeout(() => {
@@ -333,6 +377,14 @@ function App() {
   };
 
   const fetchConversations = async () => {
+    // Sin conexión no tiene sentido intentarlo (fallaría seguro) ni queremos
+    // que ensucie la consola con el error de red: se omite en silencio y
+    // queda a cargo del efecto de "reconexión" volver a llamarla al toque de
+    // que vuelva el online.
+    if (!navigator.onLine) {
+      console.log('🔍 [DEBUG-COMPONENT-App] fetchConversations() — sin conexión, se omite.');
+      return;
+    }
     setLoading(true);
     // Este estado sólo alimenta las bandejas de Sidebar (Entrantes/Atendiendo/
     // Derivados), que ya descartan del lado del cliente cualquier conversación
@@ -417,6 +469,10 @@ function App() {
   };
 
   const fetchMessages = async (convId) => {
+    if (!navigator.onLine) {
+      console.log('🔍 [DEBUG-COMPONENT-App] fetchMessages() — sin conexión, se omite.');
+      return;
+    }
     const { data, error } = await supabase
       .from('messages')
       .select('*')
@@ -431,6 +487,10 @@ function App() {
   };
 
   const fetchPrescription = async (convId) => {
+    if (!navigator.onLine) {
+      console.log('🔍 [DEBUG-COMPONENT-App] fetchPrescription() — sin conexión, se omite.');
+      return;
+    }
     const { data, error } = await supabase
       .from('prescriptions')
       .select('*')
@@ -653,6 +713,13 @@ function App() {
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-950 font-sans text-gray-800 dark:text-gray-100 overflow-hidden">
+
+      {!isOnline && (
+        <div className="fixed top-0 inset-x-0 z-[60] flex items-center justify-center gap-2 py-1.5 text-xs font-semibold text-white bg-rose-600">
+          <WifiOff size={14} />
+          Sin conexión — los mensajes y la receta no se están actualizando. Se van a resincronizar solos apenas vuelva internet.
+        </div>
+      )}
 
       <Sidebar
         conversations={conversations}
