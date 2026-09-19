@@ -13,7 +13,11 @@
     <meta name="theme-color" content="#0d9488" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- "default" reserva el alto de la barra de estado de iOS (no
+         "black-translucent": eso vuelve la barra transparente y el contenido
+         pasa a dibujarse debajo del notch/Dynamic Island salvo que cada header
+         fijo de la app maneje env(safe-area-inset-top), cosa que no hacemos). -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="CRM-Mi-Farma" />
   </head>
   <body>

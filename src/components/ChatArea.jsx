@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag, Undo2, Hand } from 'lucide-react';
+import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag, Undo2, Hand, IdCard } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
@@ -80,7 +80,8 @@ export default function ChatArea({
   handleDeleteConversation,
   setModalImage,
   sessionTimeoutMs,
-  onBackToHistory
+  onBackToHistory,
+  onOpenValidationMobile
 }) {
   const [showQuickResponses, setShowQuickResponses] = useState(false);
   const [quickResponses, setQuickResponses] = useState([]);
@@ -433,7 +434,7 @@ export default function ChatArea({
   };
 
   return (
-    <div className="flex-1 min-w-0 flex flex-col bg-[#f0f2f5] dark:bg-gray-900 relative">
+    <div className={`${activeConversation ? 'flex' : 'hidden md:flex'} flex-1 min-w-0 flex-col bg-[#f0f2f5] dark:bg-gray-900 relative`}>
       {activeConversation ? (
         <>
           {/* Header */}
@@ -476,6 +477,15 @@ export default function ChatArea({
             )}
 
             <div className="flex items-center gap-2 shrink-0">
+               {onOpenValidationMobile && (
+                 <button
+                   onClick={onOpenValidationMobile}
+                   title="Ver ficha del cliente / cotizador"
+                   className="md:hidden p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                 >
+                   <IdCard size={20} />
+                 </button>
+               )}
                <button
                  onClick={() => { setShowGallery(true); }}
                  title="Ver imágenes, videos, documentos y enlaces compartidos con el cliente"
@@ -628,7 +638,7 @@ export default function ChatArea({
           ) : (
           <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 relative flex flex-col gap-2">
             {showQuickResponses && (
-              <div className="absolute bottom-[100%] mb-2 left-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl rounded-xl w-[350px] overflow-hidden z-20">
+              <div className="absolute bottom-[100%] mb-2 left-4 right-4 md:right-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl rounded-xl w-auto md:w-[350px] overflow-hidden z-20">
                 <div className="bg-gray-50 dark:bg-gray-900 px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Zap size={16} className="text-amber-500" />

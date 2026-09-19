@@ -232,7 +232,7 @@ export default function Sidebar({
   };
 
   return (
-    <div className="w-1/4 min-w-[260px] max-w-sm border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex flex-col shadow-sm z-10">
+    <div className={`${activeConversation || showClientDirectory ? 'hidden md:flex' : 'flex'} w-full md:w-1/4 md:min-w-[260px] md:max-w-sm border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex-col shadow-sm z-10`}>
       <div className="p-4 border-b border-gray-200 dark:border-gray-800 space-y-4">
         <h1 className="text-xl font-bold text-teal-700 dark:text-teal-400 flex items-center justify-between gap-2">
           <span>CRM</span>

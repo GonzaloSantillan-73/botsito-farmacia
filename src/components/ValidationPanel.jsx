@@ -24,7 +24,9 @@ export default function ValidationPanel({
   handleUpdatePrescription,
   setModalImage,
   handleSendMessage,
-  isAdmin = true
+  isAdmin = true,
+  showMobile = false,
+  onCloseMobile
 }) {
   const [showRejectOptions, setShowRejectOptions] = useState(false);
   const [rejectReason, setRejectReason] = useState('Ilegible');
@@ -319,7 +321,13 @@ export default function ValidationPanel({
   };
 
   return (
-    <div className="w-1/4 min-w-[280px] max-w-sm @container bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 flex flex-col shadow-sm z-10 overflow-hidden">
+    <div className={`${showMobile ? 'fixed inset-0 z-40 flex' : 'hidden'} md:static md:z-10 md:flex w-full md:w-1/4 md:min-w-[280px] md:max-w-sm @container bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 flex-col shadow-sm overflow-hidden`}>
+      <div className="md:hidden flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800 shrink-0">
+        <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Ficha del cliente</span>
+        <button onClick={() => { onCloseMobile && onCloseMobile(); }} className="p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
+          <X size={18} />
+        </button>
+      </div>
       <div className="flex-1 overflow-y-auto scrollbar-thin">
         {/* La validación de receta dispara un mensaje automático al cliente
             (aprobada/rechazada) por /api/messages/send, bloqueado para el

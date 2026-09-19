@@ -114,7 +114,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-[#f0f2f5] text-gray-400 dark:text-gray-500 text-sm">
+      <div className="flex-1 flex items-center justify-center bg-[#f0f2f5] dark:bg-gray-900 text-gray-400 dark:text-gray-500 text-sm">
         Cargando directorio de clientes...
       </div>
     );

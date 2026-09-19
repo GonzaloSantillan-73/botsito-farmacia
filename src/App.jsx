@@ -70,6 +70,10 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [isSeeding, setIsSeeding] = useState(false);
   const [modalImage, setModalImage] = useState(null);
+  // En móvil, la ficha/cotizador (ValidationPanel) no entra en pantalla junto
+  // al chat: se abre como overlay a demanda y se cierra sola al cambiar de
+  // conversación (en desktop es siempre visible y esto no tiene efecto).
+  const [showValidationMobile, setShowValidationMobile] = useState(false);
 
   // Límite de expiración de sesiones y umbral del aviso preventivo
   // ("¿Seguís ahí?"), configurables desde el panel de ajustes.
@@ -121,6 +125,7 @@ function App() {
       setMessages([]);
       setActivePrescription(null);
     }
+    setShowValidationMobile(false);
   }, [activeConversation]);
 
   // 3. Realtime Subscriptions. Se suscribe UNA sola vez (nunca en base a
@@ -640,7 +645,7 @@ function App() {
 
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-950 font-sans text-gray-800 dark:text-gray-100 overflow-x-auto">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-950 font-sans text-gray-800 dark:text-gray-100 overflow-hidden">
 
       <Sidebar
         conversations={conversations}
@@ -676,6 +681,7 @@ function App() {
           setModalImage={setModalImage}
           sessionTimeoutMs={sessionTimeoutMs}
           onBackToHistory={historyReturnPhone ? handleBackToHistory : null}
+          onOpenValidationMobile={() => { setShowValidationMobile(true); }}
         />
       )}
 
@@ -691,6 +697,8 @@ function App() {
           setModalImage={setModalImage}
           handleSendMessage={handleSendMessage}
           isAdmin={!soyStaff}
+          showMobile={showValidationMobile}
+          onCloseMobile={() => { setShowValidationMobile(false); }}
         />
       )}
 
