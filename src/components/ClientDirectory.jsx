@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, ArrowLeft, ArrowUpDown, History, List, AlertTriangle } from 'lucide-react';
+import { Users, Search, ArrowLeft, ArrowUpDown, History, List, AlertTriangle, Filter } from 'lucide-react';
 import { formatPhone } from '../lib/formatPhone';
-import { adminFetch } from '../lib/adminAuth';
+import { adminFetch, isAdminRole } from '../lib/adminAuth';
 import { ESTADOS_HISTORIAL } from './Sidebar';
 import ClientHistoryList from './ClientHistoryList';
 import StarRating from './StarRating';
@@ -54,6 +54,10 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
   // Sub-pestaña de la vista general (no aplica a la ficha de un cliente
   // puntual): arranca en el historial de consultas, como pidió el negocio.
   const [vista, setVista] = useState('historial');
+  // Filtro de origen para "Historial de Consultas", sólo para el admin (el
+  // staff ya ve nada más su propia sucursal + bot sin asignar, filtrar no le
+  // aporta nada): 'todas' | 'bot' (sucursal_id null) | <sucursal_id>.
+  const [sucursalFiltro, setSucursalFiltro] = useState('todas');
 
   useEffect(() => {
     // El filtrado por sucursal para el staff lo aplica el backend a partir
@@ -79,6 +83,22 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
 
   const historialConsultas = conversations
     .filter(c => c?.client_phone && ESTADOS_HISTORIAL.includes(c.status));
+
+  // Sucursales que efectivamente aparecen en el historial cargado (no todas
+  // las que existan: no tiene sentido ofrecer una sucursal sin ninguna
+  // consulta en este listado), para armar las opciones del filtro del admin.
+  const sucursalesEnHistorial = Object.values(
+    historialConsultas.reduce((acc, c) => {
+      if (c.sucursal_id && c.sucursal_actual?.nombre) acc[c.sucursal_id] = { id: c.sucursal_id, nombre: c.sucursal_actual.nombre };
+      return acc;
+    }, {})
+  ).sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+  const historialFiltrado = historialConsultas.filter(c => {
+    if (sucursalFiltro === 'todas') return true;
+    if (sucursalFiltro === 'bot') return !c.sucursal_id;
+    return c.sucursal_id === sucursalFiltro;
+  });
 
   const filteredClients = clients.filter(cl => {
     if (!search.trim()) return true;
@@ -188,6 +208,25 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
           </button>
         </div>
 
+        {vista === 'historial' && isAdminRole() && (
+          <div className="flex items-center gap-3">
+            <div className="relative shrink-0">
+              <select
+                value={sucursalFiltro}
+                onChange={(e) => { setSucursalFiltro(e.target.value); }}
+                className="pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 appearance-none"
+              >
+                <option value="todas">Todas las sucursales</option>
+                <option value="bot">Bot (sin sucursal asignada)</option>
+                {sucursalesEnHistorial.map(s => (
+                  <option key={s.id} value={s.id}>{s.nombre}</option>
+                ))}
+              </select>
+              <Filter className="absolute left-2.5 top-2.5 text-gray-400 dark:text-gray-500 pointer-events-none" size={16} />
+            </div>
+          </div>
+        )}
+
         {vista === 'lista' && (
           <div className="flex items-center gap-3">
             <div className="relative max-w-sm flex-1">
@@ -228,9 +267,9 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
         )}
         {vista === 'historial' ? (
           <ClientHistoryList
-            conversations={historialConsultas}
+            conversations={historialFiltrado}
             onSelect={(conv) => { onOpenConversation && onOpenConversation(conv); }}
-            emptyMessage="Todavía no hay consultas finalizadas."
+            emptyMessage={sucursalFiltro === 'todas' ? 'Todavía no hay consultas finalizadas.' : 'Ninguna consulta coincide con el filtro de sucursal.'}
             showClient
           />
         ) : sortedClients.length === 0 ? (
