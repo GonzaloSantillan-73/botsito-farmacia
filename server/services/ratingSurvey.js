@@ -1,5 +1,6 @@
 import { supabase } from '../supabase.js';
 import { enviarMensajeBot } from './bot.js';
+import { INSTANCE_INFO } from '../instanceInfo.js';
 
 const VALID_RATINGS = ['1', '2', '3', '4', '5'];
 
@@ -75,7 +76,12 @@ export const finalizarConversacion = async (conversationId, clientPhone, motivo 
     }
 
     if (clientPhone) {
-      console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — enviando mensaje de finalización a', clientPhone);
+      // instanceId/commit: si algún día vuelve a aparecer un mensaje de
+      // cierre duplicado, comparar esta línea entre los dos envíos dice de
+      // una si salieron del mismo proceso (bug acá) o de dos procesos
+      // distintos corriendo contra la misma base (instancia fantasma) — ver
+      // server/instanceInfo.js.
+      console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — enviando mensaje de finalización a', clientPhone, '— instanceId:', INSTANCE_INFO.id, '— commit:', INSTANCE_INFO.commit);
       await enviarMensajeBot(conversationId, clientPhone, mensajeFinalizacion(motivo));
     }
 

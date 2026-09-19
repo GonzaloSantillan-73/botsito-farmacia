@@ -9,12 +9,14 @@ import clientesRoutes from './routes/clientes.js';
 import clientDirectoryRoutes from './routes/clientDirectory.js';
 import quickRepliesRoutes from './routes/quickReplies.js';
 import { startSessionExpiryChecker } from './services/sessionExpiryChecker.js';
+import { logInstanceBoot } from './instanceInfo.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+logInstanceBoot();
 console.log('🔍 [DEBUG-INDEX] Inicializando servidor, __dirname:', __dirname);
 
 // Helper de debug: clona un body y redacta campos sensibles de password antes de loguear
