@@ -45,6 +45,30 @@ export const incrementarInteraccionesBot = async (clientPhone, valorActual) => {
   console.log('✅ [DEBUG-SERVICE-CLIENTES] incrementarInteraccionesBot() — completado sin valor de retorno (undefined)');
 };
 
+// Antes de guardar un DNI nuevo (ver el flujo de edición de datos en bot.js)
+// hay que chequear que no sea el de OTRO cliente ya registrado con ese mismo
+// número — dos teléfonos distintos con el mismo DNI casi seguro es un error
+// de tipeo, no una coincidencia real.
+export const dniPerteneceAOtroCliente = async (dni, clientPhoneActual) => {
+  console.log('🔍 [DEBUG-SERVICE-CLIENTES] dniPerteneceAOtroCliente() — parámetros recibidos:', { dni, clientPhoneActual });
+
+  console.log('📡 [DEBUG-SERVICE-CLIENTES] Query Supabase → tabla: clientes, operación: select, filtro: dni =', dni, ', client_phone != ', clientPhoneActual);
+  const { data, error } = await supabase
+    .from('clientes')
+    .select('client_phone')
+    .eq('dni', dni)
+    .neq('client_phone', clientPhoneActual)
+    .maybeSingle();
+  console.log('📡 [DEBUG-SERVICE-CLIENTES] Resultado query clientes (select dni duplicado) — data:', data, 'error:', error);
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-CLIENTES] dniPerteneceAOtroCliente() — error consultando dni duplicado:', error);
+    throw error;
+  }
+  const resultado = !!data;
+  console.log('✅ [DEBUG-SERVICE-CLIENTES] dniPerteneceAOtroCliente() — valor de retorno:', resultado);
+  return resultado;
+};
+
 // Update parcial: si la fila ya existe, sólo pisa el campo dado (el resto
 // de columnas quedan como estaban) gracias al upsert por client_phone.
 export const guardarDatoCliente = async (clientPhone, campo, valor) => {
