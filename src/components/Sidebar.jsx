@@ -114,7 +114,7 @@ const SucursalesRecomendadas = ({ sucursales }) => {
         <span
           key={s.id || i}
           title={Number.isFinite(s.distancia_km) ? `${s.nombre} · ${s.distancia_km} km` : s.nombre}
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-blue-600 text-white max-w-[115px] min-w-0"
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-blue-600 text-white w-[140px] min-w-0"
         >
           <MapPin size={10} className="shrink-0" />
           <span className="truncate min-w-0">{s.nombre}</span>
