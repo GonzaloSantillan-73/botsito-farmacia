@@ -7,6 +7,33 @@
    operativo de la máquina del mostrador. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Cursor "manito" consistente en toda la app: los navegadores NO ponen
+   cursor:pointer por defecto en <button>/<input type=button|submit|reset>
+   (sí lo hacen en <a href>), así que sin esto se ve la flecha normal en
+   casi todos los botones. Cubre también cualquier elemento marcado
+   explícitamente como interactivo por accesibilidad (role="button" o
+   tabindex="0" en un div/span sin semántica nativa de botón/link). Los
+   deshabilitados quedan aparte, con cursor de bloqueo en vez de manito. */
+@layer base {
+  button:not(:disabled),
+  a,
+  input[type="button"]:not(:disabled),
+  input[type="submit"]:not(:disabled),
+  input[type="reset"]:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [tabindex="0"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  input[type="button"]:disabled,
+  input[type="submit"]:disabled,
+  input[type="reset"]:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
 /* Scrollbar visible y estilizada acorde a la paleta teal del CRM: se usa en
    todos los contenedores con overflow-y-auto/overflow-x-auto de la app para
    que siempre haya una barra con la que arrastrar, sin depender de que la

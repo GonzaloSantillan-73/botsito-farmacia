@@ -32,7 +32,7 @@ export default function DialogHost() {
 
   return createPortal(
     <div
-      className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 cursor-pointer"
       onClick={esConfirm ? cerrarCancelando : cerrarConfirmando}
     >
       <div
