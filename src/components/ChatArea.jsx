@@ -370,12 +370,11 @@ export default function ChatArea({
     }
   };
 
-  const executeReturnToQueue = async ({ motivoTexto }) => {
+  const executeReturnToQueue = async () => {
     if (!activeConversation) return;
 
     const res = await adminFetch(`/api/conversations/${activeConversation.id}/return-to-queue`, {
-      method: 'POST',
-      body: JSON.stringify({ motivoTexto })
+      method: 'POST'
     });
     const data = await res.json();
     if (!res.ok) {

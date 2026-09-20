@@ -565,27 +565,23 @@ router.post('/conversations/:id/close', requireAuth, blockAdminRole, async (req,
 
 // Un operador no puede seguir atendiendo (ej. sin stock) y devuelve el chat a
 // la cola general de "En espera": recalcula las sucursales recomendadas
-// excluyendo a la que lo devuelve y avisa al cliente por WhatsApp.
+// excluyendo a la que lo devuelve. Acción directa, sin ningún dato a
+// completar; no le manda nada al cliente (ver devolverConversacionAEspera).
 router.post('/conversations/:id/return-to-queue', requireAuth, blockAdminRole, async (req, res) => {
   const { id } = req.params;
-  const { motivoTexto } = req.body;
   console.log('🔍 [DEBUG-ROUTES-API] Entrada a POST /conversations/:id/return-to-queue:', {
     method: req.method,
     url: req.originalUrl,
-    body: redactBodyForLog(req.body),
     query: req.query,
     params: req.params,
     admin: req.admin || null
   });
 
-  // El motivo es opcional (uso interno, ver devolverConversacionAEspera): la
-  // devolución a la cola no le manda ningún mensaje al cliente, así que no
-  // hay ninguna razón para exigirle texto al operador.
   try {
-    console.log('📡 [DEBUG-ROUTES-API] Llamando devolverConversacionAEspera en /conversations/:id/return-to-queue:', { id, motivoTexto });
-    const { sucursalesRecomendadas } = await devolverConversacionAEspera(id, { motivoTexto });
+    console.log('📡 [DEBUG-ROUTES-API] Llamando devolverConversacionAEspera en /conversations/:id/return-to-queue:', { id });
+    const { sucursalesRecomendadas } = await devolverConversacionAEspera(id);
     console.log('📡 [DEBUG-ROUTES-API] Resultado devolverConversacionAEspera en /conversations/:id/return-to-queue:', { sucursalesRecomendadas });
-    console.log(`[API] -> Consulta ${id} devuelta a la cola de espera (motivo: ${motivoTexto}).`);
+    console.log(`[API] -> Consulta ${id} devuelta a la cola de espera.`);
     console.log('🔚 [DEBUG-ROUTES-API] Respondiendo POST /conversations/:id/return-to-queue:', { status: 200, body: { success: true, sucursalesRecomendadas } });
     res.status(200).json({ success: true, sucursalesRecomendadas });
   } catch (error) {

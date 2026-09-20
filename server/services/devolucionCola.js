@@ -5,17 +5,16 @@ import { sucursalesMasCercanas } from './geolocalizacion.js';
 // a la cola general de "En espera": vuelve a estar disponible para cualquier
 // sucursal (se libera sucursal_id) y se recalculan las sucursales
 // recomendadas EXCLUYENDO a la que lo devolvió (para no volver a sugerirle la
-// misma al próximo asesor). A propósito, NO se le manda ningún mensaje al
-// cliente: de cara a él, la devolución es completamente silenciosa. El
-// motivo es opcional y sólo para uso interno del operador (se anexa a
-// notas_operador si lo escribió, sin pisar lo que ya hubiera anotado ahí).
-export const devolverConversacionAEspera = async (conversationId, { motivoTexto } = {}) => {
-  console.log('🔍 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — conversationId:', conversationId, 'motivoTexto:', motivoTexto);
+// misma al próximo asesor). Acción directa, sin ningún dato a completar; a
+// propósito, NO se le manda ningún mensaje al cliente: de cara a él, la
+// devolución es completamente silenciosa.
+export const devolverConversacionAEspera = async (conversationId) => {
+  console.log('🔍 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — conversationId:', conversationId);
   try {
-    console.log('📡 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — SELECT conversations, filtros: { id:', conversationId, '}, columnas: id, client_phone, sucursal_id, client_lat, client_lng, notas_operador');
+    console.log('📡 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — SELECT conversations, filtros: { id:', conversationId, '}, columnas: id, sucursal_id, client_lat, client_lng');
     const { data: conv, error: fetchError } = await supabase
       .from('conversations')
-      .select('id, client_phone, sucursal_id, client_lat, client_lng, notas_operador')
+      .select('id, sucursal_id, client_lat, client_lng')
       .eq('id', conversationId)
       .single();
     console.log('📡 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — resultado SELECT conversations — data:', conv, 'error:', fetchError);
@@ -49,23 +48,12 @@ export const devolverConversacionAEspera = async (conversationId, { motivoTexto 
       }
     }
 
-    // Motivo opcional: se anexa a las notas internas de la conversación (sin
-    // pisar lo que el operador ya hubiera anotado ahí desde ClientNotesPanel),
-    // nunca se le informa nada de esto al cliente.
-    const motivoLimpio = motivoTexto?.trim();
-    let notasActualizadas = conv.notas_operador || null;
-    if (motivoLimpio) {
-      const linea = `[Devuelta a la cola] ${motivoLimpio}`;
-      notasActualizadas = notasActualizadas ? `${notasActualizadas}\n${linea}` : linea;
-    }
-
     console.log('🔍 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — CAMBIO DE ESTADO — de "tomada por sucursal', sucursalQueDevuelve, '" a "esperando" (sucursal_id=null), devuelta_por_sucursal_id:', sucursalQueDevuelve || null);
     console.log('📡 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — UPDATE conversations, filtros: { id:', conversationId, '}, valores:', {
       status: 'esperando',
       sucursal_id: null,
       sucursales_recomendadas: sucursalesRecomendadas,
-      devuelta_por_sucursal_id: sucursalQueDevuelve || null,
-      notas_operador: notasActualizadas
+      devuelta_por_sucursal_id: sucursalQueDevuelve || null
     });
     const { error: updateError } = await supabase
       .from('conversations')
@@ -84,8 +72,7 @@ export const devolverConversacionAEspera = async (conversationId, { motivoTexto 
         // Ya no está "recién derivada": vuelve a la cola general, así que esa
         // marca deja de aplicar (queda devuelta_por_sucursal_id en su lugar).
         derivado_por_sucursal_id: null,
-        derivado_por_sucursal_nombre: null,
-        notas_operador: notasActualizadas
+        derivado_por_sucursal_nombre: null
       })
       .eq('id', conversationId);
     console.log('📡 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — resultado UPDATE conversations — error:', updateError);
