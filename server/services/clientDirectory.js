@@ -1,5 +1,5 @@
 import { supabase } from '../supabase.js';
-import { resolverNombresPorConversaciones, resolverFichaPorConversaciones, obtenerTelefonosDeLaMismaPersona } from './clientes.js';
+import { resolverNombresPorTelefono } from './clientes.js';
 
 const CONVERSATION_SELECT = '*, sucursal_actual:sucursales!sucursal_id(nombre), sucursal_primera:sucursales!primera_sucursal_id(nombre)';
 
@@ -25,109 +25,74 @@ export const obtenerConversacionesDirectorio = async ({ sucursalId } = {}) => {
     throw error;
   }
 
-  // Resuelve también los teléfonos VIEJOS de alguien que ya migró de número
-  // (ver resolverNombresPorConversaciones en clientes.js), respetando la
-  // fecha exacta de CADA conversación: si el teléfono se reciclara a otra
-  // persona, sus consultas nuevas no deben heredar el nombre del dueño
-  // anterior sólo por compartir número.
-  const nombrePorConversacion = await resolverNombresPorConversaciones(
-    (conversations || []).map(c => ({ id: c.id, client_phone: c.client_phone, created_at: c.created_at }))
-  );
-  console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerConversacionesDirectorio() — nombrePorConversacion construido, entradas:', Object.keys(nombrePorConversacion).length);
+  // Modelo estricto por teléfono: el nombre mostrado sale de la ficha con ese
+  // MISMO client_phone, sin cruzar con ningún otro número.
+  const phones = [...new Set((conversations || []).map(c => c.client_phone).filter(Boolean))];
+  const phoneMap = await resolverNombresPorTelefono(phones);
+  console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerConversacionesDirectorio() — phoneMap construido, entradas:', Object.keys(phoneMap).length);
 
-  const resultado = (conversations || []).map(c => ({ ...c, real_name: nombrePorConversacion[c.id] || null }));
+  const resultado = (conversations || []).map(c => ({ ...c, real_name: phoneMap[c.client_phone] || null }));
   console.log('✅ [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerConversacionesDirectorio() — valor de retorno:', resultado);
   return resultado;
 };
 
-// A diferencia de obtenerConversacionesDirectorio (una fila por CONSULTA,
-// donde el client_phone tiene que quedar tal cual está en esa conversación:
-// es el snapshot de con qué número se habló en esa sesión puntual, y no debe
-// pisarse con el de `clientes`), esta es el registro maestro de PERSONAS para
-// la pestaña "Lista de Clientes": una fila por FICHA de `clientes` (o, si
-// todavía no tiene ficha propia, por client_phone suelto), no un agrupado
-// simple de conversaciones.
-//
-// El teléfono que se muestra es siempre el vigente (`clientes.client_phone`),
-// pero las MÉTRICAS agregadas (interacciones, calificaciones, último
-// contacto) tienen que sumar TODA la consulta histórica de la persona, no
-// sólo la de su número actual: si alguien migró de teléfono (por DNI, ver
-// migrar_cliente_por_dni.sql, o a mano por el admin, ver clientesAdmin.js),
-// sus conversaciones viejas se quedan con el client_phone viejo A PROPÓSITO
-// (es el snapshot real de esa sesión).
-//
-// Cada conversación se agrupa por la ficha que resolverFichaPorConversaciones
-// le atribuye A ESA FECHA puntual (mismo criterio con ventana temporal que
-// usa el resto del Directorio, ver clientes.js) — no por "cualquier teléfono
-// que alguna vez fue de esta ficha, sin importar cuándo": si un número se
-// reciclara, sus conversaciones antes/después de la ventana de una ficha no
-// deben sumarse a sus estadísticas.
-//
-// El universo de teléfonos visibles lo sigue marcando `conversations` (mismo
-// alcance por sucursal que el resto del Directorio: `clientes` no tiene
-// sucursal_id, así que filtrar esa tabla directamente filtraría a ciegas).
+// A diferencia de obtenerConversacionesDirectorio (una fila por CONSULTA),
+// esta es el registro maestro de PERSONAS para la pestaña "Lista de
+// Clientes": una fila por client_phone (agrupado directo, modelo estricto
+// por teléfono — cada número es una identidad propia, sin cruzar con otros
+// números aunque compartan DNI), con el nombre/DNI de la ficha de `clientes`
+// que tenga ESE MISMO client_phone.
 export const obtenerListaClientesDirectorio = async ({ sucursalId } = {}) => {
   console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerListaClientesDirectorio() — parámetros recibidos:', { sucursalId });
 
   console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] Query Supabase → tabla: conversations, operación: select (agregados), filtro sucursal:', sucursalId);
-  const query = conSucursal(supabase.from('conversations').select('id, client_phone, client_name, created_at, rating, product_rating'), sucursalId);
+  const query = conSucursal(supabase.from('conversations').select('client_phone, client_name, created_at, rating, product_rating'), sucursalId);
   const { data: conversaciones, error: convError } = await query;
   console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] Resultado query conversations (select agregados) — data:', conversaciones, 'error:', convError);
   if (convError) {
     console.error('❌ [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerListaClientesDirectorio() — error consultando conversaciones:', convError);
     throw convError;
   }
-  if (!conversaciones || conversaciones.length === 0) {
-    console.log('✅ [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerListaClientesDirectorio() — valor de retorno: [] (sin conversaciones)');
+
+  const conversacionesPorTelefono = {};
+  (conversaciones || []).forEach(c => {
+    if (!c.client_phone) return;
+    (conversacionesPorTelefono[c.client_phone] ||= []).push(c);
+  });
+  const phones = Object.keys(conversacionesPorTelefono);
+  console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerListaClientesDirectorio() — teléfonos únicos encontrados:', phones);
+  if (phones.length === 0) {
+    console.log('✅ [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerListaClientesDirectorio() — valor de retorno: [] (sin teléfonos)');
     return [];
   }
 
-  const fichaPorConversacion = await resolverFichaPorConversaciones(
-    conversaciones.map(c => ({ id: c.id, client_phone: c.client_phone, created_at: c.created_at }))
-  );
-  console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerListaClientesDirectorio() — fichas resueltas por conversación:', Object.keys(fichaPorConversacion).length, 'de', conversaciones.length);
+  console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] Query Supabase → tabla: clientes, operación: select, filtro: client_phone in', phones);
+  const { data: fichas, error: fichasError } = await supabase
+    .from('clientes')
+    .select('client_phone, nombre_completo, dni')
+    .in('client_phone', phones);
+  console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] Resultado query clientes — data:', fichas, 'error:', fichasError);
+  if (fichasError) {
+    console.error('❌ [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerListaClientesDirectorio() — error consultando clientes:', fichasError);
+    throw fichasError;
+  }
+  const fichaPorTelefono = {};
+  (fichas || []).forEach(f => { fichaPorTelefono[f.client_phone] = f; });
 
-  const convsPorFicha = {}; // ficha.id -> { ficha, convs: [] }
-  const convsSinFicha = {}; // client_phone -> convs[] (sin ficha registrada, o fuera de la ventana de cualquier ficha conocida)
-
-  conversaciones.forEach(c => {
-    const ficha = fichaPorConversacion[c.id];
-    if (ficha) {
-      (convsPorFicha[ficha.id] ||= { ficha, convs: [] }).convs.push(c);
-    } else if (c.client_phone) {
-      (convsSinFicha[c.client_phone] ||= []).push(c);
-    }
-  });
-
-  const filasConFicha = Object.values(convsPorFicha).map(({ ficha, convs }) =>
-    construirFilaCliente({
-      client_phone: ficha.client_phone,
-      real_name: ficha.nombre_completo || null,
-      dni: ficha.dni || null,
-      // Sólo los teléfonos que efectivamente aparecen en las conversaciones
-      // atribuidas a esta ficha (no "todos los históricos de la ficha, sin
-      // importar la ventana"): el frontend los usa para filtrar el historial
-      // completo de esta persona (ver ClientDirectory.jsx), y no debe incluir
-      // un número que hoy es de otra persona.
-      telefonos: [...new Set(convs.map(c => c.client_phone))],
-      convs
-    })
-  );
-
-  // Teléfonos con conversación visible pero sin ninguna ficha resuelta
-  // (cliente a mitad del registro obligatorio, todavía no llegó a cargar su
-  // DNI; o una conversación fuera de la ventana temporal de cualquier ficha
-  // conocida para ese número).
-  const filasSinFicha = Object.entries(convsSinFicha)
-    .map(([phone, convs]) => construirFilaCliente({ client_phone: phone, real_name: null, dni: null, telefonos: [phone], convs }));
-
-  const resultado = [...filasConFicha, ...filasSinFicha].sort((a, b) => new Date(b.lastContact) - new Date(a.lastContact));
+  const resultado = phones
+    .map(phone => construirFilaCliente({
+      client_phone: phone,
+      real_name: fichaPorTelefono[phone]?.nombre_completo || null,
+      dni: fichaPorTelefono[phone]?.dni || null,
+      convs: conversacionesPorTelefono[phone]
+    }))
+    .sort((a, b) => new Date(b.lastContact) - new Date(a.lastContact));
 
   console.log('✅ [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerListaClientesDirectorio() — valor de retorno:', resultado);
   return resultado;
 };
 
-const construirFilaCliente = ({ client_phone, real_name, dni, telefonos, convs }) => {
+const construirFilaCliente = ({ client_phone, real_name, dni, convs }) => {
   const sorted = [...convs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
   const rated = convs.filter(c => c.rating != null);
   const avgRating = rated.length > 0 ? rated.reduce((sum, c) => sum + c.rating, 0) / rated.length : null;
@@ -138,12 +103,10 @@ const construirFilaCliente = ({ client_phone, real_name, dni, telefonos, convs }
     real_name,
     client_name: sorted[0]?.client_name || null,
     dni,
-    // Todos los números que alguna vez identificaron a esta persona (el
-    // vigente + los históricos): el frontend lo necesita para poder filtrar
-    // TODAS sus conversaciones al abrir su ficha (ver ClientDirectory.jsx),
-    // ya que cada conversación vieja se queda con su client_phone de
-    // entonces, sin reescribir.
-    telefonos,
+    // Modelo estricto por teléfono: un único número por fila (el frontend
+    // sigue usando este campo para filtrar el historial de esta ficha en
+    // ClientDirectory.jsx).
+    telefonos: [client_phone],
     total: convs.length,
     avgRating,
     avgProductRating,
@@ -152,24 +115,19 @@ const construirFilaCliente = ({ client_phone, real_name, dni, telefonos, convs }
 };
 
 // Historial de un cliente puntual, para el ícono "Historial de consultas"
-// dentro de un chat activo (ChatArea.jsx -> HistoryPanel.jsx). A diferencia
-// de obtenerConversacionesDirectorio (que sólo filtra por sucursal_id de la
-// conversación), acá hay que:
-//   1) Juntar TODOS los teléfonos históricos de esta persona (si migró de
-//      número, sus consultas viejas quedan con el teléfono de entonces).
-//   2) Aplicar la MISMA regla de sucursal que el resto del Directorio (propia
-//      sucursal + sin asignar todavía), PERO con una excepción: si esta
-//      sucursal ya tuvo un pedido confirmado con este cliente alguna vez
-//      (cualquiera de sus teléfonos), se le habilita ver el historial
-//      completo con cualquier sucursal — se asume que ya hay una relación
-//      comercial directa con esa persona, no sólo con "la farmacia" en general.
+// dentro de un chat activo (ChatArea.jsx -> HistoryPanel.jsx). Modelo
+// estricto por teléfono: sólo trae las conversaciones de ESE MISMO
+// client_phone (a diferencia de obtenerConversacionesDirectorio, que sólo
+// filtra por sucursal_id de la conversación), aplicando la MISMA regla de
+// sucursal que el resto del Directorio (propia sucursal + sin asignar
+// todavía), con una excepción: si esta sucursal ya tuvo un pedido confirmado
+// con este teléfono alguna vez, se le habilita ver el historial completo con
+// cualquier sucursal — se asume que ya hay una relación comercial directa
+// con este número, no sólo con "la farmacia" en general.
 export const obtenerHistorialClienteParaChat = async ({ clientPhone, excludeConversationId, sucursalId }) => {
   console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerHistorialClienteParaChat() — parámetros recibidos:', { clientPhone, excludeConversationId, sucursalId });
 
-  const telefonos = await obtenerTelefonosDeLaMismaPersona(clientPhone);
-  console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerHistorialClienteParaChat() — teléfonos de la misma persona:', telefonos);
-
-  let query = supabase.from('conversations').select(CONVERSATION_SELECT).in('client_phone', telefonos);
+  let query = supabase.from('conversations').select(CONVERSATION_SELECT).eq('client_phone', clientPhone);
   if (excludeConversationId) query = query.neq('id', excludeConversationId);
   const { data: conversations, error } = await query.order('created_at', { ascending: false });
   console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerHistorialClienteParaChat() — resultado SELECT conversations — cantidad:', conversations?.length, 'error:', error);
@@ -187,7 +145,7 @@ export const obtenerHistorialClienteParaChat = async ({ clientPhone, excludeConv
   const { data: pedidoEnComun, error: pedidoError } = await supabase
     .from('pedidos_confirmados')
     .select('id')
-    .in('client_phone', telefonos)
+    .eq('client_phone', clientPhone)
     .eq('sucursal_id', sucursalId)
     .limit(1)
     .maybeSingle();

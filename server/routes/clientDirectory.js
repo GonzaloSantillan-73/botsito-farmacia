@@ -42,10 +42,9 @@ router.get('/conversations', async (req, res) => {
 
   const conversations = conversationsResult.status === 'fulfilled' ? conversationsResult.value : [];
   const clients = clientsResult.status === 'fulfilled' ? clientsResult.value : [];
-  // Mensaje tal cual lo devuelve Postgres/PostgREST (ej. "relation
-  // \"clientes_telefonos_historicos\" does not exist"): a propósito, para que
-  // una migración pendiente se note de una en el frontend en vez de
-  // disfrazarse de "no hay datos".
+  // Mensaje tal cual lo devuelve Postgres/PostgREST (ej. "relation ... does
+  // not exist"): a propósito, para que una migración pendiente se note de
+  // una en el frontend en vez de disfrazarse de "no hay datos".
   const errors = {
     conversations: conversationsResult.status === 'rejected' ? (conversationsResult.reason?.message || 'Error desconocido.') : null,
     clients: clientsResult.status === 'rejected' ? (clientsResult.reason?.message || 'Error desconocido.') : null

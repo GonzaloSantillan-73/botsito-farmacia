@@ -3,7 +3,7 @@ import { sendWhatsAppMessage } from './whatsapp.js';
 import { getBotKeyword, getWelcomeMessage, getFrequentClientMessage, getFrequentClientThreshold } from './appConfig.js';
 import { getBotSchedule, isWithinSchedule, renderScheduleMessage } from './scheduleConfig.js';
 import { getSucursalesActivas, formatearMensajeSucursales } from './sucursales.js';
-import { getCliente, tieneRegistroCompleto, guardarDatoCliente, incrementarInteraccionesBot, dniPerteneceAOtroCliente, migrarOCrearClientePorDni } from './clientes.js';
+import { getCliente, tieneRegistroCompleto, guardarDatoCliente, incrementarInteraccionesBot } from './clientes.js';
 import { sucursalesMasCercanas } from './geolocalizacion.js';
 import { extraerCoordenadasDeMensaje } from './mapsLocation.js';
 
@@ -77,7 +77,6 @@ const MENSAJE_PEDIR_NUEVO_NOMBRE = `¿Cuál es tu nuevo nombre completo?${MENSAJ
 const MENSAJE_PEDIR_NUEVO_DNI = `¿Cuál es tu nuevo DNI?${MENSAJE_CANCELAR_HINT}`;
 const MENSAJE_NOMBRE_INVALIDO = 'Ese nombre no es válido. Ingresá tu nombre y apellido, sólo con letras (sin números ni símbolos). Por ejemplo: Juan Pérez.';
 const MENSAJE_DNI_INVALIDO = 'El DNI ingresado no es válido. Ingresá sólo números, de 7 u 8 dígitos.';
-const MENSAJE_DNI_DUPLICADO = 'Ese DNI ya está registrado con otro número de teléfono. Si creés que es un error, escribinos tu consulta y te ayudamos a resolverlo.';
 
 // Nombre y apellido (al menos 2 palabras), sólo letras con acentos/ñ — nada
 // de números ni símbolos. DNI argentino: 7 u 8 dígitos exactos (más estricto
@@ -490,45 +489,23 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado) => {
       console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (DNI inválido)');
       return;
     }
-    // El nombre ya quedó guardado en el paso anterior (registro_nombre) sobre
-    // la ficha de ESTE teléfono; hace falta releerlo acá por si el DNI
-    // termina perteneciendo a una ficha vieja en OTRO teléfono (ver
-    // migrarOCrearClientePorDni): sin esto, el nombre recién cargado se
-    // perdería al migrar en vez de conservarse con COALESCE.
-    let clienteActual;
+    // Modelo estricto por teléfono: el DNI se guarda como un dato más de la
+    // ficha de ESTE número, sin buscar ni fusionar con ninguna otra ficha que
+    // pueda tener el mismo DNI cargado bajo otro teléfono.
     try {
-      clienteActual = await getCliente(telefono);
+      await guardarDatoCliente(telefono, 'dni', dni);
     } catch (err) {
-      console.error('[BOT] Error releyendo el cliente antes de guardar el DNI:', err);
-      console.error('❌ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — error en getCliente previo a migrar/guardar dni:', err?.message, err?.stack);
+      console.error('[BOT] Error guardando el DNI del cliente:', err);
+      console.error('❌ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — error en guardarDatoCliente (dni):', err?.message, err?.stack);
       await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_REGISTRO);
-      console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (error releyendo cliente)');
-      return;
-    }
-
-    let resultado;
-    try {
-      resultado = await migrarOCrearClientePorDni(dni, telefono, clienteActual?.nombre_completo || null);
-    } catch (err) {
-      console.error('[BOT] Error guardando/migrando el DNI del cliente:', err);
-      console.error('❌ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — error en migrarOCrearClientePorDni:', err?.message, err?.stack);
-      await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_REGISTRO);
-      console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (error guardando/migrando DNI)');
+      console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (error guardando DNI)');
       return;
     }
 
     await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
 
-    // "migrado" = este DNI ya tenía ficha bajo otro teléfono (el cliente
-    // cambió de número) — a propósito, no se le avisa nada de la migración
-    // (ni del vínculo con el teléfono/historial anterior): sólo se le manda
-    // el saludo normal, como si fuera cualquier registro.
-    const mensajeParaEnviar = resultado.accion === 'migrado'
-      ? await construirMensajeBienvenida()
-      : `✅ ¡Gracias! Ya registramos tus datos.\n\n${await construirMensajeBienvenida()}`;
-
-    await enviarMensajeBot(conversationId, telefono, mensajeParaEnviar);
-    console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (registro completado, accion:', resultado.accion, ')');
+    await enviarMensajeBot(conversationId, telefono, `✅ ¡Gracias! Ya registramos tus datos.\n\n${await construirMensajeBienvenida()}`);
+    console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (registro completado)');
   }
 };
 
@@ -613,23 +590,9 @@ const manejarEdicionDatos = async (conversationId, telefono, t, estado) => {
       return;
     }
 
-    let yaEsDeOtroCliente;
-    try {
-      yaEsDeOtroCliente = await dniPerteneceAOtroCliente(dni, telefono);
-    } catch (err) {
-      console.error('[BOT] Error verificando si el DNI ya está en uso:', err);
-      console.error('❌ [DEBUG-SERVICE-BOT] manejarEdicionDatos() — error consultando dni duplicado:', err?.message, err?.stack);
-      await enviarMensajeBot(conversationId, telefono, `${MENSAJE_ERROR_REGISTRO}${MENSAJE_CANCELAR_HINT}`);
-      console.log('✅ [DEBUG-SERVICE-BOT] manejarEdicionDatos() — valor de retorno: undefined (error verificando duplicado, se puede reintentar)');
-      return;
-    }
-    if (yaEsDeOtroCliente) {
-      console.log('🔍 [DEBUG-SERVICE-BOT] manejarEdicionDatos() — DNI ya pertenece a otro teléfono:', dni);
-      await enviarMensajeBot(conversationId, telefono, `${MENSAJE_DNI_DUPLICADO}${MENSAJE_CANCELAR_HINT}`);
-      console.log('✅ [DEBUG-SERVICE-BOT] manejarEdicionDatos() — valor de retorno: undefined (DNI duplicado)');
-      return;
-    }
-
+    // Modelo estricto por teléfono: no se chequea si otro número ya tiene
+    // este mismo DNI cargado — cada client_phone es una ficha independiente,
+    // el DNI es sólo un dato informativo de ESTA ficha.
     try {
       await guardarDatoCliente(telefono, 'dni', dni);
     } catch (err) {
