@@ -1,8 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, FileText } from 'lucide-react';
-import { STATUS_BADGES } from './Sidebar';
 
 const formatMoney = (n) => (n == null ? '—' : `$${Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`);
+
+// El negocio quiere esta columna binaria a propósito: "Venta concretada" es
+// el ÚNICO valor positivo (sale_status === 'concretada'); cualquier otra
+// cosa — no concretada, otra razón, o todavía sin marcar — cae en "Solo
+// consulta". Misma normalización que en server/routes/api.js (export a
+// XLSX): si se cambia acá, cambiar también ahí.
+const estadoContacto = (saleStatus) => (saleStatus === 'concretada' ? 'Venta concretada' : 'Solo consulta');
 
 const formatDuracion = (ms) => {
   if (ms == null || ms < 0) return '—';
@@ -31,12 +37,15 @@ export const DETAIL_COLUMNS = [
   {
     key: 'status',
     label: 'Estado del Contacto',
-    sortValue: r => r.status || '',
+    sortValue: r => estadoContacto(r.saleStatus),
     render: r => {
-      const badge = STATUS_BADGES[r.status];
-      return badge ? (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium whitespace-nowrap ${badge.className}`}>{badge.label}</span>
-      ) : (r.status || '—');
+      const esVenta = r.saleStatus === 'concretada';
+      const className = esVenta
+        ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-400'
+        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400';
+      return (
+        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium whitespace-nowrap ${className}`}>{estadoContacto(r.saleStatus)}</span>
+      );
     }
   },
   { key: 'montoTotal', label: 'Monto Total', sortValue: r => (r.montoTotal ?? -1), render: r => formatMoney(r.montoTotal) },

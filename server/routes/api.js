@@ -162,7 +162,12 @@ router.get('/export/metrics', async (req, res) => {
       { label: 'Duración Total (min)', align: 'center', value: r => (r.duracionTotalMs != null ? Math.round(r.duracionTotalMs / 60000) : '') },
       { label: 'Msjs Cliente', align: 'center', value: r => r.msjsCliente },
       { label: 'Sucursal', align: 'center', value: r => r.sucursal },
-      { label: 'Estado del Contacto', align: 'center', value: r => r.status },
+      // Binario a propósito: "Venta concretada" es el único valor positivo
+      // (sale_status === 'concretada'); no concretada, otra razón o sin
+      // marcar caen todas en "Solo consulta". Misma normalización que
+      // SortableDetailTable.jsx (UI en pantalla): si se cambia acá, cambiar
+      // también ahí.
+      { label: 'Estado del Contacto', align: 'center', value: r => (r.saleStatus === 'concretada' ? 'Venta concretada' : 'Solo consulta') },
       { label: 'Monto Total', align: 'center', numFmt: '"$"#,##0.00', value: r => (r.montoTotal != null ? r.montoTotal : '') },
       { label: 'Medio de Pago', align: 'center', value: r => r.medioPago },
       { label: 'Comprobante (Sí/No)', align: 'center', value: r => (r.comprobanteUrl ? 'Sí' : 'No') },
