@@ -26,7 +26,12 @@ const downloadFile = async (url, fallbackName) => {
   URL.revokeObjectURL(blobUrl);
 };
 
-export default function MetricsTable() {
+// `refreshSignal`: lo sube MetricsPanel.jsx (botón "Actualizar" del
+// encabezado) cada vez que se lo hace clic. Sumarlo a las dependencias del
+// efecto de carga fuerza un re-fetch con el MISMO rango de fechas ya
+// aplicado acá (sin resetear el filtro), sin necesidad de duplicar la
+// lógica de fetch en el padre.
+export default function MetricsTable({ refreshSignal }) {
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -69,7 +74,7 @@ export default function MetricsTable() {
       .finally(() => { if (!cancelado) setLoading(false); });
 
     return () => { cancelado = true; };
-  }, [appliedRange]);
+  }, [appliedRange, refreshSignal]);
 
   const handleFiltrar = () => {
     setAppliedRange({ startDate, endDate });

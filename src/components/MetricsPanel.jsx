@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Star, ShoppingCart, Bot, Headset, ShieldCheck, ShieldAlert, CheckCircle2, XCircle, MessageSquare, Store, Filter, X } from 'lucide-react';
+import { Star, ShoppingCart, Bot, Headset, ShieldCheck, ShieldAlert, CheckCircle2, XCircle, MessageSquare, Store, Filter, X, RefreshCw } from 'lucide-react';
 import { isAdminRole, getStaffSucursalId, adminFetch } from '../lib/adminAuth';
 import StarRating, { coloresRating } from './StarRating';
 import MetricsTable from './MetricsTable';
@@ -85,6 +85,12 @@ export default function MetricsPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Lo sube handleActualizar() para forzar un re-fetch manual de TODA la
+  // pestaña (este panel + MetricsTable de "Detalle de consultas", ver
+  // MetricsTable.jsx) sin resetear los filtros de fecha ya aplicados.
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+
   // Rango de fechas de la sección de estadísticas (Conversión, Resolución,
   // Seguridad, Satisfacción, Promedio por sucursal): independiente del que
   // ya tiene "Detalle de consultas" más arriba, porque son dos consultas al
@@ -106,7 +112,12 @@ export default function MetricsPanel() {
     // llegue tarde.
     let cancelado = false;
     const esCargaInicial = negocio === null;
+    // En la carga inicial se reemplaza toda la vista por "Cargando
+    // métricas..." (ver el `if (loading)` más abajo); en un refresco manual
+    // o un cambio de filtro posterior, los datos previos se quedan en
+    // pantalla y sólo se prende un spinner sutil en el botón "Actualizar".
     if (esCargaInicial) setLoading(true);
+    else setRefreshing(true);
     setError('');
 
     const params = new URLSearchParams();
@@ -125,11 +136,11 @@ export default function MetricsPanel() {
         console.error('❌ [DEBUG-COMPONENT-MetricsPanel] Error cargando métricas:', err);
         setError(err.message || 'Error cargando métricas.');
       })
-      .finally(() => { if (!cancelado) setLoading(false); });
+      .finally(() => { if (!cancelado) { setLoading(false); setRefreshing(false); } });
 
     return () => { cancelado = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appliedRange]);
+  }, [appliedRange, refreshKey]);
 
   const handleFiltrar = () => {
     setAppliedRange({ startDate, endDate });
@@ -138,6 +149,12 @@ export default function MetricsPanel() {
     setStartDate('');
     setEndDate('');
     setAppliedRange({ startDate: '', endDate: '' });
+  };
+  // Re-dispara el fetch de este panel (efecto de arriba) y, vía la prop
+  // refreshSignal, también el de MetricsTable — ambos respetando el rango de
+  // fechas que cada uno ya tenía aplicado, sin resetear ningún filtro.
+  const handleActualizar = () => {
+    setRefreshKey(k => k + 1);
   };
 
   // Abre el modal de "Ver": arrastra el mismo rango de fechas ya aplicado acá
@@ -168,12 +185,25 @@ export default function MetricsPanel() {
 
   return (
     <div>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">Métricas y Estadísticas</h2>
+        <button
+          onClick={handleActualizar}
+          disabled={refreshing}
+          title="Volver a cargar el detalle de consultas y los paneles de conversión/satisfacción, respetando los filtros de fecha aplicados"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-gray-600 dark:text-gray-300 hover:text-teal-700 dark:hover:text-teal-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+        >
+          <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+          {refreshing ? 'Actualizando...' : 'Actualizar'}
+        </button>
+      </div>
+
       {/* Única sección de ancho completo y siempre visible: es una tabla con
           muchas columnas, no una tarjeta de resumen, así que no tiene sentido
           acotarla ni poder ocultarla. */}
       <div className="mb-8">
         <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-4">Detalle de consultas</h3>
-        <MetricsTable />
+        <MetricsTable refreshSignal={refreshKey} />
       </div>
 
       {/* El resto son tarjetas de resumen: se acotan a un ancho legible,
