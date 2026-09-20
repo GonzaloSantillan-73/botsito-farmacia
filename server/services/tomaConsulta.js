@@ -1,25 +1,20 @@
 import { supabase } from '../supabase.js';
-import { enviarMensajeBot } from './bot.js';
-
-// Sin nombre ni dirección de sucursal a propósito: de cara al cliente la
-// atención tiene que sentirse unificada bajo una sola marca, sin rastro de
-// qué sucursal puntual tomó la consulta.
-const MENSAJE_CONSULTA_TOMADA = '¡Buenas noticias! 🎉 Ya estamos atendiendo tu consulta.\n\nEn breve un asesor se va a poner en contacto contigo. 🙂';
 
 // Un empleado de sucursal reclama una conversación de la cola general. El
 // UPDATE queda condicionado a que siga en 'esperando' y sin sucursal
 // asignada: si dos sucursales tocan "Tomar" casi al mismo tiempo, sólo la
 // primera consulta que llegue a Postgres se la queda (la segunda no matchea
 // ninguna fila y tira error). También limpia devuelta_por_sucursal_id: esa
-// marca ya no aplica una vez que alguien la toma. Al confirmarse, le avisa
-// al cliente por WhatsApp qué sucursal lo va a atender y dónde queda.
+// marca ya no aplica una vez que alguien la toma. A propósito, NO se le
+// manda ningún mensaje al cliente: de cara a él, que una sucursal tome el
+// chat es una asignación puramente interna, sin ningún aviso ni re-saludo.
 export const tomarConsulta = async (conversationId, sucursalId) => {
   console.log('🔍 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — conversationId:', conversationId, 'sucursalId:', sucursalId);
   try {
-    console.log('📡 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — SELECT sucursales, filtros: { id:', sucursalId, '}, columnas: id, nombre, direccion');
+    console.log('📡 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — SELECT sucursales, filtros: { id:', sucursalId, '}, columnas: id, nombre');
     const { data: sucursal, error: sucursalError } = await supabase
       .from('sucursales')
-      .select('id, nombre, direccion')
+      .select('id, nombre')
       .eq('id', sucursalId)
       .maybeSingle();
     console.log('📡 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — resultado SELECT sucursales — data:', sucursal, 'error:', sucursalError);
@@ -70,20 +65,6 @@ export const tomarConsulta = async (conversationId, sucursalId) => {
     }
 
     console.log('✅ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — CAMBIO DE ESTADO CONFIRMADO — conversationId:', conversationId, 'ahora tomada por sucursal:', sucursalId, '(', sucursal.nombre, ')');
-
-    if (conv.client_phone) {
-      console.log('🔍 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — enviando mensaje de consulta tomada a', conv.client_phone);
-      try {
-        await enviarMensajeBot(conversationId, conv.client_phone, MENSAJE_CONSULTA_TOMADA);
-      } catch (avisoError) {
-        // La asignación (el UPDATE de arriba) ya quedó confirmada en la base:
-        // si sólo falla el aviso por WhatsApp (ej. ventana de 24hs cerrada), no
-        // hay que tirar la operación entera, o el operador ve "no se pudo
-        // tomar la consulta" cuando en realidad sí se la asignó a su sucursal.
-        console.error('❌ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — la asignación se guardó pero falló el aviso por WhatsApp:', avisoError?.message, avisoError?.stack);
-      }
-    }
-
     console.log('✅ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — resultado a devolver:', conv);
     return conv;
   } catch (err) {
