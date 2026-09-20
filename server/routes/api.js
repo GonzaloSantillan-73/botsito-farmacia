@@ -10,6 +10,7 @@ import { getSucursalesActivas, estaAbiertaAhora } from '../services/sucursales.j
 import { TERMINAL_STATUSES } from '../services/sessionManager.js';
 import { getBotSchedule, setBotSchedule } from '../services/scheduleConfig.js';
 import { rowsToCsv, sendCsv } from '../services/csvExport.js';
+import { rowsToXlsxBuffer, sendXlsx } from '../services/xlsxExport.js';
 import { obtenerDetalleConsultas } from '../services/metricsDetalle.js';
 import { resolverNombresPorTelefono } from '../services/clientes.js';
 import { extraerCoordenadasDeUrl } from '../services/mapsLocation.js';
@@ -146,32 +147,38 @@ router.get('/export/metrics', async (req, res) => {
     const filas = await obtenerDetalleConsultas({ startDate, endDate });
     console.log('📡 [DEBUG-ROUTES-API] Resultado obtenerDetalleConsultas en /export/metrics:', { cantidad: filas?.length });
 
+    // `align: 'center'` en las columnas numéricas/de tiempo/estado (pedido
+    // explícito del formato visual); "Cliente" queda a la izquierda por ser
+    // texto libre de longitud variable. Comprobante/Receta se muestran como
+    // Sí/No (más legible en una planilla impresa/compartida que la URL
+    // cruda) — para abrir el archivo puntual, el operador lo sigue haciendo
+    // desde el detalle en el propio CRM.
     const detailColumns = [
-      { label: 'Fecha', value: r => new Date(r.fecha).toLocaleDateString('es-AR') },
-      { label: 'Hora Inicio', value: r => new Date(r.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) },
+      { label: 'Fecha', align: 'center', value: r => new Date(r.fecha).toLocaleDateString('es-AR') },
+      { label: 'Hora Inicio', align: 'center', value: r => new Date(r.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) },
       { label: 'Cliente', value: r => r.cliente },
-      { label: 'Teléfono', value: r => r.telefono },
-      { label: 'Demora Inicial (min)', value: r => (r.demoraInicialMs != null ? Math.round(r.demoraInicialMs / 60000) : '') },
-      { label: 'Duración Total (min)', value: r => (r.duracionTotalMs != null ? Math.round(r.duracionTotalMs / 60000) : '') },
-      { label: 'Msjs Cliente', value: r => r.msjsCliente },
-      { label: 'Sucursal', value: r => r.sucursal },
-      { label: 'Estado del Contacto', value: r => r.status },
-      { label: 'Monto Total', value: r => (r.montoTotal != null ? r.montoTotal : '') },
-      { label: 'Medio de Pago', value: r => r.medioPago },
-      { label: 'Comprobante', value: r => r.comprobanteUrl || '' },
-      { label: 'Receta', value: r => r.recetaUrl || '' }
+      { label: 'Teléfono', align: 'center', value: r => r.telefono },
+      { label: 'Demora Inicial (min)', align: 'center', value: r => (r.demoraInicialMs != null ? Math.round(r.demoraInicialMs / 60000) : '') },
+      { label: 'Duración Total (min)', align: 'center', value: r => (r.duracionTotalMs != null ? Math.round(r.duracionTotalMs / 60000) : '') },
+      { label: 'Msjs Cliente', align: 'center', value: r => r.msjsCliente },
+      { label: 'Sucursal', align: 'center', value: r => r.sucursal },
+      { label: 'Estado del Contacto', align: 'center', value: r => r.status },
+      { label: 'Monto Total', align: 'center', numFmt: '"$"#,##0.00', value: r => (r.montoTotal != null ? r.montoTotal : '') },
+      { label: 'Medio de Pago', align: 'center', value: r => r.medioPago },
+      { label: 'Comprobante (Sí/No)', align: 'center', value: r => (r.comprobanteUrl ? 'Sí' : 'No') },
+      { label: 'Receta (Sí/No)', align: 'center', value: r => (r.recetaUrl ? 'Sí' : 'No') }
     ];
 
-    // Sólo la tabla de detalle, sin ningún bloque de resumen apilado abajo:
-    // un CSV con dos tablas de distinto ancho en el mismo archivo confunde a
-    // Google Sheets/Excel al ordenar o autofiltrar por columna (ver
-    // MetricsPanel.jsx para los mismos totales/promedios, ya disponibles ahí
-    // como tarjetas).
-    const csv = rowsToCsv(detailColumns, filas);
+    // Sólo la tabla de detalle, sin ningún bloque de resumen apilado abajo
+    // (ver MetricsPanel.jsx para esos mismos totales/promedios, ya
+    // disponibles ahí como tarjetas). XLSX en vez de CSV plano: permite el
+    // estilo visual (cabecera verde, alineación, franjas) que un CSV no
+    // puede llevar.
+    const buffer = await rowsToXlsxBuffer(detailColumns, filas, { sheetName: 'Detalle de consultas' });
     const sufijoNombre = startDate && endDate ? `_${startDate}_a_${endDate}` : '';
     console.log(`[API] -> Exportando métricas (${filas.length} consultas${startDate && endDate ? `, ${startDate} a ${endDate}` : ', sin filtro de fecha'}).`);
-    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /export/metrics:', { status: 200, tipo: 'text/csv', nombreArchivo: `metricas${sufijoNombre}.csv` });
-    sendCsv(res, `metricas${sufijoNombre}.csv`, csv);
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /export/metrics:', { status: 200, tipo: 'xlsx', nombreArchivo: `metricas${sufijoNombre}.xlsx` });
+    sendXlsx(res, `metricas${sufijoNombre}.xlsx`, buffer);
   } catch (error) {
     console.error('❌ [DEBUG-ROUTES-API] Error en GET /export/metrics:', { error, message: error.message, stack: error.stack });
     console.error('[API] ❌ Error exportando métricas:', error.message);

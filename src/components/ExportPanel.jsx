@@ -73,7 +73,7 @@ export default function ExportPanel() {
       if (includeMetrics) {
         await downloadFile(
           `/api/export/metrics?startDate=${startDate}&endDate=${endDate}`,
-          `metricas_${startDate}_a_${endDate}.csv`
+          `metricas_${startDate}_a_${endDate}.xlsx`
         );
       }
       setDone(true);
@@ -91,7 +91,7 @@ export default function ExportPanel() {
       <div>
         <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-1">Exportar datos</h3>
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          Descargá un archivo CSV (compatible con Excel y Google Sheets) con la información del rango de fechas elegido.
+          Descargá la información del rango de fechas elegido: el historial de chats en CSV y las métricas en Excel (XLSX), ambos compatibles con Excel y Google Sheets.
         </p>
       </div>
 

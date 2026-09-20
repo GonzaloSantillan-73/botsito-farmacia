@@ -97,7 +97,7 @@ export default function MetricsTable() {
       const params = new URLSearchParams();
       if (appliedRange.startDate) params.set('startDate', appliedRange.startDate);
       if (appliedRange.endDate) params.set('endDate', appliedRange.endDate);
-      await downloadFile(`/api/export/metrics${params.toString() ? `?${params}` : ''}`, 'metricas.csv');
+      await downloadFile(`/api/export/metrics${params.toString() ? `?${params}` : ''}`, 'metricas.xlsx');
       setExported(true);
       setTimeout(() => setExported(false), 2500);
     } catch (err) {
@@ -164,7 +164,7 @@ export default function MetricsTable() {
               className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50"
             >
               {exporting ? <Loader2 size={16} className="animate-spin" /> : exported ? <Check size={16} /> : <Download size={16} />}
-              {exporting ? 'Generando...' : exported ? 'Descargado' : 'Exportar CSV'}
+              {exporting ? 'Generando...' : exported ? 'Descargado' : 'Exportar Excel'}
             </button>
             {exportError && <p className="text-xs text-rose-600">{exportError}</p>}
           </div>
