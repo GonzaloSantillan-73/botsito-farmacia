@@ -1,13 +1,18 @@
 import { supabase } from '../supabase.js';
+import { TERMINAL_STATUSES } from './sessionManager.js';
 
-// Un empleado de sucursal reclama una conversación de la cola general. El
-// UPDATE queda condicionado a que siga en 'esperando' y sin sucursal
-// asignada: si dos sucursales tocan "Tomar" casi al mismo tiempo, sólo la
-// primera consulta que llegue a Postgres se la queda (la segunda no matchea
-// ninguna fila y tira error). También limpia devuelta_por_sucursal_id: esa
-// marca ya no aplica una vez que alguien la toma. A propósito, NO se le
-// manda ningún mensaje al cliente: de cara a él, que una sucursal tome el
-// chat es una asignación puramente interna, sin ningún aviso ni re-saludo.
+// Un empleado de sucursal reclama una conversación: de la cola general
+// ('esperando', sin sucursal) O directamente de una que el bot todavía está
+// atendiendo solo, sin que el cliente haya pedido un humano (ver
+// requiereInterferir/esModoBot en ChatArea.jsx — "interferir" un chat en
+// curso). El UPDATE queda condicionado a que la conversación NO esté
+// cerrada y siga sin sucursal asignada: si dos sucursales tocan "Tomar"
+// casi al mismo tiempo, sólo la primera consulta que llegue a Postgres se
+// la queda (la segunda no matchea ninguna fila y tira error). También
+// limpia devuelta_por_sucursal_id: esa marca ya no aplica una vez que
+// alguien la toma. A propósito, NO se le manda ningún mensaje al cliente:
+// de cara a él, que una sucursal tome el chat es una asignación puramente
+// interna, sin ningún aviso ni re-saludo.
 export const tomarConsulta = async (conversationId, sucursalId) => {
   console.log('🔍 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — conversationId:', conversationId, 'sucursalId:', sucursalId);
   try {
@@ -44,12 +49,12 @@ export const tomarConsulta = async (conversationId, sucursalId) => {
     if (!actual?.primera_sucursal_id) updates.primera_sucursal_id = sucursalId;
     console.log('🔍 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — CAMBIO DE ESTADO — conversationId:', conversationId, 'de "esperando" (sin sucursal) a tomada por sucursal:', sucursalId, '— updates a aplicar:', updates);
 
-    console.log('📡 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — UPDATE conversations, filtros: { id:', conversationId, ', status: "esperando", sucursal_id: null }, valores:', updates);
+    console.log('📡 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — UPDATE conversations, filtros: { id:', conversationId, ', status not in:', TERMINAL_STATUSES, ', sucursal_id: null }, valores:', updates);
     const { data: conv, error: updateError } = await supabase
       .from('conversations')
       .update(updates)
       .eq('id', conversationId)
-      .eq('status', 'esperando')
+      .not('status', 'in', `(${TERMINAL_STATUSES.join(',')})`)
       .is('sucursal_id', null)
       .select()
       .maybeSingle();

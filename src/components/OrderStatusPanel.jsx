@@ -75,6 +75,11 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
 
   if (!activeConversation || ESTADOS_CERRADOS.includes(activeConversation.status)) return null;
 
+  // El bot todavía está atendiendo esta conversación solo (mismo criterio
+  // que esModoBot en ChatArea.jsx): no tiene sentido tocar el estado del
+  // pedido de un chat que ni siquiera pasó por un humano todavía.
+  const esModoBot = activeConversation.status !== 'esperando' && !activeConversation.sucursal_id;
+
   const textoDe = (shortcut) => {
     const baseText = plantillas[shortcut] || MENSAJES_DEFAULT[shortcut];
     let textoFinal;
@@ -122,23 +127,25 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
 
 
   return (
-    <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+    <div className={`p-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 ${esModoBot ? 'opacity-60' : ''}`}>
       <button
         onClick={() => { const next = !isOpen; setIsOpen(next); }}
-        className="w-full flex items-center justify-between text-left mb-2 outline-none group"
+        disabled={esModoBot}
+        title={esModoBot ? 'El bot todavía está atendiendo este chat: tomá la consulta para poder cargar el estado del pedido.' : undefined}
+        className={`w-full flex items-center justify-between text-left mb-2 outline-none group ${esModoBot ? 'cursor-not-allowed' : ''}`}
       >
         <h3 className="text-md font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
           <Truck size={18} className="text-teal-600 dark:text-teal-400" />
           Estado del Pedido
         </h3>
-        {isOpen ? (
+        {isOpen && !esModoBot ? (
           <ChevronUp size={18} className="text-gray-400 dark:text-gray-500 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors" />
         ) : (
           <ChevronDown size={18} className="text-gray-400 dark:text-gray-500 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors" />
         )}
       </button>
 
-      {isOpen && (
+      {isOpen && !esModoBot && (
         <div className="animate-fade-in-up mt-3">
           <div className="flex items-center gap-2 mb-4 text-xs">
             <span className={`px-2 py-1 rounded-full font-medium ${pagoBadge.className}`}>Pago: {pagoBadge.label}</span>

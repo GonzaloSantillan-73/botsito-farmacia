@@ -619,25 +619,31 @@ export default function ValidationPanel({
         )}
 
         {/* Cotizador / Preparación (oculto en conversaciones cerradas/Historial,
-            y por completo para el admin: rol de solo supervisión, no cotiza). */}
-        {!isAdmin && activeConversation && !ESTADOS_CERRADOS.includes(activeConversation.status) && (
-          <div className="p-6 border-t border-gray-200 dark:border-gray-800 bg-[#f8f9fa] dark:bg-gray-900">
+            y por completo para el admin: rol de solo supervisión, no cotiza).
+            Bloqueado (no colapsable) mientras el bot todavía atiende solo el
+            chat: mismo criterio que esModoBot en ChatArea.jsx. */}
+        {!isAdmin && activeConversation && !ESTADOS_CERRADOS.includes(activeConversation.status) && (() => {
+          const esModoBot = activeConversation.status !== 'esperando' && !activeConversation.sucursal_id;
+          return (
+          <div className={`p-6 border-t border-gray-200 dark:border-gray-800 bg-[#f8f9fa] dark:bg-gray-900 ${esModoBot ? 'opacity-60' : ''}`}>
             <button
               onClick={() => { const nuevoValor = !isQuoteOpen; setIsQuoteOpen(nuevoValor); }}
-              className="w-full flex items-center justify-between text-left mb-2 outline-none group"
+              disabled={esModoBot}
+              title={esModoBot ? 'El bot todavía está atendiendo este chat: tomá la consulta para poder cotizar.' : undefined}
+              className={`w-full flex items-center justify-between text-left mb-2 outline-none group ${esModoBot ? 'cursor-not-allowed' : ''}`}
             >
               <h3 className="text-md font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                 <Calculator size={18} className="text-teal-600 dark:text-teal-400" />
                 Cotizador / Preparación
               </h3>
-              {isQuoteOpen ? (
+              {isQuoteOpen && !esModoBot ? (
                 <ChevronUp size={18} className="text-gray-400 group-hover:text-teal-600 transition-colors" />
               ) : (
                 <ChevronDown size={18} className="text-gray-400 group-hover:text-teal-600 transition-colors" />
               )}
             </button>
 
-            {isQuoteOpen && (
+            {isQuoteOpen && !esModoBot && (
               <div className="space-y-3 bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm mt-3 animate-fade-in-up">
                 {pagoConfirmado ? (
                   <div className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
@@ -811,7 +817,8 @@ export default function ValidationPanel({
 
 
           </div>
-        )}
+          );
+        })()}
 
         {/* Estado del Pedido: seguimiento manual de pago/entrega que lleva el
             vendedor sobre lo cotizado a mano (oculto en conversaciones

@@ -295,6 +295,14 @@ export default function ChatArea({
   // (lo que cambia al tomarlo es sucursal_id, no el status, ver App.jsx). La
   // cola general sin asignar es específicamente 'esperando' + sin sucursal_id.
   const estaEnColaGeneral = activeConversation?.status === 'esperando' && !activeConversation?.sucursal_id;
+  // El bot todavía está atendiendo esta conversación solo: el cliente no
+  // pidió un humano (si lo hubiera pedido, status pasaría a 'esperando', ver
+  // manejarUbicacionHumano en bot.js) y nadie la tomó (sucursal_id null).
+  // Mismo criterio que esBotAutomatico() en Sidebar.jsx (pestaña "Bot").
+  const esModoBot = activeConversation
+    && !isConversacionCerrada
+    && activeConversation.status !== 'esperando'
+    && !activeConversation.sucursal_id;
   // El admin puede responder cualquier chat sin reclamarlo; un empleado de
   // sucursal tiene que tocar "Tomar" primero (acá o desde el Sidebar) antes
   // de poder escribirle a un cliente de la cola general.
@@ -515,7 +523,7 @@ export default function ChatArea({
                >
                  <MessagesSquare size={20} />
                </button>
-               {!isConversacionCerrada && !soyAdmin && (
+               {!isConversacionCerrada && !soyAdmin && !esModoBot && (
                  <button
                    onClick={() => { setIsCloseModalOpen(true); }}
                    disabled={closingChat}
@@ -525,7 +533,7 @@ export default function ChatArea({
                    {closingChat ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle size={20} />}
                  </button>
                )}
-               {!isConversacionCerrada && !estaEnColaGeneral && !soyAdmin && (
+               {!isConversacionCerrada && !estaEnColaGeneral && !soyAdmin && !esModoBot && (
                  <button
                    onClick={() => { setIsReturnModalOpen(true); }}
                    title="Derivar a otra sucursal o devolver este chat a la lista de espera general"
@@ -647,6 +655,20 @@ export default function ChatArea({
           ) : soyAdmin ? (
             <div className="p-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 text-center text-sm text-gray-500 dark:text-gray-400">
               Modo supervisión: estás viendo este chat como espectador. El administrador no puede enviar mensajes ni intervenir en la atención.
+            </div>
+          ) : esModoBot ? (
+            <div className="p-4 bg-blue-50 dark:bg-blue-950 border-t border-blue-200 dark:border-blue-900 flex items-center justify-between gap-3">
+              <span className="text-sm text-blue-800 dark:text-blue-400">
+                El cliente está hablando con el bot. ¿Querés interferir y tomar la consulta?
+              </span>
+              <button
+                onClick={handleTomarDesdeChat}
+                disabled={tomandoConsulta || !miSucursalId}
+                className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm disabled:opacity-50 shrink-0"
+              >
+                {tomandoConsulta ? <Loader2 size={16} className="animate-spin" /> : <Hand size={16} />}
+                {tomandoConsulta ? 'Tomando...' : 'Tomar consulta'}
+              </button>
             </div>
           ) : requiereTomarParaResponder ? (
             <div className="p-4 bg-amber-50 dark:bg-amber-950 border-t border-amber-200 dark:border-amber-900 flex items-center justify-between gap-3">
