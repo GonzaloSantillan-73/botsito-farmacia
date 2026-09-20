@@ -146,24 +146,6 @@ router.get('/export/metrics', async (req, res) => {
     const filas = await obtenerDetalleConsultas({ startDate, endDate });
     console.log('📡 [DEBUG-ROUTES-API] Resultado obtenerDetalleConsultas en /export/metrics:', { cantidad: filas?.length });
 
-    const idsParaRatings = filas.map(f => f.id).length ? filas.map(f => f.id) : ['__none__'];
-    console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(conversations) select en /export/metrics:', { operacion: 'select', ids: idsParaRatings });
-    const { data: ratingsData, error: ratingsError } = await supabase
-      .from('conversations')
-      .select('rating, product_rating')
-      .in('id', idsParaRatings);
-    console.log('📡 [DEBUG-ROUTES-API] Resultado supabase.from(conversations) select en /export/metrics:', { ratingsData, error: ratingsError });
-    if (ratingsError) throw ratingsError;
-
-    const calificadasAtencion = (ratingsData || []).filter(c => c.rating != null);
-    const promedioAtencion = calificadasAtencion.length > 0
-      ? (calificadasAtencion.reduce((acc, c) => acc + c.rating, 0) / calificadasAtencion.length).toFixed(2)
-      : 'Sin datos';
-    const calificadasProducto = (ratingsData || []).filter(c => c.product_rating != null);
-    const promedioProducto = calificadasProducto.length > 0
-      ? (calificadasProducto.reduce((acc, c) => acc + c.product_rating, 0) / calificadasProducto.length).toFixed(2)
-      : 'Sin datos';
-
     const detailColumns = [
       { label: 'Fecha', value: r => new Date(r.fecha).toLocaleDateString('es-AR') },
       { label: 'Hora Inicio', value: r => new Date(r.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) },
@@ -180,19 +162,12 @@ router.get('/export/metrics', async (req, res) => {
       { label: 'Receta', value: r => r.recetaUrl || '' }
     ];
 
-    const summaryColumns = [
-      { label: 'Resumen', value: r => r.label },
-      { label: 'Valor', value: r => r.value }
-    ];
-    const summaryRows = [
-      { label: 'Total de consultas', value: filas.length },
-      { label: 'Consultas con calificación de atención', value: calificadasAtencion.length },
-      { label: 'Promedio de calificación de atención', value: promedioAtencion },
-      { label: 'Consultas con calificación de producto', value: calificadasProducto.length },
-      { label: 'Promedio de calificación de producto', value: promedioProducto }
-    ];
-
-    const csv = rowsToCsv(detailColumns, filas) + '\r\n\r\n' + rowsToCsv(summaryColumns, summaryRows);
+    // Sólo la tabla de detalle, sin ningún bloque de resumen apilado abajo:
+    // un CSV con dos tablas de distinto ancho en el mismo archivo confunde a
+    // Google Sheets/Excel al ordenar o autofiltrar por columna (ver
+    // MetricsPanel.jsx para los mismos totales/promedios, ya disponibles ahí
+    // como tarjetas).
+    const csv = rowsToCsv(detailColumns, filas);
     const sufijoNombre = startDate && endDate ? `_${startDate}_a_${endDate}` : '';
     console.log(`[API] -> Exportando métricas (${filas.length} consultas${startDate && endDate ? `, ${startDate} a ${endDate}` : ', sin filtro de fecha'}).`);
     console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /export/metrics:', { status: 200, tipo: 'text/csv', nombreArchivo: `metricas${sufijoNombre}.csv` });
