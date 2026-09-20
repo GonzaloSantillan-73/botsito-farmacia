@@ -279,7 +279,15 @@ export default function Sidebar({
     <div className={`${activeConversation || showClientDirectory ? 'hidden md:flex' : 'flex'} w-full md:w-1/4 md:min-w-[260px] md:max-w-sm border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 flex-col shadow-sm z-10`}>
       <div className="p-4 border-b border-gray-200 dark:border-gray-800 space-y-4">
         <h1 className="text-xl font-bold text-teal-700 dark:text-teal-400 flex items-center justify-between gap-2">
-          <span>CRM</span>
+          <span className="flex items-center gap-2">
+            CRM
+            <span
+              title="Versión desplegada (commit corto)"
+              className="font-mono text-xs font-normal text-gray-400 bg-gray-800/50 px-2 py-0.5 rounded"
+            >
+              {import.meta.env.VITE_GIT_COMMIT_HASH || 'dev'}
+            </span>
+          </span>
           <div className="flex items-center gap-1">
             <button
               onClick={() => { onShowClientDirectory(); }}
