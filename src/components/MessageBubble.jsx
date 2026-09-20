@@ -77,18 +77,26 @@ export const parseLocationMessage = (msg) => {
 // para decidir si vale la pena pedirle al servidor que resuelva el link: un
 // cliente puede pegar cualquier URL como texto, y no toda URL es de Maps.
 const MAPS_HOSTS = new Set(['maps.app.goo.gl', 'goo.gl', 'www.google.com', 'google.com', 'maps.google.com']);
-const REGEX_URL = /https?:\/\/[^\s]+/i;
+// Ancla ^...$ a propósito: tiene que ser el mensaje ENTERO, no una URL
+// encontrada en cualquier parte del texto. Plantillas del bot como el
+// listado de sucursales (ver formatearMensajeSucursales en
+// server/services/sucursales.js) meten un link de Maps por sucursal
+// mezclado con nombre/dirección/horario en el mismo mensaje — si sólo
+// buscáramos "hay un link en algún lado", ese mensaje completo (con todas
+// las sucursales) se reemplazaría por la tarjeta de mapa de la primera,
+// tapando el resto del listado.
+const REGEX_URL_COMPLETA = /^https?:\/\/\S+$/i;
 
-// Busca un link de Google Maps dentro de un mensaje de texto plano (a
+// Busca un link de Google Maps cuando ES el mensaje de texto completo (a
 // diferencia de parseLocationMessage, que es para el botón nativo de
 // "Compartir ubicación" de WhatsApp). Sólo tiene sentido llamarlo sobre
 // mensajes sin adjunto: un caption de imagen que mencione un link no debe
 // tapar la imagen.
 export const extraerLinkDeMaps = (texto) => {
-  const match = texto?.match(REGEX_URL);
-  if (!match) return null;
+  const trimmed = texto?.trim();
+  if (!trimmed || !REGEX_URL_COMPLETA.test(trimmed)) return null;
   try {
-    return MAPS_HOSTS.has(new URL(match[0]).hostname.toLowerCase()) ? match[0] : null;
+    return MAPS_HOSTS.has(new URL(trimmed).hostname.toLowerCase()) ? trimmed : null;
   } catch {
     return null;
   }
