@@ -75,7 +75,7 @@ const DevueltaBadge = ({ devueltaPorSucursalId }) => {
   const fuiYo = soyStaff && miSucursalId === devueltaPorSucursalId;
 
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap ${fuiYo ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap text-white ${fuiYo ? 'bg-red-600' : 'bg-orange-500'}`}>
       {fuiYo ? 'Devolviste' : 'Devuelta'}
     </span>
   );
@@ -113,7 +113,7 @@ const SucursalesRecomendadas = ({ sucursales }) => {
         <span
           key={s.id || i}
           title={Number.isFinite(s.distancia_km) ? `${s.nombre} · ${s.distancia_km} km` : s.nombre}
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-sky-100 text-sky-700 max-w-[110px] truncate"
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-blue-600 text-white max-w-[110px] truncate"
         >
           <MapPin size={10} className="shrink-0" />
           <span className="truncate">{s.nombre}</span>
