@@ -1,12 +1,18 @@
+// Excel interpreta el separador de listas de un .csv según la configuración
+// regional de Windows, NO según lo que realmente use el archivo: en
+// es-AR/es-ES esa config usa coma como separador DECIMAL, así que el
+// separador de listas pasa a ser ";" — abrir con doble clic un CSV separado
+// por comas hace que Excel no reconozca ninguna columna y apile todo en A.
+// Usamos ";" a propósito para que abra bien de una en el Excel real que usa
+// la farmacia, sin depender de que el usuario sepa importar con el asistente
+// de "Datos > Desde texto/CSV" eligiendo el delimitador a mano.
+const CSV_DELIMITER = ';';
+
 const escapeCsvField = (value) => {
   console.log('🔍 [DEBUG-SERVICE-CSVEXPORT] escapeCsvField() — value:', value);
   const str = value === null || value === undefined ? '' : String(value);
-  let resultado;
-  if (/[",\n\r]/.test(str)) {
-    resultado = `"${str.replace(/"/g, '""')}"`;
-  } else {
-    resultado = str;
-  }
+  const necesitaComillas = new RegExp(`["${CSV_DELIMITER}\\n\\r]`).test(str);
+  const resultado = necesitaComillas ? `"${str.replace(/"/g, '""')}"` : str;
   console.log('✅ [DEBUG-SERVICE-CSVEXPORT] escapeCsvField() — resultado:', resultado);
   return resultado;
 };
@@ -15,8 +21,8 @@ const escapeCsvField = (value) => {
 export const rowsToCsv = (columns, rows) => {
   console.log('🔍 [DEBUG-SERVICE-CSVEXPORT] rowsToCsv() — columns:', columns?.map(c => c.label), 'cantidad de filas recibidas:', rows?.length);
   try {
-    const header = columns.map(c => escapeCsvField(c.label)).join(',');
-    const lines = rows.map(row => columns.map(c => escapeCsvField(c.value(row))).join(','));
+    const header = columns.map(c => escapeCsvField(c.label)).join(CSV_DELIMITER);
+    const lines = rows.map(row => columns.map(c => escapeCsvField(c.value(row))).join(CSV_DELIMITER));
     console.log('🔍 [DEBUG-SERVICE-CSVEXPORT] rowsToCsv() — cantidad de líneas generadas (sin header):', lines.length);
 
     const resultado = [header, ...lines].join('\r\n');
