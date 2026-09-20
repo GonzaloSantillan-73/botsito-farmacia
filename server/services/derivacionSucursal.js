@@ -115,7 +115,7 @@ export const derivarASucursal = async (conversationId, sucursalDestinoId, razon)
         .insert({
           conversation_id: conversationId,
           sender_type: 'system',
-          message_text: `${origenTexto} te la pasó por: ${razonLimpia}`,
+          message_text: `${origenTexto} te pasó el chat por: ${razonLimpia}`,
           media_type: 'text'
         });
       if (notaError) {
