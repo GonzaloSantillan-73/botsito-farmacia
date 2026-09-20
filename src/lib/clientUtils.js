@@ -76,8 +76,25 @@ export const withSucursalesHistorial = async (conversations) => {
     }
   });
 
-  return conversations.map(c => ({
-    ...c,
-    sucursales_historial: porConversacion[c.id] || []
-  }));
+  return conversations.map(c => {
+    const historial = porConversacion[c.id] || [];
+    // Filtro definitivo, hecho acá mismo (no en el momento en que se calculan
+    // las recomendadas en el backend): `sucursal_recomendadas` es una
+    // "foto" que sólo se recalcula en algunos pasos del ciclo de vida del
+    // chat (ver devolverConversacionAEspera en devolucionCola.js) y queda
+    // intacta en otros (ej. una derivación directa entre sucursales, ver
+    // derivarASucursal en derivacionSucursal.js). Filtrando siempre acá,
+    // contra el historial real y completo que se acaba de armar arriba, la
+    // tarjeta nunca puede mostrar como "recomendada" a una sucursal que ya
+    // está en el historial, sin importar qué tan vieja quedó esa foto.
+    const historialIds = new Set(historial.map(h => h.id));
+    const recomendadas = Array.isArray(c.sucursales_recomendadas)
+      ? c.sucursales_recomendadas.filter(r => !historialIds.has(r.id))
+      : c.sucursales_recomendadas;
+    return {
+      ...c,
+      sucursales_historial: historial,
+      sucursales_recomendadas: recomendadas
+    };
+  });
 };
