@@ -5,6 +5,7 @@ import { formatPhone } from '../lib/formatPhone';
 import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
 import { tomarConsulta } from '../lib/tomarConsulta';
 import { confirmDialog, alertDialog } from '../lib/dialogService';
+import { renderWhatsAppText } from '../lib/whatsappFormat';
 
 // Formatea milisegundos transcurridos con precisión progresiva: segundos
 // (00s) mientras dure menos de un minuto, minutos:segundos (01:00m) mientras
@@ -421,7 +422,7 @@ export default function Sidebar({
                 </div>
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400 truncate mb-2">
-                {conv.last_message || <span className="italic text-gray-400">Nueva conversación</span>}
+                {conv.last_message ? renderWhatsAppText(conv.last_message) : <span className="italic text-gray-400">Nueva conversación</span>}
               </div>
               {showEsperando && soyStaff && miSucursalId && (
                 <button

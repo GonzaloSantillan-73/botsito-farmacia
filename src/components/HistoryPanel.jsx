@@ -8,6 +8,7 @@ import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import ClientHistoryList from './ClientHistoryList';
 import { AttachmentTagControls, parseLocationMessage, extraerLinkDeMaps, LocationCard, MapsLinkPreview } from './MessageBubble';
 import { alertDialog } from '../lib/dialogService';
+import { renderWhatsAppText } from '../lib/whatsappFormat';
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -182,7 +183,7 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
                           <MapsLinkPreview url={linkDeMaps} senderType={msg.sender_type} texto={msg.message_text} />
                         ) : (
                           <p className="whitespace-pre-wrap">
-                            {searchQuery.trim() ? highlightMatches(msg.message_text, searchQuery) : msg.message_text}
+                            {searchQuery.trim() ? highlightMatches(msg.message_text, searchQuery) : renderWhatsAppText(msg.message_text)}
                           </p>
                         )
                       )}

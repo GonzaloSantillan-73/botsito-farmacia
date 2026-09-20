@@ -3,6 +3,7 @@ import { Search, CalendarRange, ArrowUpDown, Loader2, Clock, Store } from 'lucid
 import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import { formatPhone } from '../lib/formatPhone';
 import { adminFetch } from '../lib/adminAuth';
+import { renderWhatsAppText } from '../lib/whatsappFormat';
 import StarRating from './StarRating';
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -221,7 +222,7 @@ export default function ClientHistoryList({
                     {searchQuery.trim() && snippets[conv.id]
                       ? highlightMatches(snippets[conv.id], searchQuery)
                       : conv.last_message
-                        ? (searchQuery.trim() ? highlightMatches(conv.last_message, searchQuery) : conv.last_message)
+                        ? (searchQuery.trim() ? highlightMatches(conv.last_message, searchQuery) : renderWhatsAppText(conv.last_message))
                         : <span className="italic text-gray-400 dark:text-gray-500">Sin mensajes</span>}
                   </div>
                   {sucursales.length > 0 && (
