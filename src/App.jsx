@@ -262,21 +262,34 @@ function App() {
             const empezoAEsperar = payload.new.status === 'esperando' && previous?.status !== 'esperando';
             const nombreYaConocido = previous?.real_name;
 
-            setConversations(prev => {
-              const exists = prev.some(c => c.id === payload.new.id);
+            // payload.new es la fila cruda de la base: no trae `sucursales_historial`
+            // (es un campo calculado del lado del cliente, no una columna) y su
+            // `sucursales_recomendadas` puede venir sin filtrar contra ese historial
+            // (ver withSucursalesHistorial en clientUtils.js). Sin este paso, CUALQUIER
+            // UPDATE de la conversación (tomar, derivar, marcar como leída, lo que sea)
+            // pisaba la card ya saneada del fetch inicial con datos crudos, mostrando
+            // de nuevo sucursales recomendadas que ya estaban en el historial hasta el
+            // próximo fetchConversations() completo.
+            (async () => {
               // unreadCount es un campo calculado en el cliente (no existe en la
               // fila real): si no lo preservamos acá, cada UPDATE de la conversación
               // (cambia last_message, sucursal_id, lo que sea) lo pisaría con
               // "undefined" al reemplazar la fila entera por payload.new.
-              const next = exists
-                ? prev.map(c => c.id === payload.new.id ? { ...payload.new, real_name: c.real_name, unreadCount: c.unreadCount } : c)
-                : [{ ...payload.new, unreadCount: 0 }, ...prev];
-              return next.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-            });
+              const merged = { ...payload.new, real_name: previous?.real_name, unreadCount: previous?.unreadCount };
+              const [saneada] = await withSucursalesHistorial([merged]);
 
-            if (activeConversationRef.current?.id === payload.new.id) {
-              setActiveConversation(prev => ({ ...payload.new, real_name: prev.real_name }));
-            }
+              setConversations(prev => {
+                const exists = prev.some(c => c.id === saneada.id);
+                const next = exists
+                  ? prev.map(c => c.id === saneada.id ? { ...saneada, real_name: c.real_name, unreadCount: c.unreadCount } : c)
+                  : [saneada, ...prev];
+                return next.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+              });
+
+              if (activeConversationRef.current?.id === saneada.id) {
+                setActiveConversation(prev => ({ ...saneada, real_name: prev.real_name }));
+              }
+            })();
 
             // El bot guarda el nombre completo del cliente directamente en la tabla
             // `clientes` (ej. durante el registro), sin tocar esa columna acá, así que
