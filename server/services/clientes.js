@@ -1,50 +1,86 @@
 import { supabase } from '../supabase.js';
 
-// Arma un phone -> nombre_completo para una tanda de teléfonos, resolviendo
-// TAMBIÉN los que son un teléfono VIEJO de alguien que migró (ver
-// migrar_cliente_por_dni.sql / clientesAdmin.js y clientes_telefonos_historicos):
-// una conversación histórica se queda con el client_phone real de esa sesión
-// a propósito (nunca se reescribe, ver clientDirectory.js), así que un simple
-// `clientes.select(...).in('client_phone', phones)` no encuentra la ficha de
-// nadie que ya cambió de número desde entonces — el teléfono vigente de esa
-// ficha ya no es ninguno de los `phones` pedidos. Sin esto, el Historial de
-// Consultas, las Métricas y las exportaciones muestran esas filas viejas sin
-// nombre aunque el cliente esté perfectamente identificado hoy.
+// Resuelve, para una tanda de CONVERSACIONES puntuales ({ id, client_phone,
+// created_at }), el nombre de la persona que realmente tuvo esa consulta —
+// devuelve { [conversationId]: nombre_completo }.
+//
+// Ni bien un mismo número de teléfono puede haber sido de una persona y
+// después, si el número se recicla, de otra completamente distinta, resolver
+// "a quién pertenece este teléfono" no alcanza: hay que resolver "a quién
+// pertenecía este teléfono EN LA FECHA de esta conversación puntual". Cada
+// fila de clientes_telefonos_historicos marca el momento exacto (su
+// created_at) en que una ficha DEJÓ de usar ese número (ver
+// migrar_cliente_por_dni.sql); eso da el límite temporal:
+//   - Camino directo (el teléfono es el vigente de una ficha hoy): sólo se
+//     atribuye si la conversación es POSTERIOR a la última vez que esa ficha
+//     migró de número (o siempre, si nunca migró) — si no, la conversación es
+//     de antes de que esa ficha tuviera este número.
+//   - Camino histórico (el teléfono aparece en clientes_telefonos_historicos):
+//     sólo se atribuye a la ficha cuyo registro histórico para ESE teléfono
+//     tiene el created_at más cercano que sea >= la conversación (la ventana
+//     en la que ese teléfono fue de esa ficha).
+// Sin este límite, un cambio de teléfono o una migración por DNI pisaría
+// masivamente el nombre de conversaciones que en realidad eran de otra
+// persona con el mismo número reciclado.
 //
 // Se usa para HISTORIALES (conversaciones/mensajes/pedidos ya ocurridos). Los
 // listados de bandejas activas (App.jsx: withClientNames) no lo necesitan:
 // una conversación activa siempre está sobre el teléfono con el que el
 // cliente está escribiendo ahora mismo, que por definición ya es el vigente.
-export const resolverNombresPorTelefono = async (phones) => {
-  console.log('🔍 [DEBUG-SERVICE-CLIENTES] resolverNombresPorTelefono() — parámetros recibidos:', { cantidadTelefonos: phones?.length });
-  if (!phones || phones.length === 0) return {};
+export const resolverNombresPorConversaciones = async (conversaciones) => {
+  console.log('🔍 [DEBUG-SERVICE-CLIENTES] resolverNombresPorConversaciones() — parámetros recibidos:', { cantidad: conversaciones?.length });
+  const conConCliente = (conversaciones || []).filter(c => c?.client_phone && c?.created_at);
+  const phones = [...new Set(conConCliente.map(c => c.client_phone))];
+  if (phones.length === 0) return {};
 
   const { data: fichasDirectas, error: fichasError } = await supabase
     .from('clientes')
-    .select('id, client_phone, nombre_completo')
+    .select('id, client_phone, nombre_completo, created_at')
     .in('client_phone', phones);
   if (fichasError) {
-    console.error('❌ [DEBUG-SERVICE-CLIENTES] resolverNombresPorTelefono() — error consultando clientes:', fichasError);
+    console.error('❌ [DEBUG-SERVICE-CLIENTES] resolverNombresPorConversaciones() — error consultando clientes:', fichasError);
     throw fichasError;
   }
 
-  const idsYaEncontrados = new Set((fichasDirectas || []).map(f => f.id));
-
-  const { data: historicos, error: histError } = await supabase
+  const { data: historicosPorTelefono, error: histError } = await supabase
     .from('clientes_telefonos_historicos')
-    .select('cliente_id, client_phone')
+    .select('cliente_id, client_phone, created_at')
     .in('client_phone', phones);
   if (histError) {
-    console.error('❌ [DEBUG-SERVICE-CLIENTES] resolverNombresPorTelefono() — error consultando clientes_telefonos_historicos:', histError);
+    console.error('❌ [DEBUG-SERVICE-CLIENTES] resolverNombresPorConversaciones() — error consultando clientes_telefonos_historicos (por teléfono):', histError);
     throw histError;
   }
 
-  const idsFaltantes = [...new Set((historicos || []).map(h => h.cliente_id).filter(id => !idsYaEncontrados.has(id)))];
+  // Para el camino directo: necesitamos saber, para cada ficha con teléfono
+  // vigente en este lote, desde cuándo lo tiene — el created_at más reciente
+  // entre TODOS sus registros históricos (cualquier teléfono, no sólo los de
+  // este lote), no sólo los de este lote de teléfonos. Si nunca migró (nunca
+  // tiene un registro histórico propio), el piso es la fecha en que se creó
+  // su ficha: sin esto, una conversación de ANTES de que esta persona
+  // existiera como cliente (de un dueño previo del mismo número, reciclado)
+  // quedaría igual atribuida a ella por no tener ningún límite inferior.
+  const idsFichasDirectas = (fichasDirectas || []).map(f => f.id);
+  const { data: historicosDeFichasDirectas, error: histDirectasError } = idsFichasDirectas.length
+    ? await supabase.from('clientes_telefonos_historicos').select('cliente_id, created_at').in('cliente_id', idsFichasDirectas)
+    : { data: [] };
+  if (histDirectasError) {
+    console.error('❌ [DEBUG-SERVICE-CLIENTES] resolverNombresPorConversaciones() — error consultando históricos de fichas directas:', histDirectasError);
+    throw histDirectasError;
+  }
+  const desdeVigenteMs = {};
+  (fichasDirectas || []).forEach(f => { desdeVigenteMs[f.id] = new Date(f.created_at).getTime(); });
+  (historicosDeFichasDirectas || []).forEach(h => {
+    const t = new Date(h.created_at).getTime();
+    if (t > desdeVigenteMs[h.cliente_id]) desdeVigenteMs[h.cliente_id] = t;
+  });
+
+  const idsYaEncontrados = new Set(idsFichasDirectas);
+  const idsFaltantes = [...new Set((historicosPorTelefono || []).map(h => h.cliente_id).filter(id => !idsYaEncontrados.has(id)))];
   const { data: fichasPorHistorico, error: fichasHistError } = idsFaltantes.length
     ? await supabase.from('clientes').select('id, nombre_completo').in('id', idsFaltantes)
     : { data: [] };
   if (fichasHistError) {
-    console.error('❌ [DEBUG-SERVICE-CLIENTES] resolverNombresPorTelefono() — error consultando fichas por histórico:', fichasHistError);
+    console.error('❌ [DEBUG-SERVICE-CLIENTES] resolverNombresPorConversaciones() — error consultando fichas por histórico:', fichasHistError);
     throw fichasHistError;
   }
 
@@ -53,15 +89,33 @@ export const resolverNombresPorTelefono = async (phones) => {
     if (f.nombre_completo) nombrePorFichaId[f.id] = f.nombre_completo;
   });
 
-  const phoneMap = {};
-  (fichasDirectas || []).forEach(f => { if (f.nombre_completo) phoneMap[f.client_phone] = f.nombre_completo; });
-  (historicos || []).forEach(h => {
-    const nombre = nombrePorFichaId[h.cliente_id];
-    if (nombre) phoneMap[h.client_phone] = nombre;
+  const resultado = {};
+  conConCliente.forEach(conv => {
+    const t = new Date(conv.created_at).getTime();
+
+    const fichaDirecta = (fichasDirectas || []).find(f => f.client_phone === conv.client_phone);
+    if (fichaDirecta?.nombre_completo) {
+      const desde = desdeVigenteMs[fichaDirecta.id];
+      if (desde == null || t >= desde) {
+        resultado[conv.id] = fichaDirecta.nombre_completo;
+        return;
+      }
+      // La conversación es anterior a que esta ficha tuviera este teléfono
+      // (número reciclado): no se le atribuye, se sigue evaluando el camino
+      // histórico por si corresponde a otra ficha.
+    }
+
+    const candidatos = (historicosPorTelefono || [])
+      .filter(h => h.client_phone === conv.client_phone && new Date(h.created_at).getTime() >= t)
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    if (candidatos.length) {
+      const nombre = nombrePorFichaId[candidatos[0].cliente_id];
+      if (nombre) resultado[conv.id] = nombre;
+    }
   });
 
-  console.log('✅ [DEBUG-SERVICE-CLIENTES] resolverNombresPorTelefono() — valor de retorno, entradas:', Object.keys(phoneMap).length);
-  return phoneMap;
+  console.log('✅ [DEBUG-SERVICE-CLIENTES] resolverNombresPorConversaciones() — valor de retorno, entradas:', Object.keys(resultado).length);
+  return resultado;
 };
 
 // Dado CUALQUIER teléfono que haya identificado a una persona (el vigente o

@@ -1,6 +1,6 @@
 import { supabase } from '../supabase.js';
 import { TERMINAL_STATUSES } from './sessionManager.js';
-import { resolverNombresPorTelefono } from './clientes.js';
+import { resolverNombresPorConversaciones } from './clientes.js';
 
 const msDiff = (desde, hasta) => (desde && hasta ? new Date(hasta).getTime() - new Date(desde).getTime() : null);
 
@@ -47,12 +47,11 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
     }
 
     const ids = conversations.map(c => c.id);
-    const phones = [...new Set(conversations.map(c => c.client_phone).filter(Boolean))];
-    console.log('🔍 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — ids de conversaciones:', ids.length, '— phones únicos:', phones.length);
+    console.log('🔍 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — ids de conversaciones:', ids.length);
 
-    console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — disparando en paralelo: resolverNombresPorTelefono, messages (in conversation_id), pedidos_confirmados (in conversation_id)');
-    const [phoneMap, { data: mensajes, error: msgError }, { data: pedidos, error: pedidosError }] = await Promise.all([
-      resolverNombresPorTelefono(phones),
+    console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — disparando en paralelo: resolverNombresPorConversaciones, messages (in conversation_id), pedidos_confirmados (in conversation_id)');
+    const [nombrePorConversacion, { data: mensajes, error: msgError }, { data: pedidos, error: pedidosError }] = await Promise.all([
+      resolverNombresPorConversaciones(conversations.map(c => ({ id: c.id, client_phone: c.client_phone, created_at: c.created_at }))),
       ids.length
         ? supabase.from('messages').select('conversation_id, sender_type, media_type, media_url, tagged_as, created_at').in('conversation_id', ids).order('created_at', { ascending: true })
         : Promise.resolve({ data: [] }),
@@ -60,7 +59,7 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
         ? supabase.from('pedidos_confirmados').select('conversation_id, total').in('conversation_id', ids)
         : Promise.resolve({ data: [] })
     ]);
-    console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — resultado resolverNombresPorTelefono — entradas:', Object.keys(phoneMap).length);
+    console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — resultado resolverNombresPorConversaciones — entradas:', Object.keys(nombrePorConversacion).length);
     console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — resultado SELECT messages — cantidad de filas:', mensajes?.length, 'error:', msgError);
     console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — resultado SELECT pedidos_confirmados — cantidad de filas:', pedidos?.length, 'error:', pedidosError);
 
@@ -114,7 +113,7 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
       return {
         id: c.id,
         fecha: c.created_at,
-        cliente: phoneMap[c.client_phone] || c.client_name || '',
+        cliente: nombrePorConversacion[c.id] || c.client_name || '',
         telefono: c.client_phone || '',
         sucursal: c.sucursales?.nombre || '',
         status: c.status || '',

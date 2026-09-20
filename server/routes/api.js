@@ -11,7 +11,7 @@ import { TERMINAL_STATUSES } from '../services/sessionManager.js';
 import { getBotSchedule, setBotSchedule } from '../services/scheduleConfig.js';
 import { rowsToCsv, sendCsv } from '../services/csvExport.js';
 import { obtenerDetalleConsultas } from '../services/metricsDetalle.js';
-import { resolverNombresPorTelefono } from '../services/clientes.js';
+import { resolverNombresPorConversaciones } from '../services/clientes.js';
 import { extraerCoordenadasDeUrl } from '../services/mapsLocation.js';
 import { requireAuth, requireAdminRole, blockAdminRole } from './adminAuth.js';
 
@@ -62,7 +62,7 @@ router.get('/export/chats', async (req, res) => {
     console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(messages) select en /export/chats:', { operacion: 'select', from, to });
     const { data, error } = await supabase
       .from('messages')
-      .select('created_at, sender_type, message_text, media_type, conversation_id, conversations(client_name, client_phone, status)')
+      .select('created_at, sender_type, message_text, media_type, conversation_id, conversations(client_name, client_phone, status, created_at)')
       .gte('created_at', from)
       .lte('created_at', to)
       .order('created_at');
@@ -70,15 +70,21 @@ router.get('/export/chats', async (req, res) => {
     console.log('📡 [DEBUG-ROUTES-API] Resultado supabase.from(messages) select en /export/chats:', { cantidad: (data || []).length, error });
     if (error) throw error;
 
-    const phones = [...new Set((data || []).map(r => r.conversations?.client_phone).filter(Boolean))];
     // Resuelve también los teléfonos viejos de alguien que ya migró de número
-    // (ver resolverNombresPorTelefono en clientes.js), para no exportar sin
-    // nombre un chat viejo de un cliente que hoy está identificado.
-    const phoneMap = await resolverNombresPorTelefono(phones);
+    // (ver resolverNombresPorConversaciones en clientes.js), respetando la
+    // fecha de cada conversación: si el teléfono se reciclara a otra persona,
+    // sus chats nuevos no deben heredar el nombre del dueño anterior.
+    const conversacionesUnicas = new Map();
+    (data || []).forEach(r => {
+      if (r.conversation_id && !conversacionesUnicas.has(r.conversation_id)) {
+        conversacionesUnicas.set(r.conversation_id, { id: r.conversation_id, client_phone: r.conversations?.client_phone, created_at: r.conversations?.created_at });
+      }
+    });
+    const nombrePorConversacion = await resolverNombresPorConversaciones([...conversacionesUnicas.values()]);
 
     const columns = [
       { label: 'Fecha y hora', value: r => new Date(r.created_at).toLocaleString('es-AR') },
-      { label: 'Cliente', value: r => phoneMap[r.conversations?.client_phone] || r.conversations?.client_name || '' },
+      { label: 'Cliente', value: r => nombrePorConversacion[r.conversation_id] || r.conversations?.client_name || '' },
       { label: 'Teléfono', value: r => r.conversations?.client_phone || '' },
       { label: 'Estado de la consulta', value: r => r.conversations?.status || '' },
       { label: 'Remitente', value: r => r.sender_type || '' },

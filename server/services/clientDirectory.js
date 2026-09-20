@@ -1,5 +1,5 @@
 import { supabase } from '../supabase.js';
-import { resolverNombresPorTelefono, obtenerTelefonosDeLaMismaPersona } from './clientes.js';
+import { resolverNombresPorConversaciones, obtenerTelefonosDeLaMismaPersona } from './clientes.js';
 
 const CONVERSATION_SELECT = '*, sucursal_actual:sucursales!sucursal_id(nombre), sucursal_primera:sucursales!primera_sucursal_id(nombre)';
 
@@ -25,18 +25,17 @@ export const obtenerConversacionesDirectorio = async ({ sucursalId } = {}) => {
     throw error;
   }
 
-  const phones = [...new Set((conversations || []).map(c => c.client_phone).filter(Boolean))];
-  console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerConversacionesDirectorio() — teléfonos únicos encontrados:', phones);
-
   // Resuelve también los teléfonos VIEJOS de alguien que ya migró de número
-  // (ver resolverNombresPorTelefono en clientes.js): conv.client_phone es el
-  // snapshot real de esa sesión y no se toca, pero el nombre mostrado tiene
-  // que ser el de la ficha vigente de esa persona, la tenga hoy en éste
-  // teléfono o en otro.
-  const phoneMap = await resolverNombresPorTelefono(phones);
-  console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerConversacionesDirectorio() — phoneMap construido:', phoneMap);
+  // (ver resolverNombresPorConversaciones en clientes.js), respetando la
+  // fecha exacta de CADA conversación: si el teléfono se reciclara a otra
+  // persona, sus consultas nuevas no deben heredar el nombre del dueño
+  // anterior sólo por compartir número.
+  const nombrePorConversacion = await resolverNombresPorConversaciones(
+    (conversations || []).map(c => ({ id: c.id, client_phone: c.client_phone, created_at: c.created_at }))
+  );
+  console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerConversacionesDirectorio() — nombrePorConversacion construido, entradas:', Object.keys(nombrePorConversacion).length);
 
-  const resultado = (conversations || []).map(c => ({ ...c, real_name: phoneMap[c.client_phone] || null }));
+  const resultado = (conversations || []).map(c => ({ ...c, real_name: nombrePorConversacion[c.id] || null }));
   console.log('✅ [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerConversacionesDirectorio() — valor de retorno:', resultado);
   return resultado;
 };
