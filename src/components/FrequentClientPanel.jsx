@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, Check } from 'lucide-react';
 import { adminFetch } from '../lib/adminAuth';
+import { previsualizarSaludo } from '../lib/greetingTemplate';
 
 // A diferencia del resto de los paneles de "Ajustes de Chat" (welcome-message,
 // bot-config), este endpoint sí exige sesión de administrador del lado del
@@ -74,6 +75,8 @@ export default function FrequentClientPanel() {
       <p className="text-xs text-gray-500 dark:text-gray-400">
         Si un cliente ya inició {threshold || 'N'} consultas o más con el bot antes de esta, se lo saluda con este mensaje
         en vez del mensaje de bienvenida normal (el menú numerado se agrega siempre igual, en los dos casos).
+        Podés usar <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[11px]">{'{{nombre}}'}</code> para
+        incluir el nombre del cliente (si todavía no lo tiene cargado, se omite solo, sin dejar puntuación colgando).
       </p>
 
       {loading ? (
@@ -107,6 +110,13 @@ export default function FrequentClientPanel() {
             </div>
           </div>
         </>
+      )}
+
+      {!loading && (
+        <div className="max-w-md p-3 bg-gray-50 border border-gray-100 dark:bg-gray-800 dark:border-gray-800 rounded-lg text-xs text-gray-500 dark:text-gray-400 whitespace-pre-wrap">
+          <span className="block font-semibold text-gray-600 dark:text-gray-400 mb-1">Vista previa:</span>
+          {previsualizarSaludo(message.trim()) || '(tu mensaje acá)'}
+        </div>
       )}
 
       {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}

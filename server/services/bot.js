@@ -21,9 +21,37 @@ const MENU_OPCIONES = '¿Qué querés hacer?\n\n1. Hablar con un humano\n2. Hora
 // (ver appConfig.js) cuando el cliente ya usó el bot frequent_client_threshold
 // veces o más antes de esta sesión — el menú numerado de abajo se agrega
 // siempre igual, en los dos casos.
-const construirMensajeBienvenida = async (esFrecuente = false) => {
-  console.log('🔍 [DEBUG-SERVICE-BOT] construirMensajeBienvenida() — parámetros recibidos:', { esFrecuente });
-  const saludo = esFrecuente ? await getFrequentClientMessage() : await getWelcomeMessage();
+//
+// Ambas plantillas admiten el placeholder {{nombre}} (case-insensitive, con o
+// sin espacios adentro de las llaves): se reemplaza por el PRIMER nombre de
+// la ficha de este teléfono (mismo criterio que ya usa el registro, ver
+// "Gracias, ${nombre.split(' ')[0]}." más abajo). Si el cliente todavía no
+// tiene nombre cargado, el placeholder se saca directo (string vacío) y se
+// limpia la puntuación que pudiera quedar colgando alrededor (ej. "¡Hola,
+// {{nombre}}!" sin nombre no debe quedar "¡Hola, !").
+const formatearSaludo = (template, nombreCompleto) => {
+  if (!template) return template;
+  const primerNombre = nombreCompleto?.trim()?.split(/\s+/)[0] || '';
+  let resultado = template.replace(/\{\{\s*nombre\s*\}\}/gi, primerNombre);
+  if (!primerNombre) {
+    resultado = resultado.replace(/,\s*([!.,¡¿?])/g, '$1').replace(/ {2,}/g, ' ');
+  }
+  return resultado;
+};
+
+const construirMensajeBienvenida = async (telefono, esFrecuente = false) => {
+  console.log('🔍 [DEBUG-SERVICE-BOT] construirMensajeBienvenida() — parámetros recibidos:', { telefono, esFrecuente });
+  const saludoTemplate = esFrecuente ? await getFrequentClientMessage() : await getWelcomeMessage();
+
+  let nombreCompleto = null;
+  try {
+    const cliente = await getCliente(telefono);
+    nombreCompleto = cliente?.nombre_completo || null;
+  } catch (err) {
+    console.error('❌ [DEBUG-SERVICE-BOT] construirMensajeBienvenida() — error consultando cliente para {{nombre}} (se sigue sin nombre):', err?.message, err?.stack);
+  }
+
+  const saludo = formatearSaludo(saludoTemplate, nombreCompleto);
   const resultado = `${saludo}\n\n${MENU_OPCIONES}`;
   console.log('✅ [DEBUG-SERVICE-BOT] construirMensajeBienvenida() — valor de retorno:', resultado);
   return resultado;
@@ -278,7 +306,7 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
       await iniciarEdicionDatos(conversationId, telefono);
     } else {
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — opción no reconocida ("', tLower, '"). Se reenvía el menú de bienvenida.');
-      await enviarMensajeBot(conversationId, telefono, await construirMensajeBienvenida());
+      await enviarMensajeBot(conversationId, telefono, await construirMensajeBienvenida(telefono));
     }
     console.log('✅ [DEBUG-SERVICE-BOT] procesarMensajeBot() — valor de retorno: undefined (fin normal del flujo de menú principal)');
   } catch (error) {
@@ -315,7 +343,7 @@ const mostrarSucursales = async (conversationId, telefono) => {
 
   // Es una consulta informativa (no cambia el bot_state), pero igual reenviamos
   // el menú principal para que el cliente no quede sin saber cómo seguir.
-  await enviarMensajeBot(conversationId, telefono, await construirMensajeBienvenida());
+  await enviarMensajeBot(conversationId, telefono, await construirMensajeBienvenida(telefono));
   console.log('✅ [DEBUG-SERVICE-BOT] mostrarSucursales() — valor de retorno: undefined (fin normal)');
 };
 
@@ -504,7 +532,7 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado) => {
 
     await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
 
-    await enviarMensajeBot(conversationId, telefono, `✅ ¡Gracias! Ya registramos tus datos.\n\n${await construirMensajeBienvenida()}`);
+    await enviarMensajeBot(conversationId, telefono, `✅ ¡Gracias! Ya registramos tus datos.\n\n${await construirMensajeBienvenida(telefono)}`);
     console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (registro completado)');
   }
 };
@@ -613,7 +641,7 @@ const volverAlMenuPrincipal = async (conversationId, telefono, esFrecuente = fal
   // 'open' saca a la conversación del modo humano ('esperando') y la vuelve a
   // dejar en la cola de "Entrantes" (bot respondiendo automáticamente).
   await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
-  await enviarMensajeBot(conversationId, telefono, await construirMensajeBienvenida(esFrecuente));
+  await enviarMensajeBot(conversationId, telefono, await construirMensajeBienvenida(telefono, esFrecuente));
   console.log('✅ [DEBUG-SERVICE-BOT] volverAlMenuPrincipal() — valor de retorno: undefined (fin normal)');
 };
 

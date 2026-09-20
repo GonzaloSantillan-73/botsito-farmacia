@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, Check } from 'lucide-react';
+import { previsualizarSaludo } from '../lib/greetingTemplate';
 
 const MENU_PREVIEW = '¿Qué querés hacer?\n\n1. Hablar con un humano\n2. Horarios y sucursales\n3. Actualizar mis datos';
 
@@ -60,6 +61,8 @@ export default function WelcomeMessagePanel() {
       <p className="text-xs text-gray-500 dark:text-gray-400">
         Es el saludo que el bot manda al arrancar (o reiniciar) una consulta, antes del menú de opciones.
         El menú numerado de abajo es fijo y se agrega siempre automáticamente.
+        Podés usar <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-[11px]">{'{{nombre}}'}</code> para
+        incluir el nombre del cliente (si todavía no lo tiene cargado, se omite solo, sin dejar puntuación colgando).
       </p>
 
       {loading ? (
@@ -77,7 +80,7 @@ export default function WelcomeMessagePanel() {
 
       <div className="max-w-md p-3 bg-gray-50 border border-gray-100 dark:bg-gray-800 dark:border-gray-800 rounded-lg text-xs text-gray-500 dark:text-gray-400 whitespace-pre-wrap">
         <span className="block font-semibold text-gray-600 dark:text-gray-400 mb-1">Vista previa del mensaje completo:</span>
-        {(welcomeMessage.trim() || '(tu saludo acá)')}
+        {previsualizarSaludo(welcomeMessage.trim()) || '(tu saludo acá)'}
         {'\n\n'}
         {MENU_PREVIEW}
       </div>
