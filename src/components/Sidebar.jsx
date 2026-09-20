@@ -422,7 +422,7 @@ export default function Sidebar({
                 </div>
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400 truncate mb-2">
-                {conv.last_message ? renderWhatsAppText(conv.last_message) : <span className="italic text-gray-400">Nueva conversación</span>}
+                {conv.last_message ? renderWhatsAppText(conv.last_message, { singleLine: true }) : <span className="italic text-gray-400">Nueva conversación</span>}
               </div>
               {showEsperando && soyStaff && miSucursalId && (
                 <button

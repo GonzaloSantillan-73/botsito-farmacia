@@ -222,7 +222,7 @@ export default function ClientHistoryList({
                     {searchQuery.trim() && snippets[conv.id]
                       ? highlightMatches(snippets[conv.id], searchQuery)
                       : conv.last_message
-                        ? (searchQuery.trim() ? highlightMatches(conv.last_message, searchQuery) : renderWhatsAppText(conv.last_message))
+                        ? (searchQuery.trim() ? highlightMatches(conv.last_message, searchQuery) : renderWhatsAppText(conv.last_message, { singleLine: true }))
                         : <span className="italic text-gray-400 dark:text-gray-500">Sin mensajes</span>}
                   </div>
                   {sucursales.length > 0 && (

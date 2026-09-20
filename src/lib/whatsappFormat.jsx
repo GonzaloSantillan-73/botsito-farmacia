@@ -5,12 +5,21 @@ import React from 'react';
 // asteriscos quedaban literales). Esto replica ese mismo formateo acá.
 const FORMAT_REGEX = /(\*[^*\n]+\*|_[^_\n]+_|~[^~\n]+~)/g;
 
-export function renderWhatsAppText(text) {
+// `singleLine`: para previsualizaciones de una sola línea (ej. el último
+// mensaje en la card del sidebar, ver Sidebar.jsx). Sin esto, un mensaje con
+// saltos de línea reales (el menú del bot, una lista larga) sigue rompiendo
+// en varios renglones pase lo que pase con `truncate`/`line-clamp` en CSS:
+// un <br/> explícito fuerza el salto igual, incluso con `white-space:
+// nowrap`. Uniendo los renglones con un espacio ANTES de formatear, el
+// contenedor sí puede truncar a una sola línea de verdad.
+export function renderWhatsAppText(text, { singleLine = false } = {}) {
   if (!text) {
     return text;
   }
 
-  const result = text.split('\n').map((line, lineIndex, lines) => {
+  const normalizado = singleLine ? text.replace(/\s*\n+\s*/g, ' ').trim() : text;
+
+  const result = normalizado.split('\n').map((line, lineIndex, lines) => {
     const parts = line.split(FORMAT_REGEX).filter(part => part !== '');
 
     const rendered = parts.map((part, i) => {
