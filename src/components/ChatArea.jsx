@@ -378,11 +378,12 @@ export default function ChatArea({
     }
   };
 
-  const executeReturnToQueue = async () => {
+  const executeReturnToQueue = async (razon) => {
     if (!activeConversation) return;
 
     const res = await adminFetch(`/api/conversations/${activeConversation.id}/return-to-queue`, {
-      method: 'POST'
+      method: 'POST',
+      body: JSON.stringify({ razon })
     });
     const data = await res.json();
     if (!res.ok) {
@@ -395,12 +396,12 @@ export default function ChatArea({
   // executeReturnToQueue, que la manda a la cola general sin dueño): no hace
   // falta actualizar el estado local a mano, la suscripción de Realtime en
   // App.jsx trae el sucursal_id nuevo apenas Postgres confirme el UPDATE.
-  const executeDerivarASucursal = async (sucursalId) => {
+  const executeDerivarASucursal = async (sucursalId, razon) => {
     if (!activeConversation) return;
 
     const res = await adminFetch(`/api/conversations/${activeConversation.id}/derivar`, {
       method: 'POST',
-      body: JSON.stringify({ sucursalId })
+      body: JSON.stringify({ sucursalId, razon })
     });
     const data = await res.json();
     if (!res.ok) {
@@ -621,15 +622,28 @@ export default function ChatArea({
                       <div className="flex-1 h-px bg-gray-300/60 dark:bg-gray-600/60" />
                     </div>
                   )}
-                  <MessageBubble
-                    msg={msg}
-                    onImageClick={(m) => { setModalImage(m.media_url); }}
-                    onDownload={handleDownloadMedia}
-                    downloadingId={downloadingId}
-                    onTag={handleTagMessage}
-                    taggingId={taggingId}
-                    statusIcon={msg.sender_type !== 'client' && <MessageStatusIcon estado={msg.estado} />}
-                  />
+                  {msg.sender_type === 'system' ? (
+                    // Nota interna (motivo de derivación/devolución, ver
+                    // derivacionSucursal.js / devolucionCola.js): sólo la ve
+                    // el operador acá en el CRM, nunca se le manda al
+                    // cliente por WhatsApp, así que no usa MessageBubble
+                    // (esa sí es la burbuja de un mensaje real de chat).
+                    <div className="flex justify-center my-2">
+                      <span className="bg-gray-800/80 text-gray-400 text-xs px-3 py-1 rounded-full border border-gray-700/50">
+                        {msg.message_text}
+                      </span>
+                    </div>
+                  ) : (
+                    <MessageBubble
+                      msg={msg}
+                      onImageClick={(m) => { setModalImage(m.media_url); }}
+                      onDownload={handleDownloadMedia}
+                      downloadingId={downloadingId}
+                      onTag={handleTagMessage}
+                      taggingId={taggingId}
+                      statusIcon={msg.sender_type !== 'client' && <MessageStatusIcon estado={msg.estado} />}
+                    />
+                  )}
                 </React.Fragment>
               );
             }))}

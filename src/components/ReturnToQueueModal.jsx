@@ -6,23 +6,30 @@ import { adminFetch } from '../lib/adminAuth';
 // independientes:
 // 1. Derivar directo a una sucursal puntual que el operador elige (las
 //    sucursales cerradas en este momento aparecen deshabilitadas).
-// 2. Devolver el chat a la cola general de "En espera" (sin dueño) — acción
-//    directa, sin ningún dato a completar. No se le informa nada al
-//    cliente, la devolución es completamente silenciosa de cara a él.
+// 2. Devolver el chat a la cola general de "En espera" (sin dueño).
+// Las dos tienen un motivo OPCIONAL: si se completa, queda como nota interna
+// en el timeline del chat (sender_type 'system', ver derivacionSucursal.js /
+// devolucionCola.js) visible sólo para operadores/sucursales — nunca se le
+// informa nada al cliente, ambas acciones son completamente silenciosas de
+// cara a él.
 export default function ReturnToQueueModal({ isOpen, onClose, onReturnToQueue, onDerivar, miSucursalId }) {
 
   const [sucursales, setSucursales] = useState([]);
   const [loadingSucursales, setLoadingSucursales] = useState(true);
   const [sucursalDestino, setSucursalDestino] = useState('');
+  const [razonDerivar, setRazonDerivar] = useState('');
   const [derivando, setDerivando] = useState(false);
   const [errorDerivar, setErrorDerivar] = useState('');
 
+  const [razonDevolver, setRazonDevolver] = useState('');
   const [devolviendo, setDevolviendo] = useState(false);
   const [errorDevolver, setErrorDevolver] = useState('');
 
   useEffect(() => {
     if (!isOpen) return;
     setSucursalDestino('');
+    setRazonDerivar('');
+    setRazonDevolver('');
     setErrorDerivar('');
     setErrorDevolver('');
     setLoadingSucursales(true);
@@ -44,7 +51,7 @@ export default function ReturnToQueueModal({ isOpen, onClose, onReturnToQueue, o
     setDerivando(true);
     setErrorDerivar('');
     try {
-      await onDerivar(sucursalDestino);
+      await onDerivar(sucursalDestino, razonDerivar);
       onClose();
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-RETURNTOQUEUEMODAL] Error al derivar:', err);
@@ -59,7 +66,7 @@ export default function ReturnToQueueModal({ isOpen, onClose, onReturnToQueue, o
     setDevolviendo(true);
     setErrorDevolver('');
     try {
-      await onReturnToQueue();
+      await onReturnToQueue(razonDevolver);
       onClose();
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-RETURNTOQUEUEMODAL] Error al devolver a la cola:', err);
@@ -115,6 +122,15 @@ export default function ReturnToQueueModal({ isOpen, onClose, onReturnToQueue, o
               </select>
             )}
 
+            <textarea
+              value={razonDerivar}
+              onChange={(e) => { setRazonDerivar(e.target.value); }}
+              disabled={busy}
+              placeholder="Motivo (opcional): queda como nota interna en el chat, visible sólo para operadores."
+              rows={2}
+              className="w-full p-2.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none disabled:opacity-50 resize-none"
+            />
+
             {errorDerivar && <p className="text-sm text-rose-600 dark:text-rose-400">{errorDerivar}</p>}
 
             <button
@@ -140,6 +156,15 @@ export default function ReturnToQueueModal({ isOpen, onClose, onReturnToQueue, o
                 El chat vuelve a la cola general para que cualquier sucursal lo pueda tomar.
               </p>
             </div>
+
+            <textarea
+              value={razonDevolver}
+              onChange={(e) => { setRazonDevolver(e.target.value); }}
+              disabled={busy}
+              placeholder="Motivo (opcional): queda como nota interna en el chat, visible sólo para operadores."
+              rows={2}
+              className="w-full p-2.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none disabled:opacity-50 resize-none"
+            />
 
             {errorDevolver && <p className="text-sm text-rose-600 dark:text-rose-400">{errorDevolver}</p>}
 

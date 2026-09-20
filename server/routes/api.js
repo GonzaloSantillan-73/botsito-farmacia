@@ -556,17 +556,19 @@ router.post('/conversations/:id/close', requireAuth, blockAdminRole, async (req,
 // completar; no le manda nada al cliente (ver devolverConversacionAEspera).
 router.post('/conversations/:id/return-to-queue', requireAuth, blockAdminRole, async (req, res) => {
   const { id } = req.params;
+  const { razon } = req.body || {};
   console.log('🔍 [DEBUG-ROUTES-API] Entrada a POST /conversations/:id/return-to-queue:', {
     method: req.method,
     url: req.originalUrl,
+    body: redactBodyForLog(req.body),
     query: req.query,
     params: req.params,
     admin: req.admin || null
   });
 
   try {
-    console.log('📡 [DEBUG-ROUTES-API] Llamando devolverConversacionAEspera en /conversations/:id/return-to-queue:', { id });
-    const { sucursalesRecomendadas } = await devolverConversacionAEspera(id);
+    console.log('📡 [DEBUG-ROUTES-API] Llamando devolverConversacionAEspera en /conversations/:id/return-to-queue:', { id, razon });
+    const { sucursalesRecomendadas } = await devolverConversacionAEspera(id, razon);
     console.log('📡 [DEBUG-ROUTES-API] Resultado devolverConversacionAEspera en /conversations/:id/return-to-queue:', { sucursalesRecomendadas });
     console.log(`[API] -> Consulta ${id} devuelta a la cola de espera.`);
     console.log('🔚 [DEBUG-ROUTES-API] Respondiendo POST /conversations/:id/return-to-queue:', { status: 200, body: { success: true, sucursalesRecomendadas } });
@@ -583,7 +585,7 @@ router.post('/conversations/:id/return-to-queue', requireAuth, blockAdminRole, a
 // a diferencia de /return-to-queue que la manda a la cola general sin dueño.
 router.post('/conversations/:id/derivar', requireAuth, blockAdminRole, async (req, res) => {
   const { id } = req.params;
-  const { sucursalId } = req.body;
+  const { sucursalId, razon } = req.body;
   console.log('🔍 [DEBUG-ROUTES-API] Entrada a POST /conversations/:id/derivar:', {
     method: req.method,
     url: req.originalUrl,
@@ -599,8 +601,8 @@ router.post('/conversations/:id/derivar', requireAuth, blockAdminRole, async (re
   }
 
   try {
-    console.log('📡 [DEBUG-ROUTES-API] Llamando derivarASucursal en /conversations/:id/derivar:', { id, sucursalId });
-    const conversation = await derivarASucursal(id, sucursalId);
+    console.log('📡 [DEBUG-ROUTES-API] Llamando derivarASucursal en /conversations/:id/derivar:', { id, sucursalId, razon });
+    const conversation = await derivarASucursal(id, sucursalId, razon);
     console.log('📡 [DEBUG-ROUTES-API] Resultado derivarASucursal en /conversations/:id/derivar:', { conversation });
     console.log(`[API] -> Consulta ${id} derivada a la sucursal ${sucursalId}.`);
     console.log('🔚 [DEBUG-ROUTES-API] Respondiendo POST /conversations/:id/derivar:', { status: 200, body: { success: true, conversation } });

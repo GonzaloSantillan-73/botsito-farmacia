@@ -8,8 +8,8 @@ import { sucursalesMasCercanas } from './geolocalizacion.js';
 // misma al próximo asesor). Acción directa, sin ningún dato a completar; a
 // propósito, NO se le manda ningún mensaje al cliente: de cara a él, la
 // devolución es completamente silenciosa.
-export const devolverConversacionAEspera = async (conversationId) => {
-  console.log('🔍 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — conversationId:', conversationId);
+export const devolverConversacionAEspera = async (conversationId, razon) => {
+  console.log('🔍 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — conversationId:', conversationId, 'razon:', razon);
   try {
     console.log('📡 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — SELECT conversations, filtros: { id:', conversationId, '}, columnas: id, sucursal_id, client_lat, client_lng');
     const { data: conv, error: fetchError } = await supabase
@@ -81,6 +81,35 @@ export const devolverConversacionAEspera = async (conversationId) => {
     if (updateError) {
       console.error('❌ [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — updateError:', updateError);
       throw updateError;
+    }
+
+    // Motivo opcional: sólo genera la nota interna si el operador escribió
+    // algo (ver ReturnToQueueModal.jsx). Es un sender_type 'system' — no es
+    // un mensaje real ni se envía al cliente por WhatsApp, sólo queda
+    // registrado en el timeline del chat para que lo vean los operadores.
+    const razonLimpia = razon?.trim();
+    if (razonLimpia) {
+      let sucursalQueDevuelveNombre = 'Una sucursal';
+      if (sucursalQueDevuelve) {
+        const { data: sucursal, error: sucursalError } = await supabase
+          .from('sucursales')
+          .select('nombre')
+          .eq('id', sucursalQueDevuelve)
+          .maybeSingle();
+        if (sucursalError) console.error('❌ [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — error consultando nombre de sucursal:', sucursalError);
+        sucursalQueDevuelveNombre = sucursal?.nombre || sucursalQueDevuelveNombre;
+      }
+      const { error: notaError } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          sender_type: 'system',
+          message_text: `${sucursalQueDevuelveNombre} devolvió este chat por: ${razonLimpia}`,
+          media_type: 'text'
+        });
+      if (notaError) {
+        console.error('❌ [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — error registrando nota interna de motivo (no crítico):', notaError);
+      }
     }
 
     const resultado = { sucursalesRecomendadas };

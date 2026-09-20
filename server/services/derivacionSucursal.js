@@ -8,8 +8,8 @@ import { estaAbiertaAhora } from './sucursales.js';
 // y que esté abierta en este momento: el frontend ya la muestra deshabilitada
 // en el selector si está cerrada, pero se revalida siempre del lado del
 // servidor para no confiar ciegamente en eso.
-export const derivarASucursal = async (conversationId, sucursalDestinoId) => {
-  console.log('🔍 [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — conversationId:', conversationId, 'sucursalDestinoId:', sucursalDestinoId);
+export const derivarASucursal = async (conversationId, sucursalDestinoId, razon) => {
+  console.log('🔍 [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — conversationId:', conversationId, 'sucursalDestinoId:', sucursalDestinoId, 'razon:', razon);
   try {
     console.log('📡 [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — SELECT sucursales, filtros: { id:', sucursalDestinoId, '}');
     const { data: sucursal, error: sucursalError } = await supabase
@@ -100,6 +100,27 @@ export const derivarASucursal = async (conversationId, sucursalDestinoId) => {
       .insert({ conversation_id: conversationId, sucursal_id: sucursalDestinoId });
     if (histError) {
       console.error('❌ [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — error registrando historial de sucursal (no crítico):', histError);
+    }
+
+    // Motivo opcional: sólo genera la nota interna si el operador escribió
+    // algo (ver ReturnToQueueModal.jsx). Es un sender_type 'system' — no es
+    // un mensaje real ni se envía al cliente por WhatsApp (eso requiere una
+    // llamada explícita a la API de Meta, que acá nunca se hace), sólo queda
+    // registrado en el timeline del chat para que lo vean los operadores.
+    const razonLimpia = razon?.trim();
+    if (razonLimpia) {
+      const origenTexto = sucursalOrigenNombre || 'Una sucursal';
+      const { error: notaError } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          sender_type: 'system',
+          message_text: `${origenTexto} te la pasó por: ${razonLimpia}`,
+          media_type: 'text'
+        });
+      if (notaError) {
+        console.error('❌ [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — error registrando nota interna de motivo (no crítico):', notaError);
+      }
     }
 
     console.log('✅ [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — resultado a devolver:', conv);

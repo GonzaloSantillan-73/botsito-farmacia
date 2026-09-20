@@ -160,6 +160,18 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
             ) : (
               <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-2.5">
                 {selectedMessages.map(msg => {
+                  if (msg.sender_type === 'system') {
+                    // Nota interna (motivo de derivación/devolución): nunca
+                    // se le manda al cliente, sólo se muestra acá para el
+                    // operador, centrada como un divisor.
+                    return (
+                      <div key={msg.id} className="flex justify-center my-2">
+                        <span className="bg-gray-800/80 text-gray-400 text-xs px-3 py-1 rounded-full border border-gray-700/50">
+                          {msg.message_text}
+                        </span>
+                      </div>
+                    );
+                  }
                   const location = parseLocationMessage(msg);
                   const linkDeMaps = !location && !msg.media_url ? extraerLinkDeMaps(msg.message_text) : null;
                   return (
