@@ -578,11 +578,9 @@ router.post('/conversations/:id/return-to-queue', requireAuth, blockAdminRole, a
     admin: req.admin || null
   });
 
-  if (!motivoTexto?.trim()) {
-    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo POST /conversations/:id/return-to-queue:', { status: 400, body: { error: 'Ingresá el motivo por el cual devolvés el chat a la cola.' } });
-    return res.status(400).json({ error: 'Ingresá el motivo por el cual devolvés el chat a la cola.' });
-  }
-
+  // El motivo es opcional (uso interno, ver devolverConversacionAEspera): la
+  // devolución a la cola no le manda ningún mensaje al cliente, así que no
+  // hay ninguna razón para exigirle texto al operador.
   try {
     console.log('📡 [DEBUG-ROUTES-API] Llamando devolverConversacionAEspera en /conversations/:id/return-to-queue:', { id, motivoTexto });
     const { sucursalesRecomendadas } = await devolverConversacionAEspera(id, { motivoTexto });

@@ -7,7 +7,8 @@ import { adminFetch } from '../lib/adminAuth';
 // 1. Derivar directo a una sucursal puntual que el operador elige (las
 //    sucursales cerradas en este momento aparecen deshabilitadas).
 // 2. Devolver el chat a la cola general de "En espera" (sin dueño), con un
-//    motivo de texto libre que se le informa al cliente por WhatsApp.
+//    motivo de texto libre OPCIONAL para uso interno — no se le informa nada
+//    al cliente, la devolución es completamente silenciosa de cara a él.
 export default function ReturnToQueueModal({ isOpen, onClose, onReturnToQueue, onDerivar, miSucursalId }) {
 
   const [sucursales, setSucursales] = useState([]);
@@ -57,11 +58,11 @@ export default function ReturnToQueueModal({ isOpen, onClose, onReturnToQueue, o
 
   const handleDevolver = async (e) => {
     e.preventDefault();
-    if (!motivoTexto.trim() || busy) return;
+    if (busy) return;
     setDevolviendo(true);
     setErrorDevolver('');
     try {
-      await onReturnToQueue({ motivoTexto: motivoTexto.trim() });
+      await onReturnToQueue({ motivoTexto: motivoTexto.trim() || null });
       onClose();
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-RETURNTOQUEUEMODAL] Error al devolver a la cola:', err);
@@ -139,24 +140,23 @@ export default function ReturnToQueueModal({ isOpen, onClose, onReturnToQueue, o
                 <Undo2 size={16} className="text-amber-600 dark:text-amber-400" /> Devolver a la lista de espera
               </h4>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                El chat vuelve a la cola general para que cualquier sucursal lo pueda tomar. Escribí el motivo (se le va a informar al cliente):
+                El chat vuelve a la cola general para que cualquier sucursal lo pueda tomar. Motivo (opcional, uso interno):
               </p>
             </div>
 
             <textarea
               value={motivoTexto}
               onChange={(e) => { setMotivoTexto(e.target.value); }}
-              placeholder="Ej: no tenemos stock del producto que pidió..."
+              placeholder="Ej: no tenemos stock del producto que pidió... (opcional)"
               disabled={busy}
               className="w-full p-3 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none resize-none h-24 disabled:opacity-50"
-              required
             />
 
             {errorDevolver && <p className="text-sm text-rose-600 dark:text-rose-400">{errorDevolver}</p>}
 
             <button
               type="submit"
-              disabled={!motivoTexto.trim() || busy}
+              disabled={busy}
               className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {devolviendo ? <Loader2 size={16} className="animate-spin" /> : <Undo2 size={16} />}
