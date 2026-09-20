@@ -260,60 +260,51 @@ function App() {
             // ya teníamos, para detectar la transición "recién pasó a esperando".
             const previous = conversationsRef.current.find(c => c.id === payload.new.id);
             const empezoAEsperar = payload.new.status === 'esperando' && previous?.status !== 'esperando';
-            const nombreYaConocido = previous?.real_name;
 
             // payload.new es la fila cruda de la base: no trae `sucursales_historial`
-            // (es un campo calculado del lado del cliente, no una columna) y su
+            // (es un campo calculado del lado del cliente, no una columna), su
             // `sucursales_recomendadas` puede venir sin filtrar contra ese historial
-            // (ver withSucursalesHistorial en clientUtils.js). Sin este paso, CUALQUIER
-            // UPDATE de la conversación (tomar, derivar, marcar como leída, lo que sea)
-            // pisaba la card ya saneada del fetch inicial con datos crudos, mostrando
-            // de nuevo sucursales recomendadas que ya estaban en el historial hasta el
-            // próximo fetchConversations() completo.
+            // (ver withSucursalesHistorial en clientUtils.js), y tampoco trae
+            // `real_name` (sale de un join aparte con `clientes`). Reusar el
+            // `real_name` que ya teníamos en memoria (en vez de resolverlo de
+            // nuevo acá) podía quedar pisando un nombre resuelto más tarde si
+            // varios UPDATE de la misma conversación se superponían (ej.
+            // derivarla varias veces seguida): por eso se re-resuelve siempre
+            // fresco con withClientNames, igual que en la carga inicial.
             (async () => {
               // unreadCount es un campo calculado en el cliente (no existe en la
               // fila real): si no lo preservamos acá, cada UPDATE de la conversación
               // (cambia last_message, sucursal_id, lo que sea) lo pisaría con
               // "undefined" al reemplazar la fila entera por payload.new.
-              const merged = { ...payload.new, real_name: previous?.real_name, unreadCount: previous?.unreadCount };
-              const [saneada] = await withSucursalesHistorial([merged]);
+              const merged = { ...payload.new, unreadCount: previous?.unreadCount };
+              const [conNombre] = await withClientNames([merged]);
+              const [saneada] = await withSucursalesHistorial([conNombre]);
 
               setConversations(prev => {
                 const exists = prev.some(c => c.id === saneada.id);
                 const next = exists
-                  ? prev.map(c => c.id === saneada.id ? { ...saneada, real_name: c.real_name, unreadCount: c.unreadCount } : c)
+                  ? prev.map(c => c.id === saneada.id ? { ...saneada, unreadCount: c.unreadCount } : c)
                   : [saneada, ...prev];
                 return next.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
               });
 
               if (activeConversationRef.current?.id === saneada.id) {
-                setActiveConversation(prev => ({ ...saneada, real_name: prev.real_name }));
+                setActiveConversation(saneada);
               }
             })();
 
-            // El bot guarda el nombre completo del cliente directamente en la tabla
-            // `clientes` (ej. durante el registro), sin tocar esa columna acá, así que
-            // mientras no lo tengamos ya resuelto en memoria lo reintentamos en cada
-            // UPDATE de la conversación (no solo cuando pasa a "esperando").
-            if (empezoAEsperar || !nombreYaConocido) {
+            // El nombre para la notificación sale de una consulta aparte (no del
+            // real_name ya resuelto arriba) porque esa resolución es asincrónica:
+            // en el peor caso, esta notificación saldría antes de que termine.
+            if (empezoAEsperar) {
               supabase.from('clientes').select('nombre_completo').eq('client_phone', payload.new.client_phone).maybeSingle()
                 .then(({ data, error }) => {
                   if (error) console.error('❌ [DEBUG-COMPONENT-App] error consultando nombre_completo (UPDATE):', error);
-                  if (data?.nombre_completo && !nombreYaConocido) {
-                    setConversations(current => current.map(c =>
-                      c.id === payload.new.id ? { ...c, real_name: data.nombre_completo } : c
-                    ));
-                    if (activeConversationRef.current?.id === payload.new.id) {
-                      setActiveConversation(prev => prev ? { ...prev, real_name: data.nombre_completo } : prev);
-                    }
-                  }
-                  if (empezoAEsperar) {
-                    const nombre = data?.nombre_completo || payload.new.client_name || payload.new.client_phone || 'Un cliente';
-                    notifyNewEvent({
-                      title: 'Cliente esperando un asesor',
-                      body: `${nombre} quiere hablar con un humano.`
-                    });
-                  }
+                  const nombre = data?.nombre_completo || payload.new.client_name || payload.new.client_phone || 'Un cliente';
+                  notifyNewEvent({
+                    title: 'Cliente esperando un asesor',
+                    body: `${nombre} quiere hablar con un humano.`
+                  });
                 });
             }
           } else if (payload.eventType === 'INSERT') {

@@ -1,5 +1,6 @@
 import { supabase } from '../supabase.js';
 import { estaAbiertaAhora } from './sucursales.js';
+import { formatInternalReason } from './internalNotes.js';
 
 // Un empleado de sucursal deriva DIRECTAMENTE la conversación que está
 // atendiendo a otra sucursal puntual que él elige — a diferencia de
@@ -102,25 +103,23 @@ export const derivarASucursal = async (conversationId, sucursalDestinoId, razon)
       console.error('❌ [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — error registrando historial de sucursal (no crítico):', histError);
     }
 
-    // Motivo opcional: sólo genera la nota interna si el operador escribió
-    // algo (ver ReturnToQueueModal.jsx). Es un sender_type 'system' — no es
-    // un mensaje real ni se envía al cliente por WhatsApp (eso requiere una
-    // llamada explícita a la API de Meta, que acá nunca se hace), sólo queda
-    // registrado en el timeline del chat para que lo vean los operadores.
-    const razonLimpia = razon?.trim();
-    if (razonLimpia) {
-      const origenTexto = sucursalOrigenNombre || 'Una sucursal';
-      const { error: notaError } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: conversationId,
-          sender_type: 'system',
-          message_text: `${origenTexto} te pasó el chat por: ${razonLimpia}`,
-          media_type: 'text'
-        });
-      if (notaError) {
-        console.error('❌ [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — error registrando nota interna de motivo (no crítico):', notaError);
-      }
+    // El motivo es opcional en el modal (ver ReturnToQueueModal.jsx), pero la
+    // nota interna se genera SIEMPRE, con "sin especificar" como fallback si
+    // vino vacío (ver formatInternalReason en internalNotes.js), para que la
+    // estructura del texto sea siempre la misma. Es un sender_type 'system'
+    // — no es un mensaje real ni se envía al cliente por WhatsApp (eso
+    // requiere una llamada explícita a la API de Meta, que acá nunca se
+    // hace), sólo queda registrado en el timeline del chat para operadores.
+    const { error: notaError } = await supabase
+      .from('messages')
+      .insert({
+        conversation_id: conversationId,
+        sender_type: 'system',
+        message_text: formatInternalReason('transfer', sucursalOrigenNombre, razon),
+        media_type: 'text'
+      });
+    if (notaError) {
+      console.error('❌ [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — error registrando nota interna de motivo (no crítico):', notaError);
     }
 
     console.log('✅ [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — resultado a devolver:', conv);

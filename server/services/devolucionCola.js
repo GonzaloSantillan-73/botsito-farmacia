@@ -1,5 +1,6 @@
 import { supabase } from '../supabase.js';
 import { sucursalesMasCercanas } from './geolocalizacion.js';
+import { formatInternalReason } from './internalNotes.js';
 
 // Un operador que no puede seguir atendiendo (ej. sin stock) devuelve el chat
 // a la cola general de "En espera": vuelve a estar disponible para cualquier
@@ -83,33 +84,31 @@ export const devolverConversacionAEspera = async (conversationId, razon) => {
       throw updateError;
     }
 
-    // Motivo opcional: sólo genera la nota interna si el operador escribió
-    // algo (ver ReturnToQueueModal.jsx). Es un sender_type 'system' — no es
-    // un mensaje real ni se envía al cliente por WhatsApp, sólo queda
-    // registrado en el timeline del chat para que lo vean los operadores.
-    const razonLimpia = razon?.trim();
-    if (razonLimpia) {
-      let sucursalQueDevuelveNombre = 'Una sucursal';
-      if (sucursalQueDevuelve) {
-        const { data: sucursal, error: sucursalError } = await supabase
-          .from('sucursales')
-          .select('nombre')
-          .eq('id', sucursalQueDevuelve)
-          .maybeSingle();
-        if (sucursalError) console.error('❌ [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — error consultando nombre de sucursal:', sucursalError);
-        sucursalQueDevuelveNombre = sucursal?.nombre || sucursalQueDevuelveNombre;
-      }
-      const { error: notaError } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: conversationId,
-          sender_type: 'system',
-          message_text: `${sucursalQueDevuelveNombre} devolvió este chat por: ${razonLimpia}`,
-          media_type: 'text'
-        });
-      if (notaError) {
-        console.error('❌ [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — error registrando nota interna de motivo (no crítico):', notaError);
-      }
+    // El motivo es opcional en el modal (ver ReturnToQueueModal.jsx), pero la
+    // nota interna se genera SIEMPRE, con "sin especificar" como fallback si
+    // vino vacío (ver formatInternalReason en internalNotes.js). Es un
+    // sender_type 'system' — no es un mensaje real ni se envía al cliente
+    // por WhatsApp, sólo queda registrado en el timeline para operadores.
+    let sucursalQueDevuelveNombre = null;
+    if (sucursalQueDevuelve) {
+      const { data: sucursal, error: sucursalError } = await supabase
+        .from('sucursales')
+        .select('nombre')
+        .eq('id', sucursalQueDevuelve)
+        .maybeSingle();
+      if (sucursalError) console.error('❌ [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — error consultando nombre de sucursal:', sucursalError);
+      sucursalQueDevuelveNombre = sucursal?.nombre || null;
+    }
+    const { error: notaError } = await supabase
+      .from('messages')
+      .insert({
+        conversation_id: conversationId,
+        sender_type: 'system',
+        message_text: formatInternalReason('return', sucursalQueDevuelveNombre, razon),
+        media_type: 'text'
+      });
+    if (notaError) {
+      console.error('❌ [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — error registrando nota interna de motivo (no crítico):', notaError);
     }
 
     const resultado = { sucursalesRecomendadas };
