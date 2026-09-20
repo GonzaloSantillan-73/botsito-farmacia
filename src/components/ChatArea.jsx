@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag, Undo2, Hand, IdCard } from 'lucide-react';
+import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag, Undo2, Hand, IdCard, ChevronDown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
@@ -106,6 +106,11 @@ export default function ChatArea({
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
   const [hasMoreHistory, setHasMoreHistory] = useState(true);
+  // Botón flotante "volver abajo": aparece cuando el operador scrollea hacia
+  // arriba más de este umbral, para no tener que arrastrar manualmente todo
+  // el camino de vuelta al último mensaje.
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const SCROLL_TO_BOTTOM_THRESHOLD = 200;
 
   // El nombre "bonito" del archivo (ej. "receta.pdf") viaja en message_text
   // para documentos/PDF; para fotos y videos no hay nombre real, así que
@@ -168,6 +173,7 @@ export default function ChatArea({
     setHistoryMessages([]);
     setHistoryConversationsById({});
     setHasMoreHistory(true);
+    setShowScrollToBottom(false);
   }, [activeConversation?.id]);
 
   // Trae una tanda de mensajes más viejos que el más antiguo ya visible
@@ -255,11 +261,21 @@ export default function ChatArea({
   }, [showFullHistory]);
 
   const handleMessagesScroll = () => {
-    if (!showFullHistory || loadingHistory || loadingMoreHistory || !hasMoreHistory) return;
     const el = messagesContainerRef.current;
+    if (el) {
+      const distanciaAlFondo = el.scrollHeight - el.scrollTop - el.clientHeight;
+      setShowScrollToBottom(distanciaAlFondo > SCROLL_TO_BOTTOM_THRESHOLD);
+    }
+
+    if (!showFullHistory || loadingHistory || loadingMoreHistory || !hasMoreHistory) return;
     if (el && el.scrollTop < 80) {
       loadMoreHistory();
     }
+  };
+
+  const scrollMessagesToBottom = () => {
+    const el = messagesContainerRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
   };
 
   const getConversacionDelMensaje = (msg) => {
@@ -544,10 +560,11 @@ export default function ChatArea({
           </div>
           
           {/* Messages Area */}
+          <div className="relative flex-1 overflow-hidden">
           <div
             ref={messagesContainerRef}
             onScroll={handleMessagesScroll}
-            className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#efeae2] dark:bg-[#0b141a] scrollbar-thin"
+            className="absolute inset-0 overflow-y-auto p-6 space-y-4 bg-[#efeae2] dark:bg-[#0b141a] scrollbar-thin"
           >
             {showFullHistory && loadingHistory && (
               <div className="flex items-center justify-center gap-2 py-2 text-gray-400 text-xs">
@@ -610,6 +627,17 @@ export default function ChatArea({
               );
             }))}
             <div ref={messagesEndRef} />
+          </div>
+
+          {showScrollToBottom && (
+            <button
+              onClick={scrollMessagesToBottom}
+              title="Ir al final de la conversación"
+              className="absolute bottom-4 right-4 z-10 p-3 bg-white dark:bg-gray-800 text-teal-600 dark:text-teal-400 rounded-full shadow-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors animate-fade-in-up"
+            >
+              <ChevronDown size={20} />
+            </button>
+          )}
           </div>
 
           {/* Input Area (oculta en conversaciones cerradas/Historial: no se puede escribir ahí) */}
