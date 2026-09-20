@@ -74,6 +74,11 @@ export const clearAdminSession = () => {
   // tanto, no tiene sentido volver a claro apenas alguien cierra sesión.
 };
 
+// Nombre del evento que dispara un 401 con sesión vencida (ver más abajo).
+// App.jsx lo escucha para cerrar sesión y volver a mostrar el login sin que
+// cada pantalla tenga que manejar el 401 por su cuenta.
+export const SESSION_EXPIRED_EVENT = 'admin-session-expired';
+
 // Fetch con el header Authorization ya puesto, para llamar a rutas
 // protegidas de /api/admin sin repetir el boilerplate en cada lugar.
 export const adminFetch = (url, options = {}) => {
@@ -87,6 +92,16 @@ export const adminFetch = (url, options = {}) => {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     }
+  }).then((res) => {
+    // Token vencido o inválido: se limpia la sesión y se avisa (evento
+    // global, ver App.jsx) para volver al login automáticamente. Sólo si
+    // HABÍA token puesto: un 401 en el login en sí (todavía sin token) es
+    // un error normal de credenciales, no una sesión vencida.
+    if (res.status === 401 && token) {
+      clearAdminSession();
+      window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+    }
+    return res;
   });
   promise
     .catch((err) => console.error('❌ [DEBUG-LIB-ADMINAUTH] adminFetch() — error de red:', err));

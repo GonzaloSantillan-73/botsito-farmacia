@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, FileText } from 'lucide-react';
+import StarRating from './StarRating';
 
 const formatMoney = (n) => (n == null ? '—' : `$${Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`);
 
@@ -50,6 +51,20 @@ export const DETAIL_COLUMNS = [
   },
   { key: 'montoTotal', label: 'Monto Total', sortValue: r => (r.montoTotal ?? -1), render: r => formatMoney(r.montoTotal) },
   { key: 'medioPago', label: 'Medio de Pago', sortValue: r => (r.medioPago || '').toLowerCase(), render: r => r.medioPago || '—' },
+  {
+    key: 'ratingAtencion',
+    label: 'Calificación Atención',
+    align: 'center',
+    sortValue: r => (r.rating ?? -1),
+    render: r => (r.rating != null ? <StarRating value={r.rating} type="atencion" size={12} /> : '—')
+  },
+  {
+    key: 'ratingProducto',
+    label: 'Calificación Producto',
+    align: 'center',
+    sortValue: r => (r.productRating ?? -1),
+    render: r => (r.productRating != null ? <StarRating value={r.productRating} type="producto" size={12} /> : '—')
+  },
   {
     key: 'comprobante',
     label: 'Comprobante',
@@ -137,7 +152,7 @@ export default function SortableDetailTable({ rows, onRowClick, initialSortKey =
               className={`hover:bg-gray-50 dark:hover:bg-gray-800 ${onRowClick ? 'cursor-pointer' : ''}`}
             >
               {DETAIL_COLUMNS.map(col => (
-                <td key={col.key} className="px-3 py-2.5 whitespace-nowrap text-gray-700 dark:text-gray-300">
+                <td key={col.key} className={`px-3 py-2.5 whitespace-nowrap text-gray-700 dark:text-gray-300 ${col.align === 'center' ? 'text-center' : ''}`}>
                   {col.render(row)}
                 </td>
               ))}

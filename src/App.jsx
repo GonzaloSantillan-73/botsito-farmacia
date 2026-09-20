@@ -13,7 +13,7 @@ import ClientDirectory from './components/ClientDirectory';
 import LoginModal from './components/LoginModal';
 import DialogHost from './components/DialogHost';
 import { confirmDialog, alertDialog } from './lib/dialogService';
-import { getAdminToken, clearAdminSession, isAdminRole, getStaffSucursalId, getStaffSucursalNombre, adminFetch, getTheme, applyTheme } from './lib/adminAuth';
+import { getAdminToken, clearAdminSession, isAdminRole, getStaffSucursalId, getStaffSucursalNombre, adminFetch, getTheme, applyTheme, SESSION_EXPIRED_EVENT } from './lib/adminAuth';
 
 function App() {
   const [adminToken, setAdminToken] = useState(() => getAdminToken());
@@ -24,6 +24,15 @@ function App() {
   // claro hasta volver a tocar el toggle.
   useEffect(() => {
     applyTheme(getTheme());
+  }, []);
+
+  // Sesión vencida/token inválido (ver adminFetch en lib/adminAuth.js: ya
+  // limpió el localStorage al detectar el 401, esto sólo saca el estado en
+  // memoria para que la app vuelva a mostrar el login sin necesidad de F5).
+  useEffect(() => {
+    const onSessionExpired = () => { setAdminToken(null); };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
   }, []);
 
   // Estado de red: cuando se pierde la conexión, se corta la suscripción de

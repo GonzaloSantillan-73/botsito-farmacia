@@ -61,7 +61,7 @@ export default function LoginModal({ onLoginSuccess }) {
                 value={username}
                 onChange={(e) => { setUsername(e.target.value); }}
                 className="w-full pl-9 pr-3 py-2.5 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
-                placeholder="admin"
+                placeholder="usuario"
               />
             </div>
           </div>
@@ -74,7 +74,7 @@ export default function LoginModal({ onLoginSuccess }) {
                 type="password"
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); }}
-                className="w-full pl-9 pr-3 py-2.5 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm"
+                className="w-full pl-9 pr-3 py-2.5 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm placeholder:text-gray-300 dark:placeholder:text-gray-600"
                 placeholder="••••••••"
               />
             </div>
