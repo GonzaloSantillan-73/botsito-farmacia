@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { WifiOff } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { notifyNewEvent } from './lib/notifications';
-import { withClientNames } from './lib/clientUtils';
+import { withClientNames, withSucursalesHistorial } from './lib/clientUtils';
 
 // Components
 import Sidebar, { ESTADOS_HISTORIAL } from './components/Sidebar';
@@ -420,7 +420,8 @@ function App() {
 
     if (!error && data) {
       const enhanced = await withClientNames(data);
-      const conUnread = await withUnreadCounts(enhanced);
+      const conHistorial = await withSucursalesHistorial(enhanced);
+      const conUnread = await withUnreadCounts(conHistorial);
       setConversations(conUnread);
     } else if (error) {
       console.error('❌ [DEBUG-COMPONENT-App] error en fetchConversations:', error);

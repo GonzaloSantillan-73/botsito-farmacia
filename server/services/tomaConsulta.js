@@ -65,6 +65,16 @@ export const tomarConsulta = async (conversationId, sucursalId) => {
     }
 
     console.log('✅ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — CAMBIO DE ESTADO CONFIRMADO — conversationId:', conversationId, 'ahora tomada por sucursal:', sucursalId, '(', sucursal.nombre, ')');
+
+    // Registro histórico (ver conversation_sucursal_historial.sql): un fallo
+    // acá no debe tirar abajo la asignación, que ya quedó confirmada arriba.
+    const { error: histError } = await supabase
+      .from('conversation_sucursal_historial')
+      .insert({ conversation_id: conversationId, sucursal_id: sucursalId });
+    if (histError) {
+      console.error('❌ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — error registrando historial de sucursal (no crítico):', histError);
+    }
+
     console.log('✅ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — resultado a devolver:', conv);
     return conv;
   } catch (err) {

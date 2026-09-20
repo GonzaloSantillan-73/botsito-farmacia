@@ -35,3 +35,49 @@ export const withClientNames = async (conversations) => {
   }));
   return result;
 };
+
+/**
+ * Recibe un array de conversaciones e inyecta `sucursales_historial`: la
+ * lista COMPLETA y en orden de las sucursales que tomaron o recibieron por
+ * derivación cada una (ver server/services/tomaConsulta.js y
+ * derivacionSucursal.js, que van registrando cada evento en
+ * conversation_sucursal_historial) — a diferencia de sucursal_id/
+ * primera_sucursal_id/derivado_por_sucursal_id, que sólo guardan un puñado
+ * de puntos sueltos y pierden las sucursales intermedias si hubo varios
+ * ciclos de "devolver a la cola" entre medio.
+ */
+export const withSucursalesHistorial = async (conversations) => {
+  if (!conversations || conversations.length === 0) {
+    return conversations;
+  }
+
+  const ids = conversations.map(c => c.id);
+  const { data: eventos, error } = await supabase
+    .from('conversation_sucursal_historial')
+    .select('conversation_id, sucursal_id, created_at, sucursales(nombre)')
+    .in('conversation_id', ids)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('❌ [DEBUG-LIB-CLIENTUTILS] Error fetching sucursales historial:', error);
+    return conversations;
+  }
+
+  const porConversacion = {};
+  (eventos || []).forEach(ev => {
+    if (!ev.sucursal_id || !ev.sucursales?.nombre) return;
+    const lista = (porConversacion[ev.conversation_id] ||= []);
+    // No repite la MISMA sucursal si aparece dos veces seguidas (ej. la tomó,
+    // la devolvió y la volvió a tomar ella misma sin que nadie más
+    // interviniera en el medio) — sí la repite si hubo otra sucursal en el
+    // medio y después volvió a ser la misma.
+    if (lista[lista.length - 1]?.id !== ev.sucursal_id) {
+      lista.push({ id: ev.sucursal_id, nombre: ev.sucursales.nombre });
+    }
+  });
+
+  return conversations.map(c => ({
+    ...c,
+    sucursales_historial: porConversacion[c.id] || []
+  }));
+};

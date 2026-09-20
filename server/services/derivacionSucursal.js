@@ -92,6 +92,16 @@ export const derivarASucursal = async (conversationId, sucursalDestinoId) => {
     // de cara a él, la atención tiene que sentirse continua y unificada bajo
     // una sola marca, sin ningún rastro de que la consulta cambió de mano
     // entre sucursales (ni el nombre de la sucursal, ni que hubo un cambio).
+
+    // Registro histórico (ver conversation_sucursal_historial.sql): un fallo
+    // acá no debe tirar abajo la derivación, que ya quedó confirmada arriba.
+    const { error: histError } = await supabase
+      .from('conversation_sucursal_historial')
+      .insert({ conversation_id: conversationId, sucursal_id: sucursalDestinoId });
+    if (histError) {
+      console.error('❌ [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — error registrando historial de sucursal (no crítico):', histError);
+    }
+
     console.log('✅ [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — resultado a devolver:', conv);
     return conv;
   } catch (err) {
