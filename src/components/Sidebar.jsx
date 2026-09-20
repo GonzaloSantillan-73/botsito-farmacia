@@ -109,7 +109,7 @@ const DerivadoBadge = ({ nombreSucursalOrigen }) => {
 const SucursalesRecomendadas = ({ sucursales }) => {
   if (!sucursales || sucursales.length === 0) return null;
   return (
-    <div className="flex items-center gap-1 shrink-0">
+    <div className="flex flex-col items-end gap-1 shrink-0">
       {sucursales.slice(0, 2).map((s, i) => (
         <span
           key={s.id || i}
