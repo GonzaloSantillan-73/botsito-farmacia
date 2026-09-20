@@ -1,4 +1,5 @@
 import { getSucursalesActivas, estaAbiertaAhora } from './sucursales.js';
+import { supabase } from '../supabase.js';
 
 const toRad = (deg) => (deg * Math.PI) / 180;
 
@@ -65,9 +66,41 @@ const sucursalesOrdenadasPorCercania = async (lat, lng, excluirIds = []) => {
   return resultado;
 };
 
+// IDs de sucursales que ya pasaron por esta conversación puntual (la
+// tomaron, la tuvieron y la devolvieron, o se la derivaron entre sí — ver
+// conversation_sucursal_historial.sql). Se asume que si ya intervino y la
+// consulta volvió a la cola, no pudo resolverla en este ciclo, así que no
+// tiene sentido volver a sugerírsela al próximo asesor para el mismo chat.
+const obtenerSucursalesHistorialIds = async (conversationId) => {
+  console.log('🔍 [DEBUG-SERVICE-GEOLOCALIZACION] obtenerSucursalesHistorialIds() — conversationId:', conversationId);
+  if (!conversationId) return [];
+
+  const { data, error } = await supabase
+    .from('conversation_sucursal_historial')
+    .select('sucursal_id')
+    .eq('conversation_id', conversationId);
+
+  if (error) {
+    // Un fallo acá no debe romper el cálculo de recomendadas: en el peor
+    // caso simplemente no se excluye nada extra.
+    console.error('❌ [DEBUG-SERVICE-GEOLOCALIZACION] obtenerSucursalesHistorialIds() — error:', error);
+    return [];
+  }
+
+  const resultado = (data || []).map(r => r.sucursal_id).filter(Boolean);
+  console.log('✅ [DEBUG-SERVICE-GEOLOCALIZACION] obtenerSucursalesHistorialIds() — resultado:', resultado);
+  return resultado;
+};
+
 // `excluirIds` saca de la carrera a sucursales puntuales (ej. la que acaba de
 // devolver el chat a la cola, ver devolucionCola.js) para que no se le vuelva
 // a recomendar la misma que ya dijo que no podía atenderlo.
+//
+// `conversationId` (opcional) suma a esa exclusión TODO el historial de
+// sucursales que ya intervino en esa consulta puntual (ver
+// obtenerSucursalesHistorialIds arriba). Es opcional y no afecta el cálculo
+// general de sucursales cercanas para otras consultas: si no se pasa, se
+// comporta exactamente igual que antes.
 //
 // Prioriza las sucursales que están ABIERTAS en este momento por sobre las
 // cerradas, aunque estén un poco más lejos: si la más cercana está cerrada,
@@ -75,10 +108,14 @@ const sucursalesOrdenadasPorCercania = async (lat, lng, excluirIds = []) => {
 // (ver estaAbiertaAhora en sucursales.js). Sólo se completa con sucursales
 // cerradas si no hay suficientes abiertas para llegar a `cantidad`, para que
 // la recomendación nunca quede vacía sin necesidad.
-export const sucursalesMasCercanas = async (lat, lng, cantidad = 2, excluirIds = []) => {
-  console.log('🔍 [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesMasCercanas() — lat:', lat, 'lng:', lng, 'cantidad:', cantidad, 'excluirIds:', excluirIds);
+export const sucursalesMasCercanas = async (lat, lng, cantidad = 2, excluirIds = [], conversationId = null) => {
+  console.log('🔍 [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesMasCercanas() — lat:', lat, 'lng:', lng, 'cantidad:', cantidad, 'excluirIds:', excluirIds, 'conversationId:', conversationId);
 
-  const ordenadas = await sucursalesOrdenadasPorCercania(lat, lng, excluirIds);
+  const historialIds = await obtenerSucursalesHistorialIds(conversationId);
+  const excluirTotal = [...new Set([...excluirIds, ...historialIds])];
+  console.log('🔍 [DEBUG-SERVICE-GEOLOCALIZACION] sucursalesMasCercanas() — excluirTotal (excluirIds + historial de la conversación):', excluirTotal);
+
+  const ordenadas = await sucursalesOrdenadasPorCercania(lat, lng, excluirTotal);
 
   const abiertas = ordenadas.filter(s => s.abierta_ahora);
   const cerradas = ordenadas.filter(s => !s.abierta_ahora);

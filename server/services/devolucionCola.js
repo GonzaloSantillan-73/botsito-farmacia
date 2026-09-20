@@ -33,12 +33,13 @@ export const devolverConversacionAEspera = async (conversationId) => {
     let sucursalesRecomendadas = [];
     if (conv.client_lat != null && conv.client_lng != null) {
       try {
-        console.log('🔍 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — recalculando sucursales más cercanas con lat:', conv.client_lat, 'lng:', conv.client_lng, 'excluyendo:', sucursalQueDevuelve ? [sucursalQueDevuelve] : []);
+        console.log('🔍 [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — recalculando sucursales más cercanas con lat:', conv.client_lat, 'lng:', conv.client_lng, 'excluyendo:', sucursalQueDevuelve ? [sucursalQueDevuelve] : [], 'y todo el historial de la conversación:', conversationId);
         sucursalesRecomendadas = await sucursalesMasCercanas(
           conv.client_lat,
           conv.client_lng,
           2,
-          sucursalQueDevuelve ? [sucursalQueDevuelve] : []
+          sucursalQueDevuelve ? [sucursalQueDevuelve] : [],
+          conversationId
         );
         console.log('✅ [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — sucursalesRecomendadas calculadas:', sucursalesRecomendadas);
       } catch (err) {

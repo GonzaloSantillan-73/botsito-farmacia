@@ -387,7 +387,7 @@ const manejarUbicacionHumano = async (conversationId, telefono, t) => {
 
   let recomendadas = [];
   try {
-    recomendadas = await sucursalesMasCercanas(coords.lat, coords.lng, 2);
+    recomendadas = await sucursalesMasCercanas(coords.lat, coords.lng, 2, [], conversationId);
     console.log('🔍 [DEBUG-SERVICE-BOT] manejarUbicacionHumano() — sucursales más cercanas calculadas:', recomendadas);
   } catch (err) {
     // Si falla el cálculo de cercanía no bloqueamos la derivación: el
