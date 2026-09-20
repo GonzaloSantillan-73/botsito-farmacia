@@ -358,6 +358,28 @@ function App() {
           }
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'clientes' },
+        (payload) => {
+          // Alta o edición del nombre de un cliente (ya sea porque el bot lo
+          // registra por primera vez, o porque un operador lo corrige desde
+          // la ficha en ValidationPanel.jsx): antes esto sólo se reflejaba
+          // en el sidebar/header cuando el real_name TODAVÍA no se conocía
+          // (ver el bloque de INSERT/UPDATE de conversations más arriba); si
+          // el cliente ya tenía nombre y lo cambiaban, quedaba pisado hasta
+          // recargar la página. Escuchando directamente esta tabla, un
+          // cambio de nombre se propaga siempre, sin importar de dónde vino.
+          if (payload.eventType === 'DELETE') return;
+          const phone = payload.new?.client_phone;
+          if (!phone) return;
+          const nombre = payload.new?.nombre_completo || null;
+          setConversations(prev => prev.map(c => c.client_phone === phone ? { ...c, real_name: nombre } : c));
+          if (activeConversationRef.current?.client_phone === phone) {
+            setActiveConversation(prev => (prev ? { ...prev, real_name: nombre } : prev));
+          }
+        }
+      )
       .subscribe();
 
 

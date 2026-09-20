@@ -50,6 +50,32 @@ export default function ValidationPanel({
       });
   }, [activeConversation?.client_phone]);
 
+  // Si el nombre/DNI de ESTE cliente cambia mientras la ficha ya está
+  // abierta (ej. el bot lo termina de registrar, o se edita desde otra
+  // sesión del CRM) y no vino de handleSaveClient de acá abajo (que ya
+  // actualiza clienteData al toque), esto lo refleja igual sin esperar a
+  // que cambie activeConversation.client_phone.
+  React.useEffect(() => {
+    const phone = activeConversation?.client_phone;
+    if (!phone) return;
+    const channel = supabase.channel(`validation-panel-cliente-${phone}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'clientes', filter: `client_phone=eq.${phone}` },
+        (payload) => {
+          if (payload.eventType === 'DELETE') return;
+          setClienteData({
+            nombre_completo: payload.new.nombre_completo,
+            dni: payload.new.dni,
+            obra_social: payload.new.obra_social,
+            created_at: payload.new.created_at
+          });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [activeConversation?.client_phone]);
+
   // Edición de la ficha del cliente (nombre, DNI, obra social y, sólo para el
   // admin, el teléfono). Se guarda contra el backend (no directo a Supabase
   // como el resto del panel) porque ahí es donde se valida el permiso y se

@@ -49,7 +49,7 @@ CREATE POLICY "Allow all on prescriptions" ON public.prescriptions FOR ALL USING
 -- en una que ya las tenía agregadas.
 DO $$
 BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.conversations, public.messages, public.prescriptions;
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.conversations, public.messages, public.prescriptions, public.clientes;
 EXCEPTION
   WHEN duplicate_object THEN
     NULL;

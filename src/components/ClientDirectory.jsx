@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Search, ArrowLeft, ArrowUpDown, History, List, AlertTriangle, Filter } from 'lucide-react';
 import { formatPhone } from '../lib/formatPhone';
 import { adminFetch, isAdminRole } from '../lib/adminAuth';
+import { supabase } from '../lib/supabase';
 import { ESTADOS_HISTORIAL } from './Sidebar';
 import ClientHistoryList from './ClientHistoryList';
 import StarRating from './StarRating';
@@ -79,6 +80,31 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
         setErrors({ conversations: 'No se pudo conectar con el servidor.', clients: 'No se pudo conectar con el servidor.' });
         setLoading(false);
       });
+  }, []);
+
+  // El nombre/DNI de un cliente puede cambiar mientras esta vista ya está
+  // montada (el bot lo registra por primera vez, o un operador lo corrige
+  // desde ValidationPanel.jsx en otra pestaña de la app): sin esto, tanto
+  // "Lista de Clientes" (nombre + DNI) como "Historial de Consultas"
+  // (nombre) quedaban mostrando el dato viejo hasta recargar la página.
+  useEffect(() => {
+    const channel = supabase.channel('client-directory-clientes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'clientes' },
+        (payload) => {
+          if (payload.eventType === 'DELETE') return;
+          const phone = payload.new?.client_phone;
+          if (!phone) return;
+          const nombre = payload.new?.nombre_completo || null;
+          const dni = payload.new?.dni || null;
+          setClients(prev => prev.map(cl => cl.client_phone === phone ? { ...cl, real_name: nombre, dni } : cl));
+          setConversations(prev => prev.map(c => c.client_phone === phone ? { ...c, real_name: nombre } : c));
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const historialConsultas = conversations
