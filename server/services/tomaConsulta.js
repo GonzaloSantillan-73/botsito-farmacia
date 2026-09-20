@@ -45,9 +45,17 @@ export const tomarConsulta = async (conversationId, sucursalId) => {
       .maybeSingle();
     console.log('📡 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — resultado SELECT conversations — data:', actual, 'error:', actualError);
 
-    const updates = { sucursal_id: sucursalId, devuelta_por_sucursal_id: null, derivado_por_sucursal_id: null, derivado_por_sucursal_nombre: null };
+    // status pasa (o se mantiene) en 'esperando' a propósito: es el único
+    // valor de este campo que representa "ya la tiene un humano" en este
+    // esquema (ver esBotAutomatico/esDerivado en Sidebar.jsx — la pestaña
+    // "BOT" es exactamente status !== 'esperando'). Al interferir un chat
+    // que el bot todavía atendía solo (status ej. 'open'), sin esto el
+    // status quedaba sin tocar: la conversación pasaba a tener sucursal_id
+    // Y seguir contando como "BOT" al mismo tiempo, apareciendo duplicada en
+    // dos pestañas a la vez.
+    const updates = { status: 'esperando', sucursal_id: sucursalId, devuelta_por_sucursal_id: null, derivado_por_sucursal_id: null, derivado_por_sucursal_nombre: null };
     if (!actual?.primera_sucursal_id) updates.primera_sucursal_id = sucursalId;
-    console.log('🔍 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — CAMBIO DE ESTADO — conversationId:', conversationId, 'de "esperando" (sin sucursal) a tomada por sucursal:', sucursalId, '— updates a aplicar:', updates);
+    console.log('🔍 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — CAMBIO DE ESTADO — conversationId:', conversationId, 'a tomada por sucursal:', sucursalId, '— updates a aplicar:', updates);
 
     console.log('📡 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — UPDATE conversations, filtros: { id:', conversationId, ', status not in:', TERMINAL_STATUSES, ', sucursal_id: null }, valores:', updates);
     const { data: conv, error: updateError } = await supabase
