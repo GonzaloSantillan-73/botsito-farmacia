@@ -136,8 +136,8 @@ const SucursalesHistorial = ({ sucursales }) => {
       {sucursales.map((s, i) => (
         <span
           key={s.id || i}
-          title={`Atendida por ${s.nombre}`}
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-blue-600 text-white max-w-[110px] truncate"
+          title={`Ya la atendió: ${s.nombre} (no se recomienda de nuevo para este chat)`}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-gray-600 text-white max-w-[110px] truncate"
         >
           <History size={10} className="shrink-0" />
           <span className="truncate">{s.nombre}</span>
