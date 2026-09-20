@@ -94,10 +94,10 @@ const DerivadoBadge = ({ nombreSucursalOrigen }) => {
   return (
     <span
       title={`Derivado desde ${nombreSucursalOrigen}`}
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-400 max-w-[160px] truncate"
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-400 max-w-[160px] min-w-0"
     >
       <Send size={10} className="shrink-0" />
-      <span className="truncate">Derivado de {nombreSucursalOrigen}</span>
+      <span className="truncate min-w-0">Derivado de {nombreSucursalOrigen}</span>
     </span>
   );
 };
@@ -114,10 +114,10 @@ const SucursalesRecomendadas = ({ sucursales }) => {
         <span
           key={s.id || i}
           title={Number.isFinite(s.distancia_km) ? `${s.nombre} · ${s.distancia_km} km` : s.nombre}
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-blue-600 text-white max-w-[110px] truncate"
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-blue-600 text-white max-w-[115px] min-w-0"
         >
           <MapPin size={10} className="shrink-0" />
-          <span className="truncate">{s.nombre}</span>
+          <span className="truncate min-w-0">{s.nombre}</span>
         </span>
       ))}
     </div>
