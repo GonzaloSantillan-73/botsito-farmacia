@@ -13,6 +13,45 @@ const conSucursal = (query, sucursalId) => {
   return resultado;
 };
 
+// Secuencia COMPLETA (sin recortar a "primera y actual") de sucursales que
+// tomaron o recibieron por derivación cada conversación, en orden
+// cronológico (ver conversation_sucursal_historial.sql). A diferencia de
+// primera_sucursal_id/sucursal_id (que sólo guardan dos puntos sueltos y
+// pierden las sucursales intermedias si hubo varios ciclos de "devolver a
+// la cola"), esto refleja el recorrido real completo para mostrarlo como
+// "usuarioA → usuarioB → usuarioC" en el Directorio (ver ClientHistoryList.jsx).
+const withSucursalesHistorial = async (conversations) => {
+  if (!conversations || conversations.length === 0) return conversations;
+
+  const ids = conversations.map(c => c.id);
+  const { data: eventos, error } = await supabase
+    .from('conversation_sucursal_historial')
+    .select('conversation_id, sucursal_id, created_at, sucursales(nombre)')
+    .in('conversation_id', ids)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-CLIENTDIRECTORY] withSucursalesHistorial() — error:', error);
+    return conversations;
+  }
+
+  const porConversacion = {};
+  (eventos || []).forEach(ev => {
+    if (!ev.sucursal_id || !ev.sucursales?.nombre) return;
+    const lista = (porConversacion[ev.conversation_id] ||= []);
+    // No repite la MISMA sucursal si aparece dos veces seguidas (misma regla
+    // que withSucursalesHistorial en src/lib/clientUtils.js).
+    if (lista[lista.length - 1]?.id !== ev.sucursal_id) {
+      lista.push({ id: ev.sucursal_id, nombre: ev.sucursales.nombre });
+    }
+  });
+
+  return conversations.map(c => ({
+    ...c,
+    sucursales_historial: porConversacion[c.id] || []
+  }));
+};
+
 export const obtenerConversacionesDirectorio = async ({ sucursalId } = {}) => {
   console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerConversacionesDirectorio() — parámetros recibidos:', { sucursalId });
 
@@ -31,7 +70,8 @@ export const obtenerConversacionesDirectorio = async ({ sucursalId } = {}) => {
   const phoneMap = await resolverNombresPorTelefono(phones);
   console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerConversacionesDirectorio() — phoneMap construido, entradas:', Object.keys(phoneMap).length);
 
-  const resultado = (conversations || []).map(c => ({ ...c, real_name: phoneMap[c.client_phone] || null }));
+  const conHistorial = await withSucursalesHistorial(conversations || []);
+  const resultado = conHistorial.map(c => ({ ...c, real_name: phoneMap[c.client_phone] || null }));
   console.log('✅ [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerConversacionesDirectorio() — valor de retorno:', resultado);
   return resultado;
 };
@@ -138,8 +178,9 @@ export const obtenerHistorialClienteParaChat = async ({ clientPhone, excludeConv
 
   if (!sucursalId) {
     // admin: acceso transversal completo, sin restricción por sucursal.
-    console.log('✅ [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerHistorialClienteParaChat() — sin sucursalId (admin), valor de retorno sin filtrar, cantidad:', conversations?.length);
-    return conversations || [];
+    const conHistorialAdmin = await withSucursalesHistorial(conversations || []);
+    console.log('✅ [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerHistorialClienteParaChat() — sin sucursalId (admin), valor de retorno sin filtrar, cantidad:', conHistorialAdmin.length);
+    return conHistorialAdmin;
   }
 
   const { data: pedidoEnComun, error: pedidoError } = await supabase
@@ -157,7 +198,8 @@ export const obtenerHistorialClienteParaChat = async ({ clientPhone, excludeConv
   const hayPedidoEnComun = !!pedidoEnComun;
   console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerHistorialClienteParaChat() — hayPedidoEnComun:', hayPedidoEnComun);
 
-  const resultado = (conversations || []).filter(c => !c.sucursal_id || c.sucursal_id === sucursalId || hayPedidoEnComun);
+  const filtradas = (conversations || []).filter(c => !c.sucursal_id || c.sucursal_id === sucursalId || hayPedidoEnComun);
+  const resultado = await withSucursalesHistorial(filtradas);
   console.log('✅ [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerHistorialClienteParaChat() — valor de retorno, cantidad:', resultado.length, 'de', conversations?.length, 'totales');
   return resultado;
 };

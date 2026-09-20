@@ -7,13 +7,16 @@ import StarRating from './StarRating';
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// Nombre(s) de la o las sucursales que intervinieron en la consulta:
-// primera_sucursal_id (quien la tomó por primera vez) y sucursal_id (la
-// actual/final). Suelen ser la misma; si difieren es porque hubo una
-// devolución y otra sucursal la retomó, y se muestran ambas en el orden en
-// que intervinieron. Requiere que el fetch haya pedido el join (ver
-// HistoryPanel.jsx / ClientDirectory.jsx) — si no vino, no se muestra nada.
+// Secuencia COMPLETA de las sucursales que intervinieron en la consulta, en
+// el orden real en que la tomaron o la recibieron por derivación (ver
+// conversation_sucursal_historial.sql y withSucursalesHistorial en
+// server/services/clientDirectory.js). Fallback a primera_sucursal_id /
+// sucursal_id (sólo 2 puntos sueltos) para consultas viejas, de antes de que
+// existiera esa tabla, que no tienen ninguna fila de historial registrada.
 const nombresSucursales = (conv) => {
+  if (Array.isArray(conv.sucursales_historial) && conv.sucursales_historial.length > 0) {
+    return conv.sucursales_historial.map(s => s.nombre).filter(Boolean);
+  }
   const primera = conv.sucursal_primera?.nombre;
   const actual = conv.sucursal_actual?.nombre;
   return [...new Set([primera, actual].filter(Boolean))];
@@ -225,7 +228,7 @@ export default function ClientHistoryList({
                     <div className="flex items-center gap-1 mt-1 text-[11px] text-gray-500 dark:text-gray-400">
                       <Store size={11} className="text-gray-400 dark:text-gray-500 shrink-0" />
                       <span className="truncate">
-                        {sucursales.length === 2 ? `${sucursales[0]} → ${sucursales[1]}` : sucursales[0]}
+                        {sucursales.join(' → ')}
                       </span>
                     </div>
                   )}
