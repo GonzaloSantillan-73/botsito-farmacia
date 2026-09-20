@@ -1,5 +1,5 @@
 import React, { useState, useEffect, memo } from 'react';
-import { Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut, MapPin, Hand, Send, History } from 'lucide-react';
+import { Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut, MapPin, Hand, Send } from 'lucide-react';
 import SettingsModal from './SettingsModal';
 import { formatPhone } from '../lib/formatPhone';
 import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
@@ -116,30 +116,6 @@ const SucursalesRecomendadas = ({ sucursales }) => {
           className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-blue-600 text-white max-w-[110px] truncate"
         >
           <MapPin size={10} className="shrink-0" />
-          <span className="truncate">{s.nombre}</span>
-        </span>
-      ))}
-    </div>
-  );
-};
-
-// Historial COMPLETO (sin recortar a un tope fijo) de las sucursales que
-// tomaron o recibieron por derivación esta consulta, en orden cronológico
-// (ver conversation_sucursal_historial.sql y withSucursalesHistorial en
-// clientUtils.js). Ícono distinto de SucursalesRecomendadas (History en vez
-// de MapPin) para no confundir "quién la atendió de verdad" con "a quién se
-// la recomienda tomar" — ambos badges pueden convivir en la misma tarjeta.
-const SucursalesHistorial = ({ sucursales }) => {
-  if (!sucursales || sucursales.length === 0) return null;
-  return (
-    <div className="flex items-center gap-1 flex-wrap">
-      {sucursales.map((s, i) => (
-        <span
-          key={s.id || i}
-          title={`Ya la atendió: ${s.nombre} (no se recomienda de nuevo para este chat)`}
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-gray-600 text-white max-w-[110px] truncate"
-        >
-          <History size={10} className="shrink-0" />
           <span className="truncate">{s.nombre}</span>
         </span>
       ))}
@@ -464,7 +440,6 @@ export default function Sidebar({
                   </div>
                   <div className="flex items-center gap-1 flex-wrap shrink-0">
                     <DevueltaBadge devueltaPorSucursalId={conv.devuelta_por_sucursal_id} />
-                    <SucursalesHistorial sucursales={conv.sucursales_historial} />
                     <SucursalesRecomendadas sucursales={conv.sucursales_recomendadas} />
                   </div>
                 </div>
