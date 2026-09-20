@@ -1,8 +1,11 @@
 import { supabase } from '../supabase.js';
 
 // Resuelve, para una tanda de CONVERSACIONES puntuales ({ id, client_phone,
-// created_at }), el nombre de la persona que realmente tuvo esa consulta —
-// devuelve { [conversationId]: nombre_completo }.
+// created_at }), la FICHA (clientes) que realmente tuvo esa consulta —
+// devuelve { [conversationId]: { id, client_phone, nombre_completo, dni } },
+// sin entrada para las conversaciones que no resolvieron a ninguna ficha
+// conocida (cliente sin registrar, o de antes/después de la ventana de
+// alguna ficha reciclada).
 //
 // Ni bien un mismo número de teléfono puede haber sido de una persona y
 // después, si el número se recicla, de otra completamente distinta, resolver
@@ -13,32 +16,33 @@ import { supabase } from '../supabase.js';
 // migrar_cliente_por_dni.sql); eso da el límite temporal:
 //   - Camino directo (el teléfono es el vigente de una ficha hoy): sólo se
 //     atribuye si la conversación es POSTERIOR a la última vez que esa ficha
-//     migró de número (o siempre, si nunca migró) — si no, la conversación es
-//     de antes de que esa ficha tuviera este número.
+//     migró de número (o a la fecha en que se creó la ficha, si nunca migró)
+//     — si no, la conversación es de antes de que esa ficha tuviera este
+//     número (dueño previo del mismo número reciclado).
 //   - Camino histórico (el teléfono aparece en clientes_telefonos_historicos):
 //     sólo se atribuye a la ficha cuyo registro histórico para ESE teléfono
 //     tiene el created_at más cercano que sea >= la conversación (la ventana
 //     en la que ese teléfono fue de esa ficha).
 // Sin este límite, un cambio de teléfono o una migración por DNI pisaría
 // masivamente el nombre de conversaciones que en realidad eran de otra
-// persona con el mismo número reciclado.
+// persona con el mismo número reciclado (en cualquiera de los dos sentidos).
 //
 // Se usa para HISTORIALES (conversaciones/mensajes/pedidos ya ocurridos). Los
 // listados de bandejas activas (App.jsx: withClientNames) no lo necesitan:
 // una conversación activa siempre está sobre el teléfono con el que el
 // cliente está escribiendo ahora mismo, que por definición ya es el vigente.
-export const resolverNombresPorConversaciones = async (conversaciones) => {
-  console.log('🔍 [DEBUG-SERVICE-CLIENTES] resolverNombresPorConversaciones() — parámetros recibidos:', { cantidad: conversaciones?.length });
+export const resolverFichaPorConversaciones = async (conversaciones) => {
+  console.log('🔍 [DEBUG-SERVICE-CLIENTES] resolverFichaPorConversaciones() — parámetros recibidos:', { cantidad: conversaciones?.length });
   const conConCliente = (conversaciones || []).filter(c => c?.client_phone && c?.created_at);
   const phones = [...new Set(conConCliente.map(c => c.client_phone))];
   if (phones.length === 0) return {};
 
   const { data: fichasDirectas, error: fichasError } = await supabase
     .from('clientes')
-    .select('id, client_phone, nombre_completo, created_at')
+    .select('id, client_phone, nombre_completo, dni, created_at')
     .in('client_phone', phones);
   if (fichasError) {
-    console.error('❌ [DEBUG-SERVICE-CLIENTES] resolverNombresPorConversaciones() — error consultando clientes:', fichasError);
+    console.error('❌ [DEBUG-SERVICE-CLIENTES] resolverFichaPorConversaciones() — error consultando clientes:', fichasError);
     throw fichasError;
   }
 
@@ -47,7 +51,7 @@ export const resolverNombresPorConversaciones = async (conversaciones) => {
     .select('cliente_id, client_phone, created_at')
     .in('client_phone', phones);
   if (histError) {
-    console.error('❌ [DEBUG-SERVICE-CLIENTES] resolverNombresPorConversaciones() — error consultando clientes_telefonos_historicos (por teléfono):', histError);
+    console.error('❌ [DEBUG-SERVICE-CLIENTES] resolverFichaPorConversaciones() — error consultando clientes_telefonos_historicos (por teléfono):', histError);
     throw histError;
   }
 
@@ -64,7 +68,7 @@ export const resolverNombresPorConversaciones = async (conversaciones) => {
     ? await supabase.from('clientes_telefonos_historicos').select('cliente_id, created_at').in('cliente_id', idsFichasDirectas)
     : { data: [] };
   if (histDirectasError) {
-    console.error('❌ [DEBUG-SERVICE-CLIENTES] resolverNombresPorConversaciones() — error consultando históricos de fichas directas:', histDirectasError);
+    console.error('❌ [DEBUG-SERVICE-CLIENTES] resolverFichaPorConversaciones() — error consultando históricos de fichas directas:', histDirectasError);
     throw histDirectasError;
   }
   const desdeVigenteMs = {};
@@ -77,27 +81,25 @@ export const resolverNombresPorConversaciones = async (conversaciones) => {
   const idsYaEncontrados = new Set(idsFichasDirectas);
   const idsFaltantes = [...new Set((historicosPorTelefono || []).map(h => h.cliente_id).filter(id => !idsYaEncontrados.has(id)))];
   const { data: fichasPorHistorico, error: fichasHistError } = idsFaltantes.length
-    ? await supabase.from('clientes').select('id, nombre_completo').in('id', idsFaltantes)
+    ? await supabase.from('clientes').select('id, client_phone, nombre_completo, dni').in('id', idsFaltantes)
     : { data: [] };
   if (fichasHistError) {
-    console.error('❌ [DEBUG-SERVICE-CLIENTES] resolverNombresPorConversaciones() — error consultando fichas por histórico:', fichasHistError);
+    console.error('❌ [DEBUG-SERVICE-CLIENTES] resolverFichaPorConversaciones() — error consultando fichas por histórico:', fichasHistError);
     throw fichasHistError;
   }
 
-  const nombrePorFichaId = {};
-  [...(fichasDirectas || []), ...(fichasPorHistorico || [])].forEach(f => {
-    if (f.nombre_completo) nombrePorFichaId[f.id] = f.nombre_completo;
-  });
+  const fichaPorId = {};
+  [...(fichasDirectas || []), ...(fichasPorHistorico || [])].forEach(f => { fichaPorId[f.id] = f; });
 
   const resultado = {};
   conConCliente.forEach(conv => {
     const t = new Date(conv.created_at).getTime();
 
     const fichaDirecta = (fichasDirectas || []).find(f => f.client_phone === conv.client_phone);
-    if (fichaDirecta?.nombre_completo) {
+    if (fichaDirecta) {
       const desde = desdeVigenteMs[fichaDirecta.id];
       if (desde == null || t >= desde) {
-        resultado[conv.id] = fichaDirecta.nombre_completo;
+        resultado[conv.id] = fichaDirecta;
         return;
       }
       // La conversación es anterior a que esta ficha tuviera este teléfono
@@ -109,12 +111,24 @@ export const resolverNombresPorConversaciones = async (conversaciones) => {
       .filter(h => h.client_phone === conv.client_phone && new Date(h.created_at).getTime() >= t)
       .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     if (candidatos.length) {
-      const nombre = nombrePorFichaId[candidatos[0].cliente_id];
-      if (nombre) resultado[conv.id] = nombre;
+      const ficha = fichaPorId[candidatos[0].cliente_id];
+      if (ficha) resultado[conv.id] = ficha;
     }
   });
 
-  console.log('✅ [DEBUG-SERVICE-CLIENTES] resolverNombresPorConversaciones() — valor de retorno, entradas:', Object.keys(resultado).length);
+  console.log('✅ [DEBUG-SERVICE-CLIENTES] resolverFichaPorConversaciones() — valor de retorno, entradas:', Object.keys(resultado).length);
+  return resultado;
+};
+
+// Wrapper de resolverFichaPorConversaciones para cuando sólo hace falta el
+// nombre a mostrar (Historial de Consultas, Métricas, exportación a CSV) —
+// devuelve { [conversationId]: nombre_completo }.
+export const resolverNombresPorConversaciones = async (conversaciones) => {
+  const fichas = await resolverFichaPorConversaciones(conversaciones);
+  const resultado = {};
+  Object.entries(fichas).forEach(([conversationId, ficha]) => {
+    if (ficha?.nombre_completo) resultado[conversationId] = ficha.nombre_completo;
+  });
   return resultado;
 };
 
