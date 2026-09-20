@@ -260,7 +260,7 @@ export default function Sidebar({
             CRM
             <span
               title="Versión desplegada (commit corto)"
-              className="font-mono text-xs font-normal text-gray-400 bg-gray-800/50 px-2 py-0.5 rounded"
+              className="font-mono text-xs font-normal text-white bg-blue-600 px-2 py-0.5 rounded"
             >
               {import.meta.env.VITE_GIT_COMMIT_HASH || 'dev'}
             </span>

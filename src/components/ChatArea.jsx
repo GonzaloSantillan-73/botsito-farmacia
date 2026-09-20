@@ -629,7 +629,7 @@ export default function ChatArea({
                     // cliente por WhatsApp, así que no usa MessageBubble
                     // (esa sí es la burbuja de un mensaje real de chat).
                     <div className="flex justify-center w-full my-2">
-                      <span className="bg-blue-900/40 text-blue-200 text-base px-5 py-2.5 rounded-full border border-blue-500/50">
+                      <span className="bg-blue-600 text-white text-base px-5 py-2.5 rounded-full border border-blue-700">
                         {msg.message_text}
                       </span>
                     </div>
