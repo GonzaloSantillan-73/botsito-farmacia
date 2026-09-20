@@ -85,9 +85,10 @@ export default function MetricsPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Lo sube handleActualizar() para forzar un re-fetch manual de TODA la
-  // pestaña (este panel + MetricsTable de "Detalle de consultas", ver
-  // MetricsTable.jsx) sin resetear los filtros de fecha ya aplicados.
+  // Lo sube handleActualizar() para forzar un re-fetch manual de los paneles
+  // de conversión/satisfacción, sin resetear el rango de fecha ya aplicado.
+  // MetricsTable ("Detalle de consultas") tiene su propio botón y su propio
+  // refresco independiente, con su propio filtro de fechas.
   const [refreshKey, setRefreshKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -150,9 +151,8 @@ export default function MetricsPanel() {
     setEndDate('');
     setAppliedRange({ startDate: '', endDate: '' });
   };
-  // Re-dispara el fetch de este panel (efecto de arriba) y, vía la prop
-  // refreshSignal, también el de MetricsTable — ambos respetando el rango de
-  // fechas que cada uno ya tenía aplicado, sin resetear ningún filtro.
+  // Re-dispara el fetch de este panel (efecto de arriba), respetando el
+  // rango de fechas ya aplicado, sin resetear el filtro.
   const handleActualizar = () => {
     setRefreshKey(k => k + 1);
   };
@@ -185,25 +185,12 @@ export default function MetricsPanel() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">Métricas y Estadísticas</h2>
-        <button
-          onClick={handleActualizar}
-          disabled={refreshing}
-          title="Volver a cargar el detalle de consultas y los paneles de conversión/satisfacción, respetando los filtros de fecha aplicados"
-          className="flex items-center gap-1.5 px-3 py-1.5 text-gray-600 dark:text-gray-300 hover:text-teal-700 dark:hover:text-teal-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
-        >
-          <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
-          {refreshing ? 'Actualizando...' : 'Actualizar'}
-        </button>
-      </div>
-
       {/* Única sección de ancho completo y siempre visible: es una tabla con
           muchas columnas, no una tarjeta de resumen, así que no tiene sentido
           acotarla ni poder ocultarla. */}
       <div className="mb-8">
         <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-4">Detalle de consultas</h3>
-        <MetricsTable refreshSignal={refreshKey} />
+        <MetricsTable />
       </div>
 
       {/* El resto son tarjetas de resumen: se acotan a un ancho legible,
@@ -234,6 +221,15 @@ export default function MetricsPanel() {
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-900 text-white rounded-lg text-xs font-medium transition-colors"
           >
             <Filter size={13} /> Filtrar
+          </button>
+          <button
+            onClick={handleActualizar}
+            disabled={refreshing}
+            title="Volver a cargar los paneles de conversión/satisfacción, respetando el rango de fechas aplicado"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+            {refreshing ? 'Actualizando...' : 'Actualizar'}
           </button>
           {(appliedRange.startDate || appliedRange.endDate) && (
             <button

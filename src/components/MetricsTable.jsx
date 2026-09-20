@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Loader2, Check, Filter, X } from 'lucide-react';
+import { Download, Loader2, Check, Filter, X, RefreshCw } from 'lucide-react';
 import { adminFetch } from '../lib/adminAuth';
 import SortableDetailTable from './SortableDetailTable';
 import ChatTraceModal from './ChatTraceModal';
@@ -26,12 +26,7 @@ const downloadFile = async (url, fallbackName) => {
   URL.revokeObjectURL(blobUrl);
 };
 
-// `refreshSignal`: lo sube MetricsPanel.jsx (botón "Actualizar" del
-// encabezado) cada vez que se lo hace clic. Sumarlo a las dependencias del
-// efecto de carga fuerza un re-fetch con el MISMO rango de fechas ya
-// aplicado acá (sin resetear el filtro), sin necesidad de duplicar la
-// lógica de fetch en el padre.
-export default function MetricsTable({ refreshSignal }) {
+export default function MetricsTable() {
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +35,12 @@ export default function MetricsTable({ refreshSignal }) {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [appliedRange, setAppliedRange] = useState({ startDate: '', endDate: '' });
+
+  // Lo sube handleActualizar() para forzar un re-fetch manual del detalle de
+  // consultas con el MISMO rango de fechas ya aplicado (sin resetear el
+  // filtro), independiente del botón "Actualizar" de MetricsPanel.jsx (que
+  // sólo refresca los paneles de conversión/satisfacción).
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const [exporting, setExporting] = useState(false);
   const [exported, setExported] = useState(false);
@@ -74,7 +75,7 @@ export default function MetricsTable({ refreshSignal }) {
       .finally(() => { if (!cancelado) setLoading(false); });
 
     return () => { cancelado = true; };
-  }, [appliedRange, refreshSignal]);
+  }, [appliedRange, refreshKey]);
 
   const handleFiltrar = () => {
     setAppliedRange({ startDate, endDate });
@@ -83,6 +84,9 @@ export default function MetricsTable({ refreshSignal }) {
     setStartDate('');
     setEndDate('');
     setAppliedRange({ startDate: '', endDate: '' });
+  };
+  const handleActualizar = () => {
+    setRefreshKey(k => k + 1);
   };
 
   const handleExportar = async () => {
@@ -143,16 +147,27 @@ export default function MetricsTable({ refreshSignal }) {
           )}
         </div>
 
-        <div className="flex flex-col items-end gap-1">
+        <div className="flex items-start gap-2">
           <button
-            onClick={handleExportar}
-            disabled={exporting || rows.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50"
+            onClick={handleActualizar}
+            disabled={loading}
+            title="Volver a cargar el detalle de consultas, respetando el rango de fechas aplicado"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50"
           >
-            {exporting ? <Loader2 size={16} className="animate-spin" /> : exported ? <Check size={16} /> : <Download size={16} />}
-            {exporting ? 'Generando...' : exported ? 'Descargado' : 'Exportar CSV'}
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            {loading ? 'Actualizando...' : 'Actualizar'}
           </button>
-          {exportError && <p className="text-xs text-rose-600">{exportError}</p>}
+          <div className="flex flex-col items-end gap-1">
+            <button
+              onClick={handleExportar}
+              disabled={exporting || rows.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm disabled:opacity-50"
+            >
+              {exporting ? <Loader2 size={16} className="animate-spin" /> : exported ? <Check size={16} /> : <Download size={16} />}
+              {exporting ? 'Generando...' : exported ? 'Descargado' : 'Exportar CSV'}
+            </button>
+            {exportError && <p className="text-xs text-rose-600">{exportError}</p>}
+          </div>
         </div>
       </div>
 
