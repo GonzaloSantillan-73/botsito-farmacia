@@ -634,20 +634,21 @@ function App() {
     }
   };
 
+  // Sólo el admin puede eliminar una conversación (al revés que el resto de
+  // las acciones del chat, que son exclusivas de sucursal): pasa por el
+  // backend (DELETE /api/conversations/:id, requireAdminRole) en vez de
+  // escribir directo contra Supabase, para que un request directo sin ser
+  // admin quede bloqueado del lado del servidor y no sólo oculto en la UI
+  // (ver el ícono de basurero condicionado a isAdminRole() en ChatArea.jsx).
   const handleDeleteConversation = async (conversationId) => {
     if (!conversationId) return;
     const confirmado = await confirmDialog('¿Seguro que querés eliminar esta conversación? Esta acción no se puede deshacer.', { danger: true, confirmText: 'Eliminar' });
     if (!confirmado) return;
 
     try {
-      // Borramos primero los datos dependientes para asegurar una baja limpia,
-      // sin depender de que el ON DELETE CASCADE esté configurado en la DB.
-      const { error: errorDelMsgs } = await supabase.from('messages').delete().eq('conversation_id', conversationId);
-
-      const { error: errorDelPresc } = await supabase.from('prescriptions').delete().eq('conversation_id', conversationId);
-
-      const { error } = await supabase.from('conversations').delete().eq('id', conversationId);
-      if (error) throw error;
+      const res = await adminFetch(`/api/conversations/${conversationId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo eliminar la conversación.');
 
       setConversations(prev => prev.filter(c => c.id !== conversationId));
       if (activeConversation?.id === conversationId) {
@@ -655,7 +656,7 @@ function App() {
       }
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-App] Error eliminando la conversación:', err);
-      alertDialog('No se pudo eliminar la conversación.', { danger: true });
+      alertDialog(err.message || 'No se pudo eliminar la conversación.', { danger: true });
     }
   };
 

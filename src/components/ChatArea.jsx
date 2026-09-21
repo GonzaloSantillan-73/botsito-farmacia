@@ -552,13 +552,15 @@ export default function ChatArea({
                >
                  <ShoppingBag size={20} />
                </button>
-               <button
-                 onClick={() => { handleDeleteConversation && handleDeleteConversation(activeConversation.id); }}
-                 title="Eliminar esta conversación"
-                 className="p-2 text-gray-500 hover:bg-rose-50 hover:text-rose-600 rounded-full transition-colors"
-               >
-                 <Trash2 size={20} />
-               </button>
+               {soyAdmin && (
+                 <button
+                   onClick={() => { handleDeleteConversation && handleDeleteConversation(activeConversation.id); }}
+                   title="Eliminar esta conversación"
+                   className="p-2 text-gray-500 hover:bg-rose-50 hover:text-rose-600 rounded-full transition-colors"
+                 >
+                   <Trash2 size={20} />
+                 </button>
+               )}
             </div>
           </div>
           

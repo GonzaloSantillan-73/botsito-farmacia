@@ -680,6 +680,43 @@ router.post('/conversations/:id/take', requireAuth, blockAdminRole, async (req, 
   }
 });
 
+// Eliminar una conversación es una acción destructiva e irreversible (borra
+// también sus mensajes/receta) — sólo el admin puede hacerlo, nunca una
+// sucursal (a diferencia del resto de /conversations/:id/*, que son al
+// revés: blockAdminRole porque el admin es de sólo supervisión). El ícono
+// ya se oculta en ChatArea.jsx para staff, pero esto blinda el borrado en
+// sí ante un request directo, sin depender de que el frontend lo respete.
+router.delete('/conversations/:id', requireAuth, requireAdminRole, async (req, res) => {
+  const { id } = req.params;
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a DELETE /conversations/:id:', {
+    method: req.method,
+    url: req.originalUrl,
+    params: req.params,
+    admin: req.admin || null
+  });
+
+  try {
+    // Borramos primero los datos dependientes para asegurar una baja limpia,
+    // sin depender de que el ON DELETE CASCADE esté configurado en la DB
+    // (mismo orden que tenía handleDeleteConversation en App.jsx).
+    const { error: errorDelMsgs } = await supabase.from('messages').delete().eq('conversation_id', id);
+    if (errorDelMsgs) throw errorDelMsgs;
+
+    const { error: errorDelPresc } = await supabase.from('prescriptions').delete().eq('conversation_id', id);
+    if (errorDelPresc) throw errorDelPresc;
+
+    const { error } = await supabase.from('conversations').delete().eq('id', id);
+    if (error) throw error;
+
+    console.log(`[API] -> Consulta ${id} eliminada por ${req.admin.username}.`);
+    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo DELETE /conversations/:id:', { status: 200, body: { success: true } });
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en DELETE /conversations/:id:', { error, message: error.message, stack: error.stack });
+    res.status(400).json({ error: error.message || 'No se pudo eliminar la conversación.' });
+  }
+});
+
 // Config expuesta al frontend para que el contador de expiración del CRM
 // siempre calcule contra el mismo límite real que usa el backend.
 router.get('/session-config', async (req, res) => {
