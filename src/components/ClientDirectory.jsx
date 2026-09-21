@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Users, Search, ArrowLeft, ArrowUpDown, History, List, AlertTriangle, Filter } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Users, Search, ArrowLeft, ArrowUpDown, History, List, AlertTriangle, Filter, RefreshCw } from 'lucide-react';
 import { formatPhone } from '../lib/formatPhone';
 import { adminFetch, isAdminRole } from '../lib/adminAuth';
 import { supabase } from '../lib/supabase';
@@ -59,13 +59,15 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
   // staff ya ve nada más su propia sucursal + bot sin asignar, filtrar no le
   // aporta nada): 'todas' | 'bot' (sucursal_id null) | <sucursal_id>.
   const [sucursalFiltro, setSucursalFiltro] = useState('todas');
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    // El filtrado por sucursal para el staff lo aplica el backend a partir
-    // del sucursalId del JWT (ver server/routes/clientDirectory.js): acá no
-    // se manda ni se puede forzar ninguna sucursal, evitando fugas entre
-    // sucursales aunque se manipule el request.
-    adminFetch('/api/admin/client-directory/conversations')
+  // El filtrado por sucursal para el staff lo aplica el backend a partir
+  // del sucursalId del JWT (ver server/routes/clientDirectory.js): acá no
+  // se manda ni se puede forzar ninguna sucursal, evitando fugas entre
+  // sucursales aunque se manipule el request. Se usa tanto en la carga
+  // inicial como en el botón "Actualizar" del header.
+  const fetchDirectory = useCallback(() => {
+    return adminFetch('/api/admin/client-directory/conversations')
       .then(res => res.json())
       .then(({ conversations: data, clients: clientsData, errors: sectionErrors }) => {
         setConversations(data || []);
@@ -73,14 +75,21 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
         if (sectionErrors?.conversations) console.error('❌ [DEBUG-COMPONENT-ClientDirectory] error cargando conversations:', sectionErrors.conversations);
         if (sectionErrors?.clients) console.error('❌ [DEBUG-COMPONENT-ClientDirectory] error cargando clients:', sectionErrors.clients);
         setErrors({ conversations: sectionErrors?.conversations || null, clients: sectionErrors?.clients || null });
-        setLoading(false);
       })
       .catch((err) => {
         console.error('❌ [DEBUG-COMPONENT-ClientDirectory] excepción en fetch conversations:', err);
         setErrors({ conversations: 'No se pudo conectar con el servidor.', clients: 'No se pudo conectar con el servidor.' });
-        setLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    fetchDirectory().finally(() => setLoading(false));
+  }, [fetchDirectory]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchDirectory().finally(() => setRefreshing(false));
+  };
 
   // El nombre/DNI de un cliente puede cambiar mientras esta vista ya está
   // montada (el bot lo registra por primera vez, o un operador lo corrige
@@ -215,9 +224,20 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
   return (
     <div className="flex-1 flex flex-col bg-[#f0f2f5] dark:bg-gray-900 overflow-hidden">
       <div className="px-6 py-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shrink-0">
-        <h2 className="font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-3">
-          <Users size={20} className="text-teal-600 dark:text-teal-400" /> Directorio de Clientes
-        </h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <Users size={20} className="text-teal-600 dark:text-teal-400" /> Directorio de Clientes
+          </h2>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            title="Actualizar"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-50 shrink-0"
+          >
+            <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+            {refreshing ? 'Actualizando...' : 'Actualizar'}
+          </button>
+        </div>
 
         <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 gap-1 w-fit mb-3">
           <button
