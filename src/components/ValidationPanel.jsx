@@ -673,10 +673,19 @@ export default function ValidationPanel({
                       <span className="absolute left-2 top-2 text-gray-500 text-sm">$</span>
                       <input
                         type="number"
+                        min="0"
                         placeholder="Precio"
                         className="w-full text-sm pl-6 p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                         value={newItemPrice}
-                        onChange={e => { setNewItemPrice(e.target.value); }}
+                        onKeyDown={e => { if (['-', '+', 'e', 'E'].includes(e.key)) e.preventDefault(); }}
+                        onChange={e => {
+                          const raw = e.target.value;
+                          // Sólo se toca el valor si efectivamente quedó negativo (ej.
+                          // pegado con Ctrl+V, que el onKeyDown no filtra): así no se
+                          // rompe el tipeo normal de decimales ("12." mientras se
+                          // termina de escribir "12.50").
+                          setNewItemPrice(raw !== '' && Number(raw) < 0 ? String(Math.max(0, Number(raw))) : raw);
+                        }}
                       />
                     </div>
                   </div>
@@ -772,9 +781,14 @@ export default function ValidationPanel({
                           <span className="text-gray-500">$</span>
                           <input
                             type="number"
+                            min="0"
                             className="w-full p-1 text-right text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                             value={shippingCost}
-                            onChange={e => { setShippingCost(e.target.value); }}
+                            onKeyDown={e => { if (['-', '+', 'e', 'E'].includes(e.key)) e.preventDefault(); }}
+                            onChange={e => {
+                              const raw = e.target.value;
+                              setShippingCost(raw !== '' && Number(raw) < 0 ? String(Math.max(0, Number(raw))) : raw);
+                            }}
                             placeholder="0.00"
                           />
                         </div>
