@@ -8,7 +8,7 @@ import { tomarConsulta } from '../lib/tomarConsulta';
 import { tagMessage } from '../lib/tagMessage';
 import HistoryPanel from './HistoryPanel';
 import OrderHistoryPanel from './OrderHistoryPanel';
-import { SALE_STATUS_BADGES, STATUS_BADGES } from './Sidebar';
+import { STATUS_BADGES } from './Sidebar';
 import CloseChatModal from './CloseChatModal';
 import ReturnToQueueModal from './ReturnToQueueModal';
 import MessageBubble from './MessageBubble';
@@ -477,11 +477,6 @@ export default function ChatArea({
                 <h2 className="font-bold text-gray-900 dark:text-gray-100 truncate">{activeConversation.real_name || activeConversation.client_name}</h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{formatPhone(activeConversation.client_phone)}</p>
               </div>
-              {SALE_STATUS_BADGES[activeConversation.sale_status] && (
-                <span className={`text-[11px] font-medium px-2.5 py-1 rounded-full whitespace-nowrap shrink-0 ${SALE_STATUS_BADGES[activeConversation.sale_status].className}`}>
-                  {SALE_STATUS_BADGES[activeConversation.sale_status].label}
-                </span>
-              )}
             </div>
 
             {remainingMs !== null && (
