@@ -41,7 +41,7 @@ export const checkExpiredSessions = async () => {
     const [{ data: activeConvs, error }, sessionTimeoutMs, sessionPrewarningMs] = await Promise.all([
       supabase
         .from('conversations')
-        .select('id, client_phone, status, sucursal_id, bot_state, created_at, prewarning_sent_at, payment_status, sale_status')
+        .select('id, client_phone, status, sucursal_id, created_at, prewarning_sent_at, payment_status, sale_status')
         .not('status', 'in', `(${TERMINAL_STATUSES.join(',')})`),
       getSessionTimeoutMs(),
       getSessionPrewarningMs()
@@ -88,16 +88,6 @@ export const checkExpiredSessions = async () => {
           .limit(1)
           .maybeSingle();
         console.log('📡 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — resultado SELECT messages — data:', lastMsg, 'error:', lastMsgError);
-
-        // Modo bot pidiendo la ubicación del cliente para derivarlo (ver
-        // manejarUbicacionHumano en bot.js): inmune hasta que el bot procese
-        // la respuesta y salga de ese paso (bot_state deja de ser este valor).
-        // Sólo aplica en modo bot — una vez derivada (status 'esperando') este
-        // campo puede quedar pisado/obsoleto y ya no se usa (ver tomarConsulta.js).
-        if (conv.status !== 'esperando' && conv.bot_state === 'esperando_ubicacion') {
-          console.log('⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — INMUNE (bot pidiendo ubicación) — conversationId:', conv.id);
-          continue;
-        }
 
         // El timeout de cierre/aviso sólo tiene sentido cuando la respuesta
         // pendiente es la del cliente (el bot o la sucursal ya le "tiraron la

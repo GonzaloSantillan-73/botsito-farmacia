@@ -360,29 +360,26 @@ export default function ChatArea({
   // Matriz de timeout (bot / en espera / sucursal) — mismo criterio, en el
   // mismo orden, que server/services/sessionExpiryChecker.js:
   // 1. En espera SIN sucursal asignada (cola general): siempre pausado.
-  // 2. Bot pidiendo la ubicación del cliente para derivarlo (bot_state):
-  //    pausado hasta que el bot procese la respuesta y salga de ese paso.
-  // 3. Resto (modo bot ya respondido, o ya asignado a una sucursal): corre
-  //    sólo si el último mensaje real es saliente (bot o sucursal) — si es
-  //    del cliente, la pelota está del lado nuestro y no hay inactividad que
-  //    penalizarle todavía.
-  // 4. Recién derivada/reasignada a una sucursal (tomada de la cola, o
+  // 2. Resto (modo bot, incluido "pidiendo ubicación" — ya le mandó ese
+  //    mensaje al cliente, así que corre igual que cualquier otro mensaje
+  //    saliente del bot —, o ya asignado a una sucursal): corre sólo si el
+  //    último mensaje real es saliente (bot o sucursal) — si es del cliente,
+  //    la pelota está del lado nuestro y no hay inactividad que penalizarle
+  //    todavía.
+  // 3. Recién derivada/reasignada a una sucursal (tomada de la cola, o
   //    pasada directamente de otra sucursal): aunque el último mensaje sea
   //    saliente, si es de ANTES de que esta sucursal se hiciera cargo
   //    (sucursalAssignedSince, ver conversation_sucursal_historial) todavía
   //    no cuenta como que la sucursal actual ya respondió.
   let remainingMs = null;
   let timerPausedByClient = false;
-  let timerPauseReason = null; // 'en_espera' | 'bot_ubicacion' | 'client' | 'reasignado' | null
+  let timerPauseReason = null; // 'en_espera' | 'client' | 'reasignado' | null
   const showExpiryBadge = !!(activeConversation && !isConversacionCerrada && sessionTimeoutMs != null);
   if (showExpiryBadge) {
     const asignadaASucursal = activeConversation.status === 'esperando' && !!activeConversation.sucursal_id;
     if (activeConversation.status === 'esperando' && !activeConversation.sucursal_id) {
       timerPausedByClient = true;
       timerPauseReason = 'en_espera';
-    } else if (activeConversation.status !== 'esperando' && activeConversation.bot_state === 'esperando_ubicacion') {
-      timerPausedByClient = true;
-      timerPauseReason = 'bot_ubicacion';
     } else {
       const lastMessage = getLastRealMessage(messages);
       if (!lastMessage || lastMessage.sender_type === 'client') {
@@ -567,13 +564,11 @@ export default function ChatArea({
                 title={
                   timerPauseReason === 'en_espera'
                     ? 'Consulta en la cola general, sin asignar: el cierre automático por inactividad está desactivado'
-                    : timerPauseReason === 'bot_ubicacion'
-                      ? 'Esperando que el cliente comparta su ubicación'
-                      : timerPauseReason === 'reasignado'
-                        ? 'Chat recién derivado/reasignado: el contador arranca cuando esta sucursal responda'
-                        : timerPauseReason === 'client'
-                          ? 'El cliente escribió el último mensaje: el contador arranca cuando la sucursal responda'
-                          : 'Tiempo restante antes de que la consulta se cierre por inactividad'
+                    : timerPauseReason === 'reasignado'
+                      ? 'Chat recién derivado/reasignado: el contador arranca cuando esta sucursal responda'
+                      : timerPauseReason === 'client'
+                        ? 'El cliente escribió el último mensaje: el contador arranca cuando la sucursal responda'
+                        : 'Tiempo restante antes de que la consulta se cierre por inactividad'
                 }
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold tabular-nums transition-colors shrink-0 ${
                   timerPausedByClient || remainingMs <= 0
