@@ -64,7 +64,7 @@ const MENSAJE_ERROR_DERIVACION = 'Tuvimos un problema derivándote con un asesor
 // recomendarle (a él y al operador que lo atienda) la sucursal más cercana.
 // Acepta dos formas: el botón nativo "Ubicación" de WhatsApp, o pegar como
 // texto un link de Google Maps (largo o acortado tipo maps.app.goo.gl).
-const MENSAJE_PEDIR_UBICACION = 'Para poder recomendarte la sucursal más cercana, compartí tu ubicación 📍\n\nPodés usar el botón de "Ubicación" de WhatsApp (📎 → Ubicación → Ubicación actual), o pegar acá el link de Google Maps de dónde estás.';
+const MENSAJE_PEDIR_UBICACION = 'Compartí tu ubicación y te conectamos con la sucursal más cercana 📍\n\nPodés usar el botón de "Ubicación" de WhatsApp (📎 → Ubicación → Ubicación actual), o pegar acá el link de Google Maps de dónde estás.';
 const MENSAJE_UBICACION_INVALIDA = 'No pude reconocer esa ubicación. 😕\n\nProbá compartiendo tu ubicación con el botón de WhatsApp, o pegando un link de Google Maps (por ejemplo: https://maps.app.goo.gl/...).';
 // Ninguna sucursal cercana está atendiendo en este momento (ver
 // sucursalAbiertaMasCercana en geolocalizacion.js): ya no existe un horario
