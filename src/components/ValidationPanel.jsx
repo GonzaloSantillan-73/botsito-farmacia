@@ -343,6 +343,11 @@ export default function ValidationPanel({
         client_phone: activeConversation?.client_phone,
         items,
         total,
+        // Netos del descuento ya aplicado (subtotal + costo_envio = total),
+        // para poder desglosarlos en la tabla de "Detalle de consultas" de
+        // Métricas sin tener que recalcular nada ahí.
+        subtotal: totalItems,
+        costo_envio: finalShippingCost,
         sucursal_id: activeConversation?.sucursal_id || null
       }]);
       if (error) {

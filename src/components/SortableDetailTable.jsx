@@ -4,6 +4,11 @@ import StarRating from './StarRating';
 
 const formatMoney = (n) => (n == null ? '—' : `$${Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`);
 
+// El envío en $0 es "envío gratis" (ver ValidationPanel.jsx, umbral de envío
+// gratis), no un dato faltante: sólo se muestra "—" cuando costoEnvio es null
+// (pedido sin desglose, ver metricsDetalle.js).
+const formatEnvio = (n) => (n == null ? '—' : (Number(n) === 0 ? 'Envío gratis' : formatMoney(n)));
+
 // El negocio quiere esta columna binaria a propósito: "Venta concretada" es
 // el ÚNICO valor positivo (sale_status === 'concretada'); cualquier otra
 // cosa — no concretada, otra razón, o todavía sin marcar — cae en "Solo
@@ -49,6 +54,8 @@ export const DETAIL_COLUMNS = [
       );
     }
   },
+  { key: 'subtotal', label: 'Subtotal', sortValue: r => (r.subtotal ?? -1), render: r => formatMoney(r.subtotal) },
+  { key: 'costoEnvio', label: 'Envío', sortValue: r => (r.costoEnvio ?? -1), render: r => formatEnvio(r.costoEnvio) },
   { key: 'montoTotal', label: 'Monto Total', sortValue: r => (r.montoTotal ?? -1), render: r => formatMoney(r.montoTotal) },
   { key: 'medioPago', label: 'Medio de Pago', sortValue: r => (r.medioPago || '').toLowerCase(), render: r => r.medioPago || '—' },
   {

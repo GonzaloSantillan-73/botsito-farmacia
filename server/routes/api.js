@@ -168,6 +168,10 @@ router.get('/export/metrics', async (req, res) => {
       // SortableDetailTable.jsx (UI en pantalla): si se cambia acá, cambiar
       // también ahí.
       { label: 'Estado del Contacto', align: 'center', value: r => (r.saleStatus === 'concretada' ? 'Venta concretada' : 'Solo consulta') },
+      { label: 'Subtotal', align: 'center', numFmt: '"$"#,##0.00', value: r => (r.subtotal != null ? r.subtotal : '') },
+      // 0 es "envío gratis" (no un dato faltante); sólo queda vacío cuando no
+      // hay desglose (pedido guardado antes de la migración que lo agregó).
+      { label: 'Envío', align: 'center', value: r => (r.costoEnvio == null ? '' : (r.costoEnvio === 0 ? 'Envío gratis' : r.costoEnvio)) },
       { label: 'Monto Total', align: 'center', numFmt: '"$"#,##0.00', value: r => (r.montoTotal != null ? r.montoTotal : '') },
       { label: 'Medio de Pago', align: 'center', value: r => r.medioPago },
       { label: 'Calificación Atención', align: 'center', value: r => (r.rating != null ? r.rating : '') },

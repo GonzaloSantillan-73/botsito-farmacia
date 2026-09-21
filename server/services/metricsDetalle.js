@@ -57,7 +57,7 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
         ? supabase.from('messages').select('conversation_id, sender_type, media_type, media_url, tagged_as, created_at').in('conversation_id', ids).order('created_at', { ascending: true })
         : Promise.resolve({ data: [] }),
       ids.length
-        ? supabase.from('pedidos_confirmados').select('conversation_id, total').in('conversation_id', ids)
+        ? supabase.from('pedidos_confirmados').select('conversation_id, total, subtotal, costo_envio').in('conversation_id', ids)
         : Promise.resolve({ data: [] })
     ]);
     console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — resultado resolverNombresPorTelefono — entradas:', Object.keys(phoneMap).length);
@@ -77,9 +77,26 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
     // vacía después de cada pago para que el próximo pedido del mismo cliente
     // no se mezcle con el anterior), así que el Monto Total de la fila es la
     // suma de todos ellos, no un valor único.
+    // Mismo criterio de suma que montoTotal para subtotal/costo_envio, pero
+    // con una salvedad: pedidos guardados ANTES de la migración que agregó
+    // esas columnas tienen ambas en NULL (no hay forma de reconstruirlas), así
+    // que si algún pedido de la conversación no las tiene, se deja el
+    // desglose entero en null para esa fila en vez de mostrar una suma
+    // parcial engañosa — el Monto Total (que sí viene de "total") no se ve
+    // afectado.
     const montoPorConversacion = {};
+    const subtotalPorConversacion = {};
+    const envioPorConversacion = {};
+    const desgloseCompletoPorConversacion = {};
     (pedidos || []).forEach(p => {
       montoPorConversacion[p.conversation_id] = (montoPorConversacion[p.conversation_id] || 0) + Number(p.total || 0);
+      if (p.subtotal == null || p.costo_envio == null) {
+        desgloseCompletoPorConversacion[p.conversation_id] = false;
+      } else {
+        subtotalPorConversacion[p.conversation_id] = (subtotalPorConversacion[p.conversation_id] || 0) + Number(p.subtotal);
+        envioPorConversacion[p.conversation_id] = (envioPorConversacion[p.conversation_id] || 0) + Number(p.costo_envio);
+        if (desgloseCompletoPorConversacion[p.conversation_id] === undefined) desgloseCompletoPorConversacion[p.conversation_id] = true;
+      }
     });
     console.log('🔍 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — montoPorConversacion construido, entradas:', Object.keys(montoPorConversacion).length);
 
@@ -124,6 +141,8 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
         montoTotal: montoPorConversacion[c.id] !== undefined
           ? montoPorConversacion[c.id]
           : (c.sale_amount != null ? Number(c.sale_amount) : null),
+        subtotal: desgloseCompletoPorConversacion[c.id] ? subtotalPorConversacion[c.id] : null,
+        costoEnvio: desgloseCompletoPorConversacion[c.id] ? envioPorConversacion[c.id] : null,
         medioPago: c.payment_method || '',
         comprobanteUrl: agg.comprobanteUrl,
         recetaUrl: agg.recetaUrl,
