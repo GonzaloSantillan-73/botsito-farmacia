@@ -5,8 +5,11 @@ import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import { tagMessage, aplicarTagLocal } from '../lib/tagMessage';
 import { alertDialog } from '../lib/dialogService';
+import { isAdminRole } from '../lib/adminAuth';
+import { usePurgeMedia } from '../lib/usePurgeMedia';
 import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import MessageBubble from './MessageBubble';
+import AdminPasswordActionModal from './AdminPasswordActionModal';
 
 // Trazabilidad de solo lectura de UNA consulta puntual: se abre desde el
 // modal de "Ver" de una barra de Métricas (ver MetricsBucketModal.jsx),
@@ -18,6 +21,8 @@ export default function ChatTraceModal({ conversation, onClose }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [taggingId, setTaggingId] = useState(null);
+  const soyAdmin = isAdminRole();
+  const { purgeTarget, setPurgeTarget, handlePurgeFile } = usePurgeMedia(setMessages);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,11 +99,24 @@ export default function ChatTraceModal({ conversation, onClose }) {
                 onImageClick={(m) => { window.open(m.media_url, '_blank', 'noopener,noreferrer'); }}
                 onTag={handleTagMessage}
                 taggingId={taggingId}
+                canModerate={soyAdmin}
+                onPurgeFile={(m) => { setPurgeTarget(m); }}
+                purgingId={purgeTarget?.id}
               />
             ))
           )}
         </div>
       </div>
+
+      <AdminPasswordActionModal
+        isOpen={!!purgeTarget}
+        onClose={() => { setPurgeTarget(null); }}
+        title="Eliminar archivo"
+        description="El archivo se borra del servidor y se reemplaza por un aviso con el motivo. Esta acción no se puede deshacer."
+        motivoPlaceholder="Motivo de la eliminación..."
+        confirmLabel="Eliminar archivo"
+        onConfirm={(motivo, password) => handlePurgeFile(purgeTarget, motivo, password)}
+      />
     </div>,
     document.body
   );

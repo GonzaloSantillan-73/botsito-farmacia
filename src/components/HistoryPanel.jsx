@@ -1,14 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, History, FileText } from 'lucide-react';
+import { X, History, FileText, ShieldOff } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { adminFetch } from '../lib/adminAuth';
+import { adminFetch, isAdminRole } from '../lib/adminAuth';
 import { tagMessage, aplicarTagLocal } from '../lib/tagMessage';
+import { usePurgeMedia } from '../lib/usePurgeMedia';
 import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import ClientHistoryList from './ClientHistoryList';
-import { AttachmentTagControls, parseLocationMessage, extraerLinkDeMaps, LocationCard, MapsLinkPreview } from './MessageBubble';
+import { AttachmentTagControls, PurgeMediaControl, parseLocationMessage, extraerLinkDeMaps, LocationCard, MapsLinkPreview } from './MessageBubble';
+import AdminPasswordActionModal from './AdminPasswordActionModal';
 import { alertDialog } from '../lib/dialogService';
 import { renderWhatsAppText } from '../lib/whatsappFormat';
+
+// Mismas etiquetas que MessageBubble.jsx (TIPO_ARCHIVO_LABELS), para el
+// placeholder de "archivo eliminado" tras una purga hecha desde acá.
+const TIPO_ARCHIVO_LABELS = {
+  image: 'Imagen',
+  video: 'Video',
+  audio: 'Audio',
+  document: 'Documento',
+  pdf: 'PDF'
+};
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -34,6 +46,8 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [taggingId, setTaggingId] = useState(null);
+  const soyAdmin = isAdminRole();
+  const { purgeTarget, setPurgeTarget, handlePurgeFile } = usePurgeMedia(setSelectedMessages);
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -190,6 +204,18 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
                           Ver documento adjunto
                         </a>
                       )}
+                      {msg.deleted_reason && (
+                        // Mismo placeholder que MessageBubble.jsx para un archivo
+                        // purgado por el admin (acá también se puede disparar la
+                        // purga, ver PurgeMediaControl más abajo).
+                        <div className="mb-1.5 flex items-start gap-2 p-2.5 rounded-lg bg-red-950 border border-red-900 text-white">
+                          <ShieldOff size={16} className="shrink-0 mt-0.5" />
+                          <div className="text-xs">
+                            <span className="font-semibold block mb-0.5">{TIPO_ARCHIVO_LABELS[msg.media_type] || 'Archivo'} eliminado</span>
+                            {msg.deleted_reason}
+                          </div>
+                        </div>
+                      )}
                       {!location && (
                         linkDeMaps ? (
                           <MapsLinkPreview url={linkDeMaps} senderType={msg.sender_type} texto={msg.message_text} />
@@ -199,8 +225,17 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
                           </p>
                         )
                       )}
-                      {msg.sender_type === 'client' && msg.media_url && (
-                        <AttachmentTagControls msg={msg} onTag={handleTagMessage} tagging={taggingId === msg.id} />
+                      {msg.media_url && (soyAdmin || msg.sender_type === 'client') && (
+                        // Columna, purga arriba de la marca de comprobante/receta
+                        // — mismo criterio que MessageBubble.jsx.
+                        <div className="flex flex-col items-start gap-1.5">
+                          {soyAdmin && (
+                            <PurgeMediaControl msg={msg} onPurge={(m) => { setPurgeTarget(m); }} purging={purgeTarget?.id === msg.id} />
+                          )}
+                          {msg.sender_type === 'client' && (
+                            <AttachmentTagControls msg={msg} onTag={handleTagMessage} tagging={taggingId === msg.id} />
+                          )}
+                        </div>
                       )}
                       <span className={`text-[10px] block mt-1 text-right ${msg.sender_type === 'client' ? 'text-gray-400 dark:text-gray-500' : 'text-teal-100'}`}>
                         {new Date(msg.created_at).toLocaleString('es-AR', { hour: '2-digit', minute: '2-digit' })}
@@ -214,6 +249,16 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
           </div>
         </div>
       </div>
+
+      <AdminPasswordActionModal
+        isOpen={!!purgeTarget}
+        onClose={() => { setPurgeTarget(null); }}
+        title="Eliminar archivo"
+        description="El archivo se borra del servidor y se reemplaza por un aviso con el motivo. Esta acción no se puede deshacer."
+        motivoPlaceholder="Motivo de la eliminación..."
+        confirmLabel="Eliminar archivo"
+        onConfirm={(motivo, password) => handlePurgeFile(purgeTarget, motivo, password)}
+      />
     </div>,
     document.body
   );
