@@ -37,12 +37,18 @@ export const checkExpiredSessions = async () => {
   const timestampInicio = new Date().toISOString();
   console.log('⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — corrida iniciada en:', timestampInicio);
   try {
-    console.log('📡 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — SELECT conversations, filtros: status NOT IN (', TERMINAL_STATUSES.join(','), ')');
+    console.log('📡 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — SELECT conversations, filtros: status NOT IN (', TERMINAL_STATUSES.join(','), ') AND status != esperando');
+    // 'esperando' (derivada a un humano, tomada o no por una sucursal) queda
+    // afuera de este chequeo a propósito: una vez que un asesor humano entra
+    // en la conversación, el cierre por inactividad ya no es una decisión
+    // del bot — que un operador tarde en responder no debe disparar el aviso
+    // automático "¿Seguís ahí?" ni cerrar la consulta sola.
     const [{ data: activeConvs, error }, sessionTimeoutMs, sessionPrewarningMs] = await Promise.all([
       supabase
         .from('conversations')
         .select('id, client_phone, status, created_at, prewarning_sent_at, payment_status, sale_status')
-        .not('status', 'in', `(${TERMINAL_STATUSES.join(',')})`),
+        .not('status', 'in', `(${TERMINAL_STATUSES.join(',')})`)
+        .neq('status', 'esperando'),
       getSessionTimeoutMs(),
       getSessionPrewarningMs()
     ]);

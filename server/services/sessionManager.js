@@ -83,6 +83,18 @@ export const findOrCreateSession = async (clientPhone, clientName) => {
       console.log('🔍 [DEBUG-SERVICE-SESSIONMANAGER] findOrCreateSession() — latest.status:', latest.status, 'isTerminal:', isTerminal);
 
       if (!isTerminal) {
+        // 'esperando' (derivada a un humano) es inmune al timeout automático,
+        // mismo criterio que sessionExpiryChecker.js: se reutiliza siempre,
+        // sin importar cuánto tiempo pasó desde el último mensaje, para no
+        // cerrarla sola ni arrancar una consulta nueva mientras un asesor la
+        // está atendiendo (o está en cola para que alguno la tome).
+        if (latest.status === 'esperando') {
+          console.log('🔍 [DEBUG-SERVICE-SESSIONMANAGER] findOrCreateSession() — CAMBIO DE ESTADO — ninguno: conversación en "esperando" (derivada a humano), inmune al timeout, se reutiliza', latest.id);
+          console.log(`[SESSION] Consulta activa reutilizada (derivada a humano, inmune a timeout): ${latest.id}`);
+          const resultado = { conversation: latest, isNewSession: false };
+          console.log('✅ [DEBUG-SERVICE-SESSIONMANAGER] findOrCreateSession() — resultado a devolver:', resultado);
+          return resultado;
+        }
         const expired = await isSessionExpired(latest);
         console.log('🔍 [DEBUG-SERVICE-SESSIONMANAGER] findOrCreateSession() — expired:', expired);
         if (!expired) {

@@ -326,15 +326,23 @@ export default function ChatArea({
   // "toca" a la sucursal): si el último mensaje real lo mandó la sucursal,
   // el bot o el sistema, se muestra "--:--" en vez de una cuenta regresiva,
   // porque no hay inactividad que penalizar del lado de la sucursal todavía.
+  // 'esperando' (derivada a un humano) está siempre pausado, sin importar
+  // quién escribió último: coincide con que el backend (sessionExpiryChecker
+  // y sessionManager) ya no cierra sola ninguna consulta en ese status, así
+  // que mostrar una cuenta regresiva ahí sería mentirle al operador.
   let remainingMs = null;
   let timerPausedByClient = false;
   const showExpiryBadge = !!(activeConversation && !isConversacionCerrada && sessionTimeoutMs != null);
   if (showExpiryBadge) {
-    const lastMessage = getLastRealMessage(messages);
-    if (!lastMessage || lastMessage.sender_type === 'client') {
+    if (activeConversation.status === 'esperando') {
       timerPausedByClient = true;
     } else {
-      remainingMs = sessionTimeoutMs - (now - new Date(lastMessage.created_at).getTime());
+      const lastMessage = getLastRealMessage(messages);
+      if (!lastMessage || lastMessage.sender_type === 'client') {
+        timerPausedByClient = true;
+      } else {
+        remainingMs = sessionTimeoutMs - (now - new Date(lastMessage.created_at).getTime());
+      }
     }
   }
 
@@ -505,7 +513,13 @@ export default function ChatArea({
 
             {showExpiryBadge && (
               <div
-                title={timerPausedByClient ? 'El cliente escribió el último mensaje: el contador arranca cuando la sucursal responda' : 'Tiempo restante antes de que la consulta se cierre por inactividad'}
+                title={
+                  activeConversation.status === 'esperando'
+                    ? 'Consulta derivada a un humano: el cierre automático por inactividad está desactivado'
+                    : timerPausedByClient
+                      ? 'El cliente escribió el último mensaje: el contador arranca cuando la sucursal responda'
+                      : 'Tiempo restante antes de que la consulta se cierre por inactividad'
+                }
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold tabular-nums transition-colors shrink-0 ${
                   timerPausedByClient || remainingMs <= 0
                     ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
