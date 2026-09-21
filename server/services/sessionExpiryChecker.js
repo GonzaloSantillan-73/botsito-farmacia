@@ -41,7 +41,7 @@ export const checkExpiredSessions = async () => {
     const [{ data: activeConvs, error }, sessionTimeoutMs, sessionPrewarningMs] = await Promise.all([
       supabase
         .from('conversations')
-        .select('id, client_phone, status, created_at, prewarning_sent_at')
+        .select('id, client_phone, status, created_at, prewarning_sent_at, payment_status, sale_status')
         .not('status', 'in', `(${TERMINAL_STATUSES.join(',')})`),
       getSessionTimeoutMs(),
       getSessionPrewarningMs()
@@ -91,10 +91,19 @@ export const checkExpiredSessions = async () => {
 
         proximoChequeoMs = Math.min(proximoChequeoMs, restanteMs);
 
-        if (sessionPrewarningMs > 0 && !conv.prewarning_sent_at && restanteMs <= sessionPrewarningMs) {
+        // No tiene sentido preguntarle "¿seguís ahí?" a alguien que ya pagó o
+        // cuya venta ya se concretó: el pedido sigue su curso aunque el
+        // cliente no vuelva a escribir, así que ese aviso solo generaría
+        // ruido. La consulta igual puede cerrarse sola por inactividad más
+        // arriba; esto sólo frena el mensaje.
+        const pedidoYaResuelto = conv.payment_status === 'confirmado' || conv.sale_status === 'concretada';
+
+        if (sessionPrewarningMs > 0 && !conv.prewarning_sent_at && restanteMs <= sessionPrewarningMs && !pedidoYaResuelto) {
           console.log(`⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — PRE-AVISO — conversationId: ${conv.id}, restanteMs: ${restanteMs}, sessionPrewarningMs: ${sessionPrewarningMs}`);
           console.log(`[SESSION EXPIRY] Mandando aviso preventivo de inactividad a la consulta ${conv.id}.`);
           await enviarAvisoInactividad(conv.id, conv.client_phone);
+        } else if (sessionPrewarningMs > 0 && !conv.prewarning_sent_at && restanteMs <= sessionPrewarningMs && pedidoYaResuelto) {
+          console.log(`⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — PRE-AVISO OMITIDO (pago confirmado o venta concretada) — conversationId: ${conv.id}`);
         }
       } catch (err) {
         // Una falla acá en una conversación (ej. error de la API de Meta) no debe frenar el chequeo del resto
