@@ -95,12 +95,18 @@ export const playAlertSound = () => {
 // Punto de entrada único: lee las preferencias guardadas y dispara lo que
 // corresponda. Se usa desde el listener de Realtime en App.jsx.
 //
-// El sonido operativo (chat nuevo, mensaje entrante, cliente esperando)
-// nunca se puede silenciar para una cuenta de sucursal (staff): sólo el
-// admin puede mutear el suyo desde NotificationsPanel.jsx. Las notificaciones
-// de escritorio sí siguen la preferencia guardada para cualquier rol.
+// Ninguna alerta operativa (sonido ni notificación de escritorio) se puede
+// silenciar para una cuenta de sucursal: sólo el admin puede mutear las
+// suyas desde NotificationsPanel.jsx. Es a propósito, porque las dos
+// preferencias viven en un único localStorage por NAVEGADOR (no por cuenta,
+// ver STORAGE_KEY arriba) — si un admin y una sucursal comparten equipo, un
+// mute del admin no debe dejar sordo/mudo al staff en ese mismo browser. La
+// notificación de escritorio igual depende del permiso del navegador
+// (ver showDesktopNotification): si nunca se concedió, no hay forma de
+// forzarla desde acá.
 export const notifyNewEvent = ({ title, body }) => {
   const prefs = getNotificationPrefs();
-  if (prefs.sound || !isAdminRole()) playAlertSound();
-  if (prefs.desktop) showDesktopNotification(title, body);
+  const esAdmin = isAdminRole();
+  if (prefs.sound || !esAdmin) playAlertSound();
+  if (prefs.desktop || !esAdmin) showDesktopNotification(title, body);
 };
