@@ -4,12 +4,18 @@ import StarRating from './StarRating';
 
 const formatMoney = (n) => (n == null ? '—' : `$${Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`);
 
-// El negocio quiere esta columna binaria a propósito: "Venta concretada" es
-// el ÚNICO valor positivo (sale_status === 'concretada'); cualquier otra
-// cosa — no concretada, otra razón, o todavía sin marcar — cae en "Solo
-// consulta". Misma normalización que en server/routes/api.js (export a
-// XLSX): si se cambia acá, cambiar también ahí.
-const estadoContacto = (saleStatus) => (saleStatus === 'concretada' ? 'Venta concretada' : 'Solo consulta');
+// El negocio quiere "Venta concretada" como el ÚNICO valor positivo
+// (sale_status === 'concretada') y "Reportado" como el único negativo que
+// amerita su propio texto (sale_status === 'reportado', ver
+// CloseChatModal.jsx); cualquier otra cosa — no concretada, otra razón
+// (legado), o todavía sin marcar — cae en "Solo consulta". Misma
+// normalización que en server/routes/api.js (export a XLSX): si se cambia
+// acá, cambiar también ahí.
+const estadoContacto = (saleStatus) => {
+  if (saleStatus === 'concretada') return 'Venta concretada';
+  if (saleStatus === 'reportado') return 'Reportado';
+  return 'Solo consulta';
+};
 
 const formatDuracion = (ms) => {
   if (ms == null || ms < 0) return '—';
@@ -40,10 +46,15 @@ export const DETAIL_COLUMNS = [
     label: 'Estado del Contacto',
     sortValue: r => estadoContacto(r.saleStatus),
     render: r => {
-      const esVenta = r.saleStatus === 'concretada';
-      const className = esVenta
+      // Fondo rojo sólido para "Reportado" a propósito (no el mismo tono
+      // suave que el resto de los badges): tiene que resaltar de un vistazo
+      // en la tabla, misma lógica que SALE_STATUS_BADGES.reportado en
+      // Sidebar.jsx.
+      const className = r.saleStatus === 'concretada'
         ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-400'
-        : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400';
+        : r.saleStatus === 'reportado'
+          ? 'bg-red-600 dark:bg-red-700 text-white'
+          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400';
       return (
         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium whitespace-nowrap ${className}`}>{estadoContacto(r.saleStatus)}</span>
       );
