@@ -37,18 +37,12 @@ export const checkExpiredSessions = async () => {
   const timestampInicio = new Date().toISOString();
   console.log('⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — corrida iniciada en:', timestampInicio);
   try {
-    console.log('📡 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — SELECT conversations, filtros: status NOT IN (', TERMINAL_STATUSES.join(','), ') AND status != esperando');
-    // 'esperando' (derivada a un humano, tomada o no por una sucursal) queda
-    // afuera de este chequeo a propósito: una vez que un asesor humano entra
-    // en la conversación, el cierre por inactividad ya no es una decisión
-    // del bot — que un operador tarde en responder no debe disparar el aviso
-    // automático "¿Seguís ahí?" ni cerrar la consulta sola.
+    console.log('📡 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — SELECT conversations, filtros: status NOT IN (', TERMINAL_STATUSES.join(','), ')');
     const [{ data: activeConvs, error }, sessionTimeoutMs, sessionPrewarningMs] = await Promise.all([
       supabase
         .from('conversations')
-        .select('id, client_phone, status, created_at, prewarning_sent_at, payment_status, sale_status')
-        .not('status', 'in', `(${TERMINAL_STATUSES.join(',')})`)
-        .neq('status', 'esperando'),
+        .select('id, client_phone, status, sucursal_id, bot_state, created_at, prewarning_sent_at, payment_status, sale_status')
+        .not('status', 'in', `(${TERMINAL_STATUSES.join(',')})`),
       getSessionTimeoutMs(),
       getSessionPrewarningMs()
     ]);
@@ -68,13 +62,22 @@ export const checkExpiredSessions = async () => {
 
     for (const conv of activeConvs || []) {
       try {
+        // 'esperando' sin sucursal asignada = cola general: inmune por completo
+        // al timeout, sin importar quién escribió último (mismo criterio que
+        // ChatArea.jsx en el frontend). No hace falta ni consultar `messages`.
+        const enColaGeneralSinAsignar = conv.status === 'esperando' && !conv.sucursal_id;
+        if (enColaGeneralSinAsignar) {
+          console.log('⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — INMUNE (en_espera sin sucursal asignada) — conversationId:', conv.id);
+          continue;
+        }
+
         console.log('📡 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — SELECT messages, filtros: { conversation_id:', conv.id, ', is_auto_reminder: false }, order created_at desc, limit 1');
         // is_auto_reminder=false: el propio aviso "¿Seguís ahí?" no cuenta como
         // actividad para este cálculo, si no cada aviso reiniciaría el conteo
         // que lo disparó y la conversación jamás llegaría a cerrarse sola.
         const { data: lastMsg, error: lastMsgError } = await supabase
           .from('messages')
-          .select('created_at')
+          .select('sender_type, created_at')
           .eq('conversation_id', conv.id)
           .eq('is_auto_reminder', false)
           .order('created_at', { ascending: false })
@@ -82,7 +85,26 @@ export const checkExpiredSessions = async () => {
           .maybeSingle();
         console.log('📡 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — resultado SELECT messages — data:', lastMsg, 'error:', lastMsgError);
 
-        const lastActivity = lastMsg?.created_at || conv.created_at;
+        // Modo bot pidiendo la ubicación del cliente para derivarlo (ver
+        // manejarUbicacionHumano en bot.js): inmune hasta que el bot procese
+        // la respuesta y salga de ese paso (bot_state deja de ser este valor).
+        // Sólo aplica en modo bot — una vez derivada (status 'esperando') este
+        // campo puede quedar pisado/obsoleto y ya no se usa (ver tomarConsulta.js).
+        if (conv.status !== 'esperando' && conv.bot_state === 'esperando_ubicacion') {
+          console.log('⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — INMUNE (bot pidiendo ubicación) — conversationId:', conv.id);
+          continue;
+        }
+
+        // El timeout de cierre/aviso sólo tiene sentido cuando la respuesta
+        // pendiente es la del cliente (el bot o la sucursal ya le "tiraron la
+        // pelota"). Si el último mensaje real es del cliente (o todavía no
+        // escribió nadie), no hay inactividad que penalizar de su lado.
+        if (!lastMsg || lastMsg.sender_type === 'client') {
+          console.log('⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — INMUNE (último mensaje real es del cliente, o no hay mensajes) — conversationId:', conv.id);
+          continue;
+        }
+
+        const lastActivity = lastMsg.created_at;
         const elapsedMs = Date.now() - new Date(lastActivity).getTime();
         const restanteMs = sessionTimeoutMs - elapsedMs;
         console.log('⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — conversationId:', conv.id, 'lastActivity:', lastActivity, 'elapsedMs:', elapsedMs, 'restanteMs:', restanteMs);

@@ -322,24 +322,31 @@ export default function ChatArea({
   // de poder escribirle a un cliente de la cola general.
   const miSucursalId = getStaffSucursalId();
   const requiereTomarParaResponder = estaEnColaGeneral && !soyAdmin;
-  // El contador sólo corre cuando la respuesta pendiente es del cliente (le
-  // "toca" a la sucursal): si el último mensaje real lo mandó la sucursal,
-  // el bot o el sistema, se muestra "--:--" en vez de una cuenta regresiva,
-  // porque no hay inactividad que penalizar del lado de la sucursal todavía.
-  // 'esperando' (derivada a un humano) está siempre pausado, sin importar
-  // quién escribió último: coincide con que el backend (sessionExpiryChecker
-  // y sessionManager) ya no cierra sola ninguna consulta en ese status, así
-  // que mostrar una cuenta regresiva ahí sería mentirle al operador.
+  // Matriz de timeout (bot / en espera / sucursal) — mismo criterio, en el
+  // mismo orden, que server/services/sessionExpiryChecker.js:
+  // 1. En espera SIN sucursal asignada (cola general): siempre pausado.
+  // 2. Bot pidiendo la ubicación del cliente para derivarlo (bot_state):
+  //    pausado hasta que el bot procese la respuesta y salga de ese paso.
+  // 3. Resto (modo bot ya respondido, o ya asignado a una sucursal): corre
+  //    sólo si el último mensaje real es saliente (bot o sucursal) — si es
+  //    del cliente, la pelota está del lado nuestro y no hay inactividad que
+  //    penalizarle todavía.
   let remainingMs = null;
   let timerPausedByClient = false;
+  let timerPauseReason = null; // 'en_espera' | 'bot_ubicacion' | 'client' | null
   const showExpiryBadge = !!(activeConversation && !isConversacionCerrada && sessionTimeoutMs != null);
   if (showExpiryBadge) {
-    if (activeConversation.status === 'esperando') {
+    if (activeConversation.status === 'esperando' && !activeConversation.sucursal_id) {
       timerPausedByClient = true;
+      timerPauseReason = 'en_espera';
+    } else if (activeConversation.status !== 'esperando' && activeConversation.bot_state === 'esperando_ubicacion') {
+      timerPausedByClient = true;
+      timerPauseReason = 'bot_ubicacion';
     } else {
       const lastMessage = getLastRealMessage(messages);
       if (!lastMessage || lastMessage.sender_type === 'client') {
         timerPausedByClient = true;
+        timerPauseReason = 'client';
       } else {
         remainingMs = sessionTimeoutMs - (now - new Date(lastMessage.created_at).getTime());
       }
@@ -514,11 +521,13 @@ export default function ChatArea({
             {showExpiryBadge && (
               <div
                 title={
-                  activeConversation.status === 'esperando'
-                    ? 'Consulta derivada a un humano: el cierre automático por inactividad está desactivado'
-                    : timerPausedByClient
-                      ? 'El cliente escribió el último mensaje: el contador arranca cuando la sucursal responda'
-                      : 'Tiempo restante antes de que la consulta se cierre por inactividad'
+                  timerPauseReason === 'en_espera'
+                    ? 'Consulta en la cola general, sin asignar: el cierre automático por inactividad está desactivado'
+                    : timerPauseReason === 'bot_ubicacion'
+                      ? 'Esperando que el cliente comparta su ubicación'
+                      : timerPauseReason === 'client'
+                        ? 'El cliente escribió el último mensaje: el contador arranca cuando la sucursal responda'
+                        : 'Tiempo restante antes de que la consulta se cierre por inactividad'
                 }
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold tabular-nums transition-colors shrink-0 ${
                   timerPausedByClient || remainingMs <= 0
