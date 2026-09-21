@@ -47,9 +47,12 @@ const formatDateDivider = (iso) => {
 // Mismo criterio que el backend (server/services/sessionExpiryChecker.js):
 // el aviso automático "¿Seguís ahí?" no cuenta como actividad real, para que
 // el contador en pantalla siga bajando exactamente igual que el que decide
-// el cierre del lado del servidor.
+// el cierre del lado del servidor. Las notas 'system' (devolución a la cola,
+// derivación directa entre sucursales, ver devolucionCola.js/derivacionSucursal.js)
+// tampoco cuentan: son texto interno de timeline, nunca se le mandan al
+// cliente, así que no son ni "el bot/la sucursal respondió" ni "el cliente escribió".
 const getLastRealMessage = (messages) => {
-  const reales = (messages || []).filter(m => !m.is_auto_reminder);
+  const reales = (messages || []).filter(m => !m.is_auto_reminder && m.sender_type !== 'system');
   if (reales.length === 0) return null;
   return reales.reduce((latest, m) => (new Date(m.created_at) > new Date(latest.created_at) ? m : latest), reales[0]);
 };
@@ -92,6 +95,11 @@ export default function ChatArea({
   const [showOrderHistory, setShowOrderHistory] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [now, setNow] = useState(Date.now());
+  // Desde cuándo la sucursal ACTUALMENTE asignada tiene este chat (fila más
+  // reciente de conversation_sucursal_historial): sirve para no confundir un
+  // mensaje saliente de una sucursal/atención ANTERIOR con una respuesta
+  // vigente de quien lo tiene ahora, ver el cálculo de remainingMs más abajo.
+  const [sucursalAssignedSince, setSucursalAssignedSince] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
   const [taggingId, setTaggingId] = useState(null);
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
@@ -164,6 +172,33 @@ export default function ChatArea({
       clearInterval(interval);
     };
   }, []);
+
+  // Trae cuándo empezó la asignación vigente a la sucursal actual (si hay
+  // una). Se vuelve a pedir cada vez que cambia el chat activo o a qué
+  // sucursal está asignado (derivación directa, toma desde la cola,
+  // devolución), para no arrastrar el timestamp del chat/asignación anterior.
+  useEffect(() => {
+    let cancelado = false;
+    setSucursalAssignedSince(null);
+    if (activeConversation?.id && activeConversation?.sucursal_id) {
+      supabase
+        .from('conversation_sucursal_historial')
+        .select('created_at')
+        .eq('conversation_id', activeConversation.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data, error }) => {
+          if (cancelado) return;
+          if (error) {
+            console.error('❌ [DEBUG-COMPONENT-ChatArea] Error trayendo conversation_sucursal_historial:', error);
+            return;
+          }
+          setSucursalAssignedSince(data?.created_at || null);
+        });
+    }
+    return () => { cancelado = true; };
+  }, [activeConversation?.id, activeConversation?.sucursal_id]);
 
   // Trae las plantillas cada vez que se abre el menú, para reflejar cambios
   // hechos en Configuración sin necesidad de recargar la página.
@@ -331,11 +366,17 @@ export default function ChatArea({
   //    sólo si el último mensaje real es saliente (bot o sucursal) — si es
   //    del cliente, la pelota está del lado nuestro y no hay inactividad que
   //    penalizarle todavía.
+  // 4. Recién derivada/reasignada a una sucursal (tomada de la cola, o
+  //    pasada directamente de otra sucursal): aunque el último mensaje sea
+  //    saliente, si es de ANTES de que esta sucursal se hiciera cargo
+  //    (sucursalAssignedSince, ver conversation_sucursal_historial) todavía
+  //    no cuenta como que la sucursal actual ya respondió.
   let remainingMs = null;
   let timerPausedByClient = false;
-  let timerPauseReason = null; // 'en_espera' | 'bot_ubicacion' | 'client' | null
+  let timerPauseReason = null; // 'en_espera' | 'bot_ubicacion' | 'client' | 'reasignado' | null
   const showExpiryBadge = !!(activeConversation && !isConversacionCerrada && sessionTimeoutMs != null);
   if (showExpiryBadge) {
+    const asignadaASucursal = activeConversation.status === 'esperando' && !!activeConversation.sucursal_id;
     if (activeConversation.status === 'esperando' && !activeConversation.sucursal_id) {
       timerPausedByClient = true;
       timerPauseReason = 'en_espera';
@@ -347,6 +388,9 @@ export default function ChatArea({
       if (!lastMessage || lastMessage.sender_type === 'client') {
         timerPausedByClient = true;
         timerPauseReason = 'client';
+      } else if (asignadaASucursal && sucursalAssignedSince && new Date(lastMessage.created_at) <= new Date(sucursalAssignedSince)) {
+        timerPausedByClient = true;
+        timerPauseReason = 'reasignado';
       } else {
         remainingMs = sessionTimeoutMs - (now - new Date(lastMessage.created_at).getTime());
       }
@@ -525,9 +569,11 @@ export default function ChatArea({
                     ? 'Consulta en la cola general, sin asignar: el cierre automático por inactividad está desactivado'
                     : timerPauseReason === 'bot_ubicacion'
                       ? 'Esperando que el cliente comparta su ubicación'
-                      : timerPauseReason === 'client'
-                        ? 'El cliente escribió el último mensaje: el contador arranca cuando la sucursal responda'
-                        : 'Tiempo restante antes de que la consulta se cierre por inactividad'
+                      : timerPauseReason === 'reasignado'
+                        ? 'Chat recién derivado/reasignado: el contador arranca cuando esta sucursal responda'
+                        : timerPauseReason === 'client'
+                          ? 'El cliente escribió el último mensaje: el contador arranca cuando la sucursal responda'
+                          : 'Tiempo restante antes de que la consulta se cierre por inactividad'
                 }
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold tabular-nums transition-colors shrink-0 ${
                   timerPausedByClient || remainingMs <= 0

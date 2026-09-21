@@ -71,15 +71,19 @@ export const checkExpiredSessions = async () => {
           continue;
         }
 
-        console.log('📡 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — SELECT messages, filtros: { conversation_id:', conv.id, ', is_auto_reminder: false }, order created_at desc, limit 1');
+        console.log('📡 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — SELECT messages, filtros: { conversation_id:', conv.id, ', is_auto_reminder: false, sender_type != system }, order created_at desc, limit 1');
         // is_auto_reminder=false: el propio aviso "¿Seguís ahí?" no cuenta como
         // actividad para este cálculo, si no cada aviso reiniciaría el conteo
         // que lo disparó y la conversación jamás llegaría a cerrarse sola.
+        // sender_type != 'system': notas internas de timeline (devolución a la
+        // cola, derivación directa entre sucursales) que nunca se le mandan al
+        // cliente — no son ni "respondió la sucursal" ni "escribió el cliente".
         const { data: lastMsg, error: lastMsgError } = await supabase
           .from('messages')
           .select('sender_type, created_at')
           .eq('conversation_id', conv.id)
           .eq('is_auto_reminder', false)
+          .neq('sender_type', 'system')
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -102,6 +106,30 @@ export const checkExpiredSessions = async () => {
         if (!lastMsg || lastMsg.sender_type === 'client') {
           console.log('⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — INMUNE (último mensaje real es del cliente, o no hay mensajes) — conversationId:', conv.id);
           continue;
+        }
+
+        // Recién derivada/reasignada a una sucursal (tomada de la cola, o
+        // pasada directamente de otra): un mensaje saliente de ANTES de que
+        // esta sucursal se hiciera cargo (ej. de la sucursal anterior) no
+        // cuenta como que la sucursal ACTUAL ya respondió. Se compara contra
+        // la fila más reciente de conversation_sucursal_historial para esta
+        // conversación, que tomarConsulta.js/derivacionSucursal.js insertan
+        // justo después de confirmar la asignación.
+        const asignadaASucursal = conv.status === 'esperando' && !!conv.sucursal_id;
+        if (asignadaASucursal) {
+          const { data: ultimaAsignacion, error: histError } = await supabase
+            .from('conversation_sucursal_historial')
+            .select('created_at')
+            .eq('conversation_id', conv.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (histError) {
+            console.error('❌ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — error SELECT conversation_sucursal_historial (se sigue sin el gate de reasignación):', histError);
+          } else if (ultimaAsignacion?.created_at && new Date(lastMsg.created_at) <= new Date(ultimaAsignacion.created_at)) {
+            console.log('⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — INMUNE (reasignada, sin respuesta vigente de la sucursal actual) — conversationId:', conv.id, 'asignada desde:', ultimaAsignacion.created_at, 'último mensaje saliente:', lastMsg.created_at);
+            continue;
+          }
         }
 
         const lastActivity = lastMsg.created_at;
