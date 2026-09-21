@@ -403,7 +403,38 @@ function App() {
           // estado "bloqueado" ahí mismo).
           if (payload.eventType === 'DELETE') {
             const phone = payload.old?.client_phone;
-            if (phone) telefonosBloqueadosRef.current.delete(phone);
+            if (!phone) return;
+            telefonosBloqueadosRef.current.delete(phone);
+            // Mientras estuvo bloqueado, cualquier chat activo de este
+            // cliente se filtró de las bandejas (ver el branch de abajo y
+            // fetchConversations); al desbloquearlo hay que traerlo de
+            // vuelta acá mismo, sin esperar a un F5 ni a que el cliente
+            // escriba de nuevo (eso recién dispararía un UPDATE/INSERT).
+            (async () => {
+              const { data, error } = await supabase
+                .from('conversations')
+                .select('*')
+                .eq('client_phone', phone)
+                .not('status', 'in', `(${ESTADOS_HISTORIAL.join(',')})`);
+              if (error) {
+                console.error('❌ [DEBUG-COMPONENT-App] error trayendo conversaciones activas al desbloquear:', error);
+                return;
+              }
+              // perteneceAMiAmbito ya no encuentra este teléfono en
+              // telefonosBloqueadosRef (se sacó arriba), así que acá sólo
+              // vuelve a aplicar el recorte por sucursal de siempre.
+              const propias = (data || []).filter(perteneceAMiAmbito);
+              if (propias.length === 0) return;
+              const enhanced = await withClientNames(propias);
+              const conHistorial = await withSucursalesHistorial(enhanced);
+              const conUnread = await withUnreadCounts(conHistorial);
+              setConversations(prev => {
+                const idsExistentes = new Set(prev.map(c => c.id));
+                const nuevas = conUnread.filter(c => !idsExistentes.has(c.id));
+                if (nuevas.length === 0) return prev;
+                return [...nuevas, ...prev].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+              });
+            })();
             return;
           }
           const phone = payload.new?.client_phone;
