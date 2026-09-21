@@ -70,16 +70,9 @@ function App() {
     ambitoRef.current = { soyStaff, miSucursalId };
   }, [adminToken]);
 
-  // Teléfonos con bloqueo activo (ver supabase/moderacion_bloqueo_clientes.sql):
-  // se mantiene en un ref (no un state) porque sólo lo lee perteneceAMiAmbito,
-  // que corre dentro del callback de Realtime — no hace falta re-renderizar
-  // nada cuando cambia, sólo que el próximo chequeo lo vea actualizado.
-  const telefonosBloqueadosRef = useRef(new Set());
-
   const perteneceAMiAmbito = (conv) => {
     const { soyStaff: soy, miSucursalId: mi } = ambitoRef.current;
-    const noBloqueado = !telefonosBloqueadosRef.current.has(conv.client_phone);
-    const resultado = (!soy || !conv.sucursal_id || conv.sucursal_id === mi) && noBloqueado;
+    const resultado = !soy || !conv.sucursal_id || conv.sucursal_id === mi;
     return resultado;
   };
 
@@ -387,62 +380,6 @@ function App() {
           }
         }
       )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'clientes_bloqueados' },
-        (payload) => {
-          // Mantiene telefonosBloqueadosRef al día (lo usa perteneceAMiAmbito
-          // para los próximos INSERT/UPDATE de conversations que lleguen) y,
-          // si el admin acaba de bloquear a alguien que ya tenía un chat
-          // mostrándose en alguna bandeja, lo saca al toque — el mismo bug
-          // que se ve en la captura del reporte: el mensaje se sigue
-          // guardando (el webhook no le contesta nada), pero no tiene que
-          // seguir apareciendo en BOT/En espera/Mis chats. No se toca
-          // activeConversation: si es justo el chat reportado desde el que
-          // se bloqueó, el admin lo sigue viendo (ChatArea.jsx ya refleja el
-          // estado "bloqueado" ahí mismo).
-          if (payload.eventType === 'DELETE') {
-            const phone = payload.old?.client_phone;
-            if (!phone) return;
-            telefonosBloqueadosRef.current.delete(phone);
-            // Mientras estuvo bloqueado, cualquier chat activo de este
-            // cliente se filtró de las bandejas (ver el branch de abajo y
-            // fetchConversations); al desbloquearlo hay que traerlo de
-            // vuelta acá mismo, sin esperar a un F5 ni a que el cliente
-            // escriba de nuevo (eso recién dispararía un UPDATE/INSERT).
-            (async () => {
-              const { data, error } = await supabase
-                .from('conversations')
-                .select('*')
-                .eq('client_phone', phone)
-                .not('status', 'in', `(${ESTADOS_HISTORIAL.join(',')})`);
-              if (error) {
-                console.error('❌ [DEBUG-COMPONENT-App] error trayendo conversaciones activas al desbloquear:', error);
-                return;
-              }
-              // perteneceAMiAmbito ya no encuentra este teléfono en
-              // telefonosBloqueadosRef (se sacó arriba), así que acá sólo
-              // vuelve a aplicar el recorte por sucursal de siempre.
-              const propias = (data || []).filter(perteneceAMiAmbito);
-              if (propias.length === 0) return;
-              const enhanced = await withClientNames(propias);
-              const conHistorial = await withSucursalesHistorial(enhanced);
-              const conUnread = await withUnreadCounts(conHistorial);
-              setConversations(prev => {
-                const idsExistentes = new Set(prev.map(c => c.id));
-                const nuevas = conUnread.filter(c => !idsExistentes.has(c.id));
-                if (nuevas.length === 0) return prev;
-                return [...nuevas, ...prev].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-              });
-            })();
-            return;
-          }
-          const phone = payload.new?.client_phone;
-          if (!phone) return;
-          telefonosBloqueadosRef.current.add(phone);
-          setConversations(prev => prev.filter(c => c.client_phone !== phone));
-        }
-      )
       .subscribe();
 
 
@@ -514,27 +451,10 @@ function App() {
     if (soyStaff) {
       query = query.or(`sucursal_id.eq.${miSucursalId},sucursal_id.is.null`);
     }
-    // Se trae junto con las conversaciones (no antes/después): sirve tanto
-    // para filtrar este fetch como para refrescar telefonosBloqueadosRef, que
-    // usa perteneceAMiAmbito en los eventos de Realtime.
-    const [{ data, error }, { data: bloqueados, error: bloqueadosError }] = await Promise.all([
-      query.order('updated_at', { ascending: false }),
-      supabase.from('clientes_bloqueados').select('client_phone')
-    ]);
-
-    if (bloqueadosError) {
-      console.error('❌ [DEBUG-COMPONENT-App] error consultando clientes_bloqueados en fetchConversations:', bloqueadosError);
-    } else {
-      telefonosBloqueadosRef.current = new Set((bloqueados || []).map(b => b.client_phone));
-    }
+    const { data, error } = await query.order('updated_at', { ascending: false });
 
     if (!error && data) {
-      // Un cliente bloqueado no debe aparecer en ninguna bandeja operativa
-      // (BOT/En espera/Mis chats): sus mensajes se siguen guardando (ver
-      // server/routes/webhook.js), pero el bot no le contesta nada y no hay
-      // ninguna gestión que hacer sobre ese chat desde acá.
-      const sinBloqueados = data.filter(c => !telefonosBloqueadosRef.current.has(c.client_phone));
-      const enhanced = await withClientNames(sinBloqueados);
+      const enhanced = await withClientNames(data);
       const conHistorial = await withSucursalesHistorial(enhanced);
       const conUnread = await withUnreadCounts(conHistorial);
       setConversations(conUnread);

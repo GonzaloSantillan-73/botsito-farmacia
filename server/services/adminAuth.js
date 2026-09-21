@@ -86,26 +86,6 @@ export const verificarToken = (token) => {
   }
 };
 
-// Re-valida la contraseña de la cuenta actualmente logueada, sin cambiar
-// nada — para confirmaciones sensibles como bloquear un cliente o purgar un
-// archivo (ver server/services/moderacion.js y server/routes/moderacion.js).
-// Mismo criterio de tabla según rol que actualizarCredenciales().
-export const verificarPasswordPropia = async (userId, role, password) => {
-  const tabla = role === 'admin' ? 'admin_users' : 'staff_users';
-  console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] verificarPasswordPropia() — parámetros recibidos:', { userId, role, tabla, password: '[REDACTED]' });
-
-  const { data: cuenta, error } = await supabase.from(tabla).select('password_hash').eq('id', userId).single();
-  console.log('📡 [DEBUG-SERVICE-ADMINAUTH] verificarPasswordPropia() — resultado select', tabla, '— encontrada:', !!cuenta, 'error:', error);
-  if (error || !cuenta) {
-    console.error('❌ [DEBUG-SERVICE-ADMINAUTH] verificarPasswordPropia() — cuenta no encontrada:', error);
-    throw new Error('Cuenta no encontrada.');
-  }
-
-  const passwordOk = await bcrypt.compare(password, cuenta.password_hash);
-  console.log('✅ [DEBUG-SERVICE-ADMINAUTH] verificarPasswordPropia() — valor de retorno:', passwordOk);
-  return passwordOk;
-};
-
 // Cambia usuario/contraseña de la cuenta logueada (admin o staff), en la
 // tabla que corresponda según su rol — mismo criterio que actualizarTema()
 // más abajo. `userId` siempre es el id de esa misma cuenta (req.admin.sub),

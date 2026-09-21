@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, Search, ArrowLeft, ArrowUpDown, History, List, AlertTriangle, Filter, RefreshCw, ShieldBan } from 'lucide-react';
+import { Users, Search, ArrowLeft, ArrowUpDown, History, List, AlertTriangle, Filter, RefreshCw } from 'lucide-react';
 import { formatPhone } from '../lib/formatPhone';
 import { adminFetch, isAdminRole } from '../lib/adminAuth';
 import { supabase } from '../lib/supabase';
 import { ESTADOS_HISTORIAL } from './Sidebar';
 import ClientHistoryList from './ClientHistoryList';
 import StarRating from './StarRating';
-import BlockedClientsPanel from './BlockedClientsPanel';
 
 const SORT_OPTIONS = [
   { value: 'recent', label: 'Fecha (más reciente)' },
@@ -253,14 +252,6 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
           >
             <List size={14} /> Lista de Clientes
           </button>
-          {isAdminRole() && (
-            <button
-              onClick={() => { setVista('bloqueados'); }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${vista === 'bloqueados' ? 'bg-white dark:bg-gray-900 text-red-700 dark:text-red-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
-            >
-              <ShieldBan size={14} /> Clientes bloqueados
-            </button>
-          )}
         </div>
 
         {vista === 'historial' && isAdminRole() && (
@@ -311,7 +302,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin p-6">
-        {vista !== 'bloqueados' && (vista === 'historial' ? errors.conversations : errors.clients) && (
+        {(vista === 'historial' ? errors.conversations : errors.clients) && (
           <div className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-rose-50 dark:bg-rose-950 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-400 text-sm">
             <AlertTriangle size={16} className="shrink-0 mt-0.5" />
             <div>
@@ -320,9 +311,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
             </div>
           </div>
         )}
-        {vista === 'bloqueados' ? (
-          <BlockedClientsPanel onOpenConversation={onOpenConversation} />
-        ) : vista === 'historial' ? (
+        {vista === 'historial' ? (
           <ClientHistoryList
             conversations={historialFiltrado}
             onSelect={(conv) => { onOpenConversation && onOpenConversation(conv); }}

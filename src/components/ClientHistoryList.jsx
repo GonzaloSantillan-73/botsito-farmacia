@@ -57,11 +57,7 @@ export default function ClientHistoryList({
   onSearchQueryChange,
   // true en la vista general (Historial de Consultas del Directorio), donde
   // cada fila puede ser de un cliente distinto y hace falta identificarlo.
-  showClient = false,
-  // Id de conversación que va SIEMPRE primero, sin importar el orden por
-  // fecha (usado por BlockedClientsPanel.jsx: el chat reportado tiene que
-  // verse antes que el resto del historial del cliente bloqueado).
-  pinnedId = null
+  showClient = false
 }) {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -130,17 +126,12 @@ export default function ClientHistoryList({
     setSearchQuery('');
   };
 
-  let visibleConversations = conversations
+  const visibleConversations = conversations
     .filter(dentroDeFecha)
     .filter(c => !searchQuery.trim() || matchingIds == null || matchingIds.has(c.id))
     .sort((a, b) => sortAsc
       ? new Date(a.created_at) - new Date(b.created_at)
       : new Date(b.created_at) - new Date(a.created_at));
-
-  if (pinnedId) {
-    const pinned = visibleConversations.find(c => c.id === pinnedId);
-    if (pinned) visibleConversations = [pinned, ...visibleConversations.filter(c => c.id !== pinnedId)];
-  }
 
   return (
     <div className={fillHeight ? 'h-full flex flex-col overflow-hidden' : 'flex flex-col bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden'}>

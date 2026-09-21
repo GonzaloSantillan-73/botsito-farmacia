@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Loader2, CheckCircle2, XCircle, Siren } from 'lucide-react';
+import { X, Loader2, CheckCircle2, XCircle, MessageSquare } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { alertDialog } from '../lib/dialogService';
 
@@ -39,7 +39,7 @@ export default function CloseChatModal({
     e.preventDefault();
 
     if (!selectedStatus) return;
-    if (selectedStatus === 'reportado' && !reason.trim()) return;
+    if (selectedStatus === 'otra' && !reason.trim()) return;
     if (selectedStatus === 'concretada' && !amount.trim()) return;
 
     setIsSubmitting(true);
@@ -47,9 +47,9 @@ export default function CloseChatModal({
     try {
       // 1. Guardar resultado/motivo en la base de datos
       const updateData = {
-        sale_status: selectedStatus,
+        sale_status: selectedStatus === 'otra' ? 'otra' : selectedStatus,
         sale_amount: selectedStatus === 'concretada' ? (parseFloat(amount) || 0) : null,
-        sale_reason: selectedStatus === 'reportado' ? reason.trim() : null
+        sale_reason: selectedStatus === 'otra' ? reason.trim() : null
       };
 
       const { error } = await supabase
@@ -76,7 +76,7 @@ export default function CloseChatModal({
   };
 
   const isFormValid = selectedStatus
-    && (selectedStatus !== 'reportado' || reason.trim().length > 0)
+    && (selectedStatus !== 'otra' || reason.trim().length > 0)
     && (selectedStatus !== 'concretada' || amount.trim().length > 0);
 
   return (
@@ -147,37 +147,34 @@ export default function CloseChatModal({
               </div>
             </label>
 
-            <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedStatus === 'reportado' ? 'border-red-500 bg-red-50 dark:bg-red-950' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
+            <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedStatus === 'otra' ? 'border-amber-500 bg-amber-50 dark:bg-amber-950' : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
               <input
                 type="radio"
                 name="sale_status"
-                value="reportado"
-                checked={selectedStatus === 'reportado'}
+                value="otra"
+                checked={selectedStatus === 'otra'}
                 onChange={(e) => { setSelectedStatus(e.target.value); }}
-                className="w-4 h-4 text-red-600 focus:ring-red-500"
+                className="w-4 h-4 text-amber-600 focus:ring-amber-500"
               />
               <div className="flex items-center gap-2">
-                <Siren size={18} className={selectedStatus === 'reportado' ? 'text-red-600 dark:text-red-400' : 'text-gray-400'} />
-                <span className={`font-medium ${selectedStatus === 'reportado' ? 'text-red-800 dark:text-red-400' : 'text-gray-700 dark:text-gray-300'}`}>Reportar</span>
+                <MessageSquare size={18} className={selectedStatus === 'otra' ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'} />
+                <span className={`font-medium ${selectedStatus === 'otra' ? 'text-amber-800 dark:text-amber-400' : 'text-gray-700 dark:text-gray-300'}`}>Otra razón</span>
               </div>
             </label>
           </div>
 
-          {selectedStatus === 'reportado' && (
+          {selectedStatus === 'otra' && (
             <div className="mt-4 animate-fade-in-up">
               <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-1">
-                Motivo del reporte <span className="text-rose-500">*</span>
+                Motivo <span className="text-rose-500">*</span>
               </label>
               <textarea
                 value={reason}
                 onChange={(e) => { setReason(e.target.value); }}
-                placeholder="Describí por qué estás reportando esta consulta (ej. contenido inapropiado, acoso, spam)..."
-                className="w-full p-3 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none resize-none h-24"
+                placeholder="Escribe el motivo por el cual estás cerrando la consulta..."
+                className="w-full p-3 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none resize-none h-24"
                 required
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">
-                Este chat va a aparecer marcado como "Reportado" en el Historial. El admin va a poder bloquear al cliente desde ahí si hace falta.
-              </p>
             </div>
           )}
 

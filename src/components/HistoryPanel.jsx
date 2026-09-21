@@ -143,7 +143,7 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
                     title={selectedConv.sale_reason}
                   >
                     {SALE_STATUS_BADGES[selectedConv.sale_status].label}
-                    {['otra', 'reportado'].includes(selectedConv.sale_status) && selectedConv.sale_reason ? `: ${selectedConv.sale_reason}` : ''}
+                    {selectedConv.sale_status === 'otra' && selectedConv.sale_reason ? `: ${selectedConv.sale_reason}` : ''}
                   </span>
                 )}
               </div>

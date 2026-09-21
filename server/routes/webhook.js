@@ -5,7 +5,6 @@ import { procesarMensajeBot } from '../services/bot.js';
 import { findOrCreateSession } from '../services/sessionManager.js';
 import { getConversationAwaitingRating, isValidRatingReply, guardarCalificacionAtencion, guardarCalificacionProducto, descartarEncuestaPendiente } from '../services/ratingSurvey.js';
 import { analizarPdf, esDocumentoPdf } from '../services/pdfSecurity.js';
-import { estaClienteBloqueado } from '../services/moderacion.js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -354,20 +353,7 @@ router.post('/', async (req, res) => {
         console.log(`[WEBHOOK - POST /] ==> ✅ FIN PROCESAMIENTO EXITOSO DEL EVENTO`);
         console.log(`======================================================\n`);
         
-        console.log(`\n------------------------------------------------------`);
-        console.log(`[WEBHOOK] ==> E. CHEQUEO DE BLOQUEO (moderación admin)`);
-        const bloqueo = await estaClienteBloqueado(clientPhone);
-        console.log(`[WEBHOOK] -> ¿Cliente bloqueado?: ${!!bloqueo}`);
-
-        if (bloqueo) {
-          // El mensaje ya quedó guardado arriba (paso C), para que el admin
-          // tenga registro en el chat reportado — pero a partir de acá no se
-          // procesa nada más: ni respuesta del bot, ni encuesta de
-          // calificación, ni derivación a ninguna sucursal (ver
-          // supabase/moderacion_bloqueo_clientes.sql y
-          // server/services/moderacion.js).
-          console.log(`[WEBHOOK] -> Cliente bloqueado (motivo: "${bloqueo.motivo}"), no se procesa ni se responde nada.`);
-        } else if (isRatingReply) {
+        if (isRatingReply) {
            const valor = Number(messageText.trim());
            if (pendingRatingConv.bot_state === 'awaiting_rating') {
              console.log(`[WEBHOOK] -> Guardando calificación de atención: ${valor}`);
