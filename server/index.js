@@ -8,6 +8,7 @@ import staffRoutes from './routes/staff.js';
 import clientesRoutes from './routes/clientes.js';
 import clientDirectoryRoutes from './routes/clientDirectory.js';
 import quickRepliesRoutes from './routes/quickReplies.js';
+import moderacionRoutes from './routes/moderacion.js';
 import { startSessionExpiryChecker } from './services/sessionExpiryChecker.js';
 import { logInstanceBoot } from './instanceInfo.js';
 import path from 'path';
@@ -65,6 +66,8 @@ console.log('🔍 [DEBUG-INDEX] Montando ruta /api/admin/client-directory');
 app.use('/api/admin/client-directory', clientDirectoryRoutes);
 console.log('🔍 [DEBUG-INDEX] Montando ruta /api/admin/quick-replies');
 app.use('/api/admin/quick-replies', quickRepliesRoutes);
+console.log('🔍 [DEBUG-INDEX] Montando ruta /api/admin/moderacion');
+app.use('/api/admin/moderacion', moderacionRoutes);
 
 // Servir estáticos de React (Vite build)
 console.log('🔍 [DEBUG-INDEX] Registrando static de React (Vite build) en:', path.join(__dirname, '../dist'));

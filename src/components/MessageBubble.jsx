@@ -1,11 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Image as ImageIcon, FileText, Loader2, MapPin, Download, Eye, ShieldAlert, Tag, Check, X } from 'lucide-react';
+import { Image as ImageIcon, FileText, Loader2, MapPin, Download, Eye, ShieldAlert, ShieldOff, Tag, Check, X, Trash2 } from 'lucide-react';
 import { renderWhatsAppText } from '../lib/whatsappFormat';
 import { adminFetch } from '../lib/adminAuth';
 
 const TAG_LABELS = {
   comprobante: { texto: '🧾 Comprobante', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' },
   receta: { texto: '📋 Receta', className: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-400' }
+};
+
+// Etiqueta legible del tipo de archivo, para el placeholder de "Archivo
+// eliminado" (ver PurgeMediaControl / render de msg.deleted_reason).
+const TIPO_ARCHIVO_LABELS = {
+  image: 'Imagen',
+  video: 'Video',
+  audio: 'Audio',
+  document: 'Documento',
+  pdf: 'PDF'
 };
 
 // Menú para marcar un adjunto del cliente como "el" comprobante de pago o
@@ -56,6 +66,24 @@ export function AttachmentTagControls({ msg, onTag, tagging }) {
         </span>
       )}
     </div>
+  );
+}
+
+// Botón de moderación exclusivo admin (ver ChatArea.jsx: canModerate =
+// soyAdmin). A diferencia de AttachmentTagControls (sólo archivos del
+// cliente), la purga aplica a CUALQUIER adjunto de la conversación, venga
+// de quien venga (cliente, bot u operador).
+export function PurgeMediaControl({ msg, onPurge, purging }) {
+  return (
+    <button
+      type="button"
+      onClick={() => { onPurge && onPurge(msg); }}
+      disabled={purging}
+      title="Eliminar este archivo"
+      className="p-2 rounded-full bg-white dark:bg-gray-800 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 shadow-sm hover:bg-red-50 dark:hover:bg-red-950 transition-colors disabled:opacity-50 shrink-0"
+    >
+      {purging ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+    </button>
   );
 }
 
@@ -172,13 +200,14 @@ export function MapsLinkPreview({ url, senderType, texto }) {
 // ubicación) exactamente igual en el chat en vivo, el historial completo del
 // cliente y la galería multimedia, para que los tres lugares se vean y se
 // comporten de forma idéntica.
-export default function MessageBubble({ msg, onImageClick, onDownload, downloadingId, onTag, taggingId, statusIcon }) {
+export default function MessageBubble({ msg, onImageClick, onDownload, downloadingId, onTag, taggingId, statusIcon, canModerate, onPurgeFile, purgingId }) {
   const location = parseLocationMessage(msg);
   // Sólo tiene sentido buscar un link de Maps en mensajes de puro texto: si
   // ya hay un adjunto (imagen, documento, etc.), lo que diga message_text es
   // un caption y no debe tapar ese adjunto.
   const linkDeMaps = !location && !msg.media_url ? extraerLinkDeMaps(msg.message_text) : null;
   const showTagControls = msg.sender_type === 'client' && msg.media_url && msg.media_type !== 'location';
+  const showPurgeControl = canModerate && msg.media_url && msg.media_type !== 'location';
   return (
     <div className={`flex items-center gap-2 ${msg.sender_type === 'client' ? 'justify-start' : 'justify-end'}`}>
       <div className={`relative max-w-[75%] rounded-lg p-3 shadow-sm ${msg.sender_type === 'client' ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-tl-none' : 'bg-teal-500 text-white rounded-tr-none'}`}>
@@ -281,7 +310,23 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
             </div>
           </div>
         )}
-        {!location && msg.media_type !== 'pdf' && msg.media_type !== 'audio' && (
+        {msg.deleted_reason && (
+          // Placeholder de un archivo purgado por el admin (ver
+          // server/services/moderacion.js: purgarArchivoMensaje). A
+          // propósito NO se toca media_type al purgar (sigue siendo
+          // 'image'/'video'/'audio'/'document'/'pdf' como antes, sólo se
+          // limpia media_url), para poder mostrar acá qué tipo de archivo
+          // era. Fondo bordó sólido, distinto del resto de los avisos del
+          // chat, para que se note que fue una acción de moderación.
+          <div className="mb-2 flex items-start gap-2 p-3 rounded-lg bg-red-950 border border-red-900 text-white">
+            <ShieldOff size={18} className="shrink-0 mt-0.5" />
+            <div className="text-xs">
+              <span className="font-semibold block mb-0.5">{TIPO_ARCHIVO_LABELS[msg.media_type] || 'Archivo'} eliminado</span>
+              {msg.deleted_reason}
+            </div>
+          </div>
+        )}
+        {!location && !msg.deleted_reason && msg.media_type !== 'pdf' && msg.media_type !== 'audio' && (
           linkDeMaps ? (
             <MapsLinkPreview url={linkDeMaps} senderType={msg.sender_type} texto={msg.message_text} />
           ) : (
@@ -303,8 +348,18 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
           </span>
         )}
       </div>
-      {showTagControls && (
-        <AttachmentTagControls msg={msg} onTag={onTag} tagging={taggingId === msg.id} />
+      {(showTagControls || showPurgeControl) && (
+        // Columna (no fila) a propósito: el botón de purga del admin queda
+        // arriba de las marcas de comprobante/receta, como pidió el negocio,
+        // en vez de mezclados lado a lado.
+        <div className="flex flex-col items-center gap-1.5 shrink-0">
+          {showPurgeControl && (
+            <PurgeMediaControl msg={msg} onPurge={onPurgeFile} purging={purgingId === msg.id} />
+          )}
+          {showTagControls && (
+            <AttachmentTagControls msg={msg} onTag={onTag} tagging={taggingId === msg.id} />
+          )}
+        </div>
       )}
     </div>
   );

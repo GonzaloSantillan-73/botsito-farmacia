@@ -13,6 +13,7 @@ import CloseChatModal from './CloseChatModal';
 import ReturnToQueueModal from './ReturnToQueueModal';
 import MessageBubble from './MessageBubble';
 import MediaGalleryModal from './MediaGalleryModal';
+import AdminPasswordActionModal from './AdminPasswordActionModal';
 import { alertDialog } from '../lib/dialogService';
 
 // Estados en los que la conversación ya está cerrada y no aplica el conteo de expiración.
@@ -94,6 +95,8 @@ export default function ChatArea({
   const [downloadingId, setDownloadingId] = useState(null);
   const [taggingId, setTaggingId] = useState(null);
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
+  // Moderación de archivos adjuntos (sólo admin, ver server/routes/moderacion.js).
+  const [purgeTarget, setPurgeTarget] = useState(null);
   const fileInputRef = useRef(null);
   const messagesContainerRef = useRef(null);
 
@@ -141,6 +144,17 @@ export default function ChatArea({
     } finally {
       setTaggingId(null);
     }
+  };
+
+  const handlePurgeFile = async (msg, motivo, password) => {
+    const res = await adminFetch('/api/admin/moderacion/purgar-archivo', {
+      method: 'POST',
+      body: JSON.stringify({ messageId: msg.id, motivo, password })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'No se pudo eliminar el archivo.');
+    // No hace falta actualizar el mensaje local a mano: llega actualizado
+    // por la suscripción de Realtime en App.jsx (mismo criterio que tagMessage).
   };
 
   // Corre el contador en vivo, segundo a segundo.
@@ -639,6 +653,9 @@ export default function ChatArea({
                       onTag={handleTagMessage}
                       taggingId={taggingId}
                       statusIcon={msg.sender_type !== 'client' && <MessageStatusIcon estado={msg.estado} />}
+                      canModerate={soyAdmin}
+                      onPurgeFile={(m) => { setPurgeTarget(m); }}
+                      purgingId={purgeTarget?.id}
                     />
                   )}
                 </React.Fragment>
@@ -832,6 +849,16 @@ export default function ChatArea({
             onReturnToQueue={executeReturnToQueue}
             onDerivar={executeDerivarASucursal}
             miSucursalId={miSucursalId}
+          />
+
+          <AdminPasswordActionModal
+            isOpen={!!purgeTarget}
+            onClose={() => { setPurgeTarget(null); }}
+            title="Eliminar archivo"
+            description="El archivo se borra del servidor y se reemplaza por un aviso con el motivo. Esta acción no se puede deshacer."
+            motivoPlaceholder="Motivo de la eliminación..."
+            confirmLabel="Eliminar archivo"
+            onConfirm={(motivo, password) => handlePurgeFile(purgeTarget, motivo, password)}
           />
         </>
       ) : (
