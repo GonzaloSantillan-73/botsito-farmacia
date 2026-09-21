@@ -48,10 +48,10 @@ const formatDateDivider = (iso) => {
 // el aviso automático "¿Seguís ahí?" no cuenta como actividad real, para que
 // el contador en pantalla siga bajando exactamente igual que el que decide
 // el cierre del lado del servidor.
-const getLastActivityTime = (conversation, messages) => {
+const getLastRealMessage = (messages) => {
   const reales = (messages || []).filter(m => !m.is_auto_reminder);
-  if (reales.length === 0) return conversation.created_at;
-  return reales.reduce((latest, m) => (new Date(m.created_at) > new Date(latest) ? m.created_at : latest), reales[0].created_at);
+  if (reales.length === 0) return null;
+  return reales.reduce((latest, m) => (new Date(m.created_at) > new Date(latest.created_at) ? m : latest), reales[0]);
 };
 
 // Checks de estado (estilo WhatsApp) para mensajes salientes del operador o el bot.
@@ -322,10 +322,20 @@ export default function ChatArea({
   // de poder escribirle a un cliente de la cola general.
   const miSucursalId = getStaffSucursalId();
   const requiereTomarParaResponder = estaEnColaGeneral && !soyAdmin;
+  // El contador sólo corre cuando la respuesta pendiente es del cliente (le
+  // "toca" a la sucursal): si el último mensaje real lo mandó la sucursal,
+  // el bot o el sistema, se muestra "--:--" en vez de una cuenta regresiva,
+  // porque no hay inactividad que penalizar del lado de la sucursal todavía.
   let remainingMs = null;
-  if (activeConversation && !isConversacionCerrada && sessionTimeoutMs != null) {
-    const lastActivity = getLastActivityTime(activeConversation, messages);
-    remainingMs = sessionTimeoutMs - (now - new Date(lastActivity).getTime());
+  let timerPausedByClient = false;
+  const showExpiryBadge = !!(activeConversation && !isConversacionCerrada && sessionTimeoutMs != null);
+  if (showExpiryBadge) {
+    const lastMessage = getLastRealMessage(messages);
+    if (!lastMessage || lastMessage.sender_type === 'client') {
+      timerPausedByClient = true;
+    } else {
+      remainingMs = sessionTimeoutMs - (now - new Date(lastMessage.created_at).getTime());
+    }
   }
 
   const handleInputChange = (e) => {
@@ -493,11 +503,11 @@ export default function ChatArea({
               </div>
             </div>
 
-            {remainingMs !== null && (
+            {showExpiryBadge && (
               <div
-                title="Tiempo restante antes de que la consulta se cierre por inactividad"
+                title={timerPausedByClient ? 'El cliente escribió el último mensaje: el contador arranca cuando la sucursal responda' : 'Tiempo restante antes de que la consulta se cierre por inactividad'}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold tabular-nums transition-colors shrink-0 ${
-                  remainingMs <= 0
+                  timerPausedByClient || remainingMs <= 0
                     ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
                     : remainingMs <= 30000
                       ? 'bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400'
@@ -505,7 +515,7 @@ export default function ChatArea({
                 }`}
               >
                 <Timer size={14} />
-                {remainingMs <= 0 ? 'Expirado' : `Expira en ${formatCountdown(remainingMs)}`}
+                {timerPausedByClient ? '--:--' : (remainingMs <= 0 ? 'Expirado' : `Expira en ${formatCountdown(remainingMs)}`)}
               </div>
             )}
 
