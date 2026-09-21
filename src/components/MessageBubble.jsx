@@ -351,8 +351,13 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
       {(showTagControls || showPurgeControl) && (
         // Columna (no fila) a propósito: el botón de purga del admin queda
         // arriba de las marcas de comprobante/receta, como pidió el negocio,
-        // en vez de mezclados lado a lado.
-        <div className="flex flex-col items-center gap-1.5 shrink-0">
+        // en vez de mezclados lado a lado. items-start (no items-center): el
+        // botón "Comprobante"/"Receta" expandido de AttachmentTagControls es
+        // más ancho que el ícono solo de Trash2 — con center, ese ensanche
+        // corría el eje del wrapper y desalineaba el tacho respecto al
+        // ícono de la etiqueta. Con start, ambos quedan pegados al mismo
+        // borde izquierdo sin importar cuánto se expanda el badge.
+        <div className="flex flex-col items-start gap-1.5 shrink-0">
           {showPurgeControl && (
             <PurgeMediaControl msg={msg} onPurge={onPurgeFile} purging={purgingId === msg.id} />
           )}
