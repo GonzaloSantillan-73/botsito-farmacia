@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag, Undo2, Hand, IdCard, ChevronDown } from 'lucide-react';
+import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag, Undo2, Hand, IdCard, ChevronDown, ShieldBan } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
@@ -13,6 +13,7 @@ import CloseChatModal from './CloseChatModal';
 import ReturnToQueueModal from './ReturnToQueueModal';
 import MessageBubble from './MessageBubble';
 import MediaGalleryModal from './MediaGalleryModal';
+import AdminPasswordActionModal from './AdminPasswordActionModal';
 import { alertDialog } from '../lib/dialogService';
 
 // Estados en los que la conversación ya está cerrada y no aplica el conteo de expiración.
@@ -94,6 +95,11 @@ export default function ChatArea({
   const [downloadingId, setDownloadingId] = useState(null);
   const [taggingId, setTaggingId] = useState(null);
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
+  // Moderación de chat reportado (sólo admin, ver server/routes/moderacion.js):
+  // null = todavía no se consultó / no aplica, false = no bloqueado, true = bloqueado.
+  const [clienteBloqueado, setClienteBloqueado] = useState(null);
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [purgeTarget, setPurgeTarget] = useState(null);
   const fileInputRef = useRef(null);
   const messagesContainerRef = useRef(null);
 
@@ -284,6 +290,53 @@ export default function ChatArea({
   };
 
   const soyAdmin = isAdminRole();
+  // Las herramientas de moderación (bloquear cliente, purgar archivos) sólo
+  // tienen sentido dentro de un chat que la sucursal cerró como "Reportar"
+  // (ver CloseChatModal.jsx): no aplican a cualquier chat cerrado.
+  const esChatReportado = activeConversation?.sale_status === 'reportado';
+
+  // Se re-consulta cada vez que se abre un chat reportado distinto, para
+  // saber si mostrar "Bloquear cliente" o el indicador de "ya bloqueado".
+  useEffect(() => {
+    if (!soyAdmin || !esChatReportado || !activeConversation?.client_phone) {
+      setClienteBloqueado(null);
+      return;
+    }
+    let cancelado = false;
+    supabase
+      .from('clientes_bloqueados')
+      .select('id')
+      .eq('client_phone', activeConversation.client_phone)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelado) return;
+        if (error) console.error('❌ [DEBUG-COMPONENT-ChatArea] Error consultando clientes_bloqueados:', error);
+        setClienteBloqueado(!!data);
+      });
+    return () => { cancelado = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [soyAdmin, esChatReportado, activeConversation?.client_phone]);
+
+  const handleBlockClient = async (motivo, password) => {
+    const res = await adminFetch('/api/admin/moderacion/bloquear', {
+      method: 'POST',
+      body: JSON.stringify({ clientPhone: activeConversation.client_phone, conversationId: activeConversation.id, motivo, password })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'No se pudo bloquear al cliente.');
+    setClienteBloqueado(true);
+  };
+
+  const handlePurgeFile = async (msg, motivo, password) => {
+    const res = await adminFetch('/api/admin/moderacion/purgar-archivo', {
+      method: 'POST',
+      body: JSON.stringify({ messageId: msg.id, motivo, password })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'No se pudo eliminar el archivo.');
+    // No hace falta actualizar el mensaje local a mano: llega actualizado
+    // por la suscripción de Realtime en App.jsx (mismo criterio que tagMessage).
+  };
   // La encuesta de calificación (y la respuesta numérica del cliente) ya no
   // se le oculta a la sucursal: antes se cortaba el chat apenas aparecía
   // "Tu consulta ha finalizado", así que el operador nunca veía qué puntaje
@@ -519,6 +572,20 @@ export default function ChatArea({
                >
                  <MessagesSquare size={20} />
                </button>
+               {soyAdmin && esChatReportado && clienteBloqueado === false && (
+                 <button
+                   onClick={() => { setShowBlockModal(true); }}
+                   title="Bloquear cliente: no va a poder escribirle al bot ni a ninguna sucursal hasta que lo desbloquees"
+                   className="p-2 text-gray-500 dark:text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950 dark:hover:text-red-400 rounded-full transition-colors"
+                 >
+                   <ShieldBan size={20} />
+                 </button>
+               )}
+               {soyAdmin && esChatReportado && clienteBloqueado === true && (
+                 <span title="Este cliente ya está bloqueado" className="p-2 text-red-600 dark:text-red-400">
+                   <ShieldBan size={20} />
+                 </span>
+               )}
                {!isConversacionCerrada && !soyAdmin && !esModoBot && (
                  <button
                    onClick={() => { setIsCloseModalOpen(true); }}
@@ -637,6 +704,9 @@ export default function ChatArea({
                       onTag={handleTagMessage}
                       taggingId={taggingId}
                       statusIcon={msg.sender_type !== 'client' && <MessageStatusIcon estado={msg.estado} />}
+                      canModerate={soyAdmin && esChatReportado}
+                      onPurgeFile={(m) => { setPurgeTarget(m); }}
+                      purgingId={purgeTarget?.id}
                     />
                   )}
                 </React.Fragment>
@@ -830,6 +900,26 @@ export default function ChatArea({
             onReturnToQueue={executeReturnToQueue}
             onDerivar={executeDerivarASucursal}
             miSucursalId={miSucursalId}
+          />
+
+          <AdminPasswordActionModal
+            isOpen={showBlockModal}
+            onClose={() => { setShowBlockModal(false); }}
+            title="Bloquear cliente"
+            description="El cliente ya no va a poder escribirle al bot ni a ninguna sucursal hasta que lo desbloquees desde 'Clientes bloqueados'."
+            motivoPlaceholder="Motivo del bloqueo (ej. contenido obsceno, acoso al personal)..."
+            confirmLabel="Bloquear cliente"
+            onConfirm={handleBlockClient}
+          />
+
+          <AdminPasswordActionModal
+            isOpen={!!purgeTarget}
+            onClose={() => { setPurgeTarget(null); }}
+            title="Eliminar archivo"
+            description="El archivo se borra del servidor y se reemplaza por un aviso con el motivo. Esta acción no se puede deshacer."
+            motivoPlaceholder="Motivo de la eliminación..."
+            confirmLabel="Eliminar archivo"
+            onConfirm={(motivo, password) => handlePurgeFile(purgeTarget, motivo, password)}
           />
         </>
       ) : (

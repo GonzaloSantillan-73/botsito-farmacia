@@ -141,7 +141,15 @@ export const STATUS_BADGES = {
 export const SALE_STATUS_BADGES = {
   concretada: { label: '✅ Venta Concretada', className: 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-400' },
   no_concretada: { label: '❌ Venta No Concretada', className: 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-400' },
-  otra: { label: '💬 Otra Razón', className: 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-400' }
+  // Legado: conversaciones cerradas antes de que "Otra razón" se reemplazara
+  // por "Reportar" (ver CloseChatModal.jsx) siguen teniendo este valor
+  // guardado — se mantiene el badge para no perder cómo se ven en el
+  // Historial, aunque ya no se pueda elegir de nuevo desde el modal.
+  otra: { label: '💬 Otra Razón', className: 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-400' },
+  // Fondo sólido (no el mismo tono suave que el resto) a propósito: tiene
+  // que resaltar de un vistazo en el Historial y en "Clientes Bloqueados",
+  // es la señal de que ese chat necesita moderación.
+  reportado: { label: '🚨 Reportado', className: 'bg-red-600 dark:bg-red-700 text-white' }
 };
 
 // Estados "cerrados": la consulta ya terminó (por el operador o por inactividad).
