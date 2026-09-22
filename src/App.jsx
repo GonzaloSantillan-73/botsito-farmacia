@@ -111,7 +111,7 @@ function App() {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    const API_URL = import.meta.env.VITE_API_URL || '';
+    const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
     fetch(`${API_URL}/api/session-config`)
       .then(res => res.json())
       .then(data => {

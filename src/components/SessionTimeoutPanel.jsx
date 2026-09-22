@@ -79,7 +79,7 @@ export default function SessionTimeoutPanel({ sessionTimeoutMs, sessionPrewarnin
     setSaved(false);
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || '';
+      const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
       const res = await fetch(`${API_URL}/api/session-config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

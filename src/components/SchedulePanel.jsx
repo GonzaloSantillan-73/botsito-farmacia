@@ -102,7 +102,7 @@ export default function SchedulePanel() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const API_URL = import.meta.env.VITE_API_URL || '';
+    const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
     fetch(`${API_URL}/api/schedules`)
       .then(res => res.json())
       .then(data => {
@@ -118,7 +118,7 @@ export default function SchedulePanel() {
     setSaved(false);
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || '';
+      const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
       const res = await fetch(`${API_URL}/api/schedules`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },

@@ -83,7 +83,7 @@ export const SESSION_EXPIRED_EVENT = 'admin-session-expired';
 // protegidas de /api/admin sin repetir el boilerplate en cada lugar.
 export const adminFetch = (url, options = {}) => {
   const token = getAdminToken();
-  const API_URL = import.meta.env.VITE_API_URL || '';
+  const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
   const fullUrl = url.startsWith('/') ? `${API_URL}${url}` : url;
   const promise = fetch(fullUrl, {
     ...options,

@@ -10,7 +10,7 @@ export default function BotKeywordPanel() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const API_URL = import.meta.env.VITE_API_URL || '';
+    const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
     fetch(`${API_URL}/api/bot-config`)
       .then(res => res.json())
       .then(data => {
@@ -32,7 +32,7 @@ export default function BotKeywordPanel() {
     setSaved(false);
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || '';
+      const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
       const res = await fetch(`${API_URL}/api/bot-config`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
