@@ -7,6 +7,7 @@
     "dev": "vite",
     "dev:server": "nodemon server/index.js",
     "start": "node server/index.js",
+    "build": "echo Backend: no build step needed",
     "build:frontend": "vite build",
     "lint": "oxlint",
     "preview": "vite preview"
