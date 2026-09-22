@@ -51,6 +51,13 @@ app.use(express.json());
 console.log('🔍 [DEBUG-INDEX] Registrando static /uploads en:', path.resolve('public', 'uploads'));
 app.use('/uploads', express.static(path.resolve('public', 'uploads')));
 
+// Evitar que el CDN de Hostinger (o el navegador) cachee respuestas de la API,
+// ya que devuelve datos dinámicos y un cacheo stale rompe el login/config del CRM.
+app.use('/api', (_req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  next();
+});
+
 // Montar Rutas
 console.log('🔍 [DEBUG-INDEX] Montando ruta /webhook');
 app.use('/webhook', webhookRoutes);
