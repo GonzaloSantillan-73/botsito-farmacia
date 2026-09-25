@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag, Undo2, Hand, IdCard, ChevronDown } from 'lucide-react';
+import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag, Undo2, Hand, IdCard, ChevronDown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
@@ -640,6 +640,18 @@ export default function ChatArea({
                >
                  <ShoppingBag size={20} />
                </button>
+               {/* Eliminar conversación: exclusivo del admin. El backend
+                   (DELETE /api/conversations/:id con requireAdminRole)
+                   rechaza igual cualquier intento de una sucursal. */}
+               {soyAdmin && handleDeleteConversation && (
+                 <button
+                   onClick={() => { handleDeleteConversation(activeConversation.id); }}
+                   title="Eliminar esta conversación"
+                   className="p-2 text-gray-500 dark:text-gray-400 hover:bg-rose-50 dark:hover:bg-rose-950 hover:text-rose-600 dark:hover:text-rose-400 rounded-full transition-colors"
+                 >
+                   <Trash2 size={20} />
+                 </button>
+               )}
             </div>
           </div>
           

@@ -196,16 +196,22 @@ export default function ClientHistoryList({
             Ninguna consulta coincide con el filtro aplicado.
           </div>
         ) : (
-          visibleConversations.map(conv => {
+          visibleConversations.map((conv, index) => {
             const badge = STATUS_BADGES[conv.status];
             const saleBadge = SALE_STATUS_BADGES[conv.sale_status];
             const sucursales = nombresSucursales(conv);
+            // Efecto cebra: filas pares en blanco e impares en gris claro
+            // (#F0F0F0) para distinguir cada consulta de un vistazo. Aplica a
+            // todas las vistas que usan este componente (Directorio, ficha
+            // del cliente y modal de Historial). La fila seleccionada
+            // mantiene su resaltado teal por encima de la alternancia.
+            const fondoCebra = index % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-[#F0F0F0] dark:bg-gray-800/60';
             return (
               <button
                 key={conv.id}
                 onClick={() => { onSelect && onSelect(conv); }}
-                className={`w-full text-left p-3 border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors flex items-start justify-between gap-2 ${
-                  selectedId === conv.id ? 'bg-teal-50 dark:bg-teal-950' : 'bg-white dark:bg-gray-900 hover:bg-teal-50/50 dark:hover:bg-teal-950/50'
+                className={`w-full text-left p-3 border-b border-gray-200 dark:border-gray-700 last:border-0 transition-colors flex items-start justify-between gap-2 ${
+                  selectedId === conv.id ? 'bg-teal-50 dark:bg-teal-950' : `${fondoCebra} hover:bg-teal-50 dark:hover:bg-teal-950/50`
                 }`}
               >
                 <div className="flex-1 min-w-0">

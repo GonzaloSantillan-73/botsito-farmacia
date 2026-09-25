@@ -301,9 +301,11 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-thin p-6">
+      {/* Sin padding (p-0): las pestañas "Historial de Consultas" y "Lista de
+          Clientes" aprovechan todo el ancho y alto disponible. */}
+      <div className="flex-1 overflow-y-auto scrollbar-thin p-0">
         {(vista === 'historial' ? errors.conversations : errors.clients) && (
-          <div className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-rose-50 dark:bg-rose-950 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-400 text-sm">
+          <div className="m-3 flex items-start gap-2 p-3 rounded-lg bg-rose-50 dark:bg-rose-950 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-400 text-sm">
             <AlertTriangle size={16} className="shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold">No se pudo cargar esta sección.</p>
