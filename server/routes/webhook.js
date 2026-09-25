@@ -3,7 +3,7 @@ import { supabase } from '../supabase.js';
 import { downloadWhatsAppMedia, normalizarTelefono } from '../services/whatsapp.js';
 import { procesarMensajeBot } from '../services/bot.js';
 import { findOrCreateSession } from '../services/sessionManager.js';
-import { getConversationAwaitingRating, isValidRatingReply, guardarCalificacionAtencion, guardarCalificacionProducto, descartarEncuestaPendiente } from '../services/ratingSurvey.js';
+import { getConversationAwaitingRating, isValidRatingReply, normalizarRespuestaRating, guardarCalificacionAtencion, guardarCalificacionProducto, descartarEncuestaPendiente } from '../services/ratingSurvey.js';
 import { analizarPdf, esDocumentoPdf } from '../services/pdfSecurity.js';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -354,7 +354,8 @@ router.post('/', async (req, res) => {
         console.log(`======================================================\n`);
         
         if (isRatingReply) {
-           const valor = Number(messageText.trim());
+           // Acepta tanto "3" como "3️⃣" (ver normalizarRespuestaRating).
+           const valor = Number(normalizarRespuestaRating(messageText));
            if (pendingRatingConv.bot_state === 'awaiting_rating') {
              console.log(`[WEBHOOK] -> Guardando calificación de atención: ${valor}`);
              await guardarCalificacionAtencion(conversationId, clientPhone, valor);

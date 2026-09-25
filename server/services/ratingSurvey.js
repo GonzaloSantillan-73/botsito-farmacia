@@ -4,22 +4,38 @@ import { INSTANCE_INFO } from '../instanceInfo.js';
 
 const VALID_RATINGS = ['1', '2', '3', '4', '5'];
 
+// Las opciones se muestran como emojis de número (1️⃣, 2️⃣...), así que el
+// cliente puede responder copiando el emoji en vez de tipear el dígito: un
+// "1️⃣" es "1" + U+FE0F (selector de variante) + U+20E3 (keycap). Se quitan
+// esos dos caracteres para que ambas formas cuenten como la misma respuesta.
+// Devuelve '1'..'5' o null si no es una calificación válida.
+export const normalizarRespuestaRating = (text) => {
+  const limpio = (text || '').toString().replace(/[\uFE0F\u20E3]/g, '').trim();
+  return VALID_RATINGS.includes(limpio) ? limpio : null;
+};
+
 export const isValidRatingReply = (text) => {
   console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] isValidRatingReply() — text:', text);
-  const resultado = VALID_RATINGS.includes((text || '').toString().trim());
+  const resultado = normalizarRespuestaRating(text) !== null;
   console.log('✅ [DEBUG-SERVICE-RATINGSURVEY] isValidRatingReply() — resultado:', resultado);
   return resultado;
 };
 
-// Escala visual que acompaña ambas preguntas de la encuesta (atención y
-// producto), siempre con el mismo formato de extremos + números.
-const ESCALA_1_A_5 = 'malo 1-2-3-4-5 bueno';
+// Escala de opciones que acompaña ambas preguntas de la encuesta (atención y
+// producto), siempre con el mismo formato: un emoji de número por línea.
+const ESCALA_1_A_5 = [
+  '1️⃣ Muy insatisfecho',
+  '2️⃣ Insatisfecho',
+  '3️⃣ Neutral',
+  '4️⃣ Satisfecho',
+  '5️⃣ Muy satisfecho'
+].join('\n');
 
 const mensajeFinalizacion = (motivo) =>
-  `Tu consulta ha finalizado${motivo ? ` ${motivo}` : ''}. ¡Gracias por contactarnos! Nos ayudaría mucho que calificaras la atención recibida respondiendo con un número del 1 al 5.\n${ESCALA_1_A_5}`;
+  `Tu consulta ha finalizado${motivo ? ` ${motivo}` : ''}. ¡Gracias por contactarnos! Nos ayudaría mucho que calificaras la atención recibida respondiendo solo con el número de tu opción:\n${ESCALA_1_A_5}`;
 
 const MENSAJE_PEDIR_RATING_PRODUCTO =
-  `¡Gracias! Una última pregunta: ¿qué tan satisfecho/a estás con el producto que recibiste? Respondé con un número del 1 al 5.\n${ESCALA_1_A_5}`;
+  `¿Qué tan satisfecho estás con tu compra? Responde solo con el número de tu opción:\n${ESCALA_1_A_5}`;
 
 const MENSAJE_DESPEDIDA_ENCUESTA = '¡Gracias por tu calificación! Que tengas un buen día. 😊';
 

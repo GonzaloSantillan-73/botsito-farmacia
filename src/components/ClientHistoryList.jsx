@@ -200,12 +200,12 @@ export default function ClientHistoryList({
             const badge = STATUS_BADGES[conv.status];
             const saleBadge = SALE_STATUS_BADGES[conv.sale_status];
             const sucursales = nombresSucursales(conv);
-            // Efecto cebra: filas pares en blanco e impares en gris claro
-            // (#F0F0F0) para distinguir cada consulta de un vistazo. Aplica a
-            // todas las vistas que usan este componente (Directorio, ficha
+            // Efecto cebra: filas pares en gris muy claro (#FAFAFA) e impares
+            // en blanco, para distinguir cada consulta de un vistazo. Aplica
+            // a todas las vistas que usan este componente (Directorio, ficha
             // del cliente y modal de Historial). La fila seleccionada
             // mantiene su resaltado teal por encima de la alternancia.
-            const fondoCebra = index % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-[#F0F0F0] dark:bg-gray-800/60';
+            const fondoCebra = index % 2 === 0 ? 'bg-[#FAFAFA] dark:bg-gray-800/60' : 'bg-white dark:bg-gray-900';
             return (
               <button
                 key={conv.id}
