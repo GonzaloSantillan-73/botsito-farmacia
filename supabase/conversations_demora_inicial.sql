@@ -1,0 +1,11 @@
+-- Demora Inicial "congelada" (en milisegundos): el tiempo que pasó desde que
+-- el cliente pidió atención humana (waiting_since, o created_at si una
+-- sucursal interfirió un chat del bot sin que lo pidiera) hasta que una
+-- sucursal lo TOMÓ POR PRIMERA VEZ (ver server/services/tomaConsulta.js).
+-- Se escribe una única vez y no se vuelve a tocar: si el chat se devuelve a
+-- "En espera" (devolucionCola.js reinicia waiting_since a ese momento) y
+-- después otra sucursal lo retoma, este valor queda intacto.
+-- NULL = todavía nadie lo tomó, o es una consulta anterior a esta migración
+-- (para esas, la columna "Demora Inicial" de Métricas sigue usando el cálculo
+-- viejo, ver server/services/metricsDetalle.js).
+ALTER TABLE public.conversations ADD COLUMN IF NOT EXISTS demora_inicial_ms BIGINT;

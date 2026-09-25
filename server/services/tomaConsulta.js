@@ -37,10 +37,10 @@ export const tomarConsulta = async (conversationId, sucursalId) => {
     // alguien toma la consulta, para poder saber después (aunque haya habido
     // una devolución y otra sucursal la haya retomado) si intervino una sola
     // sucursal o dos.
-    console.log('📡 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — SELECT conversations, filtros: { id:', conversationId, '}, columnas: primera_sucursal_id');
+    console.log('📡 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — SELECT conversations, filtros: { id:', conversationId, '}, columnas: primera_sucursal_id, waiting_since, created_at');
     const { data: actual, error: actualError } = await supabase
       .from('conversations')
-      .select('primera_sucursal_id')
+      .select('primera_sucursal_id, waiting_since, created_at')
       .eq('id', conversationId)
       .maybeSingle();
     console.log('📡 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — resultado SELECT conversations — data:', actual, 'error:', actualError);
@@ -78,6 +78,26 @@ export const tomarConsulta = async (conversationId, sucursalId) => {
     }
 
     console.log('✅ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — CAMBIO DE ESTADO CONFIRMADO — conversationId:', conversationId, 'ahora tomada por sucursal:', sucursalId, '(', sucursal.nombre, ')');
+
+    // Demora Inicial congelada (ver supabase/conversations_demora_inicial.sql):
+    // sólo en la PRIMERA toma (sin primera_sucursal_id previo) y sólo si
+    // todavía está vacía (.is null), así una devolución + retoma posterior
+    // nunca la pisa. Va en un UPDATE aparte y no crítico: si falta correr la
+    // migración, falla sólo esta marca y la toma sigue confirmada.
+    if (actual && !actual.primera_sucursal_id) {
+      const inicioEspera = actual.waiting_since || actual.created_at;
+      const demoraInicialMs = inicioEspera ? Math.max(0, Date.now() - new Date(inicioEspera).getTime()) : null;
+      if (demoraInicialMs != null) {
+        const { error: demoraError } = await supabase
+          .from('conversations')
+          .update({ demora_inicial_ms: demoraInicialMs })
+          .eq('id', conversationId)
+          .is('demora_inicial_ms', null);
+        if (demoraError) {
+          console.error('❌ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — error guardando demora_inicial_ms (no crítico):', demoraError);
+        }
+      }
+    }
 
     // Registro histórico (ver conversation_sucursal_historial.sql): un fallo
     // acá no debe tirar abajo la asignación, que ya quedó confirmada arriba.

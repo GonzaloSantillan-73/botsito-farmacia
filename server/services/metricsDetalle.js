@@ -17,29 +17,35 @@ const msDiff = (desde, hasta) => (desde && hasta ? new Date(hasta).getTime() - n
 export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, rating, productRating, derivada } = {}) => {
   console.log('🔍 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — filtros recibidos:', { startDate, endDate, saleStatus, rating, productRating, derivada });
   try {
-    let query = supabase
-      .from('conversations')
-      .select('id, created_at, client_name, client_phone, status, sale_status, sale_amount, payment_method, waiting_since, rating, product_rating, sucursales!sucursal_id(nombre)')
-      .order('created_at', { ascending: false });
-
-    if (startDate) {
-      console.log('🔍 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — filtro de fecha desde (gte created_at):', `${startDate}T00:00:00.000Z`);
-      query = query.gte('created_at', `${startDate}T00:00:00.000Z`);
-    }
-    if (endDate) {
-      console.log('🔍 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — filtro de fecha hasta (lte created_at):', `${endDate}T23:59:59.999Z`);
-      query = query.lte('created_at', `${endDate}T23:59:59.999Z`);
-    }
-    if (saleStatus) query = query.eq('sale_status', saleStatus);
-    if (rating != null) query = query.eq('rating', rating);
-    if (productRating != null) query = query.eq('product_rating', productRating);
-    // "Derivada"/"Bot (sin humano)" sólo tiene sentido sobre consultas ya
-    // cerradas: es el mismo universo que usa /metrics/negocio para calcular el
-    // % de resolución autónoma.
-    if (derivada != null) query = query.in('status', TERMINAL_STATUSES);
+    const COLUMNAS_BASE = 'id, created_at, client_name, client_phone, status, sale_status, sale_amount, payment_method, waiting_since, rating, product_rating, sucursales!sucursal_id(nombre)';
+    // demora_inicial_ms (supabase/conversations_demora_inicial.sql) se pide
+    // aparte del resto: si esa migración todavía no se corrió, Postgres
+    // responde 42703 (columna inexistente) y se reintenta sin ella, para que
+    // Métricas no deje de funcionar por eso (cae al cálculo viejo, abajo).
+    const construirQuery = (columnas) => {
+      let q = supabase
+        .from('conversations')
+        .select(columnas)
+        .order('created_at', { ascending: false });
+      if (startDate) q = q.gte('created_at', `${startDate}T00:00:00.000Z`);
+      if (endDate) q = q.lte('created_at', `${endDate}T23:59:59.999Z`);
+      if (saleStatus) q = q.eq('sale_status', saleStatus);
+      if (rating != null) q = q.eq('rating', rating);
+      if (productRating != null) q = q.eq('product_rating', productRating);
+      // "Derivada"/"Bot (sin humano)" sólo tiene sentido sobre consultas ya
+      // cerradas: es el mismo universo que usa /metrics/negocio para calcular el
+      // % de resolución autónoma.
+      if (derivada != null) q = q.in('status', TERMINAL_STATUSES);
+      return q;
+    };
 
     console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — SELECT conversations con filtros:', { startDate, endDate, saleStatus, rating, productRating, derivada });
-    const { data: conversations, error } = await query;
+    let { data: conversations, error } = await construirQuery(`${COLUMNAS_BASE}, demora_inicial_ms`);
+    if (error?.code === '42703') {
+      console.error('❌ [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — falta la columna demora_inicial_ms (correr supabase/conversations_demora_inicial.sql); se reintenta sin ella');
+      ({ data: conversations, error } = await construirQuery(COLUMNAS_BASE));
+    }
+
     console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — resultado SELECT conversations — cantidad de filas:', conversations?.length, 'error:', error);
     if (error) {
       console.error('❌ [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — error SELECT conversations:', error);
@@ -126,7 +132,17 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
 
     let resultado = conversations.map(c => {
       const agg = porConversacion[c.id] || { msgsCliente: 0, primeraRespuestaAgente: null, ultimoMensaje: null, comprobanteUrl: null, recetaUrl: null };
+      // Demora Inicial: el valor congelado en la primera toma (ver
+      // tomaConsulta.js), que no cambia aunque el chat se devuelva a espera
+      // y lo retome otra sucursal. Sólo para consultas anteriores a esa
+      // columna se usa el cálculo viejo (inicio de espera -> primera
+      // respuesta de un operador); como devolucionCola.js ahora reinicia
+      // waiting_since, ese cálculo puede dar negativo y en ese caso se omite.
       const inicioEspera = c.waiting_since || c.created_at;
+      const demoraLegacy = msDiff(inicioEspera, agg.primeraRespuestaAgente);
+      const demoraInicialMs = c.demora_inicial_ms != null
+        ? Number(c.demora_inicial_ms)
+        : (demoraLegacy != null && demoraLegacy >= 0 ? demoraLegacy : null);
 
       return {
         id: c.id,
@@ -147,7 +163,7 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
         comprobanteUrl: agg.comprobanteUrl,
         recetaUrl: agg.recetaUrl,
         msjsCliente: agg.msgsCliente,
-        demoraInicialMs: msDiff(inicioEspera, agg.primeraRespuestaAgente),
+        demoraInicialMs,
         duracionTotalMs: msDiff(c.created_at, agg.ultimoMensaje || c.created_at),
         // Mismo criterio que /metrics/negocio: "derivada" es que al menos un
         // mensaje de esta conversación lo haya mandado un agente humano.

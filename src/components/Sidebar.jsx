@@ -293,9 +293,9 @@ export default function Sidebar({
     .sort((a, b) => {
       // "BOT" y "En espera" son estrictamente FIFO: quien llegó primero (o
       // lleva más tiempo esperando) va arriba. Si un chat fue devuelto a la
-      // cola (ver server/services/devolucionCola.js), waiting_since NO se
-      // reinicia a propósito, así que sigue ordenándose por su espera real
-      // desde que entró al sistema, por encima de los chats nuevos.
+      // cola (ver server/services/devolucionCola.js), waiting_since se
+      // reinicia al momento de la devolución: su contador arranca de 0 y se
+      // ordena como uno que acaba de entrar a la espera.
       if (activeTab === 'entrantes') {
         return new Date(a.created_at) - new Date(b.created_at);
       }
