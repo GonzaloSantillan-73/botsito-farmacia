@@ -1,6 +1,7 @@
 import { supabase } from '../supabase.js';
 import { sucursalesMasCercanas } from './geolocalizacion.js';
 import { formatInternalReason } from './internalNotes.js';
+import { registrarUltimoTraspaso } from './ultimoTraspaso.js';
 
 // Un operador que no puede seguir atendiendo (ej. sin stock) devuelve el chat
 // a la cola general de "En espera": vuelve a estar disponible para cualquier
@@ -83,6 +84,9 @@ export const devolverConversacionAEspera = async (conversationId, razon) => {
       console.error('❌ [DEBUG-SERVICE-DEVOLUCIONCOLA] devolverConversacionAEspera() — updateError:', updateError);
       throw updateError;
     }
+
+    // Marca "Devuelto a espera" para la pestaña Global del admin (no crítico).
+    await registrarUltimoTraspaso(conversationId, 'devuelto');
 
     // El motivo es opcional en el modal (ver ReturnToQueueModal.jsx), pero la
     // nota interna se genera SIEMPRE, con "sin especificar" como fallback si

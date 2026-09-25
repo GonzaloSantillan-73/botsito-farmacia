@@ -1,6 +1,7 @@
 import { supabase } from '../supabase.js';
 import { estaAbiertaAhora } from './sucursales.js';
 import { formatInternalReason } from './internalNotes.js';
+import { registrarUltimoTraspaso } from './ultimoTraspaso.js';
 
 // Un empleado de sucursal deriva DIRECTAMENTE la conversación que está
 // atendiendo a otra sucursal puntual que él elige — a diferencia de
@@ -93,6 +94,9 @@ export const derivarASucursal = async (conversationId, sucursalDestinoId, razon)
     // de cara a él, la atención tiene que sentirse continua y unificada bajo
     // una sola marca, sin ningún rastro de que la consulta cambió de mano
     // entre sucursales (ni el nombre de la sucursal, ni que hubo un cambio).
+
+    // Marca "Derivado" para la pestaña Global del admin (no crítico).
+    await registrarUltimoTraspaso(conversationId, 'derivado');
 
     // Registro histórico (ver conversation_sucursal_historial.sql): un fallo
     // acá no debe tirar abajo la derivación, que ya quedó confirmada arriba.

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, memo } from 'react';
-import { Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut, MapPin, Hand, Send } from 'lucide-react';
+import { Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut, MapPin, Hand, Send, Undo2, Store } from 'lucide-react';
 import SettingsModal from './SettingsModal';
 import { formatPhone } from '../lib/formatPhone';
-import { isAdminRole, getStaffSucursalId } from '../lib/adminAuth';
+import { isAdminRole, getStaffSucursalId, adminFetch } from '../lib/adminAuth';
 import { tomarConsulta } from '../lib/tomarConsulta';
 import { confirmDialog, alertDialog } from '../lib/dialogService';
 import { renderWhatsAppText } from '../lib/whatsappFormat';
@@ -102,6 +102,45 @@ const DerivadoBadge = ({ nombreSucursalOrigen }) => {
   );
 };
 
+// Etiquetas de la pestaña Global (sólo admin), apiladas verticalmente:
+// - Arriba, sólo si el chat cambió de mano: el ÚLTIMO traspaso ("Derivado" o
+//   "Devuelto a espera"), sin nombrar la sucursal de origen. Cada traspaso
+//   nuevo pisa al anterior (ver ultimo_traspaso en
+//   supabase/conversations_ultimo_traspaso.sql), así que nunca se acumulan.
+// - Abajo, siempre: el nombre de la sucursal que lo atiende ahora.
+// Fallback para filas anteriores a esa migración: si todavía hay
+// derivado_por_sucursal_nombre, el último evento fue una derivación.
+const TRASPASO_BADGES = {
+  derivado: { label: 'Derivado', icon: Send, className: 'bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300' },
+  devuelto: { label: 'Devuelto a espera', icon: Undo2, className: 'bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300' }
+};
+
+const GlobalBadges = ({ conv, nombreSucursal }) => {
+  const tipo = conv.ultimo_traspaso || (conv.derivado_por_sucursal_nombre ? 'derivado' : null);
+  const traspaso = TRASPASO_BADGES[tipo];
+  if (!traspaso && !nombreSucursal) return null;
+  const IconoTraspaso = traspaso?.icon;
+  return (
+    <div className="flex flex-col items-start gap-1">
+      {traspaso && (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold whitespace-nowrap ${traspaso.className}`}>
+          <IconoTraspaso size={10} className="shrink-0" />
+          {traspaso.label}
+        </span>
+      )}
+      {nombreSucursal && (
+        <span
+          title={nombreSucursal}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700 max-w-[200px] min-w-0"
+        >
+          <Store size={10} className="shrink-0 text-teal-600 dark:text-teal-400" />
+          <span className="truncate min-w-0">{nombreSucursal}</span>
+        </span>
+      )}
+    </div>
+  );
+};
+
 // Etiquetas con las 2 sucursales más cercanas a la ubicación que el cliente
 // compartió al pedir un asesor (ver bot.js: manejarUbicacionHumano). Es sólo
 // una recomendación visual para el operador — cualquier sucursal puede
@@ -194,6 +233,32 @@ export default function Sidebar({
   const soyStaff = !isAdminRole();
   const miSucursalId = getStaffSucursalId();
   const [takingId, setTakingId] = useState(null);
+
+  // Nombres de sucursal (id -> nombre) para las etiquetas de la pestaña
+  // Global, sólo para el admin: las filas de conversations traen sucursal_id
+  // pero no el nombre (App.jsx hace select('*') sin join, y Realtime tampoco
+  // manda joins). Se vuelve a pedir si aparece un sucursal_id desconocido
+  // (ej. una sucursal creada después de cargar la página).
+  const [nombresSucursal, setNombresSucursal] = useState({});
+  const idsSucursalFaltantes = isAdmin
+    ? [...new Set(conversations.map(c => c.sucursal_id).filter(id => id && !nombresSucursal[id]))].sort().join(',')
+    : '';
+  useEffect(() => {
+    if (!isAdmin) return;
+    let cancelado = false;
+    adminFetch('/api/admin/staff/sucursales')
+      .then(res => res.json())
+      .then(({ sucursales, error }) => {
+        if (cancelado) return;
+        if (error) {
+          console.error('❌ [DEBUG-COMPONENT-Sidebar] error cargando nombres de sucursal:', error);
+          return;
+        }
+        setNombresSucursal(Object.fromEntries((sucursales || []).map(s => [s.id, s.nombre])));
+      })
+      .catch(err => console.error('❌ [DEBUG-COMPONENT-Sidebar] excepción cargando nombres de sucursal:', err));
+    return () => { cancelado = true; };
+  }, [isAdmin, idsSucursalFaltantes]);
 
   // Sólo un empleado de sucursal "toma" consultas de la cola general (el
   // admin ya las ve todas sin necesidad de reclamarlas). Deja la conversación
@@ -445,7 +510,10 @@ export default function Sidebar({
                   </div>
                 </div>
               )}
-              {isDerivadoTab && conv.derivado_por_sucursal_nombre && (
+              {isDerivadoTab && isAdmin && (
+                <GlobalBadges conv={conv} nombreSucursal={nombresSucursal[conv.sucursal_id]} />
+              )}
+              {isDerivadoTab && !isAdmin && conv.derivado_por_sucursal_nombre && (
                 <div className="flex items-center gap-1 flex-wrap">
                   <DerivadoBadge nombreSucursalOrigen={conv.derivado_por_sucursal_nombre} />
                 </div>
