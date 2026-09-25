@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Settings, BarChart3, Sliders, Hash, Zap, CalendarClock, Download, Bell, Clock, Store, ShieldCheck, UserCog, CreditCard, MessageSquareText, Moon, KeyRound, Heart } from 'lucide-react';
+import { X, Settings, BarChart3, Sliders, Hash, Zap, CalendarClock, Download, Bell, Clock, Store, ShieldCheck, UserCog, CreditCard, MessageSquareText, Moon, KeyRound, Heart, FileText } from 'lucide-react';
 import Accordion from './Accordion';
 import SessionTimeoutPanel from './SessionTimeoutPanel';
 import WelcomeMessagePanel from './WelcomeMessagePanel';
@@ -15,6 +15,7 @@ import ExportPanel from './ExportPanel';
 import CredentialsPanel from './CredentialsPanel';
 import AliasPanel from './AliasPanel';
 import ThemeToggle from './ThemeToggle';
+import PrivacyPolicyContent from './PrivacyPolicyContent';
 
 export default function SettingsModal({ sessionTimeoutMs, sessionPrewarningMs, onSave, onClose, isAdmin = true }) {
 
@@ -24,15 +25,20 @@ export default function SettingsModal({ sessionTimeoutMs, sessionPrewarningMs, o
   // exclusivos del administrador, así que ni siquiera se listan acá para una
   // sucursal — "Respuestas Rápidas" ya no se le muestra porque no puede
   // gestionarlas (las usa desde el propio chat con "/" o el ícono de rayo).
+  // "PP" (Política de Privacidad) va última y la ven TODOS los roles, admin y
+  // sucursal: es de sólo lectura, para que cualquier operador la consulte.
+  const TAB_POLITICA = { id: 'pp', label: 'PP', icon: FileText, title: 'Política de Privacidad' };
   const TABS = isAdmin ? [
     { id: 'apariencia', label: 'Apariencia', icon: Moon },
     { id: 'chat', label: 'Ajustes de Chat', icon: Sliders },
     { id: 'metrics', label: 'Métricas y Estadísticas', icon: BarChart3 },
     { id: 'export', label: 'Exportar Datos', icon: Download },
-    { id: 'admin', label: 'Administración', icon: UserCog }
+    { id: 'admin', label: 'Administración', icon: UserCog },
+    TAB_POLITICA
   ] : [
     { id: 'apariencia', label: 'Apariencia', icon: Moon },
-    { id: 'cuenta', label: 'Cuenta', icon: KeyRound }
+    { id: 'cuenta', label: 'Cuenta', icon: KeyRound },
+    TAB_POLITICA
   ];
 
 
@@ -73,6 +79,7 @@ export default function SettingsModal({ sessionTimeoutMs, sessionPrewarningMs, o
             return (
               <button
                 key={tab.id}
+                title={tab.title}
                 onClick={() => handleTabClick(tab.id)}
                 className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors shrink-0 whitespace-nowrap ${
                   isActive ? 'border-teal-600 text-teal-700 dark:text-teal-400' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
@@ -90,6 +97,8 @@ export default function SettingsModal({ sessionTimeoutMs, sessionPrewarningMs, o
           <div className={anchoContenido}>
             {activeTab === 'apariencia' ? (
               <ThemeToggle />
+            ) : activeTab === 'pp' ? (
+              <PrivacyPolicyContent />
             ) : activeTab === 'cuenta' && !isAdmin ? (
               <CredentialsPanel />
             ) : activeTab === 'chat' && isAdmin ? (

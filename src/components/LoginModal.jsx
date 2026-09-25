@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, User, Loader2, LogIn } from 'lucide-react';
+import { Lock, User, Loader2, LogIn, ShieldCheck } from 'lucide-react';
 import { setAdminSession } from '../lib/adminAuth';
 
 export default function LoginModal({ onLoginSuccess }) {
@@ -92,6 +92,18 @@ export default function LoginModal({ onLoginSuccess }) {
           </button>
         </form>
       </div>
+
+      {/* Acceso público a la Política de Privacidad (ruta /privacidad, no
+          requiere sesión). Se abre en otra pestaña para no perder el login. */}
+      <a
+        href="/privacidad"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="absolute bottom-4 left-4 flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-teal-700 dark:hover:text-teal-400 hover:underline underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 rounded px-1 py-0.5 transition-colors"
+      >
+        <ShieldCheck size={14} aria-hidden="true" />
+        Política de Privacidad
+      </a>
     </div>
   );
 }

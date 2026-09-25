@@ -1,0 +1,11 @@
+# Fallback SPA para el hosting estático (Apache/LiteSpeed de Hostinger):
+# cualquier ruta que no sea un archivo o carpeta real (ej. /privacidad) se
+# responde con index.html y la resuelve React en src/main.jsx.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
