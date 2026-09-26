@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Check, Loader2, Clock, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { DIAS } from '../lib/dias';
-import { validarFranjasDia, normalizarDia } from '../lib/horarioSucursal';
+import { validarFranjasDia, validarCrucesEntreDias, normalizarDia, cruzaMedianoche, labelDiaSiguiente } from '../lib/horarioSucursal';
 import Toggle from './Toggle';
 
 // Arma el estado inicial con las 7 claves ('0'..'6') siempre presentes, cada
@@ -114,6 +114,12 @@ export default function SucursalHorarioModal({ sucursal, onClose, onSaved }) {
           return;
         }
       }
+      const cruce = validarCrucesEntreDias(horarios);
+      if (cruce) {
+        setError(cruce.error);
+        setDiaAbierto(cruce.dia);
+        return;
+      }
     }
 
     setSaving(true);
@@ -195,28 +201,33 @@ export default function SucursalHorarioModal({ sucursal, onClose, onSaved }) {
                 {!infoDiaAbierto.abierta24hs && (
                   <>
                     {infoDiaAbierto.franjas.map((f, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <input
-                          type="time"
-                          value={f.inicio}
-                          onChange={(e) => { actualizarFranja(diaAbierto, idx, 'inicio', e.target.value); }}
-                          className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                        />
-                        <span className="text-gray-400 text-xs">a</span>
-                        <input
-                          type="time"
-                          value={f.fin}
-                          onChange={(e) => { actualizarFranja(diaAbierto, idx, 'fin', e.target.value); }}
-                          className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                        />
-                        {infoDiaAbierto.franjas.length > 1 && (
-                          <button
-                            onClick={() => { quitarFranja(diaAbierto, idx); }}
-                            title="Quitar este horario"
-                            className="p-1 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                      <div key={idx} className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="time"
+                            value={f.inicio}
+                            onChange={(e) => { actualizarFranja(diaAbierto, idx, 'inicio', e.target.value); }}
+                            className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                          />
+                          <span className="text-gray-400 text-xs">a</span>
+                          <input
+                            type="time"
+                            value={f.fin}
+                            onChange={(e) => { actualizarFranja(diaAbierto, idx, 'fin', e.target.value); }}
+                            className="px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded-lg text-sm focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                          />
+                          {infoDiaAbierto.franjas.length > 1 && (
+                            <button
+                              onClick={() => { quitarFranja(diaAbierto, idx); }}
+                              title="Quitar este horario"
+                              className="p-1 text-gray-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                        {cruzaMedianoche(f) && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Termina a las {f.fin} del {labelDiaSiguiente(diaAbierto)}.</p>
                         )}
                       </div>
                     ))}

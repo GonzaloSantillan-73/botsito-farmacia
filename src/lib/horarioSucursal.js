@@ -1,3 +1,5 @@
+import { DIAS } from './dias';
+
 // Horario "cortado" por día: `horarios_dias` es un objeto JSON con una clave
 // por día (0=domingo…6=sábado, mismos valores que DIAS en ./dias.js). Cada
 // día guarda { abierta24hs, franjas }: `abierta24hs` es independiente del
@@ -7,13 +9,9 @@
 // que sólo importa cuando ese día NO es 24hs. Un día sin franjas y sin
 // abierta24hs significa que la sucursal no atiende ese día.
 //
-// Ver también server/services/sucursales.js, que duplica esta misma lógica
+// Ver también server/services/sucursales.js, que duplica estas mismas reglas
 // del lado del backend (para el bot y la recomendación por cercanía) porque
 // no comparte módulos con el frontend.
-// Orden natural de la semana (Lun a Dom) en el que se recorren los días para
-// armar el resumen — no el orden numérico 0..6 que usa la base (0=domingo).
-const ORDEN_SEMANA = [1, 2, 3, 4, 5, 6, 0];
-const DAY_ABBR = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 
 export const toMinutes = (hhmm) => {
   const [h, m] = (hhmm || '00:00').split(':').map(Number);
@@ -21,12 +19,18 @@ export const toMinutes = (hhmm) => {
 };
 
 // "00:00" como FIN de una franja significa medianoche (fin de ese mismo
-// día), no el inicio del día siguiente — así se puede armar un horario tipo
-// "17:00 a 00:00" sin tener que soportar franjas que cruzan la medianoche.
+// día), no el inicio del día siguiente — así "17:00 a 00:00" sigue siendo
+// una franja normal que termina al final del día.
 export const finEnMinutos = (fin) => {
   const m = toMinutes(fin);
   return m === 0 ? 1440 : m;
 };
+
+// Una franja con fin menor que el inicio (ej. "17:00 a 03:00") cruza la
+// medianoche: arranca ese día y termina en la madrugada del día siguiente,
+// sin tener que partirla en dos días ni gastar una franja del día siguiente.
+// "00:00" como fin no cuenta como cruce (ver finEnMinutos).
+export const cruzaMedianoche = (f) => !!f?.inicio && !!f?.fin && f.fin !== '00:00' && toMinutes(f.fin) < toMinutes(f.inicio);
 
 // Acepta tanto el objeto { abierta24hs, franjas } nuevo como, por si algún
 // dato todavía no migró, el array de franjas viejo (sin 24hs propio) — para
@@ -37,55 +41,28 @@ export const normalizarDia = (raw) => {
   return { abierta24hs: false, franjas: [] };
 };
 
-const diaDe = (horarios, d) => normalizarDia(horarios?.[String(d)]);
-
-// Texto del estado de UN día: "cerrado", "abierto 24hs", o sus franjas
-// ordenadas de más temprano a más tarde (por si se cargaron fuera de orden),
-// ej. "08:00 a 13:00 y 17:00 a 23:59hs".
-const textoEstadoDia = (info) => {
-  if (info.abierta24hs) return 'abierto 24hs';
-  if (!info.franjas || info.franjas.length === 0) return 'cerrado';
-  const ordenadas = [...info.franjas].sort((a, b) => toMinutes(a.inicio) - toMinutes(b.inicio));
-  return `${ordenadas.map(f => `${f.inicio} a ${f.fin}`).join(' y ')}hs`;
-};
-
-// Resumen del horario completo de una sucursal, como un array de líneas
-// ("lun, mar, mié: 08:00 a 13:00hs", "jue, vie, dom: cerrado", ...), una por
-// cada grupo de días con EXACTAMENTE el mismo estado — sin importar si son
-// consecutivos o no. Usado hoy sólo para el mensaje de WhatsApp del bot (ver
-// formatearMensajeSucursales en server/services/sucursales.js, que duplica
-// esta misma lógica del lado del backend); la interfaz del CRM ya no
-// muestra este texto.
-export const resumenHorarioSucursal = (sucursal) => {
-  if (sucursal?.abierta_24hs) return ['Abierto 24 hs'];
-
-  const horarios = sucursal?.horarios_dias || {};
-  const grupos = new Map(); // texto del estado -> lista de días (en orden de semana)
-  for (const d of ORDEN_SEMANA) {
-    const texto = textoEstadoDia(diaDe(horarios, d));
-    if (!grupos.has(texto)) grupos.set(texto, []);
-    grupos.get(texto).push(d);
-  }
-
-  return Array.from(grupos.entries())
-    .map(([texto, dias]) => `${dias.map(d => DAY_ABBR[d]).join(', ')}: ${texto}`);
-};
+// Etiqueta del día siguiente (ej. 0=Dom -> "Lun"), para avisar hasta cuándo
+// llega una franja que cruza la medianoche.
+export const labelDiaSiguiente = (dia) => DIAS.find(d => d.value === (Number(dia) + 1) % 7)?.label;
 
 // Valida las franjas de UN día (sólo tiene sentido si ese día no es 24hs):
-// horarios completos, fin posterior al inicio (dentro del mismo día, salvo
-// el caso "hasta 00:00"), y que las dos franjas (si hay 2) no se solapen.
-// Devuelve el mensaje de error, o null si está todo bien.
+// horarios completos, inicio distinto del fin, y que las dos franjas (si hay
+// 2) no se solapen. Una franja que cruza la medianoche se mide como si
+// terminara después de las 24:00, así que si hay otra franja que arranca más
+// tarde ese mismo día se detecta como superposición (la que cruza tiene que
+// ser siempre la última del día). Devuelve el mensaje de error, o null.
 export const validarFranjasDia = (franjas) => {
   if (!franjas || franjas.length === 0) return null;
 
   for (const f of franjas) {
     if (!f?.inicio || !f?.fin) return 'Completá el horario de inicio y fin.';
+    if (toMinutes(f.inicio) === finEnMinutos(f.fin) % 1440) return 'El horario de inicio y de fin no pueden ser iguales.';
   }
 
-  const rangos = franjas.map(f => ({ inicio: toMinutes(f.inicio), fin: finEnMinutos(f.fin) }));
-  for (const r of rangos) {
-    if (r.fin <= r.inicio) return 'El horario de fin debe ser posterior al de inicio.';
-  }
+  const rangos = franjas.map(f => ({
+    inicio: toMinutes(f.inicio),
+    fin: cruzaMedianoche(f) ? toMinutes(f.fin) + 1440 : finEnMinutos(f.fin)
+  }));
 
   if (rangos.length === 2) {
     const [a, b] = rangos;
@@ -93,5 +70,30 @@ export const validarFranjasDia = (franjas) => {
     if (seSuperponen) return 'Los dos horarios se superponen: ajustá los rangos para que no se crucen.';
   }
 
+  return null;
+};
+
+// Valida lo que validarFranjasDia no puede ver mirando un solo día: que la
+// madrugada de una franja que cruza la medianoche no se pise con una franja
+// del día siguiente (ej. Lun 17:00 a 03:00 y Mar 02:00 a 10:00). Un día
+// siguiente 24hs no se considera error: es redundante pero no contradictorio.
+// Devuelve { dia, error } del primer problema encontrado, o null.
+export const validarCrucesEntreDias = (horarios) => {
+  for (const { value: dia, label } of DIAS) {
+    const hoy = normalizarDia(horarios?.[String(dia)]);
+    if (hoy.abierta24hs) continue;
+    const cruce = hoy.franjas.find(cruzaMedianoche);
+    if (!cruce) continue;
+
+    const manana = normalizarDia(horarios?.[String((dia + 1) % 7)]);
+    if (manana.abierta24hs) continue;
+    const pisada = manana.franjas.find(f => f?.inicio && toMinutes(f.inicio) < toMinutes(cruce.fin));
+    if (pisada) {
+      return {
+        dia,
+        error: `${label} termina a las ${cruce.fin} del ${labelDiaSiguiente(dia)}, pero ese día ya abre a las ${pisada.inicio}. Ajustá los horarios para que no se crucen.`
+      };
+    }
+  }
   return null;
 };

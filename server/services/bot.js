@@ -333,7 +333,11 @@ const mostrarSucursales = async (conversationId, telefono) => {
   }
 
   try {
-    await enviarMensajeBot(conversationId, telefono, formatearMensajeSucursales(sucursales));
+    // Con muchas sucursales el listado viene partido en varios mensajes (ver
+    // MAX_CARACTERES_MENSAJE en sucursales.js); se mandan en orden.
+    for (const mensaje of formatearMensajeSucursales(sucursales)) {
+      await enviarMensajeBot(conversationId, telefono, mensaje);
+    }
   } catch (err) {
     // Un fallo transitorio al enviar el listado de sucursales no debe impedir
     // que igual le reenviemos el menú principal a continuación.
