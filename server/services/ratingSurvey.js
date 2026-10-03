@@ -240,3 +240,50 @@ export const descartarEncuestaPendiente = async (clientPhone) => {
     throw err;
   }
 };
+
+// Ventana después de la despedida de la encuesta ("¡Gracias por tu
+// calificación!...") en la que se ignora cualquier mensaje del cliente: un
+// "gracias igualmente" o un 👍 no tiene que arrancar una consulta nueva con
+// el saludo y el menú del bot.
+export const VENTANA_POST_ENCUESTA_MS = 3 * 60 * 1000;
+
+// Devuelve el id de la consulta a la que se le mandó la despedida de la
+// encuesta hace menos de VENTANA_POST_ENCUESTA_MS, o null. Sólo cuenta si esa
+// consulta sigue siendo la más reciente del teléfono (si ya arrancó otra
+// después, ésa manda). Ante cualquier error devuelve null, para que el
+// mensaje siga el flujo normal en vez de perderse.
+export const getConversacionRecienDespedida = async (clientPhone) => {
+  console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] getConversacionRecienDespedida() — clientPhone:', clientPhone);
+  try {
+    const last10 = clientPhone.slice(-10);
+
+    const { data: ultima, error: convError } = await supabase
+      .from('conversations')
+      .select('id, status')
+      .ilike('client_phone', `%${last10}%`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] getConversacionRecienDespedida() — última conversación:', ultima, 'error:', convError);
+    if (convError || !ultima || !ESTADOS_TERMINALES.includes(ultima.status)) return null;
+
+    const desde = new Date(Date.now() - VENTANA_POST_ENCUESTA_MS).toISOString();
+    const { data: despedida, error: msgError } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('conversation_id', ultima.id)
+      .eq('sender_type', 'bot')
+      .eq('message_text', MENSAJE_DESPEDIDA_ENCUESTA)
+      .gte('created_at', desde)
+      .limit(1)
+      .maybeSingle();
+    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] getConversacionRecienDespedida() — despedida dentro de la ventana:', despedida, 'error:', msgError);
+    if (msgError || !despedida) return null;
+
+    console.log('✅ [DEBUG-SERVICE-RATINGSURVEY] getConversacionRecienDespedida() — resultado:', ultima.id);
+    return ultima.id;
+  } catch (err) {
+    console.error('❌ [DEBUG-SERVICE-RATINGSURVEY] getConversacionRecienDespedida() — error:', err?.message, err?.stack);
+    return null;
+  }
+};

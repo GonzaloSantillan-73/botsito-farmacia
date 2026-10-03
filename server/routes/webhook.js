@@ -3,7 +3,7 @@ import { supabase } from '../supabase.js';
 import { downloadWhatsAppMedia, normalizarTelefono } from '../services/whatsapp.js';
 import { procesarMensajeBot } from '../services/bot.js';
 import { findOrCreateSession } from '../services/sessionManager.js';
-import { getConversationAwaitingRating, isValidRatingReply, normalizarRespuestaRating, guardarCalificacionAtencion, guardarCalificacionProducto, descartarEncuestaPendiente } from '../services/ratingSurvey.js';
+import { getConversationAwaitingRating, isValidRatingReply, normalizarRespuestaRating, guardarCalificacionAtencion, guardarCalificacionProducto, descartarEncuestaPendiente, getConversacionRecienDespedida } from '../services/ratingSurvey.js';
 import { analizarPdf, esDocumentoPdf } from '../services/pdfSecurity.js';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -157,15 +157,25 @@ router.post('/', async (req, res) => {
 
         let conversationId, isNewSession;
         let isRatingReply = false;
+        let ignorarPostEncuesta = false;
 
         const rawTextForRating = messageType === 'text' ? waMessage.text.body : null;
         const pendingRatingConv = await getConversationAwaitingRating(clientPhone);
+        // Sin encuesta pendiente: si hace menos de 3 min se le mandó la
+        // despedida de la encuesta, el mensaje (ej. "gracias igualmente") se
+        // guarda en esa consulta cerrada y el bot no responde ni abre otra.
+        const convRecienDespedida = pendingRatingConv ? null : await getConversacionRecienDespedida(clientPhone);
 
         if (pendingRatingConv && rawTextForRating && isValidRatingReply(rawTextForRating)) {
           console.log(`[WEBHOOK] -> Respuesta a la encuesta de satisfacción detectada para la consulta ${pendingRatingConv.id}.`);
           conversationId = pendingRatingConv.id;
           isNewSession = false;
           isRatingReply = true;
+        } else if (convRecienDespedida) {
+          console.log(`[WEBHOOK] -> Mensaje dentro de la ventana post-encuesta: se guarda en ${convRecienDespedida} y el bot no responde.`);
+          conversationId = convRecienDespedida;
+          isNewSession = false;
+          ignorarPostEncuesta = true;
         } else {
           if (pendingRatingConv) {
             console.log(`[WEBHOOK] -> Había una encuesta pendiente en ${pendingRatingConv.id} pero no se respondió con un número válido (1-5); se descartan todas las encuestas pendientes de ${clientPhone}.`);
@@ -363,6 +373,8 @@ router.post('/', async (req, res) => {
              console.log(`[WEBHOOK] -> Guardando calificación de producto: ${valor}`);
              await guardarCalificacionProducto(conversationId, clientPhone, valor);
            }
+        } else if (ignorarPostEncuesta) {
+           // Nada que responder: el mensaje ya quedó guardado en la consulta cerrada.
         } else if (isNewSession || messageType === 'text' || messageType === 'interactive' || messageType === 'location') {
            // Si es sesión nueva, se manda la bienvenida sin importar el tipo de mensaje;
            // si la sesión ya estaba activa, se procesan mensajes de texto (menú 1/2),
