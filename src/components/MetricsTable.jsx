@@ -26,15 +26,22 @@ const downloadFile = async (url, fallbackName) => {
   URL.revokeObjectURL(blobUrl);
 };
 
+// 'en-CA' formatea como YYYY-MM-DD usando la zona horaria del navegador
+// (toISOString() usaría UTC y después de las 21 hs ya daría el día siguiente).
+const hoyLocal = () => new Date().toLocaleDateString('en-CA');
+
 export default function MetricsTable() {
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [appliedRange, setAppliedRange] = useState({ startDate: '', endDate: '' });
+  // Arranca filtrado por el día de hoy (fecha local, YYYY-MM-DD, el formato
+  // del <input type="date">): sin esto traía todo el histórico de una. Para
+  // ver otro rango se cambian las fechas y "Filtrar", o "Quitar filtro".
+  const [startDate, setStartDate] = useState(hoyLocal);
+  const [endDate, setEndDate] = useState(hoyLocal);
+  const [appliedRange, setAppliedRange] = useState(() => ({ startDate: hoyLocal(), endDate: hoyLocal() }));
 
   // Lo sube handleActualizar() para forzar un re-fetch manual del detalle de
   // consultas con el MISMO rango de fechas ya aplicado (sin resetear el

@@ -27,8 +27,10 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
         .from('conversations')
         .select(columnas)
         .order('created_at', { ascending: false });
-      if (startDate) q = q.gte('created_at', `${startDate}T00:00:00.000Z`);
-      if (endDate) q = q.lte('created_at', `${endDate}T23:59:59.999Z`);
+      // Los días se cortan en hora de Argentina (UTC-3, sin horario de
+      // verano), no en UTC: si no, "hoy" dejaba afuera los chats de 21 a 24 hs.
+      if (startDate) q = q.gte('created_at', `${startDate}T00:00:00.000-03:00`);
+      if (endDate) q = q.lte('created_at', `${endDate}T23:59:59.999-03:00`);
       if (saleStatus) q = q.eq('sale_status', saleStatus);
       if (rating != null) q = q.eq('rating', rating);
       if (productRating != null) q = q.eq('product_rating', productRating);

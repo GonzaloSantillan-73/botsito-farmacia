@@ -33,8 +33,8 @@ const parseDateRange = (query) => {
     throw new Error('Debés indicar startDate y endDate (formato YYYY-MM-DD).');
   }
   return {
-    from: `${startDate}T00:00:00.000Z`,
-    to: `${endDate}T23:59:59.999Z`
+    from: `${startDate}T00:00:00.000-03:00`,
+    to: `${endDate}T23:59:59.999-03:00`
   };
 };
 
@@ -214,8 +214,8 @@ router.get('/metrics/negocio', async (req, res) => {
     // consulta, para que las 4 secciones (resolución, seguridad, conversión y
     // satisfacción) queden consistentes entre sí con el mismo período.
     const { startDate, endDate } = req.query;
-    const from = startDate ? `${startDate}T00:00:00.000Z` : null;
-    const to = endDate ? `${endDate}T23:59:59.999Z` : null;
+    const from = startDate ? `${startDate}T00:00:00.000-03:00` : null;
+    const to = endDate ? `${endDate}T23:59:59.999-03:00` : null;
     const conRango = (query, campo = 'created_at') => {
       let q = query;
       if (from) q = q.gte(campo, from);
