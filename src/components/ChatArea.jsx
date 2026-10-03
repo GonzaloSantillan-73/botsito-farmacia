@@ -607,7 +607,9 @@ export default function ChatArea({
                >
                  <MessagesSquare size={20} />
                </button>
-               {!isConversacionCerrada && !soyAdmin && !esModoBot && (
+               {/* Finalizar: lo usan la sucursal y también el admin (incluso
+                   en modo supervisión), ver POST /conversations/:id/close. */}
+               {!isConversacionCerrada && !esModoBot && (
                  <button
                    onClick={() => { setIsCloseModalOpen(true); }}
                    disabled={closingChat}
@@ -759,7 +761,7 @@ export default function ChatArea({
             </div>
           ) : soyAdmin ? (
             <div className="p-4 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 text-center text-sm text-gray-500 dark:text-gray-400">
-              Modo supervisión: estás viendo este chat como espectador. El administrador no puede enviar mensajes ni intervenir en la atención.
+              Modo supervisión: estás viendo este chat como espectador. El administrador no puede enviar mensajes, pero sí puede finalizar la consulta.
             </div>
           ) : esModoBot ? (
             <div className="p-4 bg-blue-50 dark:bg-blue-950 border-t border-blue-200 dark:border-blue-900 flex items-center justify-between gap-3">

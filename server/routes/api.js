@@ -519,8 +519,10 @@ router.put('/frequent-client-config', async (req, res) => {
 });
 
 // Cierre manual de una consulta desde el CRM: mismo cierre + encuesta que el
-// checker automático por inactividad, pero disparado por el operador.
-router.post('/conversations/:id/close', requireAuth, blockAdminRole, async (req, res) => {
+// checker automático por inactividad, pero disparado por el operador. El
+// admin también puede finalizar cualquier consulta activa (desde Global o la
+// supervisión), sin importar a qué sucursal esté asignada.
+router.post('/conversations/:id/close', requireAuth, async (req, res) => {
   const { id } = req.params;
   console.log('🔍 [DEBUG-ROUTES-API] Entrada a POST /conversations/:id/close:', {
     method: req.method,
