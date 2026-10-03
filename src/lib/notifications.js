@@ -75,7 +75,8 @@ export const playAlertSound = () => {
       osc.type = 'sine';
       osc.frequency.value = freq;
       gain.gain.setValueAtTime(0.0001, ctx.currentTime + start);
-      gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + start + 0.02);
+      // 1.0 = volumen máximo (antes 0.2: en las sucursales no se escuchaba).
+      gain.gain.exponentialRampToValueAtTime(1.0, ctx.currentTime + start + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + duration);
       osc.connect(gain);
       gain.connect(ctx.destination);
