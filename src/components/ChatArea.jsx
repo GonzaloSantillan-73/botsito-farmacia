@@ -608,8 +608,9 @@ export default function ChatArea({
                  <MessagesSquare size={20} />
                </button>
                {/* Finalizar: lo usan la sucursal y también el admin (incluso
-                   en modo supervisión), ver POST /conversations/:id/close. */}
-               {!isConversacionCerrada && !esModoBot && (
+                   en modo supervisión y en chats con el bot), ver
+                   POST /conversations/:id/close. */}
+               {!isConversacionCerrada && (!esModoBot || soyAdmin) && (
                  <button
                    onClick={() => { setIsCloseModalOpen(true); }}
                    disabled={closingChat}
