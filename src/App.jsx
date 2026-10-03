@@ -96,7 +96,6 @@ function App() {
   
   // UI States
   const [loading, setLoading] = useState(true);
-  const [isSeeding, setIsSeeding] = useState(false);
   const [modalImage, setModalImage] = useState(null);
   // En móvil, la ficha/cotizador (ValidationPanel) no entra en pantalla junto
   // al chat: se abre como overlay a demanda y se cierra sola al cambiar de
@@ -704,55 +703,6 @@ function App() {
     }
   };
 
-  const handleSeedData = async () => {
-    setIsSeeding(true);
-    try {
-      const now = new Date();
-
-      const { data: convs, error: convError } = await supabase.from('conversations').insert([
-        { client_name: 'Carlos Gómez', client_phone: '+54 9 11 4455-6677', status: 'pending_validation' },
-        { client_name: 'María López', client_phone: '+54 9 11 2233-4455', status: 'open' },
-        { client_name: 'Juan Pérez', client_phone: '+54 9 11 9988-7766', status: 'resolved' },
-      ]).select();
-
-      if (convError || !convs) throw new Error("Error creating conversations");
-
-      const carlos = convs.find(c => c.client_name === 'Carlos Gómez');
-      const maria = convs.find(c => c.client_name === 'María López');
-      const juan = convs.find(c => c.client_name === 'Juan Pérez');
-      
-      const { error: errorSeedMsgsCarlos } = await supabase.from('messages').insert([
-        { conversation_id: carlos.id, sender_type: 'bot', message_text: '¡Hola Carlos! Bienvenido a la farmacia. Por favor envía tu receta.', created_at: new Date(now.getTime() - 15 * 60000).toISOString() },
-        { conversation_id: carlos.id, sender_type: 'client', message_text: 'Hola, buenas tardes. Necesito cotizar estos medicamentos por OSDE.', created_at: new Date(now.getTime() - 10 * 60000).toISOString() },
-        { conversation_id: carlos.id, sender_type: 'client', message_text: 'Adjunto la receta', media_url: 'https://images.unsplash.com/photo-1585435557343-3b092031a831?auto=format&fit=crop&q=80&w=800', media_type: 'image', created_at: new Date(now.getTime() - 9 * 60000).toISOString() }
-      ]);
-
-      const { error: errorSeedPrescCarlos } = await supabase.from('prescriptions').insert([{
-        conversation_id: carlos.id,
-        image_url: 'https://images.unsplash.com/photo-1585435557343-3b092031a831?auto=format&fit=crop&q=80&w=800',
-        status: 'pending',
-        obra_social: 'OSDE 210',
-        notes: 'Pendiente verificar token digital'
-      }]);
-
-      const { error: errorSeedMsgsMaria } = await supabase.from('messages').insert([
-         { conversation_id: maria.id, sender_type: 'client', message_text: 'Hola, ¿tienen disponibilidad de alcohol en gel de 500ml y analgésicos de venta libre (Ibuprofeno 400)?', created_at: new Date(now.getTime() - 60 * 60000).toISOString() },
-         { conversation_id: maria.id, sender_type: 'agent', message_text: '¡Hola María! Sí, tenemos stock de ambos productos.', created_at: new Date(now.getTime() - 50 * 60000).toISOString() }
-      ]);
-
-      const { error: errorSeedMsgsJuan } = await supabase.from('messages').insert([
-         { conversation_id: juan.id, sender_type: 'client', message_text: 'Gracias por enviarme el pedido, llegó perfecto.', created_at: new Date(now.getTime() - 24 * 3600000).toISOString() },
-         { conversation_id: juan.id, sender_type: 'agent', message_text: '¡De nada Juan! Cualquier otra consulta estamos a tu disposición.', created_at: new Date(now.getTime() - 23 * 3600000).toISOString() }
-      ]);
-
-      await fetchConversations();
-    } catch (e) {
-      console.error('❌ [DEBUG-COMPONENT-App] handleSeedData() — error:', e);
-      alertDialog('Error al sembrar datos. Asegúrate de haber ejecutado el schema.sql primero.', { danger: true });
-    }
-    setIsSeeding(false);
-  };
-
   if (!adminToken) {
     return <LoginModal onLoginSuccess={(token) => {
       setAdminToken(token);
@@ -782,8 +732,6 @@ function App() {
         setActiveConversation={handleSelectConversation}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        handleSeedData={handleSeedData}
-        isSeeding={isSeeding}
         sessionTimeoutMs={sessionTimeoutMs}
         onSessionTimeoutChange={setSessionTimeoutMs}
         sessionPrewarningMs={sessionPrewarningMs}

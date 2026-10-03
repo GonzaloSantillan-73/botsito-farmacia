@@ -217,8 +217,6 @@ export default function Sidebar({
   setActiveConversation,
   activeTab,
   setActiveTab,
-  handleSeedData,
-  isSeeding,
   sessionTimeoutMs,
   onSessionTimeoutChange,
   sessionPrewarningMs,
@@ -441,15 +439,7 @@ export default function Sidebar({
            <div className="p-8 text-center flex flex-col items-center justify-center h-full">
              <Database className="w-12 h-12 text-gray-300 dark:text-gray-700 mb-4" />
              <h3 className="text-gray-900 dark:text-gray-100 font-semibold mb-2">No hay conversaciones</h3>
-             <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Tu base de datos está vacía. Carga los datos de prueba para comenzar.</p>
-             <button
-               onClick={() => { handleSeedData(); }}
-               disabled={isSeeding}
-               className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
-             >
-               {isSeeding ? <Loader2 className="animate-spin" size={18} /> : <Database size={18} />}
-               {isSeeding ? 'Cargando...' : 'Cargar datos mock'}
-             </button>
+             <p className="text-gray-500 dark:text-gray-400 text-sm">Cuando un cliente escriba, su consulta va a aparecer acá.</p>
            </div>
         ) : filteredConversations.length === 0 ? (
            <div className="p-8 text-center text-gray-500 dark:text-gray-400 text-sm">
