@@ -153,7 +153,7 @@ export const LocationCard = ({ lat, lng, label, senderType }) => (
         title="Vista previa de ubicación"
       />
     </div>
-    <div className={`flex items-center gap-2 p-2 text-xs font-medium ${senderType === 'client' ? 'bg-gray-100 dark:bg-gray-800 text-teal-700 dark:text-teal-400' : 'bg-teal-600 text-white'}`}>
+    <div className={`flex items-center gap-2 p-2 text-xs font-medium ${senderType === 'client' ? 'bg-gray-100 dark:bg-gray-800 text-teal-700 dark:text-teal-400' : 'bg-black/5 dark:bg-black/20 text-gray-800 dark:text-gray-100'}`}>
       <MapPin size={14} className="shrink-0" />
       <span className="truncate">{label || 'Ver ubicación en Google Maps'}</span>
     </div>
@@ -210,7 +210,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
   const showPurgeControl = canModerate && msg.media_url && msg.media_type !== 'location';
   return (
     <div className={`flex items-center gap-2 ${msg.sender_type === 'client' ? 'justify-start' : 'justify-end'}`}>
-      <div className={`relative max-w-[75%] rounded-lg p-3 shadow-sm ${msg.sender_type === 'client' ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-tl-none' : 'bg-teal-500 text-white rounded-tr-none'}`}>
+      <div className={`relative max-w-[75%] rounded-lg p-3 shadow-sm ${msg.sender_type === 'client' ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-tl-none' : 'bg-[#D8FDD2] dark:bg-[#134D37] text-gray-900 dark:text-gray-100 rounded-tr-none'}`}>
         {msg.sender_type === 'bot' && <div className="text-[10px] font-bold uppercase opacity-70 mb-1">BOT</div>}
         {location && (
           <LocationCard lat={location.lat} lng={location.lng} label={location.name || location.address} senderType={msg.sender_type} />
@@ -253,7 +253,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
            <button
               onClick={() => { onDownload && onDownload(msg); }}
               disabled={downloadingId === msg.id}
-              className={`mb-2 w-full flex items-center gap-2 p-2 rounded-lg text-sm transition-colors disabled:opacity-50 ${msg.sender_type === 'client' ? 'bg-gray-100 dark:bg-gray-700 text-teal-700 dark:text-teal-400 hover:bg-gray-200 dark:hover:bg-gray-600' : 'bg-teal-600 text-white hover:bg-teal-700'}`}
+              className={`mb-2 w-full flex items-center gap-2 p-2 rounded-lg text-sm transition-colors disabled:opacity-50 ${msg.sender_type === 'client' ? 'bg-gray-100 dark:bg-gray-700 text-teal-700 dark:text-teal-400 hover:bg-gray-200 dark:hover:bg-gray-600' : 'bg-black/5 dark:bg-black/20 text-gray-800 dark:text-gray-100 hover:bg-black/10 dark:hover:bg-black/30'}`}
            >
               {downloadingId === msg.id ? <Loader2 size={18} className="animate-spin" /> : <FileText size={18} />}
               Descargar documento adjunto
@@ -261,27 +261,27 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
            </button>
         )}
         {msg.media_url && msg.media_type === 'pdf' && (
-          <div className={`mb-2 rounded-lg border overflow-hidden ${msg.sender_type === 'client' ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950' : 'border-teal-400 bg-teal-600/20'}`}>
+          <div className={`mb-2 rounded-lg border overflow-hidden ${msg.sender_type === 'client' ? 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950' : 'border-black/10 dark:border-white/15 bg-black/5 dark:bg-black/20'}`}>
             <div className="flex items-center gap-2 p-2.5">
-              <div className={`p-2 rounded-lg shrink-0 ${msg.sender_type === 'client' ? 'bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400' : 'bg-white/20 text-white'}`}>
+              <div className={`p-2 rounded-lg shrink-0 ${msg.sender_type === 'client' ? 'bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400' : 'bg-rose-100 dark:bg-white/15 text-rose-600 dark:text-white'}`}>
                 <FileText size={18} />
               </div>
               <span className={`text-sm font-medium truncate ${msg.sender_type === 'client' ? 'text-gray-800 dark:text-gray-100' : ''}`}>{msg.message_text || 'Documento PDF'}</span>
             </div>
-            <div className={`flex flex-col border-t ${msg.sender_type === 'client' ? 'border-gray-200 dark:border-gray-700' : 'border-teal-400/50'}`}>
+            <div className={`flex flex-col border-t ${msg.sender_type === 'client' ? 'border-gray-200 dark:border-gray-700' : 'border-black/10 dark:border-white/15'}`}>
               <a
                 href={msg.media_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${msg.sender_type === 'client' ? 'text-teal-700 dark:text-teal-400 hover:bg-gray-100 dark:hover:bg-gray-800' : 'text-white hover:bg-white/10'}`}
+                className={`flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${msg.sender_type === 'client' ? 'text-teal-700 dark:text-teal-400 hover:bg-gray-100 dark:hover:bg-gray-800' : 'text-gray-800 dark:text-gray-100 hover:bg-black/5 dark:hover:bg-white/10'}`}
               >
                 <Eye size={14} /> Visualizar
               </a>
-              <div className={`h-px ${msg.sender_type === 'client' ? 'bg-gray-200 dark:bg-gray-700' : 'bg-teal-400/50'}`} />
+              <div className={`h-px ${msg.sender_type === 'client' ? 'bg-gray-200 dark:bg-gray-700' : 'bg-black/10 dark:bg-white/15'}`} />
               <button
                 onClick={() => { onDownload && onDownload(msg); }}
                 disabled={downloadingId === msg.id}
-                className={`flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors disabled:opacity-50 ${msg.sender_type === 'client' ? 'text-teal-700 dark:text-teal-400 hover:bg-gray-100 dark:hover:bg-gray-800' : 'text-white hover:bg-white/10'}`}
+                className={`flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors disabled:opacity-50 ${msg.sender_type === 'client' ? 'text-teal-700 dark:text-teal-400 hover:bg-gray-100 dark:hover:bg-gray-800' : 'text-gray-800 dark:text-gray-100 hover:bg-black/5 dark:hover:bg-white/10'}`}
               >
                 {downloadingId === msg.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />} Descargar
               </button>
@@ -295,7 +295,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
               onClick={() => { onDownload && onDownload(msg); }}
               disabled={downloadingId === msg.id}
               title="Descargar audio"
-              className={`p-2 rounded-full transition-colors disabled:opacity-50 shrink-0 ${msg.sender_type === 'client' ? 'text-gray-500 hover:bg-gray-100' : 'text-white/90 hover:bg-white/10'}`}
+              className={`p-2 rounded-full transition-colors disabled:opacity-50 shrink-0 ${msg.sender_type === 'client' ? 'text-gray-500 hover:bg-gray-100' : 'text-gray-600 dark:text-gray-200 hover:bg-black/5 dark:hover:bg-white/10'}`}
             >
               {downloadingId === msg.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
             </button>
@@ -334,7 +334,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
           )
         )}
         <div className="flex items-center justify-end gap-1 mt-1">
-          <span className={`text-[10px] ${msg.sender_type === 'client' ? 'text-gray-400' : 'text-teal-100'}`}>
+          <span className={`text-[10px] ${msg.sender_type === 'client' ? 'text-gray-400' : 'text-gray-500 dark:text-gray-300/80'}`}>
             {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
           {statusIcon}

@@ -61,16 +61,16 @@ const getLastRealMessage = (messages) => {
 const MessageStatusIcon = ({ estado }) => {
   switch (estado) {
     case 'leido':
-      return <CheckCheck size={14} className="text-sky-300" title="Leído" />;
+      return <CheckCheck size={14} className="text-[#0C6FB0] dark:text-[#54B6D1]" title="Leído" />;
     case 'entregado':
-      return <CheckCheck size={14} className="text-teal-100/80" title="Entregado" />;
+      return <CheckCheck size={14} className="text-gray-500 dark:text-gray-300/80" title="Entregado" />;
     case 'enviado':
-      return <Check size={14} className="text-teal-100/80" title="Enviado" />;
+      return <Check size={14} className="text-gray-500 dark:text-gray-300/80" title="Enviado" />;
     case 'error':
-      return <AlertCircle size={14} className="text-rose-200" title="No se pudo entregar" />;
+      return <AlertCircle size={14} className="text-rose-600 dark:text-rose-300" title="No se pudo entregar" />;
     case 'pendiente':
     default:
-      return <Clock size={12} className="text-teal-100/60" title="Enviando..." />;
+      return <Clock size={12} className="text-gray-500/80 dark:text-gray-300/60" title="Enviando..." />;
   }
 };
 

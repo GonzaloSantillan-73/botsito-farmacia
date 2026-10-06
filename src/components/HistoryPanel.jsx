@@ -190,7 +190,7 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
                   const linkDeMaps = !location && !msg.media_url ? extraerLinkDeMaps(msg.message_text) : null;
                   return (
                   <div key={msg.id} className={`flex ${msg.sender_type === 'client' ? 'justify-start' : 'justify-end'}`}>
-                    <div className={`max-w-[70%] rounded-lg px-3 py-2 text-sm shadow-sm ${msg.sender_type === 'client' ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100' : 'bg-teal-500 text-white'}`}>
+                    <div className={`max-w-[70%] rounded-lg px-3 py-2 text-sm shadow-sm ${msg.sender_type === 'client' ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100' : 'bg-[#D8FDD2] dark:bg-[#134D37] text-gray-900 dark:text-gray-100'}`}>
                       {msg.sender_type === 'bot' && <div className="text-[10px] font-bold uppercase opacity-70 mb-1">BOT</div>}
                       {location && (
                         <LocationCard lat={location.lat} lng={location.lng} label={location.name || location.address} senderType={msg.sender_type} />
@@ -199,7 +199,7 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
                         <img src={msg.media_url} alt="Media" className="mb-1.5 max-w-full h-auto object-cover rounded" />
                       )}
                       {msg.media_url && (msg.media_type === 'document' || msg.media_type === 'pdf') && (
-                        <a href={msg.media_url} target="_blank" rel="noopener noreferrer" className={`mb-1.5 flex items-center gap-2 p-2 rounded-lg text-sm hover:underline ${msg.sender_type === 'client' ? 'bg-gray-100 dark:bg-gray-800 text-teal-700 dark:text-teal-400' : 'bg-teal-600 text-white'}`}>
+                        <a href={msg.media_url} target="_blank" rel="noopener noreferrer" className={`mb-1.5 flex items-center gap-2 p-2 rounded-lg text-sm hover:underline ${msg.sender_type === 'client' ? 'bg-gray-100 dark:bg-gray-800 text-teal-700 dark:text-teal-400' : 'bg-black/5 dark:bg-black/20 text-gray-800 dark:text-gray-100'}`}>
                           <FileText size={16} />
                           Ver documento adjunto
                         </a>
@@ -237,7 +237,7 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
                           )}
                         </div>
                       )}
-                      <span className={`text-[10px] block mt-1 text-right ${msg.sender_type === 'client' ? 'text-gray-400 dark:text-gray-500' : 'text-teal-100'}`}>
+                      <span className={`text-[10px] block mt-1 text-right ${msg.sender_type === 'client' ? 'text-gray-400 dark:text-gray-500' : 'text-gray-500 dark:text-gray-300/80'}`}>
                         {new Date(msg.created_at).toLocaleString('es-AR', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
