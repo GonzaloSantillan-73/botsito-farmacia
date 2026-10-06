@@ -4,6 +4,43 @@ import { resolverNombresPorTelefono } from './clientes.js';
 
 const msDiff = (desde, hasta) => (desde && hasta ? new Date(hasta).getTime() - new Date(desde).getTime() : null);
 
+// Supabase devuelve como máximo 1000 filas por SELECT y corta el resto sin
+// avisar: con todo el histórico, los mensajes de las consultas más nuevas
+// quedaban afuera (Msjs Cliente en 0, Duración Total "<1m"). Se pagina con
+// .range() hasta que una página venga incompleta. Sólo lectura.
+const TAM_PAGINA = 1000;
+const traerTodasLasPaginas = async (construirQuery) => {
+  const filas = [];
+  for (let desde = 0; ; desde += TAM_PAGINA) {
+    const { data, error } = await construirQuery().range(desde, desde + TAM_PAGINA - 1);
+    if (error) return { data: null, error };
+    filas.push(...(data || []));
+    if (!data || data.length < TAM_PAGINA) return { data: filas, error: null };
+  }
+};
+
+// Los ids van en la URL del .in(): con cientos de consultas el pedido queda
+// demasiado largo, así que se parten en grupos (5 grupos en paralelo a la vez
+// para no saturar la base). Cada conversación cae entera en un solo grupo,
+// así que sus mensajes siguen llegando juntos y en orden.
+const TAM_GRUPO_IDS = 150;
+const GRUPOS_EN_PARALELO = 5;
+const traerPorGruposDeIds = async (ids, construirQuery) => {
+  const grupos = [];
+  for (let i = 0; i < ids.length; i += TAM_GRUPO_IDS) grupos.push(ids.slice(i, i + TAM_GRUPO_IDS));
+  const filas = [];
+  for (let i = 0; i < grupos.length; i += GRUPOS_EN_PARALELO) {
+    const resultados = await Promise.all(
+      grupos.slice(i, i + GRUPOS_EN_PARALELO).map(grupo => traerTodasLasPaginas(() => construirQuery(grupo)))
+    );
+    for (const { data, error } of resultados) {
+      if (error) return { data: null, error };
+      filas.push(...data);
+    }
+  }
+  return { data: filas, error: null };
+};
+
 // Fila por fila para la tabla interactiva de "Métricas y Estadísticas" y para
 // su exportación a CSV (mismas columnas en los dos lugares): junta datos de
 // `conversations` con los agregados que sólo se pueden calcular mirando sus
@@ -26,7 +63,10 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
       let q = supabase
         .from('conversations')
         .select(columnas)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        // Desempate por id: sin un orden estable, dos páginas podrían repetir
+        // o saltear filas con el mismo created_at.
+        .order('id', { ascending: true });
       // Los días se cortan en hora de Argentina (UTC-3, sin horario de
       // verano), no en UTC: si no, "hoy" dejaba afuera los chats de 21 a 24 hs.
       if (startDate) q = q.gte('created_at', `${startDate}T00:00:00.000-03:00`);
@@ -42,10 +82,10 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
     };
 
     console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — SELECT conversations con filtros:', { startDate, endDate, saleStatus, rating, productRating, derivada });
-    let { data: conversations, error } = await construirQuery(`${COLUMNAS_BASE}, demora_inicial_ms`);
+    let { data: conversations, error } = await traerTodasLasPaginas(() => construirQuery(`${COLUMNAS_BASE}, demora_inicial_ms`));
     if (error?.code === '42703') {
       console.error('❌ [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — falta la columna demora_inicial_ms (correr supabase/conversations_demora_inicial.sql); se reintenta sin ella');
-      ({ data: conversations, error } = await construirQuery(COLUMNAS_BASE));
+      ({ data: conversations, error } = await traerTodasLasPaginas(() => construirQuery(COLUMNAS_BASE)));
     }
 
     console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — resultado SELECT conversations — cantidad de filas:', conversations?.length, 'error:', error);
@@ -61,12 +101,17 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
     console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — disparando en paralelo: resolverNombresPorTelefono, messages (in conversation_id), pedidos_confirmados (in conversation_id)');
     const [phoneMap, { data: mensajes, error: msgError }, { data: pedidos, error: pedidosError }] = await Promise.all([
       resolverNombresPorTelefono(phones),
-      ids.length
-        ? supabase.from('messages').select('conversation_id, sender_type, media_type, media_url, tagged_as, created_at').in('conversation_id', ids).order('created_at', { ascending: true })
-        : Promise.resolve({ data: [] }),
-      ids.length
-        ? supabase.from('pedidos_confirmados').select('conversation_id, total, subtotal, costo_envio').in('conversation_id', ids)
-        : Promise.resolve({ data: [] })
+      traerPorGruposDeIds(ids, grupo => supabase
+        .from('messages')
+        .select('conversation_id, sender_type, media_type, media_url, tagged_as, created_at')
+        .in('conversation_id', grupo)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })),
+      traerPorGruposDeIds(ids, grupo => supabase
+        .from('pedidos_confirmados')
+        .select('conversation_id, total, subtotal, costo_envio')
+        .in('conversation_id', grupo)
+        .order('id', { ascending: true }))
     ]);
     console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — resultado resolverNombresPorTelefono — entradas:', Object.keys(phoneMap).length);
     console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — resultado SELECT messages — cantidad de filas:', mensajes?.length, 'error:', msgError);
