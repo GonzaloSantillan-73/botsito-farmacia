@@ -18,16 +18,33 @@ const MENSAJE_AVISO_INACTIVIDAD = '¡Hola! ¿Seguís ahí? Si necesitás algo m�
 // que este mismo mensaje NO cuente como "última actividad": si contara, cada
 // aviso reiniciaría el propio conteo que lo disparó y la conversación nunca
 // llegaría a cerrarse sola (ver el SELECT a `messages` más abajo).
+//
+// Mismo criterio anti-duplicado que finalizarConversacion (ratingSurvey.js):
+// si hay dos procesos del backend corriendo a la vez contra la misma base
+// (pasó en Hostinger tras un deploy), los dos veían prewarning_sent_at vacío
+// y mandaban el aviso dos veces. Ahora primero se "reserva" el aviso con un
+// UPDATE condicional (sólo si prewarning_sent_at sigue en NULL) y únicamente
+// lo manda el proceso cuyo UPDATE efectivamente afectó la fila. Si el envío
+// a WhatsApp falla, el aviso queda marcado y no se reintenta: es sólo un
+// recordatorio, la consulta igual se cierra a su hora.
 const enviarAvisoInactividad = async (conversationId, clientPhone) => {
   console.log(`⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] enviarAvisoInactividad() — conversationId: ${conversationId}`);
-  await enviarMensajeBot(conversationId, clientPhone, MENSAJE_AVISO_INACTIVIDAD, { is_auto_reminder: true });
-  const { error } = await supabase
+  const { data: filaReservada, error } = await supabase
     .from('conversations')
     .update({ prewarning_sent_at: new Date().toISOString() })
-    .eq('id', conversationId);
+    .eq('id', conversationId)
+    .is('prewarning_sent_at', null)
+    .select('id')
+    .maybeSingle();
   if (error) {
-    console.error('❌ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] enviarAvisoInactividad() — error marcando prewarning_sent_at:', error);
+    console.error('❌ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] enviarAvisoInactividad() — error reservando prewarning_sent_at, no se manda el aviso:', error);
+    return;
   }
+  if (!filaReservada) {
+    console.log(`⚠️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] enviarAvisoInactividad() — otro proceso ya reservó el aviso de ${conversationId}, se omite (evita duplicado).`);
+    return;
+  }
+  await enviarMensajeBot(conversationId, clientPhone, MENSAJE_AVISO_INACTIVIDAD, { is_auto_reminder: true });
 };
 
 // Revisa las consultas activas, finaliza las que ya vencieron, y devuelve en cuántos
