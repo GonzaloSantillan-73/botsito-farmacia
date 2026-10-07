@@ -153,20 +153,26 @@ export default function OrderStatusPanel({ activeConversation, handleSendMessage
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            {PASOS.map(paso => {
+            {PASOS.map((paso, i) => {
               const Icon = paso.icon;
               const activo = activeConversation[paso.campo] === paso.valor;
               return (
-                <button
-                  key={paso.key}
-                  onClick={() => handlePaso(paso)}
-                  disabled={updatingKey === paso.key}
-                  className={`flex items-center gap-1.5 justify-center p-2.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-50 ${
-                    activo ? 'bg-teal-600 text-white border-teal-600' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  <Icon size={14} /> {paso.label}
-                </button>
+                // Número de paso arriba de cada botón, para que el operador
+                // siga el orden (alias → pago → armado → envío).
+                <div key={paso.key} className="flex flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 text-center">
+                    Paso {i + 1}
+                  </span>
+                  <button
+                    onClick={() => handlePaso(paso)}
+                    disabled={updatingKey === paso.key}
+                    className={`flex items-center gap-1.5 justify-center p-2.5 rounded-lg text-xs font-medium border transition-colors disabled:opacity-50 ${
+                      activo ? 'bg-teal-600 text-white border-teal-600' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    <Icon size={14} /> {paso.label}
+                  </button>
+                </div>
               );
             })}
           </div>
