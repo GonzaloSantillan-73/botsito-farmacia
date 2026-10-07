@@ -470,10 +470,12 @@ const iniciarRegistro = async (conversationId, telefono, clienteActual) => {
     console.error('❌ [DEBUG-SERVICE-BOT] iniciarRegistro() — error actualizando bot_state/bot_context:', updError);
   }
 
-  const pregunta = MENSAJE_POR_ESTADO_REGISTRO[estadoInicio];
-  const intro = estadoInicio === 'registro_nombre' ? '¡Hola! Bienvenido a la Farmacia. 💊\n\nAntes de continuar, necesitamos saber cómo te llamás.\n\n' : '';
-  console.log('🔍 [DEBUG-SERVICE-BOT] iniciarRegistro() — intro:', intro, ', pregunta:', pregunta);
-  await enviarMensajeBot(conversationId, telefono, `${intro}${pregunta}`);
+  // Primer contacto: el bot se presenta y pide el nombre en el mismo mensaje.
+  const mensaje = estadoInicio === 'registro_nombre'
+    ? '¡Hola! Soy el bot de Mi Farma. 💊\n\nAntes de continuar, ¿cuál es tu nombre completo?'
+    : MENSAJE_POR_ESTADO_REGISTRO[estadoInicio];
+  console.log('🔍 [DEBUG-SERVICE-BOT] iniciarRegistro() — mensaje:', mensaje);
+  await enviarMensajeBot(conversationId, telefono, mensaje);
   console.log('✅ [DEBUG-SERVICE-BOT] iniciarRegistro() — valor de retorno: undefined (fin normal)');
 };
 
@@ -501,7 +503,7 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado) => {
     // El nombre es el único dato obligatorio: con eso el registro queda
     // completo y se pasa directo al menú (ya no se pide el DNI).
     await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
-    await enviarMensajeBot(conversationId, telefono, `✅ ¡Gracias, ${nombre.split(' ')[0]}! Ya registramos tus datos.\n\n${await construirMensajeBienvenida(telefono)}`);
+    await enviarMensajeBot(conversationId, telefono, `✅ ¡Gracias, ${nombre.split(' ')[0]}! Ya registramos tu nombre.\n\n${await construirMensajeBienvenida(telefono)}`);
     console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (registro completado con el nombre)');
     return;
   }
