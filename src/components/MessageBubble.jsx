@@ -193,7 +193,7 @@ export function MapsLinkPreview({ url, senderType, texto }) {
   if (coords) {
     return <LocationCard lat={coords.lat} lng={coords.lng} senderType={senderType} />;
   }
-  return <p className="text-sm whitespace-pre-wrap">{renderWhatsAppText(texto)}</p>;
+  return <p className="text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">{renderWhatsAppText(texto)}</p>;
 }
 
 // Renderiza un mensaje del chat (texto, imagen, video, documento, PDF o
@@ -330,7 +330,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
           linkDeMaps ? (
             <MapsLinkPreview url={linkDeMaps} senderType={msg.sender_type} texto={msg.message_text} />
           ) : (
-            <p className="text-sm whitespace-pre-wrap">{renderWhatsAppText(msg.message_text)}</p>
+            <p className="text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">{renderWhatsAppText(msg.message_text)}</p>
           )
         )}
         <div className="flex items-center justify-end gap-1 mt-1">

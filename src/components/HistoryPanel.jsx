@@ -220,7 +220,7 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
                         linkDeMaps ? (
                           <MapsLinkPreview url={linkDeMaps} senderType={msg.sender_type} texto={msg.message_text} />
                         ) : (
-                          <p className="whitespace-pre-wrap">
+                          <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">
                             {searchQuery.trim() ? highlightMatches(msg.message_text, searchQuery) : renderWhatsAppText(msg.message_text)}
                           </p>
                         )
