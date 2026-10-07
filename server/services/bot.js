@@ -73,11 +73,14 @@ const MENSAJE_UBICACION_INVALIDA = 'No pude reconocer esa ubicación. 😕\n\nPr
 const MENSAJE_SIN_SUCURSAL_DISPONIBLE = 'En este momento no tenemos ninguna sucursal cercana a tu ubicación atendiendo. 🕒\n\nEscribinos tu consulta y te vamos a responder apenas abramos, o intentá de nuevo más tarde.';
 
 // Registro de datos personales: se le pide al cliente la primera vez que
-// escribe (antes de mostrarle el menú) y puede volver a hacerse desde
-// "3. Actualizar mis datos". Cada dato se guarda apenas se confirma (no se
-// espera a tener los tres), así que si el cliente abandona a mitad de
-// camino no se pierde lo ya cargado.
+// escribe (antes de mostrarle el menú). Sólo se pide el nombre: el DNI ya no
+// lo pregunta el bot (pedir nombre, DNI y después la ubicación era demasiado
+// y generaba desconfianza); igual que la obra social, si el cliente lo da en
+// la conversación lo carga la sucursal a mano en "Datos del Cliente".
 const MENSAJE_PEDIR_NOMBRE = '¿Cuál es tu nombre completo?';
+// MENSAJE_PEDIR_DNI y el estado 'registro_dni' quedan sólo para no trabar a
+// un cliente que justo estaba en ese paso cuando se subió el cambio (ver
+// manejarPasoRegistro); ningún flujo nuevo entra ahí.
 const MENSAJE_PEDIR_DNI = '¿Cuál es tu número de DNI?';
 const MENSAJE_ERROR_REGISTRO = 'Tuvimos un problema guardando tus datos.\n\nPor favor, intentá de nuevo en un momento.';
 
@@ -86,23 +89,19 @@ const MENSAJE_POR_ESTADO_REGISTRO = {
   registro_dni: MENSAJE_PEDIR_DNI
 };
 
-// Edición voluntaria de UN dato puntual ya cargado (a diferencia del registro
-// obligatorio de arriba, que siempre pide nombre y DNI seguidos): el cliente
-// elige desde este menú qué campo corregir, en vez de tener que repasar los
-// dos de nuevo. Se entra acá desde "3. Actualizar mis datos" del menú
-// principal, sólo cuando el registro ya está completo (si todavía falta
-// algún dato, "3" sigue yendo al registro obligatorio de siempre).
-const MENU_EDITAR_DATOS = '¿Qué dato querés modificar?\n\n1. Nombre completo\n2. DNI\n3. Volver al menú principal';
+// Edición voluntaria de los datos ya cargados, desde "3. Actualizar mis
+// datos" del menú principal (sólo con el registro completo; si todavía falta
+// el nombre, "3" sigue yendo al registro obligatorio). El DNI ya no se ofrece
+// acá: lo carga la sucursal desde el CRM.
+const MENU_EDITAR_DATOS = '¿Qué dato querés modificar?\n\n1. Nombre completo\n2. Volver al menú principal';
 
 // Resumen de los datos ya cargados, para que el cliente vea qué tiene
-// guardado antes de elegir qué corregir (sólo los dos campos que este menú
-// permite editar). "_No cargado_" en vez de dejar el campo vacío, para que
-// no parezca un error de formato del mensaje.
+// guardado antes de elegir qué corregir. "_No cargado_" en vez de dejar el
+// campo vacío, para que no parezca un error de formato del mensaje.
 const construirResumenDatosActuales = (cliente) =>
-  `📋 *Tus datos actuales:*\n- Nombre: ${cliente?.nombre_completo || '_No cargado_'}\n- DNI: ${cliente?.dni || '_No cargado_'}`;
+  `📋 *Tus datos actuales:*\n- Nombre: ${cliente?.nombre_completo || '_No cargado_'}`;
 const MENSAJE_CANCELAR_HINT = '\n\n(Escribí 0 para cancelar y volver)';
 const MENSAJE_PEDIR_NUEVO_NOMBRE = `¿Cuál es tu nuevo nombre completo?${MENSAJE_CANCELAR_HINT}`;
-const MENSAJE_PEDIR_NUEVO_DNI = `¿Cuál es tu nuevo DNI?${MENSAJE_CANCELAR_HINT}`;
 const MENSAJE_NOMBRE_INVALIDO = 'Ese nombre no es válido. Ingresá tu nombre y apellido, sólo con letras (sin números ni símbolos). Por ejemplo: Juan Pérez.';
 const MENSAJE_DNI_INVALIDO = 'El DNI ingresado no es válido. Ingresá sólo números, de 7 u 8 dígitos.';
 
@@ -115,20 +114,15 @@ const DNI_EDICION_REGEX = /^\d{7,8}$/;
 
 const esCancelacion = (t) => ['0', 'cancelar'].includes((t || '').trim().toLowerCase());
 
-// Si el registro se había interrumpido a mitad de camino, retomamos desde el
-// primer dato que falte en vez de volver a pedir todo desde cero. Devuelve
-// null cuando ya están los dos datos (registro completo, no queda nada por pedir).
+// Devuelve el paso de registro que falta, o null si ya está completo. Hoy el
+// único dato obligatorio es el nombre (ver tieneRegistroCompleto en clientes.js).
 const determinarEstadoRegistro = (cliente) => {
   console.log('🔍 [DEBUG-SERVICE-BOT] determinarEstadoRegistro() — parámetros recibidos:', { cliente });
   if (!cliente?.nombre_completo) {
     console.log('✅ [DEBUG-SERVICE-BOT] determinarEstadoRegistro() — falta nombre_completo, valor de retorno: registro_nombre');
     return 'registro_nombre';
   }
-  if (!cliente?.dni) {
-    console.log('✅ [DEBUG-SERVICE-BOT] determinarEstadoRegistro() — falta dni, valor de retorno: registro_dni');
-    return 'registro_dni';
-  }
-  console.log('✅ [DEBUG-SERVICE-BOT] determinarEstadoRegistro() — nombre y dni presentes, valor de retorno: null (registro completo)');
+  console.log('✅ [DEBUG-SERVICE-BOT] determinarEstadoRegistro() — nombre presente, valor de retorno: null (registro completo)');
   return null;
 };
 
@@ -456,7 +450,7 @@ const manejarUbicacionHumano = async (conversationId, telefono, t) => {
 };
 
 // Arranca (o retoma) el registro OBLIGATORIO de datos personales, la primera
-// vez que un cliente escribe y todavía le falta nombre y/o DNI. La edición
+// vez que un cliente escribe y todavía no tiene el nombre cargado. La edición
 // voluntaria de un dato puntual ya cargado (desde "3. Actualizar mis datos"
 // con el registro completo) es un flujo aparte, ver iniciarEdicionDatos más
 // abajo.
@@ -477,7 +471,7 @@ const iniciarRegistro = async (conversationId, telefono, clienteActual) => {
   }
 
   const pregunta = MENSAJE_POR_ESTADO_REGISTRO[estadoInicio];
-  const intro = estadoInicio === 'registro_nombre' ? '¡Hola! Bienvenido a la Farmacia. 💊\n\nAntes de continuar, necesitamos algunos datos tuyos.\n\n' : '';
+  const intro = estadoInicio === 'registro_nombre' ? '¡Hola! Bienvenido a la Farmacia. 💊\n\nAntes de continuar, necesitamos saber cómo te llamás.\n\n' : '';
   console.log('🔍 [DEBUG-SERVICE-BOT] iniciarRegistro() — intro:', intro, ', pregunta:', pregunta);
   await enviarMensajeBot(conversationId, telefono, `${intro}${pregunta}`);
   console.log('✅ [DEBUG-SERVICE-BOT] iniciarRegistro() — valor de retorno: undefined (fin normal)');
@@ -504,14 +498,17 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado) => {
       console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (error guardando nombre)');
       return;
     }
-    console.log('📡 [DEBUG-SERVICE-BOT] Query Supabase → tabla: conversations, operación: update, filtro: id =', conversationId, ', valores:', { bot_state: 'registro_dni' });
-    const { error: updError } = await supabase.from('conversations').update({ bot_state: 'registro_dni' }).eq('id', conversationId);
-    console.log('📡 [DEBUG-SERVICE-BOT] Resultado query conversations (update bot_state registro_dni) — error:', updError);
-    await enviarMensajeBot(conversationId, telefono, `Gracias, ${nombre.split(' ')[0]}.\n\n${MENSAJE_PEDIR_DNI}`);
-    console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (avanzó a registro_dni)');
+    // El nombre es el único dato obligatorio: con eso el registro queda
+    // completo y se pasa directo al menú (ya no se pide el DNI).
+    await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
+    await enviarMensajeBot(conversationId, telefono, `✅ ¡Gracias, ${nombre.split(' ')[0]}! Ya registramos tus datos.\n\n${await construirMensajeBienvenida(telefono)}`);
+    console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (registro completado con el nombre)');
     return;
   }
 
+  // Sólo para un cliente que quedó en este paso con la versión anterior del
+  // bot (que todavía pedía el DNI): se acepta su respuesta y se completa el
+  // registro igual que antes, para no dejarlo trabado.
   if (estado === 'registro_dni') {
     console.log('🔍 [DEBUG-SERVICE-BOT] manejarPasoRegistro() — rama: registro_dni');
     const dni = t.replace(/[.\s]/g, '');
@@ -541,10 +538,9 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado) => {
   }
 };
 
-// Edición voluntaria de UN dato puntual ya cargado ("3. Actualizar mis
-// datos" con el registro ya completo): a diferencia de iniciarRegistro/
-// manejarPasoRegistro (que siempre piden nombre y DNI seguidos), acá el
-// cliente elige primero QUÉ campo corregir y sólo se le pide ese.
+// Edición voluntaria de los datos ya cargados ("3. Actualizar mis datos" con
+// el registro ya completo): el cliente elige primero qué campo corregir
+// (hoy sólo el nombre) y sólo se le pide ese.
 const iniciarEdicionDatos = async (conversationId, telefono) => {
   console.log('🔍 [DEBUG-SERVICE-BOT] iniciarEdicionDatos() — parámetros recibidos:', { conversationId, telefono });
   await actualizarEstadoConversacion(conversationId, { bot_state: 'editar_datos_menu', bot_context: null });
@@ -563,12 +559,10 @@ const manejarEdicionDatos = async (conversationId, telefono, t, estado) => {
       console.log('🔍 [DEBUG-SERVICE-BOT] manejarEdicionDatos() — opción "1" (nombre). Pasa a editar_nombre.');
       await actualizarEstadoConversacion(conversationId, { bot_state: 'editar_nombre' });
       await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_NUEVO_NOMBRE);
-    } else if (opcion === '2') {
-      console.log('🔍 [DEBUG-SERVICE-BOT] manejarEdicionDatos() — opción "2" (DNI). Pasa a editar_dni.');
-      await actualizarEstadoConversacion(conversationId, { bot_state: 'editar_dni' });
-      await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_NUEVO_DNI);
-    } else if (opcion === '3') {
-      console.log('🔍 [DEBUG-SERVICE-BOT] manejarEdicionDatos() — opción "3" (volver). Se deriva a volverAlMenuPrincipal().');
+    } else if (opcion === '2' || opcion === '3') {
+      // "3" también vuelve: era el número de "Volver" en el menú anterior
+      // (cuando tenía la opción de DNI), por si un cliente responde a ese.
+      console.log('🔍 [DEBUG-SERVICE-BOT] manejarEdicionDatos() — opción "', opcion, '" (volver). Se deriva a volverAlMenuPrincipal().');
       await volverAlMenuPrincipal(conversationId, telefono);
     } else {
       console.log('🔍 [DEBUG-SERVICE-BOT] manejarEdicionDatos() — opción no reconocida ("', opcion, '"). Se reenvía el menú de edición.');
@@ -607,6 +601,8 @@ const manejarEdicionDatos = async (conversationId, telefono, t, estado) => {
     return;
   }
 
+  // Ya no se entra a 'editar_dni' desde el menú: queda sólo para un cliente
+  // que estaba en ese paso con la versión anterior, para no dejarlo trabado.
   if (estado === 'editar_dni') {
     if (esCancelacion(t)) {
       console.log('🔍 [DEBUG-SERVICE-BOT] manejarEdicionDatos() — cancelación en editar_dni. Vuelve al menú de edición.');

@@ -37,11 +37,12 @@ export const getCliente = async (clientPhone) => {
   return data;
 };
 
-// Un cliente se considera "registrado" cuando ya tiene nombre y DNI. La obra
-// social es opcional (muchos clientes no tienen), así que no se exige.
+// Un cliente se considera "registrado" cuando ya tiene nombre. El DNI y la
+// obra social son opcionales: el bot no los pide, los carga la sucursal desde
+// el CRM si el cliente los menciona.
 export const tieneRegistroCompleto = (cliente) => {
   console.log('🔍 [DEBUG-SERVICE-CLIENTES] tieneRegistroCompleto() — parámetros recibidos:', { cliente });
-  const resultado = !!(cliente?.nombre_completo && cliente?.dni);
+  const resultado = !!cliente?.nombre_completo;
   console.log('✅ [DEBUG-SERVICE-CLIENTES] tieneRegistroCompleto() — valor de retorno:', resultado);
   return resultado;
 };
