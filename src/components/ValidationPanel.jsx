@@ -259,7 +259,7 @@ export default function ValidationPanel({
     setEnviandoCotizacion(true);
     setErrorCotizacion('');
 
-    let message = `📋 *Cotización de Receta*\n`;
+    let message = `📋 *Cotización*\n`;
     message += envioGratis
       ? `🎉 *¡Envío gratis!* (supera los $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')})\n\n`
       : `*Envío gratis* a partir de $${FREE_SHIPPING_THRESHOLD.toLocaleString('es-AR')} (faltan $${(FREE_SHIPPING_THRESHOLD - totalItems).toFixed(2)})\n\n`;
