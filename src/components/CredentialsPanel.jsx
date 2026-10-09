@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Loader2, Check } from 'lucide-react';
 import { adminFetch, getAdminUsername, getAdminRole, getStaffSucursalId, getStaffSucursalNombre, getTheme, setAdminSession } from '../lib/adminAuth';
+import { setSupabaseToken } from '../lib/supabase';
 
 // Cambio de usuario/contraseña de la PROPIA cuenta logueada: lo usa tanto el
 // admin (pestaña "Administración" → "Administrador") como cualquier
@@ -50,6 +51,7 @@ export default function CredentialsPanel() {
       const data = await res.json();
       const dataParaLog = { ...data };
       if (dataParaLog.token) dataParaLog.token = 'presente: true';
+      if (dataParaLog.supabaseToken) dataParaLog.supabaseToken = 'presente: true';
 
       if (!res.ok) throw new Error(data.error || 'No se pudieron actualizar las credenciales.');
 
@@ -58,6 +60,10 @@ export default function CredentialsPanel() {
       // setAdminSession() (eso convertiría a un empleado en "admin" en este
       // navegador, o le resetearía el tema a claro).
       setAdminSession(data.token, data.username, getAdminRole(), getStaffSucursalId(), getStaffSucursalNombre(), getTheme());
+      // El backend reemitió también el pase de Supabase con el vencimiento
+      // del token nuevo. Si no vino (backend sin SUPABASE_JWT_SECRET), se
+      // conserva el que ya había en vez de pisarlo con null.
+      if (data.supabaseToken) setSupabaseToken(data.supabaseToken);
       setCurrentPassword('');
       setNewUsername('');
       setNewPassword('');

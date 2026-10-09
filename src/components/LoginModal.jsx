@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Lock, User, Loader2, LogIn, ShieldCheck } from 'lucide-react';
 import { setAdminSession } from '../lib/adminAuth';
+import { setSupabaseToken } from '../lib/supabase';
 
 export default function LoginModal({ onLoginSuccess }) {
   const [username, setUsername] = useState('');
@@ -30,6 +31,7 @@ export default function LoginModal({ onLoginSuccess }) {
       if (!res.ok) throw new Error(data.error || 'No se pudo iniciar sesión.');
 
       setAdminSession(data.token, data.username, data.role, data.sucursalId, data.sucursalNombre, data.theme);
+      setSupabaseToken(data.supabaseToken ?? null);
       onLoginSuccess(data.token, data.username);
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-LoginModal] error en login:', err.message || err);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { WifiOff } from 'lucide-react';
-import { supabase } from './lib/supabase';
+import { supabase, setSupabaseToken } from './lib/supabase';
 import { notifyNewEvent } from './lib/notifications';
 import { withClientNames, withSucursalesHistorial } from './lib/clientUtils';
 
@@ -13,7 +13,7 @@ import ClientDirectory from './components/ClientDirectory';
 import LoginModal from './components/LoginModal';
 import DialogHost from './components/DialogHost';
 import { confirmDialog, alertDialog } from './lib/dialogService';
-import { getAdminToken, clearAdminSession, isAdminRole, getStaffSucursalId, getStaffSucursalNombre, adminFetch, getTheme, applyTheme, SESSION_EXPIRED_EVENT } from './lib/adminAuth';
+import { getAdminToken, clearAdminSession, isAdminRole, getStaffSucursalId, getStaffSucursalNombre, adminFetch, getTheme, applyTheme, SESSION_EXPIRED_EVENT, getTokenExpiration } from './lib/adminAuth';
 
 function App() {
   const [adminToken, setAdminToken] = useState(() => getAdminToken());
@@ -34,6 +34,53 @@ function App() {
     window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
   }, []);
+
+  // Pase de Supabase de esta sesión (ver src/lib/supabase.js). Se pide de
+  // nuevo cada vez que hay sesión (login o F5) y recién con eso se muestra el
+  // panel y se abre el Realtime: con las tablas cerradas a usuarios anónimos,
+  // consultar antes de tenerlo devolvería todo vacío. Si el pedido falla por
+  // algo que no sea sesión vencida, se sigue con el pase guardado (si hay).
+  const [supabaseListo, setSupabaseListo] = useState(false);
+  useEffect(() => {
+    if (!adminToken) {
+      setSupabaseListo(false);
+      return;
+    }
+    let cancelado = false;
+    adminFetch('/api/admin/supabase-token')
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (!cancelado && data) setSupabaseToken(data.supabaseToken ?? null);
+      })
+      .catch(err => console.error('❌ [DEBUG-COMPONENT-App] Error obteniendo el pase de Supabase:', err))
+      .finally(() => {
+        if (!cancelado) setSupabaseListo(true);
+      });
+    return () => { cancelado = true; };
+  }, [adminToken]);
+
+  // El pase de Supabase vence junto con la sesión del panel. Al vencer, el
+  // Realtime se corta sin avisar, así que se cierra la sesión en ese momento
+  // (antes se cerraba recién en el próximo pedido al backend). Se relee el
+  // token en cada chequeo porque cambiar las credenciales lo reemite con un
+  // vencimiento nuevo sin pasar por este estado.
+  useEffect(() => {
+    if (!adminToken) return;
+    let timer;
+    const revisarVencimiento = () => {
+      const exp = getTokenExpiration(getAdminToken());
+      if (!exp) return;
+      const restanteMs = exp * 1000 - Date.now();
+      if (restanteMs <= 0) {
+        clearAdminSession();
+        window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+        return;
+      }
+      timer = setTimeout(revisarVencimiento, Math.min(restanteMs, 60 * 60 * 1000));
+    };
+    revisarVencimiento();
+    return () => clearTimeout(timer);
+  }, [adminToken]);
 
   // Estado de red: cuando se pierde la conexión, se corta la suscripción de
   // Realtime (ver más abajo) para que el navegador no quede reintentando
@@ -140,8 +187,8 @@ function App() {
   // render (antes de loguearse) todavía no hay sesión en localStorage, así
   // que un fetch hecho en ese momento ignoraría el filtro por completo.
   useEffect(() => {
-    if (adminToken) fetchConversations();
-  }, [adminToken]);
+    if (adminToken && supabaseListo) fetchConversations();
+  }, [adminToken, supabaseListo]);
 
   // 2. Fetch Messages and Prescription when conversation changes
   useEffect(() => {
@@ -182,8 +229,10 @@ function App() {
   // fantasma en el sidebar). Si isOnline es false, ni se intenta abrir: sin
   // esto, el cliente de Supabase Realtime queda reintentando reconectar el
   // WebSocket en bucle contra una red caída, ensuciando la pestaña Network.
+  // Tampoco se abre sin el pase de Supabase (supabaseListo): sin él, el canal
+  // se uniría como anónimo y no recibiría ningún cambio.
   useEffect(() => {
-    if (!isOnline) return;
+    if (!isOnline || !supabaseListo) return;
 
     const channel = supabase.channel('schema-db-changes')
       .on(
@@ -385,7 +434,7 @@ function App() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [isOnline]);
+  }, [isOnline, supabaseListo]);
 
   const scrollToBottom = () => {
     setTimeout(() => {
@@ -707,6 +756,14 @@ function App() {
     return <LoginModal onLoginSuccess={(token) => {
       setAdminToken(token);
     }} />;
+  }
+
+  if (!supabaseListo) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-950 text-sm text-gray-500 dark:text-gray-400">
+        Cargando…
+      </div>
+    );
   }
 
   const handleLogout = () => {

@@ -73,6 +73,37 @@ export const generarToken = (user) => {
   return token;
 };
 
+// Pase para que el panel lea/escriba en Supabase directo como usuario
+// "authenticated" (las políticas RLS de supabase/seguridad_solo_usuarios_logueados.sql
+// cierran todas las tablas a quien no lo tenga). Se firma con el JWT Secret
+// del proyecto de Supabase (Project Settings → JWT Keys → Legacy JWT Secret),
+// que vive SOLO en el backend: es tan poderoso como la service_role key.
+// Vence al mismo tiempo que la sesión del panel (`exp` del token propio),
+// para que no sobreviva a un logout por vencimiento. Si la variable no está
+// configurada devuelve null y el panel sigue usando la anon key como antes
+// (sirve mientras el SQL todavía no se corrió).
+const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET || null;
+
+export const generarTokenSupabase = (user, exp) => {
+  if (!SUPABASE_JWT_SECRET) {
+    console.warn('⚠️ [DEBUG-SERVICE-ADMINAUTH] generarTokenSupabase() — falta SUPABASE_JWT_SECRET, el panel va a usar la anon key');
+    return null;
+  }
+  const token = jwt.sign(
+    {
+      sub: String(user.id),
+      role: 'authenticated',
+      aud: 'authenticated',
+      exp,
+      app_role: user.role,
+      sucursal_id: user.sucursalId || null
+    },
+    SUPABASE_JWT_SECRET,
+    { algorithm: 'HS256' }
+  );
+  return token;
+};
+
 export const verificarToken = (token) => {
   console.log('🔍 [DEBUG-SERVICE-ADMINAUTH] verificarToken() — token recibido (primeros 10 caracteres):', token ? token.toString().substring(0, 10) + '...' : token);
   try {

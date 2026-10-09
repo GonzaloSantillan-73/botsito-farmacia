@@ -1,5 +1,5 @@
 import express from 'express';
-import { verificarCredenciales, generarToken, verificarToken, actualizarCredenciales, actualizarTema } from '../services/adminAuth.js';
+import { verificarCredenciales, generarToken, generarTokenSupabase, verificarToken, actualizarCredenciales, actualizarTema } from '../services/adminAuth.js';
 
 const router = express.Router();
 
@@ -35,16 +35,19 @@ router.post('/login', async (req, res) => {
     const token = generarToken(user);
     console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] POST /login - token generado (longitud, no se loguea el valor completo por seguridad):', token?.length);
     console.log(`[ADMIN AUTH] Login exitoso: ${user.username} (${user.role})`);
+    // Mismo vencimiento que el token del panel recién emitido.
+    const supabaseToken = generarTokenSupabase(user, verificarToken(token).exp);
     const responseBody200 = {
       success: true,
       token,
+      supabaseToken,
       username: user.username,
       role: user.role,
       sucursalId: user.sucursalId,
       sucursalNombre: user.sucursalNombre || null,
       theme: user.theme || 'light'
     };
-    console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] POST /login - respondiendo status 200:', { ...responseBody200, token: '[TOKEN OMITIDO EN LOG]' });
+    console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] POST /login - respondiendo status 200:', { ...responseBody200, token: '[TOKEN OMITIDO EN LOG]', supabaseToken: supabaseToken ? '[TOKEN OMITIDO EN LOG]' : null });
     res.status(200).json(responseBody200);
   } catch (error) {
     console.error('❌ [DEBUG-ROUTES-ADMINAUTH] POST /login - error capturado en catch:', error);
@@ -157,8 +160,11 @@ router.put('/update-credentials', requireAuth, async (req, res) => {
     const token = generarToken({ id: updated.id, username: updated.username, role: req.admin.role, sucursalId: req.admin.sucursalId || null });
     console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - token generado (longitud, no se loguea el valor completo por seguridad):', token?.length);
     console.log(`[ADMIN AUTH] Credenciales actualizadas para la cuenta ${updated.id} (${req.admin.role}).`);
-    const responseBody200 = { success: true, username: updated.username, role: req.admin.role, sucursalId: req.admin.sucursalId || null, token };
-    console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - respondiendo status 200:', { ...responseBody200, token: '[TOKEN OMITIDO EN LOG]' });
+    // El token del panel se reemitió con vencimiento nuevo: el pase de
+    // Supabase se reemite también, para que venzan juntos.
+    const supabaseToken = generarTokenSupabase({ id: updated.id, role: req.admin.role, sucursalId: req.admin.sucursalId || null }, verificarToken(token).exp);
+    const responseBody200 = { success: true, username: updated.username, role: req.admin.role, sucursalId: req.admin.sucursalId || null, token, supabaseToken };
+    console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - respondiendo status 200:', { ...responseBody200, token: '[TOKEN OMITIDO EN LOG]', supabaseToken: supabaseToken ? '[TOKEN OMITIDO EN LOG]' : null });
     res.status(200).json(responseBody200);
   } catch (error) {
     console.error('❌ [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - error capturado en catch:', error);
@@ -170,6 +176,16 @@ router.put('/update-credentials', requireAuth, async (req, res) => {
     console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] PUT /update-credentials - respondiendo status 400:', responseBody400c);
     res.status(400).json(responseBody400c);
   }
+});
+
+// Pase de Supabase para una sesión ya abierta (al recargar la página el login
+// no se repite, pero el panel necesita el pase para leer la base, ver
+// generarTokenSupabase). Vence junto con el token del panel que lo pidió.
+router.get('/supabase-token', requireAuth, (req, res) => {
+  console.log('🔍 [DEBUG-ROUTES-ADMINAUTH] GET /supabase-token - req.admin:', req.admin);
+  const supabaseToken = generarTokenSupabase({ id: req.admin.sub, role: req.admin.role, sucursalId: req.admin.sucursalId || null }, req.admin.exp);
+  console.log('🔚 [DEBUG-ROUTES-ADMINAUTH] GET /supabase-token - respondiendo status 200, pase generado:', !!supabaseToken);
+  res.status(200).json({ supabaseToken });
 });
 
 // Preferencia de tema: cualquier cuenta logueada (admin o staff) puede

@@ -1,3 +1,5 @@
+import { setSupabaseToken } from './supabase';
+
 const TOKEN_KEY = 'botsito_admin_token';
 const USERNAME_KEY = 'botsito_admin_username';
 const ROLE_KEY = 'botsito_admin_role';
@@ -69,9 +71,25 @@ export const clearAdminSession = () => {
   localStorage.removeItem(ROLE_KEY);
   localStorage.removeItem(SUCURSAL_ID_KEY);
   localStorage.removeItem(SUCURSAL_NOMBRE_KEY);
+  // El pase de Supabase muere con la sesión: sin esto, el próximo que use
+  // este navegador seguiría leyendo la base con el pase de la cuenta anterior.
+  setSupabaseToken(null);
   // El tema NO se borra: la próxima cuenta que loguee en este navegador va a
   // pisarlo con el suyo propio vía setAdminSession -> applyTheme. Mientras
   // tanto, no tiene sentido volver a claro apenas alguien cierra sesión.
+};
+
+// Vencimiento (`exp`, en segundos) de un JWT, o null si no se puede leer.
+// Sólo decodifica el payload, no verifica la firma: la validez real la
+// decide siempre el backend.
+export const getTokenExpiration = (token) => {
+  try {
+    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const exp = JSON.parse(atob(payload)).exp;
+    return typeof exp === 'number' ? exp : null;
+  } catch {
+    return null;
+  }
 };
 
 // Nombre del evento que dispara un 401 con sesión vencida (ver más abajo).
