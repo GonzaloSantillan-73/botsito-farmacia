@@ -12,6 +12,7 @@ import { getBotSchedule, setBotSchedule } from '../services/scheduleConfig.js';
 import { rowsToCsv, sendCsv } from '../services/csvExport.js';
 import { rowsToXlsxBuffer, sendXlsx } from '../services/xlsxExport.js';
 import { obtenerDetalleConsultas } from '../services/metricsDetalle.js';
+import { traerTodasLasPaginas, traerPorGruposDeIds } from '../services/consultasEnGrupos.js';
 import { resolverNombresPorTelefono } from '../services/clientes.js';
 import { extraerCoordenadasDeUrl } from '../services/mapsLocation.js';
 import { extraerLinkReceta } from '../services/linkReceta.js';
@@ -225,21 +226,27 @@ router.get('/metrics/negocio', async (req, res) => {
     };
 
     console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(conversations) select en /metrics/negocio (cerradas):', { operacion: 'select', statuses: TERMINAL_STATUSES, from, to });
-    const { data: cerradas, error: cerradasError } = await conRango(
+    // Paginado (traerTodasLasPaginas): Supabase corta en 1000 filas sin avisar,
+    // y con todo el histórico hay más consultas cerradas que eso.
+    const { data: cerradas, error: cerradasError } = await traerTodasLasPaginas(() => conRango(
       supabase.from('conversations').select('id').in('status', TERMINAL_STATUSES)
-    );
+    ).order('id'));
     console.log('📡 [DEBUG-ROUTES-API] Resultado supabase.from(conversations) select en /metrics/negocio (cerradas):', { cantidad: cerradas?.length, error: cerradasError });
     if (cerradasError) throw cerradasError;
 
     const idsCerradas = cerradas.map(c => c.id);
     let derivadas = 0;
     if (idsCerradas.length > 0) {
-      console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(messages) select en /metrics/negocio (conAgente):', { operacion: 'select', senderType: 'agent', idsCerradas });
-      const { data: conAgente, error: agenteError } = await supabase
+      console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(messages) select en /metrics/negocio (conAgente):', { operacion: 'select', senderType: 'agent', cantidadIds: idsCerradas.length });
+      // Por grupos de ids (traerPorGruposDeIds): con todos los ids en un solo
+      // .in() la URL superaba el largo permitido y el pedido fallaba con
+      // "TypeError: fetch failed".
+      const { data: conAgente, error: agenteError } = await traerPorGruposDeIds(idsCerradas, grupo => supabase
         .from('messages')
         .select('conversation_id')
         .eq('sender_type', 'agent')
-        .in('conversation_id', idsCerradas);
+        .in('conversation_id', grupo)
+        .order('id'));
       console.log('📡 [DEBUG-ROUTES-API] Resultado supabase.from(messages) select en /metrics/negocio (conAgente):', { cantidad: conAgente?.length, error: agenteError });
       if (agenteError) throw agenteError;
       derivadas = new Set(conAgente.map(m => m.conversation_id)).size;
@@ -265,9 +272,9 @@ router.get('/metrics/negocio', async (req, res) => {
     // Conversión de ventas: resultado que el vendedor marca a mano (Venta
     // Concretada / No Concretada / Otra razón) sobre lo cotizado en el chat.
     console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(conversations) select en /metrics/negocio (gestionVentas):', { operacion: 'select' });
-    const { data: gestionVentas, error: gestionError } = await conRango(
+    const { data: gestionVentas, error: gestionError } = await traerTodasLasPaginas(() => conRango(
       supabase.from('conversations').select('sale_status').not('sale_status', 'is', null)
-    );
+    ).order('id'));
     console.log('📡 [DEBUG-ROUTES-API] Resultado supabase.from(conversations) select en /metrics/negocio (gestionVentas):', { cantidad: gestionVentas?.length, error: gestionError });
     if (gestionError) throw gestionError;
 
@@ -282,9 +289,9 @@ router.get('/metrics/negocio', async (req, res) => {
     // cómo viene su propio puntaje (el frontend decide qué mostrarle a quién
     // según el rol, esto solo calcula los números).
     console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(conversations) select en /metrics/negocio (ratingsData):', { operacion: 'select' });
-    const { data: ratingsData, error: ratingsError } = await conRango(
+    const { data: ratingsData, error: ratingsError } = await traerTodasLasPaginas(() => conRango(
       supabase.from('conversations').select('rating, product_rating, sucursal_id').or('rating.not.is.null,product_rating.not.is.null')
-    );
+    ).order('id'));
     console.log('📡 [DEBUG-ROUTES-API] Resultado supabase.from(conversations) select en /metrics/negocio (ratingsData):', { cantidad: ratingsData?.length, error: ratingsError });
     if (ratingsError) throw ratingsError;
 

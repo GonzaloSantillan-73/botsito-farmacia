@@ -1,5 +1,6 @@
 import { supabase } from '../supabase.js';
 import { resolverNombresPorTelefono } from './clientes.js';
+import { traerTodasLasPaginas, traerPorGruposDeIds } from './consultasEnGrupos.js';
 
 const CONVERSATION_SELECT = '*, sucursal_actual:sucursales!sucursal_id(nombre), sucursal_primera:sucursales!primera_sucursal_id(nombre)';
 
@@ -24,11 +25,14 @@ const withSucursalesHistorial = async (conversations) => {
   if (!conversations || conversations.length === 0) return conversations;
 
   const ids = conversations.map(c => c.id);
-  const { data: eventos, error } = await supabase
+  // Por grupos de ids: con todos en un solo .in() la URL supera el largo
+  // permitido (ver consultasEnGrupos.js).
+  const { data: eventos, error } = await traerPorGruposDeIds(ids, grupo => supabase
     .from('conversation_sucursal_historial')
     .select('conversation_id, sucursal_id, created_at, sucursales(nombre)')
-    .in('conversation_id', ids)
-    .order('created_at', { ascending: true });
+    .in('conversation_id', grupo)
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true }));
 
   if (error) {
     console.error('❌ [DEBUG-SERVICE-CLIENTDIRECTORY] withSucursalesHistorial() — error:', error);
@@ -56,8 +60,10 @@ export const obtenerConversacionesDirectorio = async ({ sucursalId } = {}) => {
   console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerConversacionesDirectorio() — parámetros recibidos:', { sucursalId });
 
   console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] Query Supabase → tabla: conversations, operación: select, filtro sucursal:', sucursalId, ', order: created_at desc');
-  const query = conSucursal(supabase.from('conversations').select(CONVERSATION_SELECT), sucursalId);
-  const { data: conversations, error } = await query.order('created_at', { ascending: false });
+  // Paginado: Supabase corta en 1000 filas sin avisar (ver consultasEnGrupos.js).
+  const { data: conversations, error } = await traerTodasLasPaginas(() => conSucursal(supabase.from('conversations').select(CONVERSATION_SELECT), sucursalId)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false }));
   console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] Resultado query conversations (select directorio) — data:', conversations, 'error:', error);
   if (error) {
     console.error('❌ [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerConversacionesDirectorio() — error consultando conversaciones:', error);
@@ -86,8 +92,9 @@ export const obtenerListaClientesDirectorio = async ({ sucursalId } = {}) => {
   console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerListaClientesDirectorio() — parámetros recibidos:', { sucursalId });
 
   console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] Query Supabase → tabla: conversations, operación: select (agregados), filtro sucursal:', sucursalId);
-  const query = conSucursal(supabase.from('conversations').select('client_phone, client_name, created_at, rating, product_rating'), sucursalId);
-  const { data: conversaciones, error: convError } = await query;
+  // Paginado: Supabase corta en 1000 filas sin avisar (ver consultasEnGrupos.js).
+  const { data: conversaciones, error: convError } = await traerTodasLasPaginas(() => conSucursal(supabase.from('conversations').select('client_phone, client_name, created_at, rating, product_rating'), sucursalId)
+    .order('id'));
   console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] Resultado query conversations (select agregados) — data:', conversaciones, 'error:', convError);
   if (convError) {
     console.error('❌ [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerListaClientesDirectorio() — error consultando conversaciones:', convError);
@@ -107,10 +114,11 @@ export const obtenerListaClientesDirectorio = async ({ sucursalId } = {}) => {
   }
 
   console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] Query Supabase → tabla: clientes, operación: select, filtro: client_phone in', phones);
-  const { data: fichas, error: fichasError } = await supabase
+  const { data: fichas, error: fichasError } = await traerPorGruposDeIds(phones, grupo => supabase
     .from('clientes')
     .select('client_phone, nombre_completo, dni')
-    .in('client_phone', phones);
+    .in('client_phone', grupo)
+    .order('client_phone'));
   console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] Resultado query clientes — data:', fichas, 'error:', fichasError);
   if (fichasError) {
     console.error('❌ [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerListaClientesDirectorio() — error consultando clientes:', fichasError);
@@ -223,8 +231,8 @@ export const buscarEnMensajesDirectorio = async ({ conversationIds, q, sucursalI
   let permitidos = ids;
   if (sucursalId) {
     console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] Query Supabase → tabla: conversations, operación: select, filtro: id in', ids, ', sucursal:', sucursalId);
-    const permQuery = conSucursal(supabase.from('conversations').select('id').in('id', ids), sucursalId);
-    const { data: propias, error: propiasError } = await permQuery;
+    const { data: propias, error: propiasError } = await traerPorGruposDeIds(ids, grupo =>
+      conSucursal(supabase.from('conversations').select('id').in('id', grupo), sucursalId).order('id'));
     console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] Resultado query conversations (select permitidas) — data:', propias, 'error:', propiasError);
     if (propiasError) {
       console.error('❌ [DEBUG-SERVICE-CLIENTDIRECTORY] buscarEnMensajesDirectorio() — error consultando conversaciones permitidas:', propiasError);
@@ -240,12 +248,13 @@ export const buscarEnMensajesDirectorio = async ({ conversationIds, q, sucursalI
   }
 
   console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] Query Supabase → tabla: messages, operación: select, filtro: conversation_id in', permitidos, ', ilike message_text %', texto, '%');
-  const { data: mensajes, error } = await supabase
+  const { data: mensajes, error } = await traerPorGruposDeIds(permitidos, grupo => supabase
     .from('messages')
     .select('conversation_id, message_text, created_at')
-    .in('conversation_id', permitidos)
+    .in('conversation_id', grupo)
     .ilike('message_text', `%${texto}%`)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true }));
   console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] Resultado query messages (select búsqueda) — data:', mensajes, 'error:', error);
   if (error) {
     console.error('❌ [DEBUG-SERVICE-CLIENTDIRECTORY] buscarEnMensajesDirectorio() — error buscando en mensajes:', error);

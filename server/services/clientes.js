@@ -1,4 +1,5 @@
 import { supabase } from '../supabase.js';
+import { traerPorGruposDeIds } from './consultasEnGrupos.js';
 
 // Arma un phone -> nombre_completo para una tanda de teléfonos. Modelo
 // estricto por client_phone: cada número es una identidad independiente, sin
@@ -7,10 +8,13 @@ export const resolverNombresPorTelefono = async (phones) => {
   console.log('🔍 [DEBUG-SERVICE-CLIENTES] resolverNombresPorTelefono() — parámetros recibidos:', { cantidadTelefonos: phones?.length });
   if (!phones || phones.length === 0) return {};
 
-  const { data: fichas, error } = await supabase
+  // Por grupos: con todos los teléfonos en un solo .in() la URL supera el
+  // largo permitido (ver consultasEnGrupos.js).
+  const { data: fichas, error } = await traerPorGruposDeIds(phones, grupo => supabase
     .from('clientes')
     .select('client_phone, nombre_completo')
-    .in('client_phone', phones);
+    .in('client_phone', grupo)
+    .order('client_phone'));
   if (error) {
     console.error('❌ [DEBUG-SERVICE-CLIENTES] resolverNombresPorTelefono() — error consultando clientes:', error);
     throw error;
