@@ -32,6 +32,13 @@ const ordenarClientes = (clients, sortBy) => {
 const formatDateTime = (iso) =>
   new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
+// Nombres muy largos (a veces el cliente responde una pregunta en vez de su
+// nombre) empujaban el resto de las columnas fuera de la tabla. El nombre
+// completo queda en el tooltip (title) de la celda.
+const MAX_NOMBRE = 30;
+const recortarNombre = (nombre) =>
+  nombre && nombre.length > MAX_NOMBRE ? `${nombre.slice(0, MAX_NOMBRE).trimEnd()}...` : nombre;
+
 export default function ClientDirectory({ onOpenConversation, initialSelectedPhone = null }) {
   const [conversations, setConversations] = useState([]);
   // A diferencia de `conversations` (una fila por CONSULTA, con el
@@ -345,7 +352,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
                     onClick={() => { setSelectedPhone(cl.client_phone); }}
                     className="border-b border-gray-100 dark:border-gray-800 last:border-0 hover:bg-teal-50/40 dark:hover:bg-teal-950/40 cursor-pointer transition-colors"
                   >
-                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{cl.real_name || cl.client_name || '—'}</td>
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap" title={cl.real_name || cl.client_name || undefined}>{recortarNombre(cl.real_name || cl.client_name) || '—'}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{formatPhone(cl.client_phone)}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{new Date(cl.lastContact).toLocaleDateString('es-AR')}</td>
                     <td className="px-4 py-3 text-center text-gray-700 dark:text-gray-300">{cl.total}</td>
