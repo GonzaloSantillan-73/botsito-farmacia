@@ -1,6 +1,7 @@
 import { supabase } from '../supabase.js';
 import { TERMINAL_STATUSES } from './sessionManager.js';
 import { resolverNombresPorTelefono } from './clientes.js';
+import { extraerLinkReceta } from './linkReceta.js';
 
 const msDiff = (desde, hasta) => (desde && hasta ? new Date(hasta).getTime() - new Date(desde).getTime() : null);
 
@@ -103,7 +104,7 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
       resolverNombresPorTelefono(phones),
       traerPorGruposDeIds(ids, grupo => supabase
         .from('messages')
-        .select('conversation_id, sender_type, media_type, media_url, tagged_as, created_at')
+        .select('conversation_id, sender_type, media_type, media_url, message_text, tagged_as, created_at')
         .in('conversation_id', grupo)
         .order('created_at', { ascending: true })
         .order('id', { ascending: true })),
@@ -173,7 +174,9 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
       // adjunto de imagen/documento del cliente sin marcar no cuenta como
       // comprobante ni receta, por más que "parezca" uno.
       if (m.tagged_as === 'comprobante' && m.media_url) acc.comprobanteUrl = m.media_url;
-      if (m.tagged_as === 'receta' && m.media_url) acc.recetaUrl = m.media_url;
+      // Una receta también puede ser un link (receta electrónica): sin adjunto,
+      // la URL es la del link del texto.
+      if (m.tagged_as === 'receta') acc.recetaUrl = m.media_url || extraerLinkReceta(m.message_text) || acc.recetaUrl;
     });
     console.log('🔍 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — porConversacion agregado, conversaciones con mensajes:', Object.keys(porConversacion).length);
 

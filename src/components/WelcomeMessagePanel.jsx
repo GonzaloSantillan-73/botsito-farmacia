@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, Check } from 'lucide-react';
 import { previsualizarSaludo } from '../lib/greetingTemplate';
+import { renderWhatsAppText } from '../lib/whatsappFormat';
 
-const MENU_PREVIEW = '¿Qué querés hacer?\n\n1. Hablar con un humano\n2. Horarios y sucursales\n3. Actualizar mis datos';
+const MENU_PREVIEW = '¿Qué querés hacer?\n\n1. Hablar con un humano\n2. Horarios y sucursales\n3. Actualizar mis datos\n\n_Respondé con el número de la opción._';
 
 export default function WelcomeMessagePanel() {
 
@@ -82,7 +83,7 @@ export default function WelcomeMessagePanel() {
         <span className="block font-semibold text-gray-600 dark:text-gray-400 mb-1">Vista previa del mensaje completo:</span>
         {previsualizarSaludo(welcomeMessage.trim()) || '(tu saludo acá)'}
         {'\n\n'}
-        {MENU_PREVIEW}
+        {renderWhatsAppText(MENU_PREVIEW)}
       </div>
 
       {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}

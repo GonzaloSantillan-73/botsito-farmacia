@@ -7,7 +7,7 @@ import { tagMessage, aplicarTagLocal } from '../lib/tagMessage';
 import { usePurgeMedia } from '../lib/usePurgeMedia';
 import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import ClientHistoryList from './ClientHistoryList';
-import { AttachmentTagControls, PurgeMediaControl, parseLocationMessage, extraerLinkDeMaps, LocationCard, MapsLinkPreview } from './MessageBubble';
+import { AttachmentTagControls, PurgeMediaControl, puedeMarcarse, parseLocationMessage, extraerLinkDeMaps, LocationCard, MapsLinkPreview } from './MessageBubble';
 import AdminPasswordActionModal from './AdminPasswordActionModal';
 import { alertDialog } from '../lib/dialogService';
 import { renderWhatsAppText } from '../lib/whatsappFormat';
@@ -225,14 +225,14 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
                           </p>
                         )
                       )}
-                      {msg.media_url && (soyAdmin || msg.sender_type === 'client') && (
+                      {((msg.media_url && soyAdmin) || puedeMarcarse(msg)) && (
                         // Columna, purga arriba de la marca de comprobante/receta
                         // — mismo criterio que MessageBubble.jsx.
                         <div className="flex flex-col items-start gap-1.5">
-                          {soyAdmin && (
+                          {soyAdmin && msg.media_url && (
                             <PurgeMediaControl msg={msg} onPurge={(m) => { setPurgeTarget(m); }} purging={purgeTarget?.id === msg.id} />
                           )}
-                          {msg.sender_type === 'client' && (
+                          {puedeMarcarse(msg) && (
                             <AttachmentTagControls msg={msg} onTag={handleTagMessage} tagging={taggingId === msg.id} />
                           )}
                         </div>

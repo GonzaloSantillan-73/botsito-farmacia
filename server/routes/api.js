@@ -14,6 +14,7 @@ import { rowsToXlsxBuffer, sendXlsx } from '../services/xlsxExport.js';
 import { obtenerDetalleConsultas } from '../services/metricsDetalle.js';
 import { resolverNombresPorTelefono } from '../services/clientes.js';
 import { extraerCoordenadasDeUrl } from '../services/mapsLocation.js';
+import { extraerLinkReceta } from '../services/linkReceta.js';
 import { requireAuth, requireAdminRole, blockAdminRole } from './adminAuth.js';
 
 const router = express.Router();
@@ -980,12 +981,19 @@ router.patch('/messages/:id/tag', requireAuth, async (req, res) => {
   try {
     const { data: msg, error: msgError } = await supabase
       .from('messages')
-      .select('id, conversation_id')
+      .select('id, conversation_id, media_url, message_text')
       .eq('id', id)
       .single();
 
     if (msgError || !msg) {
       return res.status(404).json({ error: 'Mensaje no encontrado' });
+    }
+
+    // Sin adjunto, sólo se puede marcar como receta un mensaje con un link
+    // que no sea de Google Maps (mismo criterio que puedeMarcarse en
+    // MessageBubble.jsx).
+    if (tag !== null && !msg.media_url && (tag !== 'receta' || !extraerLinkReceta(msg.message_text))) {
+      return res.status(400).json({ error: 'Este mensaje sólo se puede marcar si tiene un archivo adjunto, o como receta si trae un enlace.' });
     }
 
     if (tag !== null) {

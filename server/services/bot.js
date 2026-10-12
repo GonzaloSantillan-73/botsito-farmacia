@@ -15,7 +15,7 @@ import { extraerCoordenadasDeMensaje } from './mapsLocation.js';
 // El saludo es personalizable desde el CRM (ver appConfig.getWelcomeMessage /
 // BotKeywordPanel-style panel), pero el menú numerado queda fijo acá porque
 // los números están atados 1:1 a los manejadores de abajo (tLower === '1'/'2'/'3').
-const MENU_OPCIONES = '¿Qué querés hacer?\n\n1. Hablar con un humano\n2. Horarios y sucursales\n3. Actualizar mis datos';
+const MENU_OPCIONES = '¿Qué querés hacer?\n\n1. Hablar con un humano\n2. Horarios y sucursales\n3. Actualizar mis datos\n\n_Respondé con el número de la opción._';
 
 // esFrecuente reemplaza el saludo personalizable por frequent_client_message
 // (ver appConfig.js) cuando el cliente ya usó el bot frequent_client_threshold
@@ -472,7 +472,7 @@ const iniciarRegistro = async (conversationId, telefono, clienteActual) => {
 
   // Primer contacto: el bot se presenta y pide el nombre en el mismo mensaje.
   const mensaje = estadoInicio === 'registro_nombre'
-    ? '¡Hola! Soy el bot de Mi Farma. 💊\n\nAntes de continuar, ¿cuál es tu nombre completo?'
+    ? '¡Hola! Soy el bot de Mi Farma. 💊\n\nComo es tu primera vez escribiéndonos, ¿me decís tu nombre completo? No te lo vamos a volver a pedir.'
     : MENSAJE_POR_ESTADO_REGISTRO[estadoInicio];
   console.log('🔍 [DEBUG-SERVICE-BOT] iniciarRegistro() — mensaje:', mensaje);
   await enviarMensajeBot(conversationId, telefono, mensaje);

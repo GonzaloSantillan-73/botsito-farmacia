@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Image as ImageIcon, FileText, Loader2, MapPin, Download, Eye, ShieldAlert, ShieldOff, Tag, Check, X, Trash2 } from 'lucide-react';
 import { renderWhatsAppText } from '../lib/whatsappFormat';
 import { adminFetch } from '../lib/adminAuth';
+import { extraerLinkReceta } from '../lib/linkReceta';
 
 const TAG_LABELS = {
   comprobante: { texto: '🧾 Comprobante', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' },
@@ -18,13 +19,20 @@ const TIPO_ARCHIVO_LABELS = {
   pdf: 'PDF'
 };
 
+// Si un mensaje del cliente se puede marcar: cualquier adjunto (menos la
+// ubicación nativa), o un texto con un link que no sea de Google Maps (ej. una
+// receta electrónica). Nunca sobre lo que le mandamos nosotros.
+export const puedeMarcarse = (msg) =>
+  msg.sender_type === 'client' && msg.media_type !== 'location' && (!!msg.media_url || !!extraerLinkReceta(msg.message_text));
+
 // Menú para marcar un adjunto del cliente como "el" comprobante de pago o
 // "la" receta de la conversación (ver server/routes/api.js PATCH
-// /messages/:id/tag). Sólo tiene sentido sobre archivos que mandó el
-// cliente, nunca sobre lo que le mandamos nosotros.
+// /messages/:id/tag). Un link sin adjunto sólo puede ser receta: los
+// comprobantes siempre llegan como foto o PDF.
 export function AttachmentTagControls({ msg, onTag, tagging }) {
   const [open, setOpen] = useState(false);
   const tagActual = TAG_LABELS[msg.tagged_as];
+  const esLink = !msg.media_url;
 
   const elegir = (tag) => {
     setOpen(false);
@@ -38,16 +46,18 @@ export function AttachmentTagControls({ msg, onTag, tagging }) {
           type="button"
           onClick={() => setOpen(v => !v)}
           disabled={tagging}
-          title="Marcar este archivo"
+          title={esLink ? 'Marcar este enlace' : 'Marcar este archivo'}
           className="p-2 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-500 shadow-sm hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
         >
           {tagging ? <Loader2 size={14} className="animate-spin" /> : <Tag size={14} />}
         </button>
         {open && (
           <div className="absolute z-10 top-full mt-1 left-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 w-48 text-xs">
-            <button onClick={() => elegir('comprobante')} className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
-              {msg.tagged_as === 'comprobante' && <Check size={12} className="text-emerald-600 shrink-0" />} Marcar como comprobante
-            </button>
+            {!esLink && (
+              <button onClick={() => elegir('comprobante')} className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
+                {msg.tagged_as === 'comprobante' && <Check size={12} className="text-emerald-600 shrink-0" />} Marcar como comprobante
+              </button>
+            )}
             <button onClick={() => elegir('receta')} className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
               {msg.tagged_as === 'receta' && <Check size={12} className="text-sky-600 shrink-0" />} Marcar como receta
             </button>
@@ -206,7 +216,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
   // ya hay un adjunto (imagen, documento, etc.), lo que diga message_text es
   // un caption y no debe tapar ese adjunto.
   const linkDeMaps = !location && !msg.media_url ? extraerLinkDeMaps(msg.message_text) : null;
-  const showTagControls = msg.sender_type === 'client' && msg.media_url && msg.media_type !== 'location';
+  const showTagControls = puedeMarcarse(msg);
   const showPurgeControl = canModerate && msg.media_url && msg.media_type !== 'location';
   return (
     <div className={`flex items-center gap-2 ${msg.sender_type === 'client' ? 'justify-start' : 'justify-end'}`}>
