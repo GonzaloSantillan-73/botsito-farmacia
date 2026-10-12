@@ -114,6 +114,54 @@ const DNI_EDICION_REGEX = /^\d{7,8}$/;
 
 const esCancelacion = (t) => ['0', 'cancelar'].includes((t || '').trim().toLowerCase());
 
+// Primer contacto de un cliente nuevo: el bot espera ESPERA_PEDIDO_NOMBRE_MS
+// antes de pedir el nombre (bot_state 'registro_espera'). Muchos clientes
+// mandan "Hola" y enseguida su consulta: si el nombre se pedía al instante,
+// esa consulta (que ya venía en camino) se guardaba como nombre. Lo que llegue
+// durante la espera queda en el chat pero no se toma como nombre.
+const ESPERA_PEDIDO_NOMBRE_MS = 15 * 1000;
+const MENSAJE_PRIMER_CONTACTO = '¡Hola! Soy el bot de Mi Farma. 💊\n\nComo es tu primera vez escribiéndonos, ¿me decís tu nombre completo? No te lo vamos a volver a pedir.';
+const MENSAJE_NO_ES_NOMBRE = 'Eso no parece un nombre 😅\n\nPor ahora solo necesito tu nombre y apellido (por ejemplo: Juan Pérez). Apenas lo tenga, te ayudamos con tu consulta.';
+// Después de tantas respuestas que no parecen un nombre, se sigue al menú sin
+// guardarlo (para no dejar al cliente trabado): se le vuelve a pedir en la
+// próxima consulta.
+const MAX_INTENTOS_NOMBRE = 3;
+
+// "Hola, soy Juan Pérez." -> "Juan Pérez": saca saludos y "soy / me llamo /
+// mi nombre es" del principio, y la puntuación del final.
+const normalizarNombre = (t) => (t || '')
+  .trim()
+  .replace(/\s+/g, ' ')
+  .replace(/^(?:(?:buen[oa]?s?\s+(?:d[ií]as?|tardes?|noches?)|hola|buenas)[\s,!.]*)+/i, '')
+  .replace(/^(?:soy|me llamo|mi nombre es)\s+/i, '')
+  .replace(/[\s.,!]+$/, '')
+  .trim();
+
+// Palabras que aparecen en consultas, nunca en un nombre (sin acentos).
+const PALABRAS_NO_NOMBRE = new Set([
+  'precio', 'precios', 'tienen', 'tenes', 'tiene', 'tengo', 'hay', 'quiero', 'queria', 'quisiera',
+  'necesito', 'necesitaba', 'consulta', 'consultar', 'consulto', 'cuanto', 'cuanta', 'sale', 'salen',
+  'cuesta', 'cuestan', 'vale', 'valen', 'receta', 'recetas', 'pastilla', 'pastillas', 'remedio',
+  'remedios', 'medicamento', 'medicamentos', 'envio', 'envios', 'envian', 'delivery', 'stock',
+  'favor', 'gracias', 'horario', 'horarios', 'abierto', 'abierta', 'abren', 'cierran', 'comprar',
+  'compra', 'venden', 'vende', 'farmacia', 'disculpa', 'disculpe', 'perdon', 'hola', 'buenas',
+  'buenos', 'buen', 'dia', 'dias', 'tardes', 'noches', 'info', 'informacion', 'ayuda', 'ayudame',
+  'quien', 'que', 'como', 'donde', 'cuando', 'para', 'por'
+]);
+
+// Sólo letras (con acentos/ñ), separadas por espacios, apóstrofes o guiones
+// (ej. "María de los Ángeles", "O'Connor", "Ana-Lía"). Se acepta un solo
+// nombre: muchos clientes responden sólo con el nombre de pila.
+const NOMBRE_REGISTRO_REGEX = /^[A-Za-zÀ-ÖØ-öø-ÿ]+(?:[\s'-]+[A-Za-zÀ-ÖØ-öø-ÿ]+)*$/;
+
+const pareceNombre = (nombre) => {
+  if (nombre.length < 3 || nombre.length > 50) return false;
+  if (!NOMBRE_REGISTRO_REGEX.test(nombre)) return false;
+  const palabras = nombre.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().split(/[\s'-]+/);
+  if (palabras.length > 6) return false;
+  return !palabras.some(p => PALABRAS_NO_NOMBRE.has(p));
+};
+
 // Devuelve el paso de registro que falta, o null si ya está completo. Hoy el
 // único dato obligatorio es el nombre (ver tieneRegistroCompleto en clientes.js).
 const determinarEstadoRegistro = (cliente) => {
@@ -259,9 +307,23 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
     const estado = conv?.bot_state || null;
     console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — estado (bot_state) resuelto:', estado);
 
+    // Espera del primer contacto (ver iniciarRegistro): el mensaje ya quedó
+    // guardado en el chat y no se toma como nombre. Si la espera ya venció
+    // (timer perdido por un reinicio), se pide el nombre ahora.
+    if (estado === 'registro_espera') {
+      const vence = Date.parse(conv?.bot_context?.pedir_nombre_en || '') || 0;
+      if (Date.now() >= vence) {
+        console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — rama: registro_espera vencida. Se pide el nombre ahora.');
+        await pedirNombreSiCorresponde(conversationId, telefono);
+      } else {
+        console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — rama: registro_espera. Mensaje recibido durante la espera, no se responde.');
+      }
+      return;
+    }
+
     if (estado === 'registro_nombre' || estado === 'registro_dni') {
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — rama: estado de registro en curso (', estado, '). Se deriva a manejarPasoRegistro().');
-      await manejarPasoRegistro(conversationId, telefono, t, estado);
+      await manejarPasoRegistro(conversationId, telefono, t, estado, conv?.bot_context);
       console.log('✅ [DEBUG-SERVICE-BOT] procesarMensajeBot() — valor de retorno: undefined (cortado tras manejarPasoRegistro)');
       return;
     }
@@ -460,6 +522,27 @@ const iniciarRegistro = async (conversationId, telefono, clienteActual) => {
   const estadoInicio = determinarEstadoRegistro(clienteActual);
   console.log('🔍 [DEBUG-SERVICE-BOT] iniciarRegistro() — estadoInicio resuelto:', estadoInicio);
 
+  // Primer contacto: no se pide el nombre todavía, se espera
+  // ESPERA_PEDIDO_NOMBRE_MS (ver arriba). El vencimiento queda en la base para
+  // que, si el servidor se reinicia y se pierde el timer, el pedido salga
+  // igual (ver pedirNombresPendientes, que corre en sessionExpiryChecker).
+  if (estadoInicio === 'registro_nombre') {
+    const pedirNombreEn = new Date(Date.now() + ESPERA_PEDIDO_NOMBRE_MS).toISOString();
+    const ok = await actualizarEstadoConversacion(conversationId, { bot_state: 'registro_espera', bot_context: { pedir_nombre_en: pedirNombreEn } });
+    if (!ok) {
+      // Sin el estado guardado no hay forma de retomar la espera: se pide ya.
+      await actualizarEstadoConversacion(conversationId, { bot_state: 'registro_nombre', bot_context: null });
+      await enviarMensajeBot(conversationId, telefono, MENSAJE_PRIMER_CONTACTO);
+      return;
+    }
+    setTimeout(() => {
+      pedirNombreSiCorresponde(conversationId, telefono)
+        .catch(err => console.error('❌ [DEBUG-SERVICE-BOT] iniciarRegistro() — error en el pedido de nombre diferido:', err?.message, err?.stack));
+    }, ESPERA_PEDIDO_NOMBRE_MS);
+    console.log(`[BOT] Cliente nuevo ${telefono}: se pide el nombre en ${ESPERA_PEDIDO_NOMBRE_MS / 1000}s (${pedirNombreEn}).`);
+    return;
+  }
+
   console.log('📡 [DEBUG-SERVICE-BOT] Query Supabase → tabla: conversations, operación: update, filtro: id =', conversationId, ', valores:', { bot_state: estadoInicio, bot_context: null });
   const { data: updData, error: updError } = await supabase
     .from('conversations')
@@ -470,24 +553,81 @@ const iniciarRegistro = async (conversationId, telefono, clienteActual) => {
     console.error('❌ [DEBUG-SERVICE-BOT] iniciarRegistro() — error actualizando bot_state/bot_context:', updError);
   }
 
-  // Primer contacto: el bot se presenta y pide el nombre en el mismo mensaje.
-  const mensaje = estadoInicio === 'registro_nombre'
-    ? '¡Hola! Soy el bot de Mi Farma. 💊\n\nComo es tu primera vez escribiéndonos, ¿me decís tu nombre completo? No te lo vamos a volver a pedir.'
-    : MENSAJE_POR_ESTADO_REGISTRO[estadoInicio];
+  const mensaje = MENSAJE_POR_ESTADO_REGISTRO[estadoInicio];
   console.log('🔍 [DEBUG-SERVICE-BOT] iniciarRegistro() — mensaje:', mensaje);
   await enviarMensajeBot(conversationId, telefono, mensaje);
   console.log('✅ [DEBUG-SERVICE-BOT] iniciarRegistro() — valor de retorno: undefined (fin normal)');
 };
 
-const manejarPasoRegistro = async (conversationId, telefono, t, estado) => {
-  console.log('🔍 [DEBUG-SERVICE-BOT] manejarPasoRegistro() — parámetros recibidos:', { conversationId, telefono, t, estado });
+// Termina la espera del primer contacto y pide el nombre. El UPDATE
+// condicional (sólo si sigue en 'registro_espera' y la consulta sigue
+// abierta) hace de reserva: si el timer, el chequeo periódico y un mensaje
+// del cliente llegan a la vez (o hay dos procesos del backend, ver
+// sessionExpiryChecker.js), sólo el que efectivamente cambió la fila manda el
+// mensaje. Si un operador tomó el chat o la consulta se cerró mientras tanto,
+// no se manda nada.
+export const pedirNombreSiCorresponde = async (conversationId, telefono) => {
+  const { data, error } = await supabase
+    .from('conversations')
+    .update({ bot_state: 'registro_nombre', bot_context: null })
+    .eq('id', conversationId)
+    .eq('bot_state', 'registro_espera')
+    .eq('status', 'open')
+    .select('id');
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-BOT] pedirNombreSiCorresponde() — error reservando el pedido de nombre:', error);
+    return false;
+  }
+  if (!data?.length) {
+    console.log('🔍 [DEBUG-SERVICE-BOT] pedirNombreSiCorresponde() — ya no corresponde (otro proceso lo mandó, o la consulta cambió de estado):', conversationId);
+    return false;
+  }
+  console.log(`[BOT] Pidiendo el nombre al cliente nuevo ${telefono} (conversación ${conversationId}).`);
+  await enviarMensajeBot(conversationId, telefono, MENSAJE_PRIMER_CONTACTO);
+  return true;
+};
+
+// Red de seguridad para los timers perdidos (reinicio del servidor durante
+// la espera): pide el nombre en toda consulta abierta cuya espera ya venció.
+// La llama sessionExpiryChecker en cada chequeo (como máximo cada 30s).
+export const pedirNombresPendientes = async () => {
+  const { data, error } = await supabase
+    .from('conversations')
+    .select('id, client_phone, bot_context')
+    .eq('bot_state', 'registro_espera')
+    .eq('status', 'open');
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-BOT] pedirNombresPendientes() — error buscando esperas pendientes:', error);
+    return;
+  }
+  const ahora = Date.now();
+  for (const conv of data || []) {
+    const vence = Date.parse(conv.bot_context?.pedir_nombre_en || '') || 0;
+    if (vence <= ahora) {
+      await pedirNombreSiCorresponde(conv.id, conv.client_phone);
+    }
+  }
+};
+
+const manejarPasoRegistro = async (conversationId, telefono, t, estado, botContext = null) => {
+  console.log('🔍 [DEBUG-SERVICE-BOT] manejarPasoRegistro() — parámetros recibidos:', { conversationId, telefono, t, estado, botContext });
 
   if (estado === 'registro_nombre') {
     console.log('🔍 [DEBUG-SERVICE-BOT] manejarPasoRegistro() — rama: registro_nombre');
-    const nombre = t.trim();
-    if (nombre.length < 3) {
-      console.log('🔍 [DEBUG-SERVICE-BOT] manejarPasoRegistro() — nombre demasiado corto, se vuelve a pedir:', nombre);
-      await enviarMensajeBot(conversationId, telefono, `Ese nombre no parece válido.\n\n${MENSAJE_PEDIR_NOMBRE}`);
+    const nombre = normalizarNombre(t);
+    if (!pareceNombre(nombre)) {
+      const intentos = (botContext?.intentos_nombre || 0) + 1;
+      console.log('🔍 [DEBUG-SERVICE-BOT] manejarPasoRegistro() — la respuesta no parece un nombre:', t, '— intento', intentos, 'de', MAX_INTENTOS_NOMBRE);
+      if (intentos >= MAX_INTENTOS_NOMBRE) {
+        // Se sigue sin el nombre para no trabar al cliente; se le vuelve a
+        // pedir en su próxima consulta (sigue sin registro completo).
+        await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
+        await enviarMensajeBot(conversationId, telefono, await construirMensajeBienvenida(telefono));
+        console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (se sigue al menú sin nombre)');
+        return;
+      }
+      await actualizarEstadoConversacion(conversationId, { bot_context: { intentos_nombre: intentos } });
+      await enviarMensajeBot(conversationId, telefono, MENSAJE_NO_ES_NOMBRE);
       console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (nombre inválido)');
       return;
     }

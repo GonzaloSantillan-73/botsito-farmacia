@@ -2,7 +2,7 @@ import { supabase } from '../supabase.js';
 import { TERMINAL_STATUSES } from './sessionManager.js';
 import { getSessionTimeoutMs, getSessionPrewarningMs } from './appConfig.js';
 import { finalizarConversacion } from './ratingSurvey.js';
-import { enviarMensajeBot } from './bot.js';
+import { enviarMensajeBot, pedirNombresPendientes } from './bot.js';
 
 // Cota máxima entre chequeos cuando no hay nada por vencer todavía (para detectar
 // conversaciones nuevas creadas después del último chequeo). También es el peor
@@ -191,6 +191,11 @@ export const checkExpiredSessions = async () => {
 
 const programarProximoChequeo = () => {
   console.log('⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] programarProximoChequeo() — invocado en:', new Date().toISOString());
+  // Pedidos de nombre a clientes nuevos cuyo timer se perdió (ver
+  // pedirNombresPendientes en bot.js). Independiente del chequeo de
+  // expiración: si falla, no debe cortarlo.
+  pedirNombresPendientes()
+    .catch(err => console.error('❌ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] programarProximoChequeo() — error en pedirNombresPendientes:', err?.message, err?.stack));
   checkExpiredSessions()
     .catch(err => {
       console.error('❌ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] programarProximoChequeo() — error en el ciclo de chequeo:', err?.message, err?.stack);
