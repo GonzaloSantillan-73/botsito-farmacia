@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ShoppingBag, Truck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { recortarNombre } from '../lib/recortarNombre';
 
 const formatMoney = (n) => `$${Number(n || 0).toFixed(2)}`;
 
@@ -36,7 +37,7 @@ export default function OrderHistoryPanel({ clientPhone, clientName, onClose }) 
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
           <div className="flex items-center gap-2 text-gray-800 dark:text-gray-100 font-bold">
             <ShoppingBag size={20} className="text-teal-600 dark:text-teal-400" />
-            Historial de pedidos{clientName ? ` — ${clientName}` : ''}
+            Historial de pedidos{clientName ? ` — ${recortarNombre(clientName)}` : ''}
           </div>
           <button onClick={() => { onClose(); }} className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
             <X size={18} />

@@ -15,6 +15,7 @@ import MessageBubble from './MessageBubble';
 import MediaGalleryModal from './MediaGalleryModal';
 import AdminPasswordActionModal from './AdminPasswordActionModal';
 import { alertDialog } from '../lib/dialogService';
+import { recortarNombre } from '../lib/recortarNombre';
 
 // Estados en los que la conversación ya está cerrada y no aplica el conteo de expiración.
 const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
@@ -554,7 +555,7 @@ export default function ChatArea({
                 </button>
               )}
               <div className="min-w-0">
-                <h2 className="font-bold text-gray-900 dark:text-gray-100 truncate">{activeConversation.real_name || activeConversation.client_name}</h2>
+                <h2 className="font-bold text-gray-900 dark:text-gray-100 truncate" title={activeConversation.real_name || activeConversation.client_name || undefined}>{recortarNombre(activeConversation.real_name || activeConversation.client_name)}</h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{formatPhone(activeConversation.client_phone)}</p>
               </div>
             </div>

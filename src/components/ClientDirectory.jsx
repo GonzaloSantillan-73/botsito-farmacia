@@ -174,7 +174,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
             <ArrowLeft size={20} />
           </button>
           <div className="min-w-0">
-            <h2 className="font-bold text-gray-900 dark:text-gray-100 truncate">{selectedClient.real_name || selectedClient.client_name || formatPhone(selectedClient.client_phone)}</h2>
+            <h2 className="font-bold text-gray-900 dark:text-gray-100 truncate" title={selectedClient.real_name || selectedClient.client_name || undefined}>{recortarNombre(selectedClient.real_name || selectedClient.client_name) || formatPhone(selectedClient.client_phone)}</h2>
             <p className="text-xs text-gray-500 dark:text-gray-400">{formatPhone(selectedClient.client_phone)}</p>
           </div>
         </div>

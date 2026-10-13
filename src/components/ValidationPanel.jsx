@@ -7,6 +7,7 @@ import ClientNotesPanel from './ClientNotesPanel';
 import { confirmDialog } from '../lib/dialogService';
 import OrderStatusPanel from './OrderStatusPanel';
 import { SALE_STATUS_BADGES } from './Sidebar';
+import { recortarNombre } from '../lib/recortarNombre';
 
 // Estados en los que la conversación ya está cerrada (mismo criterio que en ChatArea/Sidebar).
 const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
@@ -565,7 +566,7 @@ export default function ValidationPanel({
                               <div className="flex justify-between items-center">
                                 <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1.5"><User size={14} className="text-gray-400" /> Nombre</span>
                                 <span className="font-medium text-gray-900 dark:text-gray-100 truncate max-w-[140px]" title={clienteData?.nombre_completo || activeConversation.real_name || activeConversation.client_name}>
-                                  {clienteData?.nombre_completo || activeConversation.real_name || activeConversation.client_name}
+                                  {recortarNombre(clienteData?.nombre_completo || activeConversation.real_name || activeConversation.client_name)}
                                 </span>
                               </div>
                               <div className="flex justify-between items-center">

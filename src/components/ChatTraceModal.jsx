@@ -10,6 +10,7 @@ import { usePurgeMedia } from '../lib/usePurgeMedia';
 import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import MessageBubble from './MessageBubble';
 import AdminPasswordActionModal from './AdminPasswordActionModal';
+import { recortarNombre } from '../lib/recortarNombre';
 
 // Trazabilidad de solo lectura de UNA consulta puntual: se abre desde el
 // modal de "Ver" de una barra de Métricas (ver MetricsBucketModal.jsx),
@@ -64,7 +65,7 @@ export default function ChatTraceModal({ conversation, onClose }) {
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-gray-800 dark:text-gray-100 font-bold">
               <MessagesSquare size={18} className="text-teal-600 dark:text-teal-400 shrink-0" />
-              <span className="truncate">{conversation.cliente || formatPhone(conversation.telefono)}</span>
+              <span className="truncate" title={conversation.cliente || undefined}>{recortarNombre(conversation.cliente) || formatPhone(conversation.telefono)}</span>
             </div>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className="text-xs text-gray-500 dark:text-gray-400">{formatPhone(conversation.telefono)}</span>

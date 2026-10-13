@@ -14,6 +14,7 @@ import LoginModal from './components/LoginModal';
 import DialogHost from './components/DialogHost';
 import { confirmDialog, alertDialog } from './lib/dialogService';
 import { getAdminToken, clearAdminSession, isAdminRole, getStaffSucursalId, getStaffSucursalNombre, adminFetch, getTheme, applyTheme, SESSION_EXPIRED_EVENT, getTokenExpiration } from './lib/adminAuth';
+import { recortarNombre } from './lib/recortarNombre';
 
 function App() {
   const [adminToken, setAdminToken] = useState(() => getAdminToken());
@@ -254,7 +255,7 @@ function App() {
               if (payload.new?.sender_type === 'client') {
                 notifyNewEvent({
                   title: 'Nuevo mensaje',
-                  body: `${active.real_name || active.client_name || active.client_phone} te escribió.`
+                  body: `${recortarNombre(active.real_name || active.client_name) || active.client_phone} te escribió.`
                 });
               }
             } else if (payload.eventType === 'UPDATE') {
@@ -278,7 +279,7 @@ function App() {
             if (conv) {
               notifyNewEvent({
                 title: 'Nuevo mensaje',
-                body: `${conv.real_name || conv.client_name || conv.client_phone || 'Un cliente'} te escribió.`
+                body: `${recortarNombre(conv.real_name || conv.client_name) || conv.client_phone || 'Un cliente'} te escribió.`
               });
             }
           }
@@ -360,7 +361,7 @@ function App() {
                   const nombre = data?.nombre_completo || payload.new.client_name || payload.new.client_phone || 'Un cliente';
                   notifyNewEvent({
                     title: 'Cliente esperando un asesor',
-                    body: `${nombre} quiere hablar con un humano.`
+                    body: `${recortarNombre(nombre)} quiere hablar con un humano.`
                   });
                 });
             }
@@ -388,7 +389,7 @@ function App() {
                 }
                 notifyNewEvent({
                   title: 'Nuevo chat entrante',
-                  body: `${nombre} inició una conversación.`
+                  body: `${recortarNombre(nombre)} inició una conversación.`
                 });
               });
           }

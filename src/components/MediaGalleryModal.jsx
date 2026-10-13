@@ -4,6 +4,7 @@ import { X, Images, FileText, Film, Link2, Loader2, Download, Eye, Mic } from 'l
 import { supabase } from '../lib/supabase';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
 import { alertDialog } from '../lib/dialogService';
+import { recortarNombre } from '../lib/recortarNombre';
 
 const esNombreArchivoValido = (texto) => /\.[a-z0-9]{2,5}$/i.test((texto || '').trim());
 
@@ -124,7 +125,7 @@ export default function MediaGalleryModal({ clientPhone, clientName, conversatio
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
           <div className="flex items-center gap-2 text-gray-800 dark:text-gray-100 font-bold">
             <Images size={20} className="text-teal-600 dark:text-teal-400" />
-            Archivos compartidos{clientName ? ` — ${clientName}` : ''}
+            Archivos compartidos{clientName ? ` — ${recortarNombre(clientName)}` : ''}
             <span className="text-[11px] font-normal text-gray-400 dark:text-gray-500">
               ({showFullHistory ? 'todo el historial' : 'esta consulta'})
             </span>
