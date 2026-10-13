@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Users, Search, ArrowLeft, ArrowUpDown, History, List, AlertTriangle, Filter, RefreshCw } from 'lucide-react';
 import { formatPhone } from '../lib/formatPhone';
+import { recortarNombre } from '../lib/recortarNombre';
 import { adminFetch, isAdminRole } from '../lib/adminAuth';
 import { supabase } from '../lib/supabase';
 import { ESTADOS_HISTORIAL } from './Sidebar';
@@ -32,12 +33,6 @@ const ordenarClientes = (clients, sortBy) => {
 const formatDateTime = (iso) =>
   new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
-// Nombres muy largos (a veces el cliente responde una pregunta en vez de su
-// nombre) empujaban el resto de las columnas fuera de la tabla. El nombre
-// completo queda en el tooltip (title) de la celda.
-const MAX_NOMBRE = 30;
-const recortarNombre = (nombre) =>
-  nombre && nombre.length > MAX_NOMBRE ? `${nombre.slice(0, MAX_NOMBRE).trimEnd()}...` : nombre;
 
 export default function ClientDirectory({ onOpenConversation, initialSelectedPhone = null }) {
   const [conversations, setConversations] = useState([]);

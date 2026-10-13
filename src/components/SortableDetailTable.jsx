@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ArrowUpDown, ArrowUp, ArrowDown, FileText } from 'lucide-react';
 import StarRating from './StarRating';
+import { recortarNombre } from '../lib/recortarNombre';
 
 const formatMoney = (n) => (n == null ? '—' : `$${Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`);
 
@@ -34,7 +35,7 @@ const formatDuracion = (ms) => {
 export const DETAIL_COLUMNS = [
   { key: 'fecha', label: 'Fecha', sortValue: r => new Date(r.fecha).getTime(), render: r => new Date(r.fecha).toLocaleDateString('es-AR') },
   { key: 'horaInicio', label: 'Hora Inicio', sortValue: r => new Date(r.fecha).getTime(), render: r => new Date(r.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) },
-  { key: 'cliente', label: 'Cliente', sortValue: r => (r.cliente || '').toLowerCase(), render: r => r.cliente || '—' },
+  { key: 'cliente', label: 'Cliente', sortValue: r => (r.cliente || '').toLowerCase(), render: r => (r.cliente ? <span title={r.cliente}>{recortarNombre(r.cliente)}</span> : '—') },
   { key: 'telefono', label: 'Teléfono', sortValue: r => r.telefono || '', render: r => r.telefono || '—' },
   { key: 'demoraInicial', label: 'Demora Inicial', sortValue: r => (r.demoraInicialMs ?? Infinity), render: r => formatDuracion(r.demoraInicialMs) },
   { key: 'duracionTotal', label: 'Duración Total', sortValue: r => (r.duracionTotalMs ?? Infinity), render: r => formatDuracion(r.duracionTotalMs) },

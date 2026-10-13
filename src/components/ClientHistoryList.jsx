@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, CalendarRange, ArrowUpDown, Loader2, Clock, Store } from 'lucide-react';
 import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import { formatPhone } from '../lib/formatPhone';
+import { recortarNombre } from '../lib/recortarNombre';
 import { adminFetch } from '../lib/adminAuth';
 import { renderWhatsAppText } from '../lib/whatsappFormat';
 import StarRating from './StarRating';
@@ -217,7 +218,7 @@ export default function ClientHistoryList({
                 <div className="flex-1 min-w-0">
                   {showClient && (
                     <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                      {conv.real_name || conv.client_name || formatPhone(conv.client_phone)}
+                      <span title={conv.real_name || conv.client_name || undefined}>{recortarNombre(conv.real_name || conv.client_name) || formatPhone(conv.client_phone)}</span>
                       {(conv.real_name || conv.client_name) && <span className="text-xs font-normal text-gray-400 dark:text-gray-500 ml-1">({formatPhone(conv.client_phone)})</span>}
                     </div>
                   )}

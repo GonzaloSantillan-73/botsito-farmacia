@@ -2,6 +2,7 @@ import React, { useState, useEffect, memo } from 'react';
 import { Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut, MapPin, Hand, Send, Undo2, Store } from 'lucide-react';
 import SettingsModal from './SettingsModal';
 import { formatPhone } from '../lib/formatPhone';
+import { recortarNombre } from '../lib/recortarNombre';
 import { isAdminRole, getStaffSucursalId, adminFetch } from '../lib/adminAuth';
 import { tomarConsulta } from '../lib/tomarConsulta';
 import { confirmDialog, alertDialog } from '../lib/dialogService';
@@ -460,7 +461,7 @@ export default function Sidebar({
             >
               <div className="flex justify-between items-start mb-1">
                 <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate pr-2">
-                   {conv.real_name || conv.client_name || formatPhone(conv.client_phone)}
+                   <span title={conv.real_name || conv.client_name || undefined}>{recortarNombre(conv.real_name || conv.client_name) || formatPhone(conv.client_phone)}</span>
                    {(conv.real_name || conv.client_name) && <span className="text-xs font-normal text-gray-400 ml-1">({formatPhone(conv.client_phone)})</span>}
                 </h3>
                 <div className="flex flex-col items-end gap-1 shrink-0">
