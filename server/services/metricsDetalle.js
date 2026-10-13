@@ -2,7 +2,7 @@ import { supabase } from '../supabase.js';
 import { TERMINAL_STATUSES } from './sessionManager.js';
 import { resolverNombresPorTelefono } from './clientes.js';
 import { extraerLinkReceta } from './linkReceta.js';
-import { traerPorGruposDeIds } from './consultasEnGrupos.js';
+import { traerTodasLasPaginas, traerPorGruposDeIds } from './consultasEnGrupos.js';
 
 const msDiff = (desde, hasta) => (desde && hasta ? new Date(hasta).getTime() - new Date(desde).getTime() : null);
 
