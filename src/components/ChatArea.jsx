@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag, Undo2, Hand, IdCard, ChevronDown } from 'lucide-react';
+import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag, Undo2, Hand, IdCard, ChevronDown, Bot, Store } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
@@ -340,6 +340,12 @@ export default function ChatArea({
   // había puesto el cliente ni el resto del intercambio de la encuesta.
   const displayedMessages = showFullHistory ? [...historyMessages, ...messages] : messages;
 
+  // Mensajes salientes de esta consulta (no del historial completo): desde el
+  // 1/10/2026 Meta cobra cada mensaje que sale del número, sea del bot o de la
+  // sucursal. Los que fallaron (estado 'error') no llegaron a Meta y no se cobran.
+  const enviadosBot = (messages || []).filter(m => m.sender_type === 'bot' && m.estado !== 'error').length;
+  const enviadosSucursal = (messages || []).filter(m => m.sender_type === 'agent' && m.estado !== 'error').length;
+
   const isConversacionCerrada = activeConversation && ESTADOS_CERRADOS.includes(activeConversation.status);
   // Ojo: un chat tomado por una sucursal sigue teniendo status 'esperando'
   // (lo que cambia al tomarlo es sucursal_id, no el status, ver App.jsx). La
@@ -558,6 +564,13 @@ export default function ChatArea({
                 <h2 className="font-bold text-gray-900 dark:text-gray-100 truncate" title={activeConversation.real_name || activeConversation.client_name || undefined}>{recortarNombre(activeConversation.real_name || activeConversation.client_name)}</h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{formatPhone(activeConversation.client_phone)}</p>
               </div>
+              <div
+                title={`Mensajes enviados al cliente en esta consulta (cada uno tiene costo en WhatsApp):\n• Bot: ${enviadosBot}\n• Sucursal: ${enviadosSucursal}\n\nConviene mandar un mensaje completo en vez de varios cortos.`}
+                className="flex items-center gap-2.5 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-xs font-semibold tabular-nums text-gray-600 dark:text-gray-300 shrink-0 cursor-default"
+              >
+                <span className="flex items-center gap-1"><Bot size={14} />{enviadosBot}</span>
+                <span className="flex items-center gap-1"><Store size={14} />{enviadosSucursal}</span>
+              </div>
             </div>
 
             {showExpiryBadge && (
@@ -580,7 +593,7 @@ export default function ChatArea({
                 }`}
               >
                 <Timer size={14} />
-                {timerPausedByClient ? '--:--' : (remainingMs <= 0 ? 'Expirado' : `Expira en ${formatCountdown(remainingMs)}`)}
+                {timerPausedByClient ? '--:--' : (remainingMs <= 0 ? 'Expirado' : formatCountdown(remainingMs))}
               </div>
             )}
 
