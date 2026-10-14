@@ -328,7 +328,12 @@ router.post('/', async (req, res) => {
           media_type: mediaTypeDB,
           media_url: mediaUrl,
           wamid: messageId,
-          estado: 'recibido'
+          estado: 'recibido',
+          // Si el cliente respondió citando un mensaje puntual, Meta manda el
+          // wamid de ese mensaje en context.id (ver supabase/messages_reply_to.sql).
+          // Sólo se agrega la clave cuando hay cita, para que los mensajes
+          // comunes no dependan de que la columna ya exista.
+          ...(waMessage.context?.id ? { reply_to_wamid: waMessage.context.id } : {})
         };
         console.log(`[WEBHOOK] -> Payload insert 'messages':`, messagePayload);
         console.log(`🔍 [DEBUG-WEBHOOK] 📡 Consulta Supabase - tabla: messages, operación: insert, filtros: N/A (insert simple)`);

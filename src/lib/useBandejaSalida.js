@@ -15,12 +15,15 @@ export const MAX_CAPTION_WHATSAPP = 1024;
 
 const SEPARADOR = '\n';
 
-// `enviar(conv, texto)` es el envío real (devuelve true si salió bien).
+// `enviar(conv, texto, replyTo)` es el envío real (devuelve true si salió bien).
+// `replyTo` es el wamid del mensaje citado (respuesta a un mensaje puntual) o
+// null; un mensaje sólo puede citar a uno, así que si el operador responde a
+// otro mensaje distinto del que cita lo pendiente, lo pendiente sale antes.
 // `onFalla(conv, texto)` se llama si ese envío falla, para no perder el texto.
 // Hay una sola bandeja a la vez: el operador escribe en un chat por vez, y
 // cambiar de chat la vacía (ver App.jsx).
 export function useBandejaSalida(enviar, onFalla) {
-  const [pendiente, setPendiente] = useState(null); // { conv, partes: string[], venceEn: number }
+  const [pendiente, setPendiente] = useState(null); // { conv, partes: string[], replyTo: string|null, venceEn: number }
   const pendienteRef = useRef(null);
   const timerRef = useRef(null);
   const enviarRef = useRef(enviar);
@@ -47,18 +50,19 @@ export function useBandejaSalida(enviar, onFalla) {
     const actual = tomar();
     if (!actual) return;
     const texto = actual.partes.join(SEPARADOR);
-    const ok = await enviarRef.current(actual.conv, texto);
+    const ok = await enviarRef.current(actual.conv, texto, actual.replyTo);
     if (!ok) onFallaRef.current?.(actual.conv, texto);
   };
 
-  const encolar = async (conv, texto) => {
+  const encolar = async (conv, texto, replyTo = null) => {
     const actual = pendienteRef.current;
     const juntoExcede = actual && [...actual.partes, texto].join(SEPARADOR).length > MAX_TEXTO_WHATSAPP;
-    if (actual && (actual.conv.id !== conv.id || juntoExcede)) {
+    const otraCita = actual && replyTo && replyTo !== actual.replyTo;
+    if (actual && (actual.conv.id !== conv.id || juntoExcede || otraCita)) {
       await enviarPendiente();
     }
     const base = pendienteRef.current;
-    actualizar({ conv, partes: [...(base?.partes || []), texto], venceEn: Date.now() + ESPERA_AGRUPAR_MS });
+    actualizar({ conv, partes: [...(base?.partes || []), texto], replyTo: replyTo || base?.replyTo || null, venceEn: Date.now() + ESPERA_AGRUPAR_MS });
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => { enviarPendiente(); }, ESPERA_AGRUPAR_MS);
   };

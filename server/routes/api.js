@@ -783,7 +783,13 @@ router.post('/messages/send', requireAuth, blockAdminRole, async (req, res) => {
   console.log(`[API - POST /messages/send] ==> Body recibido:`, JSON.stringify(req.body, null, 2));
   console.log('🔍 [DEBUG-ROUTES-API] req.admin en POST /messages/send:', req.admin || null);
 
-  const { conversation_id, message_text, phone, message, media_url, media_type, id, sender_type } = req.body;
+  const { conversation_id, message_text, phone, message, media_url, media_type, id, sender_type, reply_to_wamid } = req.body;
+  // Respuesta citada (opcional): wamid del mensaje que el operador eligió
+  // "Responder" en el CRM. Se descarta cualquier cosa que no sea un string
+  // razonable para no mandarle basura a Meta.
+  const replyToWamid = typeof reply_to_wamid === 'string' && reply_to_wamid.length > 0 && reply_to_wamid.length <= 200
+    ? reply_to_wamid
+    : null;
 
   const finalMessage = message || message_text || '';
   console.log(`[API] -> Mensaje resuelto final: "${finalMessage}"`);
@@ -896,7 +902,8 @@ router.post('/messages/send', requireAuth, blockAdminRole, async (req, res) => {
             message_text: finalMessage,
             media_type: typeDB,
             media_url: media_url,
-            estado: 'pendiente'
+            estado: 'pendiente',
+            ...(replyToWamid ? { reply_to_wamid: replyToWamid } : {})
         };
         console.log(`[API] -> Insertando mensaje como pendiente en DB...`);
         const { data: insertData, error: insertError } = await supabase.from('messages').insert([messagePayload]).select().single();
@@ -914,7 +921,7 @@ router.post('/messages/send', requireAuth, blockAdminRole, async (req, res) => {
     
     let metaResponse;
     try {
-      metaResponse = await sendWhatsAppMessage(cleanPhone, finalMessage, media_url, media_type);
+      metaResponse = await sendWhatsAppMessage(cleanPhone, finalMessage, media_url, media_type, replyToWamid);
     } catch (metaError) {
       // Sin esto, un envío rechazado por Meta (ej. un adjunto con un
       // media_type que la API no acepta) dejaba el mensaje trabado en

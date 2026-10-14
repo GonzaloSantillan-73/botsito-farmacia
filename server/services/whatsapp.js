@@ -62,7 +62,9 @@ const traducirErrorMeta = (metaError) => {
   return `${mensajeOriginal}${code ? ` (código ${code}${subcode ? `/${subcode}` : ''})` : ''}`;
 };
 
-export const sendWhatsAppMessage = async (to, text, mediaUrl = null, mediaType = null) => {
+// replyToWamid: wamid del mensaje que se está respondiendo (opcional). Meta lo
+// muestra en el WhatsApp del cliente como respuesta citada a ese mensaje.
+export const sendWhatsAppMessage = async (to, text, mediaUrl = null, mediaType = null, replyToWamid = null) => {
   console.log(`\n======================================================`);
   console.log(`[SERVICES/WHATSAPP - sendWhatsAppMessage] ==> INICIO DE FUNCIÓN`);
   console.log(`[SERVICES/WHATSAPP] ==> Parámetros recibidos: to="${to}", text="${text}", mediaUrl="${mediaUrl}", mediaType="${mediaType}"`);
@@ -102,6 +104,11 @@ export const sendWhatsAppMessage = async (to, text, mediaUrl = null, mediaType =
         console.log(`[SERVICES/WHATSAPP] -> Condición: No hay mediaUrl. Preparando payload de texto plano.`);
         payload.type = 'text';
         payload.text = { body: text };
+    }
+
+    if (replyToWamid) {
+        console.log(`[SERVICES/WHATSAPP] -> Condición: respuesta citada al mensaje ${replyToWamid}.`);
+        payload.context = { message_id: replyToWamid };
     }
 
     console.log(`\n------------------------------------------------------`);

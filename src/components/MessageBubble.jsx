@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Image as ImageIcon, FileText, Loader2, MapPin, Download, Eye, ShieldAlert, ShieldOff, Tag, Check, X, Trash2 } from 'lucide-react';
+import { Image as ImageIcon, FileText, Loader2, MapPin, Download, Eye, ShieldAlert, ShieldOff, Tag, Check, X, Trash2, Reply } from 'lucide-react';
 import { renderWhatsAppText } from '../lib/whatsappFormat';
 import { adminFetch } from '../lib/adminAuth';
 import { extraerLinkReceta } from '../lib/linkReceta';
@@ -210,7 +210,40 @@ export function MapsLinkPreview({ url, senderType, texto }) {
 // ubicación) exactamente igual en el chat en vivo, el historial completo del
 // cliente y la galería multimedia, para que los tres lugares se vean y se
 // comporten de forma idéntica.
-export default function MessageBubble({ msg, onImageClick, onDownload, downloadingId, onTag, taggingId, statusIcon, canModerate, onPurgeFile, purgingId }) {
+// Texto corto que representa un mensaje dentro de una cita (respuesta a un
+// mensaje puntual): el texto, o una etiqueta si es un adjunto.
+const ETIQUETAS_CITA = { image: '📷 Imagen', video: '🎥 Video', audio: '🎤 Nota de voz', document: '📎 Archivo', pdf: '📄 PDF', location: '📍 Ubicación' };
+export const resumenParaCita = (m) => {
+  if (!m) return 'Este mensaje no está cargado en esta vista.';
+  const texto = (m.message_text || '').trim();
+  const etiqueta = (m.media_url || m.media_type === 'location') ? ETIQUETAS_CITA[m.media_type] : null;
+  if (etiqueta && texto && m.media_type !== 'audio' && m.media_type !== 'location') return `${etiqueta} · ${texto}`;
+  return etiqueta || texto || 'Mensaje';
+};
+
+// Cita de un mensaje (como en WhatsApp): barra de color + autor + resumen. Se
+// usa dentro de la burbuja que responde, arriba del cuadro de texto mientras
+// el operador está respondiendo, y en la burbuja pendiente de la bandeja.
+export function CitaMensaje({ citado, autor, onClick }) {
+  const esCliente = citado?.sender_type === 'client';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      title={onClick ? 'Ir al mensaje original' : undefined}
+      className={`w-full min-w-0 text-left rounded-md border-l-4 px-2 py-1 bg-black/5 dark:bg-white/10 transition-colors ${esCliente ? 'border-teal-500' : 'border-rose-500'} ${onClick ? 'hover:bg-black/10 dark:hover:bg-white/15 cursor-pointer' : 'cursor-default'}`}
+    >
+      <span className={`block text-xs font-semibold truncate ${esCliente ? 'text-teal-700 dark:text-teal-400' : 'text-rose-600 dark:text-rose-400'}`}>{autor}</span>
+      <span className="block text-xs text-gray-600 dark:text-gray-300 line-clamp-2 whitespace-pre-wrap [overflow-wrap:anywhere]">{resumenParaCita(citado)}</span>
+    </button>
+  );
+}
+
+// quotedMsg/quotedAuthor/onQuoteClick: si este mensaje responde a otro
+// (reply_to_wamid), el mensaje citado ya resuelto por ChatArea (null si no
+// está cargado). onReply: si está, se muestra el botón "Responder".
+export default function MessageBubble({ msg, onImageClick, onDownload, downloadingId, onTag, taggingId, statusIcon, canModerate, onPurgeFile, purgingId, quotedMsg, quotedAuthor, onQuoteClick, onReply }) {
   const location = parseLocationMessage(msg);
   // Sólo tiene sentido buscar un link de Maps en mensajes de puro texto: si
   // ya hay un adjunto (imagen, documento, etc.), lo que diga message_text es
@@ -219,9 +252,18 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
   const showTagControls = puedeMarcarse(msg);
   const showPurgeControl = canModerate && msg.media_url && msg.media_type !== 'location';
   return (
-    <div className={`flex items-center gap-2 ${msg.sender_type === 'client' ? 'justify-start' : 'justify-end'}`}>
+    <div id={`msg-${msg.id}`} className={`group flex items-center gap-2 ${msg.sender_type === 'client' ? 'justify-start' : 'justify-end'}`}>
       <div className={`relative max-w-[75%] rounded-lg p-3 shadow-sm ${msg.sender_type === 'client' ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-tl-none' : 'bg-[#D8FDD2] dark:bg-[#134D37] text-gray-900 dark:text-gray-100 rounded-tr-none'}`}>
         {msg.sender_type === 'bot' && <div className="text-[10px] font-bold uppercase opacity-70 mb-1">BOT</div>}
+        {msg.reply_to_wamid && (
+          <div className="mb-1.5">
+            <CitaMensaje
+              citado={quotedMsg}
+              autor={quotedAuthor}
+              onClick={quotedMsg && onQuoteClick ? () => { onQuoteClick(quotedMsg); } : undefined}
+            />
+          </div>
+        )}
         {location && (
           <LocationCard lat={location.lat} lng={location.lng} label={location.name || location.address} senderType={msg.sender_type} />
         )}
@@ -358,6 +400,18 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
           </span>
         )}
       </div>
+      {onReply && msg.wamid && (
+        // Para los mensajes de la sucursal/bot (alineados a la derecha) el
+        // botón va a la izquierda de la burbuja; para los del cliente, a la
+        // derecha. Aparece al pasar el mouse por el mensaje.
+        <button
+          onClick={() => { onReply(msg); }}
+          title="Responder a este mensaje"
+          className={`p-1.5 rounded-full text-gray-500 dark:text-gray-400 bg-white/80 dark:bg-gray-800/80 shadow-sm hover:text-teal-600 dark:hover:text-teal-400 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity shrink-0 ${msg.sender_type === 'client' ? '' : 'order-first'}`}
+        >
+          <Reply size={16} />
+        </button>
+      )}
       {(showTagControls || showPurgeControl) && (
         // Columna (no fila) a propósito: el botón de purga del admin queda
         // arriba de las marcas de comprobante/receta, como pidió el negocio,

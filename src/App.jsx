@@ -623,8 +623,9 @@ function App() {
   // Envío real a Meta (vía backend) de UN mensaje a la conversación `conv`.
   // Recibe la conversación explícita en vez de usar activeConversation porque
   // la bandeja de salida puede vaciarse justo cuando el operador cambia de
-  // chat. Devuelve true si salió bien.
-  const enviarMensajeAgente = async (conv, texto, mediaUrl = null, mediaType = 'text') => {
+  // chat. `replyToWamid`: wamid del mensaje citado (respuesta a un mensaje
+  // puntual), o null. Devuelve true si salió bien.
+  const enviarMensajeAgente = async (conv, texto, mediaUrl = null, mediaType = 'text', replyToWamid = null) => {
     const inputToSave = (texto || '').trim();
     if ((!inputToSave && !mediaUrl) || !conv) return false;
 
@@ -640,6 +641,7 @@ function App() {
       message_text: inputToSave,
       media_type: mediaUrl ? (mediaType || 'image') : 'text',
       media_url: mediaUrl,
+      reply_to_wamid: replyToWamid,
       created_at: new Date().toISOString()
     };
 
@@ -662,7 +664,8 @@ function App() {
           conversation_id: conv.id,
           message_text: inputToSave,
           media_url: mediaUrl,
-          media_type: mediaType
+          media_type: mediaType,
+          reply_to_wamid: replyToWamid
         })
       });
 
@@ -704,7 +707,7 @@ function App() {
   // escribe espera unos segundos por si manda algo más, y sale todo junto en
   // un solo mensaje cobrado. Si el envío falla, el texto vuelve al cuadro de
   // texto (si sigue en ese chat) para no perderlo.
-  const bandeja = useBandejaSalida(enviarMensajeAgente, (conv, texto) => {
+  const bandeja = useBandejaSalida((conv, texto, replyTo) => enviarMensajeAgente(conv, texto, null, 'text', replyTo), (conv, texto) => {
     if (activeConversationRef.current?.id === conv.id) {
       setMessageInput(prev => (prev.trim() ? `${texto}\n${prev}` : texto));
     }
@@ -721,12 +724,14 @@ function App() {
     }
   }, [activeConversation?.id]);
 
-  // "Editar": devuelve lo pendiente al cuadro de texto sin enviarlo.
+  // "Editar": devuelve lo pendiente al cuadro de texto sin enviarlo. Devuelve
+  // el wamid citado (si lo había) para que ChatArea vuelva a mostrar la cita.
   const handleEditarPendiente = () => {
     const actual = bandeja.tomar();
-    if (!actual) return;
+    if (!actual) return null;
     const texto = actual.partes.join('\n');
     setMessageInput(prev => (prev.trim() ? `${texto}\n${prev}` : texto));
+    return actual.replyTo || null;
   };
 
   // Punto de entrada de todos los envíos del panel:
@@ -736,7 +741,8 @@ function App() {
   //   envía antes lo pendiente.
   // - Con customText (estado del pedido, cotización, etc.): primero se envía lo
   //   pendiente, para respetar el orden, y después ese texto.
-  const handleSendMessage = async (customText = null, mediaUrl = null, mediaType = 'text') => {
+  // `replyToWamid`: si el operador eligió "Responder" un mensaje puntual.
+  const handleSendMessage = async (customText = null, mediaUrl = null, mediaType = 'text', replyToWamid = null) => {
     const conv = activeConversation;
     if (!conv) return;
     const desdeCuadroDeTexto = typeof customText !== 'string';
@@ -750,7 +756,7 @@ function App() {
     }
 
     if (desdeCuadroDeTexto && !mediaUrl) {
-      await bandeja.encolar(conv, textToSend.trim());
+      await bandeja.encolar(conv, textToSend.trim(), replyToWamid);
       scrollToBottom();
       return;
     }
@@ -762,7 +768,7 @@ function App() {
         const caption = [...pend.partes, textToSend.trim()].filter(Boolean).join('\n');
         if (caption.length <= MAX_CAPTION_WHATSAPP) {
           bandeja.tomar();
-          const ok = await enviarMensajeAgente(conv, caption, mediaUrl, mediaType);
+          const ok = await enviarMensajeAgente(conv, caption, mediaUrl, mediaType, replyToWamid || pend.replyTo);
           if (!ok) setMessageInput(prev => (prev.trim() ? `${caption}\n${prev}` : caption));
           return;
         }
@@ -770,7 +776,7 @@ function App() {
     }
 
     await bandeja.enviarPendiente();
-    await enviarMensajeAgente(conv, textToSend, mediaUrl, mediaType);
+    await enviarMensajeAgente(conv, textToSend, mediaUrl, mediaType, replyToWamid);
   };
 
   // Sólo el admin puede eliminar una conversación (al revés que el resto de

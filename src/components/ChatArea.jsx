@@ -11,7 +11,7 @@ import OrderHistoryPanel from './OrderHistoryPanel';
 import { STATUS_BADGES } from './Sidebar';
 import CloseChatModal from './CloseChatModal';
 import ReturnToQueueModal from './ReturnToQueueModal';
-import MessageBubble from './MessageBubble';
+import MessageBubble, { CitaMensaje } from './MessageBubble';
 import MediaGalleryModal from './MediaGalleryModal';
 import AdminPasswordActionModal from './AdminPasswordActionModal';
 import { alertDialog } from '../lib/dialogService';
@@ -111,6 +111,14 @@ export default function ChatArea({
   // Moderación de archivos adjuntos (sólo admin, ver server/routes/moderacion.js).
   const [purgeTarget, setPurgeTarget] = useState(null);
   const fileInputRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  // Mensaje al que el operador eligió "Responder" (respuesta citada, como en
+  // WhatsApp). Se descarta al cambiar de chat.
+  const [respondiendoA, setRespondiendoA] = useState(null);
+  useEffect(() => {
+    setRespondiendoA(null);
+  }, [activeConversation?.id]);
   const messagesContainerRef = useRef(null);
 
   // "Ver todo el chat": en vez de un modal aparte, antepone mensajes de
@@ -371,6 +379,37 @@ export default function ChatArea({
   const largoInput = messageInput.trim().length;
   const esMensajeCorto = largoInput > 0 && largoInput <= 15;
 
+  // Respuestas citadas: índice wamid -> mensaje de todo lo cargado (esta
+  // consulta y, si está abierto, el historial completo), para resolver la cita
+  // de cada burbuja que responde a otro mensaje.
+  const mensajesPorWamid = new Map();
+  [...historyMessages, ...(messages || [])].forEach(m => { if (m.wamid) mensajesPorWamid.set(m.wamid, m); });
+  const nombreClienteCita = recortarNombre(activeConversation?.real_name || activeConversation?.client_name) || 'Cliente';
+  const autorDeCita = (m) => {
+    if (!m) return 'Mensaje anterior';
+    if (m.sender_type === 'client') return nombreClienteCita;
+    return m.sender_type === 'bot' ? 'Bot' : 'Sucursal';
+  };
+  // Salta al mensaje citado y lo resalta un momento.
+  const irAMensaje = (m) => {
+    const el = document.getElementById(`msg-${m.id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('animate-pulse');
+    setTimeout(() => { el.classList.remove('animate-pulse'); }, 1600);
+  };
+  const handleResponderA = (m) => {
+    setRespondiendoA(m);
+    textareaRef.current?.focus();
+  };
+  // "Editar" de la burbuja pendiente: si lo pendiente citaba un mensaje, la
+  // cita vuelve a quedar arriba del cuadro de texto.
+  const handleEditarPendienteConCita = () => {
+    const wamidCitado = onEditarPendiente?.();
+    if (wamidCitado) setRespondiendoA(mensajesPorWamid.get(wamidCitado) || null);
+    textareaRef.current?.focus();
+  };
+
   const isConversacionCerrada = activeConversation && ESTADOS_CERRADOS.includes(activeConversation.status);
   // Ojo: un chat tomado por una sucursal sigue teniendo status 'esperando'
   // (lo que cambia al tomarlo es sucursal_id, no el status, ver App.jsx). La
@@ -389,6 +428,9 @@ export default function ChatArea({
   // de poder escribirle a un cliente de la cola general.
   const miSucursalId = getStaffSucursalId();
   const requiereTomarParaResponder = estaEnColaGeneral && !soyAdmin;
+  // El botón "Responder" de cada mensaje sólo aparece cuando el operador
+  // puede escribir en este chat (mismas condiciones que el cuadro de texto).
+  const puedeResponder = !!activeConversation && !isConversacionCerrada && !soyAdmin && !esModoBot && !requiereTomarParaResponder;
   // Matriz de timeout (bot / en espera / sucursal) — mismo criterio, en el
   // mismo orden, que server/services/sessionExpiryChecker.js:
   // 1. En espera SIN sucursal asignada (cola general): siempre pausado.
@@ -557,7 +599,8 @@ export default function ChatArea({
     }
 
     const { data: publicUrlData } = supabase.storage.from('media').getPublicUrl(fileName);
-    handleSendMessage(null, publicUrlData.publicUrl, mediaType);
+    handleSendMessage(null, publicUrlData.publicUrl, mediaType, respondiendoA?.wamid || null);
+    setRespondiendoA(null);
   };
 
   const handleSendClick = async () => {
@@ -569,7 +612,8 @@ export default function ChatArea({
       await uploadAndSendMedia(selectedFile, fileExt, mediaType);
       setSelectedFile(null);
     } else {
-      handleSendMessage();
+      handleSendMessage(null, null, 'text', respondiendoA?.wamid || null);
+      setRespondiendoA(null);
     }
   };
 
@@ -781,6 +825,10 @@ export default function ChatArea({
                       canModerate={soyAdmin}
                       onPurgeFile={(m) => { setPurgeTarget(m); }}
                       purgingId={purgeTarget?.id}
+                      quotedMsg={msg.reply_to_wamid ? (mensajesPorWamid.get(msg.reply_to_wamid) || null) : null}
+                      quotedAuthor={msg.reply_to_wamid ? autorDeCita(mensajesPorWamid.get(msg.reply_to_wamid)) : null}
+                      onQuoteClick={irAMensaje}
+                      onReply={puedeResponder ? handleResponderA : null}
                     />
                   )}
                 </React.Fragment>
@@ -789,6 +837,14 @@ export default function ChatArea({
             {pendienteDeEsteChat && (
               <div className="flex justify-end">
                 <div className="max-w-[75%] rounded-xl rounded-tr-none border-2 border-dashed border-teal-500/70 bg-white/80 dark:bg-gray-800/80 px-3 py-2 shadow-sm">
+                  {pendienteDeEsteChat.replyTo && (
+                    <div className="mb-1.5">
+                      <CitaMensaje
+                        citado={mensajesPorWamid.get(pendienteDeEsteChat.replyTo) || null}
+                        autor={autorDeCita(mensajesPorWamid.get(pendienteDeEsteChat.replyTo))}
+                      />
+                    </div>
+                  )}
                   <p className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap break-words">{pendienteDeEsteChat.partes.join('\n')}</p>
                   <div className="mt-2 flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs">
                     <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400 tabular-nums">
@@ -796,7 +852,7 @@ export default function ChatArea({
                       Se envía en {segundosPendiente}s
                     </span>
                     <button
-                      onClick={onEditarPendiente}
+                      onClick={handleEditarPendienteConCita}
                       title="Volver a poner este texto en el cuadro de mensaje, sin enviarlo"
                       className="font-semibold text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
                     >
@@ -897,6 +953,22 @@ export default function ChatArea({
               </div>
             )}
 
+            {/* Respondiendo a un mensaje puntual */}
+            {respondiendoA && (
+              <div className="flex items-center gap-2 px-1">
+                <div className="flex-1 min-w-0">
+                  <CitaMensaje citado={respondiendoA} autor={autorDeCita(respondiendoA)} onClick={() => { irAMensaje(respondiendoA); }} />
+                </div>
+                <button
+                  onClick={() => { setRespondiendoA(null); }}
+                  title="Cancelar respuesta"
+                  className="p-1.5 text-gray-400 hover:text-rose-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors shrink-0"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
             {/* File Preview */}
             {selectedFile && (
               <div className="self-start px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg flex items-center justify-between gap-4 max-w-sm">
@@ -937,6 +1009,7 @@ export default function ChatArea({
               </button>
 
               <textarea
+                ref={textareaRef}
                 className="flex-1 bg-transparent max-h-32 min-h-[40px] resize-none outline-none py-2 px-2 text-sm scrollbar-thin dark:text-gray-100"
                 placeholder="Escribí un mensaje... (Ctrl + Enter para enviar, '/' para plantillas)"
                 value={messageInput}
