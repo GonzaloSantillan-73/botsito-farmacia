@@ -163,6 +163,8 @@ router.get('/export/metrics', async (req, res) => {
       { label: 'Demora Inicial (min)', align: 'center', value: r => (r.demoraInicialMs != null ? Math.round(r.demoraInicialMs / 60000) : '') },
       { label: 'Duración Total (min)', align: 'center', value: r => (r.duracionTotalMs != null ? Math.round(r.duracionTotalMs / 60000) : '') },
       { label: 'Msjs Cliente', align: 'center', value: r => r.msjsCliente },
+      { label: 'Msjs Bot', align: 'center', value: r => r.msjsBot },
+      { label: 'Msjs Sucursal', align: 'center', value: r => r.msjsSucursal },
       { label: 'Sucursal', align: 'center', value: r => r.sucursal },
       // Binario a propósito: "Venta concretada" es el único valor positivo
       // (sale_status === 'concretada'); no concretada, otra razón o sin

@@ -40,6 +40,8 @@ export const DETAIL_COLUMNS = [
   { key: 'demoraInicial', label: 'Demora Inicial', sortValue: r => (r.demoraInicialMs ?? Infinity), render: r => formatDuracion(r.demoraInicialMs) },
   { key: 'duracionTotal', label: 'Duración Total', sortValue: r => (r.duracionTotalMs ?? Infinity), render: r => formatDuracion(r.duracionTotalMs) },
   { key: 'msjsCliente', label: 'Msjs Cliente', sortValue: r => r.msjsCliente || 0, render: r => r.msjsCliente || 0 },
+  { key: 'msjsBot', label: 'Msjs Bot', sortValue: r => r.msjsBot || 0, render: r => r.msjsBot || 0 },
+  { key: 'msjsSucursal', label: 'Msjs Sucursal', sortValue: r => r.msjsSucursal || 0, render: r => r.msjsSucursal || 0 },
   { key: 'sucursal', label: 'Sucursal', sortValue: r => (r.sucursal || '').toLowerCase(), render: r => r.sucursal || '—' },
   {
     key: 'status',

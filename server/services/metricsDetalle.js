@@ -69,7 +69,7 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
       resolverNombresPorTelefono(phones),
       traerPorGruposDeIds(ids, grupo => supabase
         .from('messages')
-        .select('conversation_id, sender_type, media_type, media_url, message_text, tagged_as, created_at')
+        .select('conversation_id, sender_type, media_type, media_url, message_text, tagged_as, estado, created_at')
         .in('conversation_id', grupo)
         .order('created_at', { ascending: true })
         .order('id', { ascending: true })),
@@ -125,6 +125,8 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
     (mensajes || []).forEach(m => {
       const acc = porConversacion[m.conversation_id] || (porConversacion[m.conversation_id] = {
         msgsCliente: 0,
+        msgsBot: 0,
+        msgsSucursal: 0,
         primeraRespuestaAgente: null,
         ultimoMensaje: null,
         comprobanteUrl: null,
@@ -132,6 +134,10 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
       });
 
       if (m.sender_type === 'client') acc.msgsCliente += 1;
+      // Salientes que Meta cobra (desde el 1/10/2026 cada mensaje enviado
+      // tiene costo); los que fallaron no llegaron a Meta y no se cuentan.
+      if (m.sender_type === 'bot' && m.estado !== 'error') acc.msgsBot += 1;
+      if (m.sender_type === 'agent' && m.estado !== 'error') acc.msgsSucursal += 1;
       if (m.sender_type === 'agent' && !acc.primeraRespuestaAgente) acc.primeraRespuestaAgente = m.created_at;
       acc.ultimoMensaje = m.created_at;
       // Comprobante/receta salen ÚNICAMENTE de un etiquetado explícito
@@ -146,7 +152,7 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
     console.log('🔍 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — porConversacion agregado, conversaciones con mensajes:', Object.keys(porConversacion).length);
 
     let resultado = conversations.map(c => {
-      const agg = porConversacion[c.id] || { msgsCliente: 0, primeraRespuestaAgente: null, ultimoMensaje: null, comprobanteUrl: null, recetaUrl: null };
+      const agg = porConversacion[c.id] || { msgsCliente: 0, msgsBot: 0, msgsSucursal: 0, primeraRespuestaAgente: null, ultimoMensaje: null, comprobanteUrl: null, recetaUrl: null };
       // Demora Inicial: el valor congelado en la primera toma (ver
       // tomaConsulta.js), que no cambia aunque el chat se devuelva a espera
       // y lo retome otra sucursal. Sólo para consultas anteriores a esa
@@ -178,6 +184,8 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
         comprobanteUrl: agg.comprobanteUrl,
         recetaUrl: agg.recetaUrl,
         msjsCliente: agg.msgsCliente,
+        msjsBot: agg.msgsBot,
+        msjsSucursal: agg.msgsSucursal,
         demoraInicialMs,
         duracionTotalMs: msDiff(c.created_at, agg.ultimoMensaje || c.created_at),
         // Mismo criterio que /metrics/negocio: "derivada" es que al menos un
