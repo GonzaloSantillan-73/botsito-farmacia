@@ -564,13 +564,6 @@ export default function ChatArea({
                 <h2 className="font-bold text-gray-900 dark:text-gray-100 truncate" title={activeConversation.real_name || activeConversation.client_name || undefined}>{recortarNombre(activeConversation.real_name || activeConversation.client_name)}</h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{formatPhone(activeConversation.client_phone)}</p>
               </div>
-              <div
-                title={`Mensajes enviados al cliente en esta consulta (cada uno tiene costo en WhatsApp):\n• Bot: ${enviadosBot}\n• Sucursal: ${enviadosSucursal}\n\nConviene mandar un mensaje completo en vez de varios cortos.`}
-                className="flex items-center gap-2.5 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-xs font-semibold tabular-nums text-gray-600 dark:text-gray-300 shrink-0 cursor-default"
-              >
-                <span className="flex items-center gap-1"><Bot size={14} />{enviadosBot}</span>
-                <span className="flex items-center gap-1"><Store size={14} />{enviadosSucursal}</span>
-              </div>
             </div>
 
             {showExpiryBadge && (
@@ -674,6 +667,15 @@ export default function ChatArea({
           
           {/* Messages Area */}
           <div className="relative flex-1 overflow-hidden">
+          {/* Contador de mensajes salientes: flota arriba al centro del chat,
+              fuera del contenedor con scroll para que quede siempre visible. */}
+          <div
+            title={`Mensajes enviados al cliente en esta consulta (cada uno tiene costo en WhatsApp):\n• Bot: ${enviadosBot}\n• Sucursal: ${enviadosSucursal}\n\nConviene mandar un mensaje completo en vez de varios cortos.`}
+            className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 px-3 py-1 rounded-full bg-teal-600 dark:bg-teal-500 text-white dark:text-gray-950 text-xs font-bold tabular-nums shadow-md cursor-default"
+          >
+            <span className="flex items-center gap-1"><Bot size={14} />{enviadosBot}</span>
+            <span className="flex items-center gap-1"><Store size={14} />{enviadosSucursal}</span>
+          </div>
           <div
             ref={messagesContainerRef}
             onScroll={handleMessagesScroll}
