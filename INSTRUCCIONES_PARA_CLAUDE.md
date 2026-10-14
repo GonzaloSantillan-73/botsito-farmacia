@@ -13,3 +13,9 @@
   * `package.json` modificado: **Sí / No**
   * `package-lock.json` modificado: **Sí / No**
   * **Commit:** código/hash del commit generado.
+
+* **Qué subir a Hostinger:** En el mismo resumen final, indicá explícitamente qué hay que subir:
+
+  * **Frontend** (cambios en `src/`, `public/`, `index.html`, `vite.config.js` u otros archivos del panel): **Sí / No**
+  * **Backend** (cambios en `server/` o en dependencias del servidor): **Sí / No**
+  * **SQL en Supabase** (archivos nuevos o modificados en `supabase/` que haya que ejecutar): **Sí / No**, indicando cuál.
