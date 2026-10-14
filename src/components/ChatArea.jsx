@@ -16,6 +16,7 @@ import MediaGalleryModal from './MediaGalleryModal';
 import AdminPasswordActionModal from './AdminPasswordActionModal';
 import { alertDialog } from '../lib/dialogService';
 import { recortarNombre } from '../lib/recortarNombre';
+import { ESPERA_AGRUPAR_MS } from '../lib/useBandejaSalida';
 
 // Estados en los que la conversación ya está cerrada y no aplica el conteo de expiración.
 const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
@@ -82,6 +83,9 @@ export default function ChatArea({
   messageInput,
   setMessageInput,
   handleSendMessage,
+  mensajePendiente,
+  onEnviarPendiente,
+  onEditarPendiente,
   handleDeleteConversation,
   setModalImage,
   sessionTimeoutMs,
@@ -346,6 +350,27 @@ export default function ChatArea({
   const enviadosBot = (messages || []).filter(m => m.sender_type === 'bot' && m.estado !== 'error').length;
   const enviadosSucursal = (messages || []).filter(m => m.sender_type === 'agent' && m.estado !== 'error').length;
 
+  // Mensaje esperando en la bandeja de salida (ver src/lib/useBandejaSalida.js):
+  // se muestra como burbuja provisoria con su cuenta regresiva.
+  const pendienteDeEsteChat = mensajePendiente && activeConversation && mensajePendiente.conv.id === activeConversation.id
+    ? mensajePendiente
+    : null;
+  const [ahoraPendiente, setAhoraPendiente] = useState(() => Date.now());
+  useEffect(() => {
+    if (!pendienteDeEsteChat) return;
+    setAhoraPendiente(Date.now());
+    const intervalo = setInterval(() => { setAhoraPendiente(Date.now()); }, 250);
+    return () => { clearInterval(intervalo); };
+  }, [pendienteDeEsteChat]);
+  const segundosPendiente = pendienteDeEsteChat
+    ? Math.max(0, Math.ceil((pendienteDeEsteChat.venceEn - ahoraPendiente) / 1000))
+    : 0;
+
+  // Aviso para desalentar los mensajes sueltos de pocas palabras ("si",
+  // "perfecto", "buenas noches"...): cada uno es un mensaje cobrado.
+  const largoInput = messageInput.trim().length;
+  const esMensajeCorto = largoInput > 0 && largoInput <= 15;
+
   const isConversacionCerrada = activeConversation && ESTADOS_CERRADOS.includes(activeConversation.status);
   // Ojo: un chat tomado por una sucursal sigue teniendo status 'esperando'
   // (lo que cambia al tomarlo es sucursal_id, no el status, ver App.jsx). La
@@ -435,6 +460,8 @@ export default function ChatArea({
 
     setClosingChat(true);
     try {
+      // Lo que esté esperando en la bandeja de salida sale antes del cierre.
+      await onEnviarPendiente?.();
       const res = await adminFetch(`/api/conversations/${activeConversation.id}/close`, { method: 'POST' });
       if (!res.ok) throw new Error('No se pudo finalizar la consulta.');
     } catch (err) {
@@ -468,6 +495,7 @@ export default function ChatArea({
   const executeReturnToQueue = async (razon) => {
     if (!activeConversation) return;
 
+    await onEnviarPendiente?.();
     const res = await adminFetch(`/api/conversations/${activeConversation.id}/return-to-queue`, {
       method: 'POST',
       body: JSON.stringify({ razon })
@@ -486,6 +514,7 @@ export default function ChatArea({
   const executeDerivarASucursal = async (sucursalId, razon) => {
     if (!activeConversation) return;
 
+    await onEnviarPendiente?.();
     const res = await adminFetch(`/api/conversations/${activeConversation.id}/derivar`, {
       method: 'POST',
       body: JSON.stringify({ sucursalId, razon })
@@ -757,6 +786,32 @@ export default function ChatArea({
                 </React.Fragment>
               );
             }))}
+            {pendienteDeEsteChat && (
+              <div className="flex justify-end">
+                <div className="max-w-[75%] rounded-xl rounded-tr-none border-2 border-dashed border-teal-500/70 bg-white/80 dark:bg-gray-800/80 px-3 py-2 shadow-sm">
+                  <p className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap break-words">{pendienteDeEsteChat.partes.join('\n')}</p>
+                  <div className="mt-2 flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs">
+                    <span className="flex items-center gap-1 text-gray-500 dark:text-gray-400 tabular-nums">
+                      <Clock size={12} />
+                      Se envía en {segundosPendiente}s
+                    </span>
+                    <button
+                      onClick={onEditarPendiente}
+                      title="Volver a poner este texto en el cuadro de mensaje, sin enviarlo"
+                      className="font-semibold text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100 transition-colors"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => { onEnviarPendiente?.(); }}
+                      className="px-2 py-0.5 rounded-md bg-teal-600 hover:bg-teal-700 text-white font-semibold transition-colors"
+                    >
+                      Enviar ya
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
 
@@ -883,11 +938,15 @@ export default function ChatArea({
 
               <textarea
                 className="flex-1 bg-transparent max-h-32 min-h-[40px] resize-none outline-none py-2 px-2 text-sm scrollbar-thin dark:text-gray-100"
-                placeholder="Escribe un mensaje... (Usa '/' para plantillas)"
+                placeholder="Escribí un mensaje... (Ctrl + Enter para enviar, '/' para plantillas)"
                 value={messageInput}
                 onChange={handleInputChange}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
+                  // Enter solo agrega un salto de línea (comportamiento normal
+                  // del textarea), para que sea natural escribir todo en un
+                  // único mensaje en vez de mandar varios cortos: cada mensaje
+                  // enviado tiene costo en WhatsApp.
+                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                     e.preventDefault();
                     handleSendClick();
                   }
@@ -895,12 +954,18 @@ export default function ChatArea({
               />
               <button
                 onClick={handleSendClick}
+                title="Enviar (Ctrl + Enter)"
                 disabled={(!messageInput.trim() && !selectedFile) || isUploading}
                 className="p-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center w-10 h-10"
               >
                 {isUploading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
               </button>
             </div>
+            <p className={`px-1 text-[11px] leading-tight ${esMensajeCorto ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-gray-400 dark:text-gray-500'}`}>
+              {esMensajeCorto
+                ? 'Mensaje corto: cada mensaje enviado tiene costo. Si tenés algo más para decir, sumalo en este mismo mensaje (Enter = nueva línea).'
+                : `Ctrl + Enter para enviar · Enter para nueva línea · Cada mensaje espera ${ESPERA_AGRUPAR_MS / 1000}s por si agregás algo más, y sale todo junto.`}
+            </p>
           </div>
           )}
 

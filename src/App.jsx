@@ -15,6 +15,7 @@ import DialogHost from './components/DialogHost';
 import { confirmDialog, alertDialog } from './lib/dialogService';
 import { getAdminToken, clearAdminSession, isAdminRole, getStaffSucursalId, getStaffSucursalNombre, adminFetch, getTheme, applyTheme, SESSION_EXPIRED_EVENT, getTokenExpiration } from './lib/adminAuth';
 import { recortarNombre } from './lib/recortarNombre';
+import { useBandejaSalida, MAX_CAPTION_WHATSAPP } from './lib/useBandejaSalida';
 
 function App() {
   const [adminToken, setAdminToken] = useState(() => getAdminToken());
@@ -240,6 +241,16 @@ function App() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'messages' },
         (payload) => {
+          // Si el cliente escribe mientras hay una respuesta esperando en la
+          // bandeja de salida de ese chat, se envía ya: si no, el cliente la
+          // recibiría tarde y fuera de orden respecto de lo que acaba de decir.
+          if (
+            payload.eventType === 'INSERT' &&
+            payload.new?.sender_type === 'client' &&
+            bandejaRef.current?.pendienteRef.current?.conv.id === payload.new.conversation_id
+          ) {
+            bandejaRef.current.enviarPendiente();
+          }
           const active = activeConversationRef.current;
           if (active && payload.new?.conversation_id === active.id) {
             if (payload.eventType === 'INSERT') {
@@ -609,22 +620,22 @@ function App() {
     }
   };
 
-  const handleSendMessage = async (customText = null, mediaUrl = null, mediaType = 'text') => {
-    const textToSend = typeof customText === 'string' ? customText : messageInput;
-    if ((!textToSend.trim() && !mediaUrl) || !activeConversation) return;
+  // Envío real a Meta (vía backend) de UN mensaje a la conversación `conv`.
+  // Recibe la conversación explícita en vez de usar activeConversation porque
+  // la bandeja de salida puede vaciarse justo cuando el operador cambia de
+  // chat. Devuelve true si salió bien.
+  const enviarMensajeAgente = async (conv, texto, mediaUrl = null, mediaType = 'text') => {
+    const inputToSave = (texto || '').trim();
+    if ((!inputToSave && !mediaUrl) || !conv) return false;
 
     const messageId = crypto.randomUUID();
-    const inputToSave = textToSend.trim();
-    // Sólo limpiamos el input cuando el mensaje sale del cuadro de texto (customText no provisto
-    // explícitamente); las respuestas rápidas/cotizaciones pasan su propio texto y no lo tocan.
-    if (typeof customText !== 'string') {
-      setMessageInput('');
-    }
+    const esChatAbierto = activeConversationRef.current?.id === conv.id;
 
-    // Optimistic UI update
+    // Optimistic UI update (sólo si el operador sigue mirando ese chat; si no,
+    // el mensaje aparece solo al volver a abrirlo, desde la base).
     const tempMessage = {
       id: messageId,
-      conversation_id: activeConversation.id,
+      conversation_id: conv.id,
       sender_type: 'agent',
       message_text: inputToSave,
       media_type: mediaUrl ? (mediaType || 'image') : 'text',
@@ -632,19 +643,23 @@ function App() {
       created_at: new Date().toISOString()
     };
 
-    setMessages(prev => [...prev, tempMessage]);
-    scrollToBottom();
+    if (esChatAbierto) {
+      setMessages(prev => [...prev, tempMessage]);
+      scrollToBottom();
+    }
 
     try {
       // El backend es quien inserta la fila real en 'messages' (necesita hacerlo para
       // guardar el wamid/estado de la entrega). Le pasamos el mismo id del mensaje
       // optimista para que, cuando llegue por Realtime, el dedup por id lo reconozca
-      // como la misma fila en vez de duplicarla.
+      // como la misma fila en vez de duplicarla. keepalive: si la bandeja se vacía
+      // al cerrar la pestaña, el navegador completa igual el pedido.
       const res = await adminFetch('/api/messages/send', {
         method: 'POST',
+        keepalive: true,
         body: JSON.stringify({
           id: messageId,
-          conversation_id: activeConversation.id,
+          conversation_id: conv.id,
           message_text: inputToSave,
           media_url: mediaUrl,
           media_type: mediaType
@@ -674,13 +689,88 @@ function App() {
       const { error: errorUpdateConv } = await supabase
         .from('conversations')
         .update(updates)
-        .eq('id', activeConversation.id);
+        .eq('id', conv.id);
+      return true;
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-App] Error contactando backend:', err);
       // El envío falló de verdad: sacamos el mensaje optimista para no mostrar algo que nunca se mandó.
       setMessages(prev => prev.filter(m => m.id !== messageId));
       alertDialog(`No se pudo enviar el mensaje.\n\n${err.message || 'Intentá de nuevo.'}`, { danger: true });
+      return false;
     }
+  };
+
+  // Bandeja de salida (ver src/lib/useBandejaSalida.js): lo que el operador
+  // escribe espera unos segundos por si manda algo más, y sale todo junto en
+  // un solo mensaje cobrado. Si el envío falla, el texto vuelve al cuadro de
+  // texto (si sigue en ese chat) para no perderlo.
+  const bandeja = useBandejaSalida(enviarMensajeAgente, (conv, texto) => {
+    if (activeConversationRef.current?.id === conv.id) {
+      setMessageInput(prev => (prev.trim() ? `${texto}\n${prev}` : texto));
+    }
+  });
+  const bandejaRef = useRef(bandeja);
+  bandejaRef.current = bandeja;
+
+  // Cambiar de chat (o cerrarlo) envía en el momento lo que haya pendiente
+  // del chat anterior, en vez de dejarlo esperando sin que nadie lo vea.
+  useEffect(() => {
+    const pend = bandejaRef.current.pendienteRef.current;
+    if (pend && pend.conv.id !== activeConversation?.id) {
+      bandejaRef.current.enviarPendiente();
+    }
+  }, [activeConversation?.id]);
+
+  // "Editar": devuelve lo pendiente al cuadro de texto sin enviarlo.
+  const handleEditarPendiente = () => {
+    const actual = bandeja.tomar();
+    if (!actual) return;
+    const texto = actual.partes.join('\n');
+    setMessageInput(prev => (prev.trim() ? `${texto}\n${prev}` : texto));
+  };
+
+  // Punto de entrada de todos los envíos del panel:
+  // - Sin customText ni adjunto (cuadro de texto): va a la bandeja de salida.
+  // - Con adjunto: si hay texto pendiente, viaja como caption del adjunto (un
+  //   solo mensaje) cuando el tipo lo admite y entra en el límite; si no, se
+  //   envía antes lo pendiente.
+  // - Con customText (estado del pedido, cotización, etc.): primero se envía lo
+  //   pendiente, para respetar el orden, y después ese texto.
+  const handleSendMessage = async (customText = null, mediaUrl = null, mediaType = 'text') => {
+    const conv = activeConversation;
+    if (!conv) return;
+    const desdeCuadroDeTexto = typeof customText !== 'string';
+    const textToSend = desdeCuadroDeTexto ? messageInput : customText;
+    if (!textToSend.trim() && !mediaUrl) return;
+
+    // Sólo limpiamos el input cuando el mensaje sale del cuadro de texto (customText no provisto
+    // explícitamente); las respuestas rápidas/cotizaciones pasan su propio texto y no lo tocan.
+    if (desdeCuadroDeTexto) {
+      setMessageInput('');
+    }
+
+    if (desdeCuadroDeTexto && !mediaUrl) {
+      await bandeja.encolar(conv, textToSend.trim());
+      scrollToBottom();
+      return;
+    }
+
+    if (mediaUrl) {
+      const pend = bandeja.pendienteRef.current;
+      const admiteCaption = ['image', 'video', 'document'].includes(mediaType);
+      if (pend && pend.conv.id === conv.id && admiteCaption) {
+        const caption = [...pend.partes, textToSend.trim()].filter(Boolean).join('\n');
+        if (caption.length <= MAX_CAPTION_WHATSAPP) {
+          bandeja.tomar();
+          const ok = await enviarMensajeAgente(conv, caption, mediaUrl, mediaType);
+          if (!ok) setMessageInput(prev => (prev.trim() ? `${caption}\n${prev}` : caption));
+          return;
+        }
+      }
+    }
+
+    await bandeja.enviarPendiente();
+    await enviarMensajeAgente(conv, textToSend, mediaUrl, mediaType);
   };
 
   // Sólo el admin puede eliminar una conversación (al revés que el resto de
@@ -767,7 +857,9 @@ function App() {
     );
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Antes de borrar el token: lo pendiente en la bandeja se envía con él.
+    await bandeja.enviarPendiente();
     clearAdminSession();
     setAdminToken(null);
   };
@@ -811,6 +903,9 @@ function App() {
           messageInput={messageInput}
           setMessageInput={setMessageInput}
           handleSendMessage={handleSendMessage}
+          mensajePendiente={bandeja.pendiente}
+          onEnviarPendiente={bandeja.enviarPendiente}
+          onEditarPendiente={handleEditarPendiente}
           handleDeleteConversation={handleDeleteConversation}
           setModalImage={setModalImage}
           sessionTimeoutMs={sessionTimeoutMs}
