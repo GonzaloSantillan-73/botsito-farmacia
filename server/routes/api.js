@@ -1,7 +1,7 @@
 import express from 'express';
 import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
-import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getSessionPrewarningMs, setSessionPrewarningMs, getEsperaRespuestaMs, setEsperaRespuestaMs, MIN_ESPERA_RESPUESTA_MS, MAX_ESPERA_RESPUESTA_MS,getBotKeyword, setBotKeyword, getWelcomeMessage, setWelcomeMessage, getFrequentClientMessage, setFrequentClientMessage, getFrequentClientThreshold, setFrequentClientThreshold, MIN_FREQUENT_CLIENT_THRESHOLD, MAX_FREQUENT_CLIENT_THRESHOLD } from '../services/appConfig.js';
+import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getSessionPrewarningMs, setSessionPrewarningMs, getEsperaRespuestaMs, setEsperaRespuestaMs, MIN_ESPERA_RESPUESTA_MS, MAX_ESPERA_RESPUESTA_MS, getModoPrueba, setModoPrueba, getBotKeyword, setBotKeyword, getWelcomeMessage, setWelcomeMessage, getFrequentClientMessage, setFrequentClientMessage, getFrequentClientThreshold, setFrequentClientThreshold, MIN_FREQUENT_CLIENT_THRESHOLD, MAX_FREQUENT_CLIENT_THRESHOLD } from '../services/appConfig.js';
 import { finalizarConversacion } from '../services/ratingSurvey.js';
 import { devolverConversacionAEspera } from '../services/devolucionCola.js';
 import { tomarConsulta } from '../services/tomaConsulta.js';
@@ -751,6 +751,30 @@ router.get('/session-config', async (req, res) => {
   const respBody = { sessionTimeoutMs, sessionPrewarningMs, minSessionTimeoutMs: MIN_SESSION_TIMEOUT_MS, maxSessionTimeoutMs: MAX_SESSION_TIMEOUT_MS, esperaRespuestaMs, minEsperaRespuestaMs: MIN_ESPERA_RESPUESTA_MS, maxEsperaRespuestaMs: MAX_ESPERA_RESPUESTA_MS };
   console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /session-config:', { status: 200, body: respBody });
   res.status(200).json(respBody);
+});
+
+// Número de prueba con tiempos de cierre propios (ver getModoPrueba en
+// appConfig.js). Con sesión iniciada: el número no se expone sin login. Leer
+// lo necesita cualquier usuario (el reloj del chat usa esos tiempos en el
+// chat del número de prueba); cambiarlo, sólo el administrador.
+router.get('/modo-prueba', requireAuth, async (req, res) => {
+  try {
+    res.status(200).json(await getModoPrueba());
+  } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en GET /modo-prueba:', error);
+    res.status(500).json({ error: 'No se pudo leer el número de prueba.' });
+  }
+});
+
+router.put('/modo-prueba', requireAuth, requireAdminRole, async (req, res) => {
+  try {
+    const modo = await setModoPrueba(req.body || {});
+    console.log(`[API] -> Número de prueba ${modo.activo ? 'activado' : 'desactivado'}.`);
+    res.status(200).json({ success: true, ...modo });
+  } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en PUT /modo-prueba:', error.message);
+    res.status(400).json({ error: error.message });
+  }
 });
 
 router.put('/session-config', async (req, res) => {

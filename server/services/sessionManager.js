@@ -1,5 +1,5 @@
 import { supabase } from '../supabase.js';
-import { getSessionTimeoutMs } from './appConfig.js';
+import { getSessionTimeoutMs, getModoPrueba, tiemposDeCierrePara } from './appConfig.js';
 import { finalizarConversacion } from './ratingSurvey.js';
 
 // Estados que representan una consulta ya cerrada (por inactividad, por el agente, o rechazada)
@@ -50,10 +50,13 @@ export const fueTomadaPorSucursal = async (conversationId) => {
 export const isSessionExpired = async (conversation) => {
   console.log('🔍 [DEBUG-SERVICE-SESSIONMANAGER] isSessionExpired() — conversation:', conversation);
   try {
-    const [lastActivity, sessionTimeoutMs] = await Promise.all([
+    const [lastActivity, sessionTimeoutGeneralMs, modoPrueba] = await Promise.all([
       getLastActivityTime(conversation),
-      getSessionTimeoutMs()
+      getSessionTimeoutMs(),
+      getModoPrueba()
     ]);
+    // El número de prueba usa su propio tiempo de inactividad (ver appConfig.js).
+    const { sessionTimeoutMs } = tiemposDeCierrePara(conversation.client_phone, { sessionTimeoutMs: sessionTimeoutGeneralMs }, modoPrueba);
     console.log('🔍 [DEBUG-SERVICE-SESSIONMANAGER] isSessionExpired() — lastActivity:', lastActivity, 'sessionTimeoutMs:', sessionTimeoutMs);
 
     const resultado = (Date.now() - new Date(lastActivity).getTime()) > sessionTimeoutMs;

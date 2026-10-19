@@ -1,6 +1,6 @@
 import { supabase } from '../supabase.js';
 import { TERMINAL_STATUSES, fueTomadaPorSucursal } from './sessionManager.js';
-import { getSessionTimeoutMs, getSessionPrewarningMs, getEsperaRespuestaMs } from './appConfig.js';
+import { getSessionTimeoutMs, getSessionPrewarningMs, getEsperaRespuestaMs, getModoPrueba, tiemposDeCierrePara } from './appConfig.js';
 import { finalizarConversacion } from './ratingSurvey.js';
 import { enviarMensajeBot, pedirNombresPendientes } from './bot.js';
 
@@ -58,14 +58,15 @@ export const checkExpiredSessions = async () => {
   console.log('⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — corrida iniciada en:', timestampInicio);
   try {
     console.log('📡 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — SELECT conversations, filtros: status NOT IN (', TERMINAL_STATUSES.join(','), ')');
-    const [{ data: activeConvs, error }, sessionTimeoutMs, sessionPrewarningMs, esperaRespuestaMs] = await Promise.all([
+    const [{ data: activeConvs, error }, sessionTimeoutMs, sessionPrewarningMs, esperaRespuestaMs, modoPrueba] = await Promise.all([
       supabase
         .from('conversations')
         .select('id, client_phone, status, sucursal_id, created_at, prewarning_sent_at, payment_status, sale_status')
         .not('status', 'in', `(${TERMINAL_STATUSES.join(',')})`),
       getSessionTimeoutMs(),
       getSessionPrewarningMs(),
-      getEsperaRespuestaMs()
+      getEsperaRespuestaMs(),
+      getModoPrueba()
     ]);
     console.log('📡 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — resultado SELECT conversations — cantidad de conversaciones activas evaluadas:', activeConvs?.length, 'error:', error, '— sessionTimeoutMs:', sessionTimeoutMs, '— sessionPrewarningMs:', sessionPrewarningMs);
 
@@ -83,6 +84,9 @@ export const checkExpiredSessions = async () => {
 
     for (const conv of activeConvs || []) {
       try {
+        // Tiempos de esta consulta: los del número de prueba si es ese
+        // teléfono (ver getModoPrueba en appConfig.js), o los generales.
+        const tiempos = tiemposDeCierrePara(conv.client_phone, { sessionTimeoutMs, sessionPrewarningMs, esperaRespuestaMs }, modoPrueba);
         // is_auto_reminder=false: el propio aviso "¿Seguís ahí?" (y los toques
         // de botones ya usados) no cuentan como actividad para este cálculo,
         // si no cada aviso reiniciaría el conteo que lo disparó y la
@@ -159,7 +163,7 @@ export const checkExpiredSessions = async () => {
               continue;
             }
             const desde = ultimoDelCliente?.created_at || conv.created_at;
-            const restanteEsperaMs = esperaRespuestaMs - (Date.now() - new Date(desde).getTime());
+            const restanteEsperaMs = tiempos.esperaRespuestaMs - (Date.now() - new Date(desde).getTime());
 
             if (restanteEsperaMs <= 0) {
               const pedirCalificacion = await fueTomadaPorSucursal(conv.id);
@@ -182,7 +186,7 @@ export const checkExpiredSessions = async () => {
 
         const lastActivity = lastMsg.created_at;
         const elapsedMs = Date.now() - new Date(lastActivity).getTime();
-        const restanteMs = sessionTimeoutMs - elapsedMs;
+        const restanteMs = tiempos.sessionTimeoutMs - elapsedMs;
 
         // Modo bot ('open') sin que ninguna sucursal la haya tomado nunca: la
         // consulta fue sólo con el bot, así que se cierra en silencio y sin
@@ -209,7 +213,7 @@ export const checkExpiredSessions = async () => {
         // arriba; esto sólo frena el mensaje.
         const pedidoYaResuelto = conv.payment_status === 'confirmado' || conv.sale_status === 'concretada';
 
-        if (sessionPrewarningMs > 0 && !conv.prewarning_sent_at && restanteMs <= sessionPrewarningMs && !pedidoYaResuelto) {
+        if (tiempos.sessionPrewarningMs > 0 && !conv.prewarning_sent_at && restanteMs <= tiempos.sessionPrewarningMs && !pedidoYaResuelto) {
           await enviarAvisoInactividad(conv.id, conv.client_phone);
         }
       } catch (err) {

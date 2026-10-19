@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Settings, BarChart3, Sliders, Hash, Zap, CalendarClock, Download, Bell, Clock, Store, ShieldCheck, UserCog, CreditCard, MessageSquareText, Moon, KeyRound, Heart, FileText } from 'lucide-react';
+import { X, Settings, BarChart3, Sliders, Hash, Zap, CalendarClock, Download, Bell, Clock, Store, ShieldCheck, UserCog, CreditCard, MessageSquareText, Moon, KeyRound, Heart, FileText, FlaskConical } from 'lucide-react';
 import Accordion from './Accordion';
 import SessionTimeoutPanel from './SessionTimeoutPanel';
+import ModoPruebaPanel from './ModoPruebaPanel';
 import WelcomeMessagePanel from './WelcomeMessagePanel';
 import FrequentClientPanel from './FrequentClientPanel';
 import BotKeywordPanel from './BotKeywordPanel';
@@ -105,6 +106,10 @@ export default function SettingsModal({ sessionTimeoutMs, sessionPrewarningMs, e
               <div className="space-y-3">
                 <Accordion title="Tiempo de inactividad para cerrar un chat" icon={Clock}>
                   <SessionTimeoutPanel sessionTimeoutMs={sessionTimeoutMs} sessionPrewarningMs={sessionPrewarningMs} esperaRespuestaMs={esperaRespuestaMs} onSave={onSave} />
+                </Accordion>
+
+                <Accordion title="Número de prueba" icon={FlaskConical}>
+                  <ModoPruebaPanel />
                 </Accordion>
 
                 <Accordion title="Mensaje de bienvenida del bot" icon={MessageSquareText}>

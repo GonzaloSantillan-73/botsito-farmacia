@@ -94,6 +94,7 @@ export default function ChatArea({
   setModalImage,
   sessionTimeoutMs,
   esperaRespuestaMs,
+  modoPrueba,
   onBackToHistory,
   onOpenValidationMobile
 }) {
@@ -448,7 +449,15 @@ export default function ChatArea({
   let remainingMs = null;
   let timerPausedByClient = false;
   let timerPauseReason = null; // 'client' | 'espera_farmacia' | null
-  const showExpiryBadge = !!(activeConversation && !isConversacionCerrada && sessionTimeoutMs != null);
+  // El número de prueba usa sus propios tiempos (ver ModoPruebaPanel.jsx);
+  // mismo criterio que tiemposDeCierrePara en server/services/appConfig.js.
+  const ultimos10 = (t) => String(t || '').replace(/D/g, '').slice(-10);
+  const esNumeroDePrueba = !!modoPrueba?.activo
+    && ultimos10(modoPrueba.telefono).length === 10
+    && ultimos10(modoPrueba.telefono) === ultimos10(activeConversation?.client_phone);
+  const timeoutInactividadMs = esNumeroDePrueba ? modoPrueba.sessionTimeoutMs : sessionTimeoutMs;
+  const timeoutEsperaMs = esNumeroDePrueba ? modoPrueba.esperaRespuestaMs : esperaRespuestaMs;
+  const showExpiryBadge = !!(activeConversation && !isConversacionCerrada && timeoutInactividadMs != null);
   if (showExpiryBadge) {
     const lastMessage = getLastRealMessage(messages);
     const enEspera = activeConversation.status === 'esperando';
@@ -458,8 +467,8 @@ export default function ChatArea({
       timerPauseReason = 'espera_farmacia';
       const ultimoDelCliente = [...(messages || [])].reverse().find(m => m.sender_type === 'client' && !m.is_auto_reminder);
       const desde = ultimoDelCliente?.created_at || activeConversation.created_at;
-      if (esperaRespuestaMs != null) {
-        remainingMs = esperaRespuestaMs - (now - new Date(desde).getTime());
+      if (timeoutEsperaMs != null) {
+        remainingMs = timeoutEsperaMs - (now - new Date(desde).getTime());
       } else {
         timerPausedByClient = true;
       }
@@ -467,7 +476,7 @@ export default function ChatArea({
       timerPausedByClient = true;
       timerPauseReason = 'client';
     } else {
-      remainingMs = sessionTimeoutMs - (now - new Date(lastMessage.created_at).getTime());
+      remainingMs = timeoutInactividadMs - (now - new Date(lastMessage.created_at).getTime());
     }
   }
 

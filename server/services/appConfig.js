@@ -151,6 +151,81 @@ export const setEsperaRespuestaMs = async (ms) => {
   }
 };
 
+// Número de prueba: un teléfono (el del administrador) que usa sus propios
+// tiempos de cierre, más cortos, para poder probar el bot sin bajar los
+// tiempos de todos los clientes reales. Se guarda como un solo objeto JSON:
+// { activo, telefono, sessionTimeoutMs, sessionPrewarningMs, esperaRespuestaMs }.
+const MODO_PRUEBA_KEY = 'modo_prueba';
+const MODO_PRUEBA_DEFAULT = {
+  activo: false,
+  telefono: '',
+  sessionTimeoutMs: 2 * 60 * 1000,
+  sessionPrewarningMs: 60 * 1000,
+  esperaRespuestaMs: 3 * 60 * 1000
+};
+
+// Últimos 10 dígitos: el mismo número llega como 549..., 54... o con
+// espacios/guiones según de dónde venga (mismo criterio que findOrCreateSession).
+const ultimos10Digitos = (telefono) => String(telefono || '').replace(/\D/g, '').slice(-10);
+
+export const getModoPrueba = async () => {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', MODO_PRUEBA_KEY)
+    .maybeSingle();
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-APPCONFIG] getModoPrueba() — error leyendo modo_prueba, queda desactivado:', error);
+    return { ...MODO_PRUEBA_DEFAULT };
+  }
+  return { ...MODO_PRUEBA_DEFAULT, ...(data?.value && typeof data.value === 'object' ? data.value : {}) };
+};
+
+export const setModoPrueba = async (cfg) => {
+  const modo = {
+    activo: !!cfg?.activo,
+    telefono: String(cfg?.telefono || '').trim(),
+    sessionTimeoutMs: Number(cfg?.sessionTimeoutMs),
+    sessionPrewarningMs: Number(cfg?.sessionPrewarningMs) || 0,
+    esperaRespuestaMs: Number(cfg?.esperaRespuestaMs)
+  };
+  if (modo.activo && ultimos10Digitos(modo.telefono).length < 10) {
+    throw new Error('Ingresá el número de prueba completo, con código de área (por ejemplo: 3834123456).');
+  }
+  if (!Number.isFinite(modo.sessionTimeoutMs) || modo.sessionTimeoutMs < MIN_SESSION_TIMEOUT_MS || modo.sessionTimeoutMs > MAX_SESSION_TIMEOUT_MS) {
+    throw new Error(`El tiempo de inactividad de prueba debe estar entre ${MIN_SESSION_TIMEOUT_MS / 60000} y ${MAX_SESSION_TIMEOUT_MS / 60000} minutos.`);
+  }
+  if (modo.sessionPrewarningMs < 0 || (modo.sessionPrewarningMs > 0 && modo.sessionPrewarningMs >= modo.sessionTimeoutMs)) {
+    throw new Error('El aviso "¿Seguís ahí?" de prueba debe ser menor al tiempo de inactividad de prueba.');
+  }
+  if (!Number.isFinite(modo.esperaRespuestaMs) || modo.esperaRespuestaMs < MIN_ESPERA_RESPUESTA_MS || modo.esperaRespuestaMs > MAX_ESPERA_RESPUESTA_MS) {
+    throw new Error('El cierre por falta de respuesta de prueba debe ser de 1 minuto a 23 horas.');
+  }
+
+  const { error } = await supabase
+    .from('app_settings')
+    .upsert({ key: MODO_PRUEBA_KEY, value: modo, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-APPCONFIG] setModoPrueba() — error guardando modo_prueba:', error);
+    throw error;
+  }
+  return modo;
+};
+
+// Tiempos de cierre que corresponden a un teléfono: los del número de prueba
+// si está activo y coincide, o los generales.
+export const tiemposDeCierrePara = (telefono, generales, modoPrueba) => {
+  const esPrueba = !!modoPrueba?.activo
+    && ultimos10Digitos(modoPrueba.telefono).length === 10
+    && ultimos10Digitos(modoPrueba.telefono) === ultimos10Digitos(telefono);
+  if (!esPrueba) return generales;
+  return {
+    sessionTimeoutMs: modoPrueba.sessionTimeoutMs,
+    sessionPrewarningMs: modoPrueba.sessionPrewarningMs,
+    esperaRespuestaMs: modoPrueba.esperaRespuestaMs
+  };
+};
+
 const BOT_KEYWORD_KEY = 'bot_reactivation_keyword';
 const DEFAULT_BOT_KEYWORD = 'BOT';
 

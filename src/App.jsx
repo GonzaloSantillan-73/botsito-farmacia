@@ -16,6 +16,7 @@ import { confirmDialog, alertDialog } from './lib/dialogService';
 import { getAdminToken, clearAdminSession, isAdminRole, getStaffSucursalId, getStaffSucursalNombre, adminFetch, getTheme, applyTheme, SESSION_EXPIRED_EVENT, getTokenExpiration } from './lib/adminAuth';
 import { recortarNombre } from './lib/recortarNombre';
 import { useBandejaSalida, MAX_CAPTION_WHATSAPP } from './lib/useBandejaSalida';
+import { MODO_PRUEBA_EVENT } from './components/ModoPruebaPanel';
 
 function App() {
   const [adminToken, setAdminToken] = useState(() => getAdminToken());
@@ -171,6 +172,24 @@ function App() {
         setSessionPrewarningMs(data.sessionPrewarningMs ?? 0);
       })
       .catch(err => console.error('❌ [DEBUG-COMPONENT-App] Error obteniendo config de sesión:', err));
+  }, []);
+
+  // Número de prueba con tiempos de cierre propios (ver ModoPruebaPanel.jsx):
+  // el reloj del chat los usa cuando la consulta abierta es de ese número.
+  // Requiere sesión, así que se pide al loguearse, y se actualiza solo cuando
+  // el admin lo cambia desde Configuración.
+  const [modoPrueba, setModoPrueba] = useState(null);
+  useEffect(() => {
+    if (!adminToken) return;
+    adminFetch('/api/modo-prueba')
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => { setModoPrueba(data); })
+      .catch(err => console.error('❌ [DEBUG-COMPONENT-App] Error obteniendo el número de prueba:', err));
+  }, [adminToken]);
+  useEffect(() => {
+    const alActualizar = (e) => { setModoPrueba(e.detail); };
+    window.addEventListener(MODO_PRUEBA_EVENT, alActualizar);
+    return () => { window.removeEventListener(MODO_PRUEBA_EVENT, alActualizar); };
   }, []);
 
   // Ref con la conversación activa "al día", para poder leerla desde dentro del
@@ -922,6 +941,7 @@ function App() {
           setModalImage={setModalImage}
           sessionTimeoutMs={sessionTimeoutMs}
           esperaRespuestaMs={esperaRespuestaMs}
+          modoPrueba={modoPrueba}
           onBackToHistory={historyReturnPhone ? handleBackToHistory : null}
           onOpenValidationMobile={() => { setShowValidationMobile(true); }}
         />

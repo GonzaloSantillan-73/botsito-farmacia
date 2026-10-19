@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Loader2, Check } from 'lucide-react';
 import Toggle from './Toggle';
 
-const msToHms = (ms) => {
+export const msToHms = (ms) => {
   const totalSeconds = Math.max(0, Math.round((ms ?? 0) / 1000));
   return {
     h: Math.floor(totalSeconds / 3600),
@@ -11,7 +11,7 @@ const msToHms = (ms) => {
   };
 };
 
-const NumberBox = ({ label, value, onChange, max }) => (
+export const NumberBox = ({ label, value, onChange, max }) => (
   <div className="flex flex-col items-center">
     <input
       type="number"
