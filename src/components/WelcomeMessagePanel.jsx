@@ -3,7 +3,7 @@ import { Loader2, Check } from 'lucide-react';
 import { previsualizarSaludo } from '../lib/greetingTemplate';
 import { renderWhatsAppText } from '../lib/whatsappFormat';
 
-const MENU_PREVIEW = '¿Qué querés hacer?\n\n1. Hablar con un humano\n2. Horarios y sucursales\n3. Actualizar mis datos\n\n_Respondé con el número de la opción._';
+const MENU_PREVIEW = '¿Qué querés hacer?\n\n1. Hablar con un humano\n2. Horarios y sucursales\n3. Cambiar mi nombre\n\n_Respondé con el número de la opción._';
 
 export default function WelcomeMessagePanel() {
 

@@ -15,7 +15,7 @@ import { extraerCoordenadasDeMensaje } from './mapsLocation.js';
 // El saludo es personalizable desde el CRM (ver appConfig.getWelcomeMessage /
 // BotKeywordPanel-style panel), pero el menú numerado queda fijo acá porque
 // los números están atados 1:1 a los manejadores de abajo (tLower === '1'/'2'/'3').
-const MENU_OPCIONES = '¿Qué querés hacer?\n\n1. Hablar con un humano\n2. Horarios y sucursales\n3. Actualizar mis datos\n\n_Respondé con el número de la opción._';
+const MENU_OPCIONES = '¿Qué querés hacer?\n\n1. Hablar con un humano\n2. Horarios y sucursales\n3. Cambiar mi nombre\n\n_Respondé con el número de la opción._';
 
 // esFrecuente reemplaza el saludo personalizable por frequent_client_message
 // (ver appConfig.js) cuando el cliente ya usó el bot frequent_client_threshold
@@ -94,19 +94,14 @@ const MENSAJE_POR_ESTADO_REGISTRO = {
   registro_dni: MENSAJE_PEDIR_DNI
 };
 
-// Edición voluntaria de los datos ya cargados, desde "3. Actualizar mis
-// datos" del menú principal (sólo con el registro completo; si todavía falta
-// el nombre, "3" sigue yendo al registro obligatorio). El DNI ya no se ofrece
-// acá: lo carga la sucursal desde el CRM.
-const MENU_EDITAR_DATOS = '¿Qué dato querés modificar?\n\n1. Nombre completo\n2. Volver al menú principal';
-
-// Resumen de los datos ya cargados, para que el cliente vea qué tiene
-// guardado antes de elegir qué corregir. "_No cargado_" en vez de dejar el
-// campo vacío, para que no parezca un error de formato del mensaje.
-const construirResumenDatosActuales = (cliente) =>
-  `📋 *Tus datos actuales:*\n- Nombre: ${cliente?.nombre_completo || '_No cargado_'}`;
-const MENSAJE_CANCELAR_HINT = '\n\n(Escribí 0 para cancelar y volver)';
-const MENSAJE_PEDIR_NUEVO_NOMBRE = `¿Cuál es tu nuevo nombre completo?${MENSAJE_CANCELAR_HINT}`;
+// Cambio de nombre, desde "3. Cambiar mi nombre" del menú principal (sólo con
+// el registro completo; si todavía falta el nombre, "3" sigue yendo al
+// registro obligatorio). Se muestra el nombre actual y se pide el nuevo
+// directamente, sin un menú intermedio: es el único dato que el cliente puede
+// cambiar desde el bot (el DNI lo carga la sucursal desde el CRM).
+const MENSAJE_CANCELAR_HINT = '\n\n(Escribí 0 para cancelar)';
+const construirPedidoNuevoNombre = (cliente) =>
+  `Actual: *${cliente?.nombre_completo || 'sin cargar'}*\nIngresá tu nombre y apellido:${MENSAJE_CANCELAR_HINT}`;
 const MENSAJE_NOMBRE_INVALIDO = 'Ese nombre no es válido. Ingresá tu nombre y apellido, sólo con letras (sin números ni símbolos). Por ejemplo: Juan Pérez.';
 const MENSAJE_DNI_INVALIDO = 'El DNI ingresado no es válido. Ingresá sólo números, de 7 u 8 dígitos.';
 
@@ -371,7 +366,7 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — opción "2" (Horarios y sucursales). Se deriva a mostrarSucursales().');
       await mostrarSucursales(conversationId, telefono);
     } else if (tLower === '3') {
-      console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — opción "3" (Actualizar mis datos). Se deriva a iniciarEdicionDatos().');
+      console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — opción "3" (Cambiar mi nombre). Se deriva a iniciarEdicionDatos().');
       await iniciarEdicionDatos(conversationId, telefono);
     } else {
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — opción no reconocida ("', tLower, '"). Se reenvía el menú de bienvenida.');
@@ -526,7 +521,7 @@ const manejarUbicacionHumano = async (conversationId, telefono, t) => {
 
 // Arranca (o retoma) el registro OBLIGATORIO de datos personales, la primera
 // vez que un cliente escribe y todavía no tiene el nombre cargado. La edición
-// voluntaria de un dato puntual ya cargado (desde "3. Actualizar mis datos"
+// voluntaria de un dato puntual ya cargado (desde "3. Cambiar mi nombre"
 // con el registro completo) es un flujo aparte, ver iniciarEdicionDatos más
 // abajo.
 const iniciarRegistro = async (conversationId, telefono, clienteActual) => {
@@ -693,44 +688,32 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado, botConte
   }
 };
 
-// Edición voluntaria de los datos ya cargados ("3. Actualizar mis datos" con
-// el registro ya completo): el cliente elige primero qué campo corregir
-// (hoy sólo el nombre) y sólo se le pide ese.
+// "3. Cambiar mi nombre" (con el registro ya completo): muestra el nombre
+// actual y pide el nuevo directamente.
 const iniciarEdicionDatos = async (conversationId, telefono) => {
   console.log('🔍 [DEBUG-SERVICE-BOT] iniciarEdicionDatos() — parámetros recibidos:', { conversationId, telefono });
-  await actualizarEstadoConversacion(conversationId, { bot_state: 'editar_datos_menu', bot_context: null });
+  await actualizarEstadoConversacion(conversationId, { bot_state: 'editar_nombre', bot_context: null });
   const cliente = await getCliente(telefono);
-  const resumen = construirResumenDatosActuales(cliente);
-  await enviarMensajeBot(conversationId, telefono, `${resumen}\n\n${MENU_EDITAR_DATOS}`);
+  await enviarMensajeBot(conversationId, telefono, construirPedidoNuevoNombre(cliente));
   console.log('✅ [DEBUG-SERVICE-BOT] iniciarEdicionDatos() — valor de retorno: undefined (fin normal)');
 };
 
 const manejarEdicionDatos = async (conversationId, telefono, t, estado) => {
   console.log('🔍 [DEBUG-SERVICE-BOT] manejarEdicionDatos() — parámetros recibidos:', { conversationId, telefono, t, estado });
 
+  // 'editar_datos_menu' ya no existe (antes había un menú intermedio para
+  // elegir qué dato cambiar): un cliente que había quedado ahí con la versión
+  // anterior pasa directo a ingresar su nombre.
   if (estado === 'editar_datos_menu') {
-    const opcion = t.trim();
-    if (opcion === '1') {
-      console.log('🔍 [DEBUG-SERVICE-BOT] manejarEdicionDatos() — opción "1" (nombre). Pasa a editar_nombre.');
-      await actualizarEstadoConversacion(conversationId, { bot_state: 'editar_nombre' });
-      await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_NUEVO_NOMBRE);
-    } else if (opcion === '2' || opcion === '3') {
-      // "3" también vuelve: era el número de "Volver" en el menú anterior
-      // (cuando tenía la opción de DNI), por si un cliente responde a ese.
-      console.log('🔍 [DEBUG-SERVICE-BOT] manejarEdicionDatos() — opción "', opcion, '" (volver). Se deriva a volverAlMenuPrincipal().');
-      await volverAlMenuPrincipal(conversationId, telefono);
-    } else {
-      console.log('🔍 [DEBUG-SERVICE-BOT] manejarEdicionDatos() — opción no reconocida ("', opcion, '"). Se reenvía el menú de edición.');
-      await enviarMensajeBot(conversationId, telefono, `Esa opción no es válida.\n\n${MENU_EDITAR_DATOS}`);
-    }
-    console.log('✅ [DEBUG-SERVICE-BOT] manejarEdicionDatos() — valor de retorno: undefined (fin editar_datos_menu)');
+    console.log('🔍 [DEBUG-SERVICE-BOT] manejarEdicionDatos() — estado heredado editar_datos_menu. Se pide el nombre.');
+    await iniciarEdicionDatos(conversationId, telefono);
     return;
   }
 
   if (estado === 'editar_nombre') {
     if (esCancelacion(t)) {
-      console.log('🔍 [DEBUG-SERVICE-BOT] manejarEdicionDatos() — cancelación en editar_nombre. Vuelve al menú de edición.');
-      await iniciarEdicionDatos(conversationId, telefono);
+      console.log('🔍 [DEBUG-SERVICE-BOT] manejarEdicionDatos() — cancelación en editar_nombre. Vuelve al menú principal.');
+      await volverAlMenuPrincipal(conversationId, telefono);
       console.log('✅ [DEBUG-SERVICE-BOT] manejarEdicionDatos() — valor de retorno: undefined (cancelado)');
       return;
     }
@@ -750,8 +733,9 @@ const manejarEdicionDatos = async (conversationId, telefono, t, estado) => {
       console.log('✅ [DEBUG-SERVICE-BOT] manejarEdicionDatos() — valor de retorno: undefined (error guardando, se puede reintentar)');
       return;
     }
-    await enviarMensajeBot(conversationId, telefono, `✅ ¡Listo! Actualizamos tu nombre a "${nombre}".`);
-    await iniciarEdicionDatos(conversationId, telefono);
+    // Confirmación y menú principal en un solo mensaje (antes eran dos).
+    await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
+    await enviarMensajeBot(conversationId, telefono, `✅ ¡Listo! Actualizamos tu nombre a "${nombre}".\n\n${await construirMensajeBienvenida(telefono)}`);
     console.log('✅ [DEBUG-SERVICE-BOT] manejarEdicionDatos() — valor de retorno: undefined (nombre actualizado)');
     return;
   }
@@ -760,8 +744,8 @@ const manejarEdicionDatos = async (conversationId, telefono, t, estado) => {
   // que estaba en ese paso con la versión anterior, para no dejarlo trabado.
   if (estado === 'editar_dni') {
     if (esCancelacion(t)) {
-      console.log('🔍 [DEBUG-SERVICE-BOT] manejarEdicionDatos() — cancelación en editar_dni. Vuelve al menú de edición.');
-      await iniciarEdicionDatos(conversationId, telefono);
+      console.log('🔍 [DEBUG-SERVICE-BOT] manejarEdicionDatos() — cancelación en editar_dni. Vuelve al menú principal.');
+      await volverAlMenuPrincipal(conversationId, telefono);
       console.log('✅ [DEBUG-SERVICE-BOT] manejarEdicionDatos() — valor de retorno: undefined (cancelado)');
       return;
     }
@@ -786,7 +770,7 @@ const manejarEdicionDatos = async (conversationId, telefono, t, estado) => {
       return;
     }
     await enviarMensajeBot(conversationId, telefono, '✅ ¡Listo! Actualizamos tu DNI.');
-    await iniciarEdicionDatos(conversationId, telefono);
+    await volverAlMenuPrincipal(conversationId, telefono);
     console.log('✅ [DEBUG-SERVICE-BOT] manejarEdicionDatos() — valor de retorno: undefined (DNI actualizado)');
   }
 };
