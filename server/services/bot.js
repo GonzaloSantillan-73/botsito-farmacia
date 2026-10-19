@@ -124,7 +124,7 @@ const esCancelacion = (t) => ['0', 'cancelar'].includes((t || '').trim().toLower
 // mandan "Hola" y enseguida su consulta: si el nombre se pedía al instante,
 // esa consulta (que ya venía en camino) se guardaba como nombre. Lo que llegue
 // durante la espera queda en el chat pero no se toma como nombre.
-const ESPERA_PEDIDO_NOMBRE_MS = 15 * 1000;
+const ESPERA_PEDIDO_NOMBRE_MS = 40 * 1000;
 const MENSAJE_PRIMER_CONTACTO = '¡Hola! Soy el bot de Mi Farma. 💊\n\nComo es tu primera vez escribiéndonos, ¿me decís tu nombre completo? No te lo vamos a volver a pedir.';
 const MENSAJE_NO_ES_NOMBRE = 'Eso no parece un nombre 😅\n\nPor ahora solo necesito tu nombre y apellido (por ejemplo: Juan Pérez). Apenas lo tenga, te ayudamos con tu consulta.';
 // Después de tantas respuestas que no parecen un nombre, se sigue al menú sin
