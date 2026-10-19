@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Image as ImageIcon, FileText, Loader2, MapPin, Download, Eye, ShieldAlert, ShieldOff, Tag, Check, X, Trash2, Reply } from 'lucide-react';
+import { Image as ImageIcon, FileText, Loader2, MapPin, Download, Eye, ShieldAlert, ShieldOff, Tag, Check, X, Trash2, Reply, List } from 'lucide-react';
 import { renderWhatsAppText } from '../lib/whatsappFormat';
 import { adminFetch } from '../lib/adminAuth';
 import { extraerLinkReceta } from '../lib/linkReceta';
@@ -384,6 +384,29 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
           ) : (
             <p className="text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">{renderWhatsAppText(msg.message_text)}</p>
           )
+        )}
+        {msg.botones?.opciones?.length > 0 && (
+          // Botones o lista que el bot mandó con este mensaje (ver
+          // supabase/messages_botones.sql). Son sólo de referencia: en el CRM
+          // no se pueden tocar, los toca el cliente en su WhatsApp.
+          <div className="mt-2 flex flex-col gap-1" title={msg.botones_usado ? 'El cliente ya eligió una opción de este mensaje' : undefined}>
+            {msg.botones.tipo === 'lista' ? (
+              <>
+                <span className="flex items-center justify-center gap-1.5 py-1.5 rounded-md bg-black/5 dark:bg-white/10 text-xs font-semibold text-teal-700 dark:text-teal-300">
+                  <List size={14} /> {msg.botones.boton || 'Ver opciones'}
+                </span>
+                <span className="text-[11px] text-gray-500 dark:text-gray-300/80">
+                  Opciones: {msg.botones.opciones.map(o => o.titulo).join(' · ')}
+                </span>
+              </>
+            ) : (
+              msg.botones.opciones.map(o => (
+                <span key={o.id} className="block text-center py-1.5 rounded-md bg-black/5 dark:bg-white/10 text-xs font-semibold text-teal-700 dark:text-teal-300">
+                  {o.titulo}
+                </span>
+              ))
+            )}
+          </div>
         )}
         <div className="flex items-center justify-end gap-1 mt-1">
           <span className={`text-[10px] ${msg.sender_type === 'client' ? 'text-gray-400' : 'text-gray-500 dark:text-gray-300/80'}`}>

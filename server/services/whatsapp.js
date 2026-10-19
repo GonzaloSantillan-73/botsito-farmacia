@@ -62,9 +62,38 @@ const traducirErrorMeta = (metaError) => {
   return `${mensajeOriginal}${code ? ` (código ${code}${subcode ? `/${subcode}` : ''})` : ''}`;
 };
 
+// Arma el objeto `interactive` de Meta a partir del formato que usa el bot:
+// { tipo: 'botones', opciones: [{ id, titulo }] } (botones de respuesta, máx. 3)
+// { tipo: 'lista', boton, opciones: [{ id, titulo }] } (lista desplegable, máx. 10)
+// Los títulos se recortan a los límites de Meta (20 para botones, 24 para
+// filas), porque un título más largo hace que Meta rechace el mensaje entero.
+const construirInteractivo = (text, interactivo) => {
+  if (interactivo.tipo === 'lista') {
+    return {
+      type: 'list',
+      body: { text },
+      action: {
+        button: (interactivo.boton || 'Ver opciones').slice(0, 20),
+        sections: [{
+          title: 'Opciones',
+          rows: interactivo.opciones.slice(0, 10).map(o => ({ id: o.id, title: o.titulo.slice(0, 24) }))
+        }]
+      }
+    };
+  }
+  return {
+    type: 'button',
+    body: { text },
+    action: {
+      buttons: interactivo.opciones.slice(0, 3).map(o => ({ type: 'reply', reply: { id: o.id, title: o.titulo.slice(0, 20) } }))
+    }
+  };
+};
+
 // replyToWamid: wamid del mensaje que se está respondiendo (opcional). Meta lo
 // muestra en el WhatsApp del cliente como respuesta citada a ese mensaje.
-export const sendWhatsAppMessage = async (to, text, mediaUrl = null, mediaType = null, replyToWamid = null) => {
+// interactivo: botones o lista (opcional, sólo sin adjunto), ver construirInteractivo.
+export const sendWhatsAppMessage = async (to, text, mediaUrl = null, mediaType = null, replyToWamid = null, interactivo = null) => {
   console.log(`\n======================================================`);
   console.log(`[SERVICES/WHATSAPP - sendWhatsAppMessage] ==> INICIO DE FUNCIÓN`);
   console.log(`[SERVICES/WHATSAPP] ==> Parámetros recibidos: to="${to}", text="${text}", mediaUrl="${mediaUrl}", mediaType="${mediaType}"`);
@@ -100,6 +129,13 @@ export const sendWhatsAppMessage = async (to, text, mediaUrl = null, mediaType =
             console.log(`[SERVICES/WHATSAPP] -> Condición: Agregando text como caption.`);
             payload[type].caption = text;
         }
+    } else if (interactivo) {
+        // Botones de respuesta (máx. 3, título de hasta 20 caracteres) o lista
+        // (botón que despliega hasta 10 filas, título de hasta 24). El texto va
+        // como cuerpo del mensaje. Ver construirInteractivo().
+        console.log(`[SERVICES/WHATSAPP] -> Condición: mensaje interactivo (${interactivo.tipo}).`);
+        payload.type = 'interactive';
+        payload.interactive = construirInteractivo(text, interactivo);
     } else {
         console.log(`[SERVICES/WHATSAPP] -> Condición: No hay mediaUrl. Preparando payload de texto plano.`);
         payload.type = 'text';

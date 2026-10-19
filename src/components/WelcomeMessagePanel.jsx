@@ -3,7 +3,10 @@ import { Loader2, Check } from 'lucide-react';
 import { previsualizarSaludo } from '../lib/greetingTemplate';
 import { renderWhatsAppText } from '../lib/whatsappFormat';
 
-const MENU_PREVIEW = '¿Qué querés hacer?\n\n1. Hablar con un humano\n2. Horarios y sucursales\n3. Cambiar mi nombre\n\n_Respondé con el número de la opción._';
+// Mismo menú que manda el bot (MENU_TEXTO_BOTONES y MENU_BOTONES en
+// server/services/bot.js): texto + botones de WhatsApp.
+const MENU_PREVIEW = '¿Qué querés hacer? Tocá una opción 👇';
+const MENU_BOTONES_PREVIEW = ['Hablar con un asesor', 'Horarios y locales', 'Cambiar mi nombre'];
 
 export default function WelcomeMessagePanel() {
 
@@ -84,6 +87,13 @@ export default function WelcomeMessagePanel() {
         {previsualizarSaludo(welcomeMessage.trim()) || '(tu saludo acá)'}
         {'\n\n'}
         {renderWhatsAppText(MENU_PREVIEW)}
+        <span className="flex flex-col gap-1 mt-2 whitespace-normal">
+          {MENU_BOTONES_PREVIEW.map(titulo => (
+            <span key={titulo} className="block text-center py-1.5 rounded-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-teal-700 dark:text-teal-400 font-medium">
+              {titulo}
+            </span>
+          ))}
+        </span>
       </div>
 
       {error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}

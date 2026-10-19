@@ -17,6 +17,37 @@ dotenv.config({ path: path.join(__dirname, '../../.env') });
 const router = express.Router();
 const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
 
+// Revisa el mensaje del bot cuyos botones (o lista) tocó el cliente
+// (wamidBotonera = context.id del toque) y lo "reserva" en el mismo paso:
+// - 'vigente': no se había usado; queda marcado como usado y se procesa.
+// - 'usado': ya se había respondido (o un toque simultáneo lo reservó antes):
+//   el bot no responde.
+// - 'desconocido': no se encontró el mensaje, o falta la columna
+//   (supabase/messages_botones.sql): se procesa como siempre.
+const revisarBotonPresionado = async (wamidBotonera) => {
+  const { data, error } = await supabase
+    .from('messages')
+    .select('id, conversation_id, botones_usado')
+    .eq('wamid', wamidBotonera)
+    .eq('sender_type', 'bot')
+    .maybeSingle();
+  if (error || !data) {
+    if (error) console.warn('⚠️ [DEBUG-WEBHOOK] revisarBotonPresionado() — no se pudo revisar (¿falta supabase/messages_botones.sql?):', error.message);
+    return { estado: 'desconocido' };
+  }
+  if (data.botones_usado) return { estado: 'usado', conversationId: data.conversation_id };
+
+  const { data: reservada, error: errorReserva } = await supabase
+    .from('messages')
+    .update({ botones_usado: true })
+    .eq('id', data.id)
+    .eq('botones_usado', false)
+    .select('id');
+  if (errorReserva) return { estado: 'desconocido' };
+  if (!reservada?.length) return { estado: 'usado', conversationId: data.conversation_id };
+  return { estado: 'vigente', conversationId: data.conversation_id };
+};
+
 // 1. Verificación del Webhook (GET) - Requerido por Meta
 router.get('/', (req, res) => {
   console.log(`\n======================================================`);
@@ -158,15 +189,31 @@ router.post('/', async (req, res) => {
         let conversationId, isNewSession;
         let isRatingReply = false;
         let ignorarPostEncuesta = false;
+        let ignorarBotonUsado = false;
 
-        const rawTextForRating = messageType === 'text' ? waMessage.text.body : null;
-        const pendingRatingConv = await getConversationAwaitingRating(clientPhone);
+        // Botón o fila de lista presionados: Meta manda en context.id el
+        // mensaje del bot que tenía esos botones. Si ya se usó, el toque se
+        // guarda en el chat pero el bot no responde (así no se pagan mensajes
+        // por tocar el mismo botón una y otra vez).
+        const wamidBotonera = messageType === 'interactive' ? waMessage.context?.id : null;
+        const botonera = wamidBotonera ? await revisarBotonPresionado(wamidBotonera) : { estado: 'desconocido' };
+
+        // Para la encuesta cuenta tanto el número escrito como la fila de la
+        // lista tocada (su id es el número).
+        const rawTextForRating = messageType === 'text'
+          ? waMessage.text.body
+          : (messageType === 'interactive' ? (waMessage.interactive?.list_reply?.id || waMessage.interactive?.button_reply?.id || null) : null);
+        const pendingRatingConv = botonera.estado === 'usado' ? null : await getConversationAwaitingRating(clientPhone);
         // Sin encuesta pendiente: si hace menos de 3 min se le mandó la
         // despedida de la encuesta, el mensaje (ej. "gracias igualmente") se
         // guarda en esa consulta cerrada y el bot no responde ni abre otra.
-        const convRecienDespedida = pendingRatingConv ? null : await getConversacionRecienDespedida(clientPhone);
+        const convRecienDespedida = (pendingRatingConv || botonera.estado === 'usado') ? null : await getConversacionRecienDespedida(clientPhone);
 
-        if (pendingRatingConv && rawTextForRating && isValidRatingReply(rawTextForRating)) {
+        if (botonera.estado === 'usado') {
+          conversationId = botonera.conversationId;
+          isNewSession = false;
+          ignorarBotonUsado = true;
+        } else if (pendingRatingConv && rawTextForRating && isValidRatingReply(rawTextForRating)) {
           console.log(`[WEBHOOK] -> Respuesta a la encuesta de satisfacción detectada para la consulta ${pendingRatingConv.id}.`);
           conversationId = pendingRatingConv.id;
           isNewSession = false;
@@ -369,8 +416,8 @@ router.post('/', async (req, res) => {
         console.log(`======================================================\n`);
         
         if (isRatingReply) {
-           // Acepta tanto "3" como "3️⃣" (ver normalizarRespuestaRating).
-           const valor = Number(normalizarRespuestaRating(messageText));
+           // Acepta "3", "3️⃣" o la fila de la lista tocada (ver normalizarRespuestaRating).
+           const valor = Number(normalizarRespuestaRating(rawTextForRating));
            if (pendingRatingConv.bot_state === 'awaiting_rating') {
              console.log(`[WEBHOOK] -> Guardando calificación de atención: ${valor}`);
              await guardarCalificacionAtencion(conversationId, clientPhone, valor);
@@ -380,6 +427,8 @@ router.post('/', async (req, res) => {
            }
         } else if (ignorarPostEncuesta) {
            // Nada que responder: el mensaje ya quedó guardado en la consulta cerrada.
+        } else if (ignorarBotonUsado) {
+           // Botón de un mensaje ya respondido: queda guardado en el chat, sin respuesta.
         } else if (isNewSession || messageType === 'text' || messageType === 'interactive' || messageType === 'location') {
            // Si es sesión nueva, se manda la bienvenida sin importar el tipo de mensaje;
            // si la sesión ya estaba activa, se procesan mensajes de texto (menú 1/2),

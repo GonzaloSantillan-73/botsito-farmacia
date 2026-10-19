@@ -1,5 +1,5 @@
 import { supabase } from '../supabase.js';
-import { enviarMensajeBot } from './bot.js';
+import { enviarMensajeBot, marcarBotonesUsados } from './bot.js';
 import { INSTANCE_INFO } from '../instanceInfo.js';
 
 const VALID_RATINGS = ['1', '2', '3', '4', '5'];
@@ -21,21 +21,29 @@ export const isValidRatingReply = (text) => {
   return resultado;
 };
 
-// Escala de opciones que acompaña ambas preguntas de la encuesta (atención y
-// producto), siempre con el mismo formato: un emoji de número por línea.
-const ESCALA_1_A_5 = [
-  '1️⃣ Muy insatisfecho',
-  '2️⃣ Insatisfecho',
-  '3️⃣ Neutral',
-  '4️⃣ Satisfecho',
-  '5️⃣ Muy satisfecho'
-].join('\n');
+// Escala de las dos preguntas de la encuesta (atención y producto). Se manda
+// como lista de WhatsApp: el cliente toca "Calificar" y elige una fila. El id
+// de cada fila es el número, así que tocar la fila o escribir el número (o el
+// emoji 1️⃣) llega igual (ver normalizarRespuestaRating). Títulos de hasta 24
+// caracteres (límite de Meta para las filas de una lista).
+const LISTA_CALIFICACION = {
+  tipo: 'lista',
+  boton: 'Calificar',
+  opciones: [
+    { id: '5', titulo: '5️⃣ Muy satisfecho' },
+    { id: '4', titulo: '4️⃣ Satisfecho' },
+    { id: '3', titulo: '3️⃣ Neutral' },
+    { id: '2', titulo: '2️⃣ Insatisfecho' },
+    { id: '1', titulo: '1️⃣ Muy insatisfecho' }
+  ]
+};
+const INSTRUCCION_LISTA = 'Tocá *Calificar* y elegí una opción 👇';
 
 const mensajeFinalizacion = (motivo) =>
-  `Tu consulta ha finalizado${motivo ? ` ${motivo}` : ''}. ¡Gracias por contactarnos! Nos ayudaría mucho que calificaras la atención recibida respondiendo solo con el número de tu opción:\n${ESCALA_1_A_5}`;
+  `Tu consulta ha finalizado${motivo ? ` ${motivo}` : ''}. ¡Gracias por contactarnos! Nos ayudaría mucho que calificaras la atención recibida.\n\n${INSTRUCCION_LISTA}`;
 
 const MENSAJE_PEDIR_RATING_PRODUCTO =
-  `¿Qué tan satisfecho estás con tu compra? Responde solo con el número de tu opción:\n${ESCALA_1_A_5}`;
+  `¿Qué tan satisfecho estás con tu compra?\n\n${INSTRUCCION_LISTA}`;
 
 const MENSAJE_DESPEDIDA_ENCUESTA = '¡Gracias por tu calificación! Que tengas un buen día. 😊';
 
@@ -98,7 +106,7 @@ export const finalizarConversacion = async (conversationId, clientPhone, motivo 
       // distintos corriendo contra la misma base (instancia fantasma) — ver
       // server/instanceInfo.js.
       console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — enviando mensaje de finalización a', clientPhone, '— instanceId:', INSTANCE_INFO.id, '— commit:', INSTANCE_INFO.commit);
-      await enviarMensajeBot(conversationId, clientPhone, mensajeFinalizacion(motivo));
+      await enviarMensajeBot(conversationId, clientPhone, mensajeFinalizacion(motivo), {}, LISTA_CALIFICACION);
     }
 
     console.log('✅ [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — finalizado sin valor de retorno explícito');
@@ -148,6 +156,9 @@ export const getConversationAwaitingRating = async (clientPhone) => {
 export const guardarCalificacionAtencion = async (conversationId, clientPhone, rating) => {
   console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — conversationId:', conversationId, 'clientPhone:', clientPhone, 'rating:', rating);
   try {
+    // La lista de esta pregunta ya se respondió (tocando o escribiendo el
+    // número): si la vuelve a tocar, se ignora (ver marcarBotonesUsados).
+    await marcarBotonesUsados(conversationId);
     console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — SELECT conversations, filtros: { id:', conversationId, '}, columnas: payment_status');
     const { data: conv, error: convError } = await supabase
       .from('conversations')
@@ -165,7 +176,7 @@ export const guardarCalificacionAtencion = async (conversationId, clientPhone, r
         .eq('id', conversationId);
       console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — resultado UPDATE conversations — data:', updateResp.data, 'error:', updateResp.error);
 
-      await enviarMensajeBot(conversationId, clientPhone, MENSAJE_PEDIR_RATING_PRODUCTO);
+      await enviarMensajeBot(conversationId, clientPhone, MENSAJE_PEDIR_RATING_PRODUCTO, {}, LISTA_CALIFICACION);
     } else {
       // Sin pago confirmado, cerramos la encuesta agradeciendo por la atención
       console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — sin pago confirmado, UPDATE conversations, filtros: { id:', conversationId, '}, valores:', { rating, bot_state: null });
@@ -191,6 +202,7 @@ export const guardarCalificacionAtencion = async (conversationId, clientPhone, r
 export const guardarCalificacionProducto = async (conversationId, clientPhone, productRating) => {
   console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionProducto() — conversationId:', conversationId, 'clientPhone:', clientPhone, 'productRating:', productRating);
   try {
+    await marcarBotonesUsados(conversationId);
     console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionProducto() — UPDATE conversations, filtros: { id:', conversationId, '}, valores:', { product_rating: productRating, bot_state: null });
     const updateResp = await supabase
       .from('conversations')

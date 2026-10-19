@@ -7,15 +7,30 @@ import { getCliente, tieneRegistroCompleto, guardarDatoCliente, incrementarInter
 import { sucursalesMasCercanas } from './geolocalizacion.js';
 import { extraerCoordenadasDeMensaje } from './mapsLocation.js';
 
-// Todas las opciones del bot se muestran como texto plano dentro del propio chat
-// (nada de botones/listas nativas de Meta). Cada mensaje separa con saltos de línea
-// el contenido de las instrucciones y de las opciones de navegación, para que nunca
-// quede todo amontonado en una sola oración.
+// El menú principal se manda con botones de WhatsApp (máx. 3, título de hasta
+// 20 caracteres). El id de cada botón es el mismo número que se escribía antes,
+// así que tocar el botón o escribir "1"/"2"/"3" llega igual a los manejadores
+// de abajo (tLower === '1'/'2'/'3').
 //
-// El saludo es personalizable desde el CRM (ver appConfig.getWelcomeMessage /
-// BotKeywordPanel-style panel), pero el menú numerado queda fijo acá porque
-// los números están atados 1:1 a los manejadores de abajo (tLower === '1'/'2'/'3').
-const MENU_OPCIONES = '¿Qué querés hacer?\n\n1. Hablar con un humano\n2. Horarios y sucursales\n3. Cambiar mi nombre\n\n_Respondé con el número de la opción._';
+// El saludo es personalizable desde el CRM (ver appConfig.getWelcomeMessage),
+// pero las opciones quedan fijas acá.
+const MENU_BOTONES = {
+  tipo: 'botones',
+  opciones: [
+    { id: '1', titulo: 'Hablar con un asesor' },
+    { id: '2', titulo: 'Horarios y locales' },
+    { id: '3', titulo: 'Cambiar mi nombre' }
+  ]
+};
+const MENU_TEXTO_BOTONES = '¿Qué querés hacer? Tocá una opción 👇';
+// Si el cliente escribe en vez de tocar un botón: se le recuerda una vez; a la
+// segunda se entiende que quiere que lo atiendan y se le pide la ubicación.
+const MENSAJE_RECORDATORIO_BOTONES = 'Para ayudarte, tocá uno de estos botones 👇';
+// Menú numerado de texto: sólo se usa si el saludo configurado es tan largo
+// que no entra en un mensaje con botones (ver enviarMenuPrincipal).
+const MENU_OPCIONES = '¿Qué querés hacer?\n\n1. Hablar con un asesor\n2. Horarios y locales\n3. Cambiar mi nombre\n\n_Respondé con el número de la opción._';
+// Límite de Meta para el cuerpo de un mensaje con botones o lista.
+const MAX_CUERPO_INTERACTIVO = 1024;
 
 // esFrecuente reemplaza el saludo personalizable por frequent_client_message
 // (ver appConfig.js) cuando el cliente ya usó el bot frequent_client_threshold
@@ -52,9 +67,40 @@ const construirMensajeBienvenida = async (telefono, esFrecuente = false) => {
   }
 
   const saludo = formatearSaludo(saludoTemplate, nombreCompleto);
-  const resultado = `${saludo}\n\n${MENU_OPCIONES}`;
+  const resultado = `${saludo}\n\n${MENU_TEXTO_BOTONES}`;
   console.log('✅ [DEBUG-SERVICE-BOT] construirMensajeBienvenida() — valor de retorno:', resultado);
   return resultado;
+};
+
+// Manda el menú principal con botones. `prefijo` va arriba del saludo en el
+// mismo mensaje (ej. "✅ ¡Gracias, Juan! Ya registramos tu nombre."), para no
+// gastar un mensaje aparte. Si el texto supera el límite de Meta para el
+// cuerpo de un mensaje con botones (porque el saludo configurado es muy
+// largo), se manda el menú numerado de texto, que sigue funcionando igual.
+const enviarMenuPrincipal = async (conversationId, telefono, { prefijo = '', esFrecuente = false } = {}) => {
+  const bienvenida = await construirMensajeBienvenida(telefono, esFrecuente);
+  const cuerpo = prefijo ? `${prefijo}\n\n${bienvenida}` : bienvenida;
+  if (cuerpo.length <= MAX_CUERPO_INTERACTIVO) {
+    await enviarMensajeBot(conversationId, telefono, cuerpo, {}, MENU_BOTONES);
+    return;
+  }
+  console.warn('⚠️ [DEBUG-SERVICE-BOT] enviarMenuPrincipal() — el saludo es demasiado largo para un mensaje con botones, se manda el menú numerado.');
+  const cuerpoTexto = cuerpo.replace(MENU_TEXTO_BOTONES, MENU_OPCIONES);
+  await enviarMensajeBot(conversationId, telefono, cuerpoTexto);
+};
+
+// Una vez que el cliente eligió una opción (tocando un botón o escribiendo el
+// número), los botones de los mensajes anteriores de esta consulta quedan
+// "usados": si los vuelve a tocar, el webhook los ignora sin responder (ver
+// botonesVigentes en webhook.js), así no se pagan mensajes por toques repetidos.
+export const marcarBotonesUsados = async (conversationId) => {
+  const { error } = await supabase.from('messages')
+    .update({ botones_usado: true })
+    .eq('conversation_id', conversationId)
+    .eq('sender_type', 'bot')
+    .eq('botones_usado', false)
+    .not('botones', 'is', null);
+  if (error) console.warn('⚠️ [DEBUG-SERVICE-BOT] marcarBotonesUsados() — no se pudieron marcar (¿falta supabase/messages_botones.sql?):', error.message);
 };
 
 const MENSAJE_ERROR_SUCURSALES = 'Tuvimos un problema consultando las sucursales.\n\nPor favor, intentá de nuevo en un momento.';
@@ -353,7 +399,25 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
     // Estado normal: menú principal
     const tLower = t.toLowerCase();
     console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — rama: menú principal. Opción elegida (tLower):', tLower);
-    if (tLower === '1') {
+    const esOpcionDelMenu = ['1', '2', '3'].includes(tLower);
+    // Ubicación nativa mandada sin elegir opción: el cliente ya quiere que lo
+    // atiendan y mandó justo lo que se le iba a pedir, así que se usa directo.
+    let esUbicacionNativa = false;
+    try {
+      const parsed = JSON.parse(t);
+      esUbicacionNativa = typeof parsed?.lat === 'number' && typeof parsed?.lng === 'number';
+    } catch {
+      // No es una ubicación nativa.
+    }
+    if (esOpcionDelMenu || esUbicacionNativa) {
+      await marcarBotonesUsados(conversationId);
+    }
+
+    if (esUbicacionNativa) {
+      console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — ubicación recibida en el menú principal. Se deriva directo.');
+      await actualizarEstadoConversacion(conversationId, { bot_state: 'esperando_ubicacion', bot_context: null });
+      await manejarUbicacionHumano(conversationId, telefono, t);
+    } else if (tLower === '1') {
       // Ya no hay un horario global de "Asesores Humanos": la disponibilidad
       // depende de la sucursal que corresponda según dónde esté el cliente,
       // y eso recién se sabe cuando comparte la ubicación (ver
@@ -368,9 +432,19 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
     } else if (tLower === '3') {
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — opción "3" (Cambiar mi nombre). Se deriva a iniciarEdicionDatos().');
       await iniciarEdicionDatos(conversationId, telefono);
+    } else if (!conv?.bot_context?.recordatorio_botones) {
+      // Escribió en vez de tocar un botón: primera vez, recordatorio corto con
+      // los botones (en vez de reenviar el saludo y el menú completos).
+      console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — opción no reconocida ("', tLower, '"). Se manda el recordatorio de botones.');
+      await actualizarEstadoConversacion(conversationId, { bot_context: { recordatorio_botones: true } });
+      await enviarMensajeBot(conversationId, telefono, MENSAJE_RECORDATORIO_BOTONES, {}, MENU_BOTONES);
     } else {
-      console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — opción no reconocida ("', tLower, '"). Se reenvía el menú de bienvenida.');
-      await enviarMensajeBot(conversationId, telefono, await construirMensajeBienvenida(telefono));
+      // Segunda vez que escribe en vez de tocar un botón: se entiende que
+      // quiere que lo atiendan y se le pide la ubicación (como la opción 1).
+      console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — opción no reconocida por segunda vez. Se pide la ubicación para derivar.');
+      await marcarBotonesUsados(conversationId);
+      await actualizarEstadoConversacion(conversationId, { bot_state: 'esperando_ubicacion', bot_context: null });
+      await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_UBICACION);
     }
     console.log('✅ [DEBUG-SERVICE-BOT] procesarMensajeBot() — valor de retorno: undefined (fin normal del flujo de menú principal)');
   } catch (error) {
@@ -410,8 +484,10 @@ const mostrarSucursales = async (conversationId, telefono) => {
   }
 
   // Es una consulta informativa (no cambia el bot_state), pero igual reenviamos
-  // el menú principal para que el cliente no quede sin saber cómo seguir.
-  await enviarMensajeBot(conversationId, telefono, await construirMensajeBienvenida(telefono));
+  // el menú principal para que el cliente no quede sin saber cómo seguir. Es
+  // un menú nuevo, así que el recordatorio de botones vuelve a estar disponible.
+  await actualizarEstadoConversacion(conversationId, { bot_context: null });
+  await enviarMenuPrincipal(conversationId, telefono);
   console.log('✅ [DEBUG-SERVICE-BOT] mostrarSucursales() — valor de retorno: undefined (fin normal)');
 };
 
@@ -630,7 +706,7 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado, botConte
         // Se sigue sin el nombre para no trabar al cliente; se le vuelve a
         // pedir en su próxima consulta (sigue sin registro completo).
         await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
-        await enviarMensajeBot(conversationId, telefono, await construirMensajeBienvenida(telefono));
+        await enviarMenuPrincipal(conversationId, telefono);
         console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (se sigue al menú sin nombre)');
         return;
       }
@@ -651,7 +727,7 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado, botConte
     // El nombre es el único dato obligatorio: con eso el registro queda
     // completo y se pasa directo al menú (ya no se pide el DNI).
     await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
-    await enviarMensajeBot(conversationId, telefono, `✅ ¡Gracias, ${nombre.split(' ')[0]}! Ya registramos tu nombre.\n\n${await construirMensajeBienvenida(telefono)}`);
+    await enviarMenuPrincipal(conversationId, telefono, { prefijo: `✅ ¡Gracias, ${nombre.split(' ')[0]}! Ya registramos tu nombre.` });
     console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (registro completado con el nombre)');
     return;
   }
@@ -683,7 +759,7 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado, botConte
 
     await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
 
-    await enviarMensajeBot(conversationId, telefono, `✅ ¡Gracias! Ya registramos tus datos.\n\n${await construirMensajeBienvenida(telefono)}`);
+    await enviarMenuPrincipal(conversationId, telefono, { prefijo: '✅ ¡Gracias! Ya registramos tus datos.' });
     console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (registro completado)');
   }
 };
@@ -735,7 +811,7 @@ const manejarEdicionDatos = async (conversationId, telefono, t, estado) => {
     }
     // Confirmación y menú principal en un solo mensaje (antes eran dos).
     await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
-    await enviarMensajeBot(conversationId, telefono, `✅ ¡Listo! Actualizamos tu nombre a "${nombre}".\n\n${await construirMensajeBienvenida(telefono)}`);
+    await enviarMenuPrincipal(conversationId, telefono, { prefijo: `✅ ¡Listo! Actualizamos tu nombre a "${nombre}".` });
     console.log('✅ [DEBUG-SERVICE-BOT] manejarEdicionDatos() — valor de retorno: undefined (nombre actualizado)');
     return;
   }
@@ -780,24 +856,36 @@ const volverAlMenuPrincipal = async (conversationId, telefono, esFrecuente = fal
   // 'open' saca a la conversación del modo humano ('esperando') y la vuelve a
   // dejar en la cola de "Entrantes" (bot respondiendo automáticamente).
   await actualizarEstadoConversacion(conversationId, { status: 'open', bot_state: null, bot_context: null, waiting_since: null });
-  await enviarMensajeBot(conversationId, telefono, await construirMensajeBienvenida(telefono, esFrecuente));
+  await enviarMenuPrincipal(conversationId, telefono, { esFrecuente });
   console.log('✅ [DEBUG-SERVICE-BOT] volverAlMenuPrincipal() — valor de retorno: undefined (fin normal)');
 };
 
-export const enviarMensajeBot = async (conversationId, telefono, mensaje, extraFields = {}) => {
-  console.log('🔍 [DEBUG-SERVICE-BOT] enviarMensajeBot() — parámetros recibidos:', { conversationId, telefono, mensaje, extraFields });
+// `interactivo` (opcional): { tipo: 'botones' | 'lista', boton?, opciones: [{ id, titulo }] }.
+// Se manda a Meta como botones/lista y se guarda en messages.botones para que
+// el CRM lo muestre (ver supabase/messages_botones.sql).
+export const enviarMensajeBot = async (conversationId, telefono, mensaje, extraFields = {}, interactivo = null) => {
+  console.log('🔍 [DEBUG-SERVICE-BOT] enviarMensajeBot() — parámetros recibidos:', { conversationId, telefono, mensaje, extraFields, interactivo });
   console.log(`[BOT] Enviando respuesta a ${telefono}...`);
   // Guardar mensaje en base de datos como pendiente. `extraFields` permite
   // marcar mensajes especiales (ej. is_auto_reminder para el aviso de
   // inactividad, ver sessionExpiryChecker.js) sin duplicar todo este flujo.
-  console.log('📡 [DEBUG-SERVICE-BOT] Query Supabase → tabla: messages, operación: insert, valores:', { conversation_id: conversationId, sender_type: 'bot', message_text: mensaje, estado: 'pendiente', ...extraFields });
-  const { data: insertData, error: insertError } = await supabase.from('messages').insert([{
+  const filaBase = {
     conversation_id: conversationId,
     sender_type: 'bot', // Usamos 'bot' para distinguirlo de 'agent'
     message_text: mensaje,
     estado: 'pendiente',
     ...extraFields
-  }]).select().single();
+  };
+  console.log('📡 [DEBUG-SERVICE-BOT] Query Supabase → tabla: messages, operación: insert, valores:', filaBase);
+  let { data: insertData, error: insertError } = await supabase.from('messages')
+    .insert([interactivo ? { ...filaBase, botones: interactivo } : filaBase]).select().single();
+  // Si la columna `botones` todavía no existe (backend subido antes que el
+  // SQL), se guarda sin ella: el mensaje sale igual, sólo que el CRM no
+  // dibuja los botones.
+  if (insertError && interactivo && /botones/.test(insertError.message || '')) {
+    console.warn('⚠️ [DEBUG-SERVICE-BOT] enviarMensajeBot() — falta la columna botones (correr supabase/messages_botones.sql). Se guarda sin ella.');
+    ({ data: insertData, error: insertError } = await supabase.from('messages').insert([filaBase]).select().single());
+  }
   console.log('📡 [DEBUG-SERVICE-BOT] Resultado query messages (insert mensaje bot) — data:', insertData, 'error:', insertError);
 
   if (insertError) {
@@ -809,7 +897,7 @@ export const enviarMensajeBot = async (conversationId, telefono, mensaje, extraF
 
   // Enviar a Meta
   console.log('🔍 [DEBUG-SERVICE-BOT] enviarMensajeBot() — enviando a Meta vía sendWhatsAppMessage()');
-  const metaResponse = await sendWhatsAppMessage(telefono, mensaje);
+  const metaResponse = await sendWhatsAppMessage(telefono, mensaje, null, null, null, interactivo);
   const wamid = metaResponse?.messages?.[0]?.id;
   console.log('🔍 [DEBUG-SERVICE-BOT] enviarMensajeBot() — respuesta de Meta:', metaResponse, ', wamid:', wamid);
 
