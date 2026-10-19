@@ -663,7 +663,7 @@ export default function ValidationPanel({
                   <div className="col-span-12 relative">
                     <input
                       type="text"
-                      placeholder="Medicamento / Producto"
+                      placeholder="Medicamento / Producto" autoComplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other"
                       className="w-full text-sm p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                       value={newItemName}
                       onChange={e => { setNewItemName(e.target.value); }}
@@ -675,7 +675,7 @@ export default function ValidationPanel({
                       <input
                         type="number"
                         min="0"
-                        placeholder="Precio"
+                        placeholder="Precio" autoComplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other"
                         className="w-full text-sm pl-6 p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                         value={newItemPrice}
                         onKeyDown={e => { if (['-', '+', 'e', 'E'].includes(e.key)) e.preventDefault(); }}
@@ -694,7 +694,7 @@ export default function ValidationPanel({
                     <input
                       type="number"
                       min="1"
-                      placeholder="Cant."
+                      placeholder="Cant." autoComplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other"
                       title="Cantidad"
                       className="w-full text-sm p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 rounded focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none"
                       value={newItemQuantity}

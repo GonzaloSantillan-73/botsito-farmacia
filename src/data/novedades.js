@@ -11,6 +11,16 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-10-19-sin-autocompletar',
+    fecha: '2026-10-19',
+    tipo: 'correccion',
+    para: 'todos',
+    titulo: 'El navegador ya no tapa los campos del armador y del cotizador',
+    detalle: [
+      'Al escribir un producto ya no aparece la ventanita de "Información guardada" del navegador encima de los campos.'
+    ]
+  },
+  {
     id: '2026-10-19-cuadro-texto-crece',
     fecha: '2026-10-19',
     tipo: 'mejora',

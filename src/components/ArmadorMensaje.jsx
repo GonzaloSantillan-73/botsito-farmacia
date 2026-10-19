@@ -21,6 +21,11 @@ export const formatearProductosParaMensaje = (productos) => productos.map(p => {
   return lineas.join('\n');
 }).join('\n\n');
 
+// El navegador (Edge/Chrome) ofrece "Información guardada" en estos campos
+// cada vez que se escribe: se apaga el autocompletado y se evita que los
+// gestores de contraseñas los tomen como datos personales.
+const SIN_AUTOCOMPLETAR = { autoComplete: 'off', autoCorrect: 'off', spellCheck: false, 'data-lpignore': 'true', 'data-1p-ignore': 'true', 'data-form-type': 'other' };
+
 const inputClase = 'w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500';
 
 export default function ArmadorMensaje({ productos, setProductos, onAgregarAlMensaje, onClose }) {
@@ -68,9 +73,10 @@ export default function ArmadorMensaje({ productos, setProductos, onAgregarAlMen
         </button>
       </div>
 
-      <form onSubmit={agregarProducto} className="p-3 space-y-2 border-b border-gray-100 dark:border-gray-700">
+      <form onSubmit={agregarProducto} autoComplete="off" className="p-3 space-y-2 border-b border-gray-100 dark:border-gray-700">
         <input
-          id="armador-nombre"
+          id="armador-producto"
+          {...SIN_AUTOCOMPLETAR}
           value={nombre}
           onChange={(e) => { setNombre(e.target.value); }}
           placeholder="Medicamento / Producto"
@@ -82,6 +88,7 @@ export default function ArmadorMensaje({ productos, setProductos, onAgregarAlMen
             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
             <input
               id="armador-precio"
+          {...SIN_AUTOCOMPLETAR}
               type="number"
               min="0"
               step="0.01"
@@ -92,7 +99,8 @@ export default function ArmadorMensaje({ productos, setProductos, onAgregarAlMen
             />
           </div>
           <input
-            id="armador-cantidad"
+            id="armador-cant"
+          {...SIN_AUTOCOMPLETAR}
             type="number"
             min="1"
             value={cantidad}
@@ -102,7 +110,8 @@ export default function ArmadorMensaje({ productos, setProductos, onAgregarAlMen
           />
           <div className="relative">
             <input
-              id="armador-descuento"
+              id="armador-desc"
+          {...SIN_AUTOCOMPLETAR}
               type="number"
               min="0"
               max="100"
