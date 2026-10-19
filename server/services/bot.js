@@ -132,12 +132,16 @@ const MENSAJE_ERROR_DERIVACION = 'Tuvimos un problema derivándote con un asesor
 // recomendarle (a él y al operador que lo atienda) la sucursal más cercana.
 // Acepta dos formas: el botón nativo "Ubicación" de WhatsApp, o pegar como
 // texto un link de Google Maps (largo o acortado tipo maps.app.goo.gl).
-const MENSAJE_PEDIR_UBICACION = '¡Perfecto! Ahora te conectamos con *nuestra farmacia más cercana a vos*. 📍\n\n'
-  + 'Mandanos tu ubicación siguiendo estos pasos:\n'
+const PASOS_UBICACION = 'Mandanos tu ubicación siguiendo estos pasos:\n'
   + '1️⃣ Tocá el clip 📎, abajo, al lado de donde escribís.\n'
   + '2️⃣ Elegí *"Ubicación"*.\n'
   + '3️⃣ Tocá *"Enviar tu ubicación actual"*.\n\n'
   + '¿No te funciona? También podés pegar acá el link de tu ubicación de Google Maps. 🗺️';
+// Eligió "Hablar con un asesor".
+const MENSAJE_PEDIR_UBICACION = '¡Perfecto! Ahora te conectamos con *nuestra farmacia más cercana a vos*. 📍\n\n' + PASOS_UBICACION;
+// Escribió dos veces en vez de tocar un botón: se lo pasa directo con una
+// persona, sin marcarle que se equivocó.
+const MENSAJE_PEDIR_UBICACION_SIN_MENU = '¡No hay problema! 😊 Te paso directo con *nuestra farmacia más cercana a vos* para que te atienda una persona. 📍\n\n' + PASOS_UBICACION;
 const MENSAJE_UBICACION_INVALIDA = 'No pude reconocer esa ubicación. 😕\n\nProbá compartiendo tu ubicación con el botón de WhatsApp, o pegando un link de Google Maps (por ejemplo: https://maps.app.goo.gl/...).';
 // Ninguna sucursal cercana está atendiendo en este momento (ver
 // sucursalAbiertaMasCercana en geolocalizacion.js): ya no existe un horario
@@ -472,7 +476,7 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — opción no reconocida por segunda vez. Se pide la ubicación para derivar.');
       if (!(await reservarSalidaDelMenu(conversationId, { bot_state: 'esperando_ubicacion', bot_context: null }))) return;
       await marcarBotonesUsados(conversationId);
-      await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_UBICACION);
+      await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_UBICACION_SIN_MENU);
     }
     console.log('✅ [DEBUG-SERVICE-BOT] procesarMensajeBot() — valor de retorno: undefined (fin normal del flujo de menú principal)');
   } catch (error) {

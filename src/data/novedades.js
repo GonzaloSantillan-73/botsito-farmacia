@@ -11,6 +11,16 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-10-19-ubicacion-sin-menu',
+    fecha: '2026-10-19',
+    tipo: 'mejora',
+    para: 'todos',
+    titulo: 'El bot ayuda mejor a quien no usa los botones',
+    detalle: [
+      'Si el cliente escribe dos veces en vez de tocar un botón, el bot ya no le dice "¡Perfecto!": le contesta "¡No hay problema! 😊 Te paso directo con nuestra farmacia más cercana a vos para que te atienda una persona" y le pide la ubicación.'
+    ]
+  },
+  {
     id: '2026-10-19-buzon-novedades',
     fecha: '2026-10-19',
     tipo: 'nuevo',
