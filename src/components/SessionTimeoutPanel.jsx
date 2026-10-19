@@ -28,9 +28,9 @@ const NumberBox = ({ label, value, onChange, max }) => (
 // Límites del cierre por falta de respuesta de la farmacia (mismos que
 // MIN/MAX_ESPERA_RESPUESTA_MS en server/services/appConfig.js): hasta 23 h
 // porque Meta sólo deja escribirle al cliente 24 h después de su último mensaje.
-const MIN_ESPERA_HORAS = 1;
-const MAX_ESPERA_HORAS = 23;
-const DEFAULT_ESPERA_HORAS = 12;
+const MIN_ESPERA_MS = 60 * 1000; // 1 minuto
+const MAX_ESPERA_MS = 23 * 3600 * 1000; // 23 horas
+const DEFAULT_ESPERA_MS = 12 * 3600 * 1000;
 
 export default function SessionTimeoutPanel({ sessionTimeoutMs, sessionPrewarningMs, esperaRespuestaMs, onSave }) {
 
@@ -43,10 +43,17 @@ export default function SessionTimeoutPanel({ sessionTimeoutMs, sessionPrewarnin
   const [prewarningEnabled, setPrewarningEnabled] = useState(false);
   const [prewarningMins, setPrewarningMins] = useState(5);
 
-  // Cierre si la farmacia no le responde al cliente, en horas.
-  const [esperaHoras, setEsperaHoras] = useState(DEFAULT_ESPERA_HORAS);
+  // Cierre si la farmacia no le responde al cliente, en horas/minutos/segundos.
+  const [esperaH, setEsperaH] = useState(msToHms(DEFAULT_ESPERA_MS).h);
+  const [esperaM, setEsperaM] = useState(0);
+  const [esperaS, setEsperaS] = useState(0);
   useEffect(() => {
-    if (esperaRespuestaMs != null) setEsperaHoras(Math.round(esperaRespuestaMs / 3600000));
+    if (esperaRespuestaMs != null) {
+      const { h, m, s } = msToHms(esperaRespuestaMs);
+      setEsperaH(h);
+      setEsperaM(m);
+      setEsperaS(s);
+    }
   }, [esperaRespuestaMs]);
 
   const [saving, setSaving] = useState(false);
@@ -87,12 +94,11 @@ export default function SessionTimeoutPanel({ sessionTimeoutMs, sessionPrewarnin
       return;
     }
 
-    const horasEspera = Number(esperaHoras);
-    if (!Number.isInteger(horasEspera) || horasEspera < MIN_ESPERA_HORAS || horasEspera > MAX_ESPERA_HORAS) {
-      setError(`El cierre por falta de respuesta debe ser de ${MIN_ESPERA_HORAS} a ${MAX_ESPERA_HORAS} horas.`);
+    const esperaMs = ((Number(esperaH) || 0) * 3600 + (Number(esperaM) || 0) * 60 + (Number(esperaS) || 0)) * 1000;
+    if (esperaMs < MIN_ESPERA_MS || esperaMs > MAX_ESPERA_MS) {
+      setError('El cierre por falta de respuesta de la farmacia debe ser de 1 minuto a 23 horas.');
       return;
     }
-    const esperaMs = horasEspera * 3600000;
 
     setError('');
     setSaving(true);
@@ -158,18 +164,14 @@ export default function SessionTimeoutPanel({ sessionTimeoutMs, sessionPrewarnin
 
       <div className="pt-3 border-t border-gray-100 dark:border-gray-800 space-y-2">
         <span className="block text-sm text-gray-700 dark:text-gray-300">
-          Si la farmacia no le responde al cliente, cerrar la consulta a las
+          Si la farmacia no le responde al cliente, cerrar la consulta después de (contando desde su último mensaje, máximo 23 horas):
         </span>
-        <div className="flex items-center gap-2 pl-1">
-          <input
-            type="number"
-            min={MIN_ESPERA_HORAS}
-            max={MAX_ESPERA_HORAS}
-            value={esperaHoras}
-            onChange={(e) => { setEsperaHoras(e.target.value); }}
-            className="w-16 text-center px-2 py-1.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-shadow text-sm font-semibold tabular-nums"
-          />
-          <span className="text-xs text-gray-500 dark:text-gray-400">horas de su último mensaje (máximo {MAX_ESPERA_HORAS})</span>
+        <div className="flex items-center gap-4">
+          <NumberBox label="Horas" value={esperaH} onChange={setEsperaH} max={23} />
+          <span className="text-2xl text-gray-300 pb-5">:</span>
+          <NumberBox label="Minutos" value={esperaM} onChange={setEsperaM} max={59} />
+          <span className="text-2xl text-gray-300 pb-5">:</span>
+          <NumberBox label="Segundos" value={esperaS} onChange={setEsperaS} max={59} />
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-400">
           Aplica cuando el cliente pidió un asesor y está esperando: en la cola, tomada sin respuesta, o si la sucursal dejó de contestar. Si alguna sucursal la tomó, al cerrar se le pide la calificación; si ninguna la tomó, se cierra sin mensaje. Máximo 23 horas porque WhatsApp solo deja escribirle al cliente dentro de las 24 horas de su último mensaje.

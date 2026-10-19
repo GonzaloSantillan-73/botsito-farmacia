@@ -116,7 +116,7 @@ export const setSessionPrewarningMs = async (ms) => {
 // siguientes a ese mensaje (la encuesta de cierre tiene que salir antes).
 const ESPERA_RESPUESTA_KEY = 'espera_respuesta_ms';
 const DEFAULT_ESPERA_RESPUESTA_MS = 12 * 60 * 60 * 1000;
-export const MIN_ESPERA_RESPUESTA_MS = 60 * 60 * 1000; // 1 hora
+export const MIN_ESPERA_RESPUESTA_MS = 60 * 1000; // 1 minuto (útil para probar)
 export const MAX_ESPERA_RESPUESTA_MS = 23 * 60 * 60 * 1000; // 23 horas
 
 export const getEsperaRespuestaMs = async () => {
@@ -138,7 +138,7 @@ export const getEsperaRespuestaMs = async () => {
 export const setEsperaRespuestaMs = async (ms) => {
   if (!Number.isFinite(ms) || ms < MIN_ESPERA_RESPUESTA_MS || ms > MAX_ESPERA_RESPUESTA_MS) {
     console.error('❌ [DEBUG-SERVICE-APPCONFIG] setEsperaRespuestaMs() — valor fuera de rango:', ms);
-    throw new Error(`El cierre por falta de respuesta debe estar entre ${MIN_ESPERA_RESPUESTA_MS / 3600000} y ${MAX_ESPERA_RESPUESTA_MS / 3600000} horas.`);
+    throw new Error(`El cierre por falta de respuesta debe estar entre ${MIN_ESPERA_RESPUESTA_MS / 60000} minuto y ${MAX_ESPERA_RESPUESTA_MS / 3600000} horas.`);
   }
 
   const { error } = await supabase
