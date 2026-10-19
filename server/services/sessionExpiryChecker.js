@@ -14,7 +14,7 @@ const MIN_WAIT_MS = 1000;
 // "No hace falta que respondas": si el cliente contesta "no, gracias", ese
 // mensaje cuenta como actividad y reinicia el conteo, dejando la consulta
 // abierta otro período completo en vez de cerrarse a su hora.
-const MENSAJE_AVISO_INACTIVIDAD = '¡Hola! ¿Seguís ahí? Si necesitás algo más contame. Si ya no, no hace falta que respondas: voy a cerrar esta consulta en breve. 🙂';
+const MENSAJE_AVISO_INACTIVIDAD = '¿Seguís necesitando ayuda? 🙂\n\nSi ya terminaste, *no respondas este mensaje* (ni con "no" ni con "nada"). Así la consulta se cierra sola.\n\nSi necesitás algo más, escribilo acá.';
 
 // Manda el aviso preventivo y marca `prewarning_sent_at` para no repetirlo en
 // esta misma ventana de inactividad. Se envía con is_auto_reminder=true para
