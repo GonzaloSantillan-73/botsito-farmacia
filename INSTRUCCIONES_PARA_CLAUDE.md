@@ -19,3 +19,5 @@
   * **Frontend** (cambios en `src/`, `public/`, `index.html`, `vite.config.js` u otros archivos del panel): **Sí / No**
   * **Backend** (cambios en `server/` o en dependencias del servidor): **Sí / No**
   * **SQL en Supabase** (archivos nuevos o modificados en `supabase/` que haya que ejecutar): **Sí / No**, indicando cuál.
+
+* **Buzón de novedades:** Cada vez que agregues, mejores o corrijas algo que vean las sucursales o la administración, agregá su tarjeta en `src/data/novedades.js` (arriba de todo, con `id` único y fijo, fecha del cambio, `tipo`: nuevo / mejora / correccion, `para`: todos / admin, título y detalle en lenguaje simple). Va en el mismo commit que el cambio. No hace falta para cambios internos que no se notan (refactors, documentación).

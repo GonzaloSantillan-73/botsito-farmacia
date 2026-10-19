@@ -1,6 +1,7 @@
 import React, { useState, useEffect, memo } from 'react';
-import { Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut, MapPin, Hand, Send, Undo2, Store } from 'lucide-react';
+import { Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut, MapPin, Hand, Send, Undo2, Store, Gift } from 'lucide-react';
 import SettingsModal from './SettingsModal';
+import NovedadesPanel, { contarNovedadesSinLeer } from './NovedadesPanel';
 import { formatPhone } from '../lib/formatPhone';
 import { recortarNombre } from '../lib/recortarNombre';
 import { isAdminRole, getStaffSucursalId, adminFetch } from '../lib/adminAuth';
@@ -231,6 +232,10 @@ export default function Sidebar({
   staffSucursalNombre
 }) {
   const [showSettings, setShowSettings] = useState(false);
+  // Buzón de novedades (ver src/data/novedades.js). El número rojo se
+  // recalcula al cerrarlo, porque al abrirlo se marcan como leídas.
+  const [showNovedades, setShowNovedades] = useState(false);
+  const [novedadesSinLeer, setNovedadesSinLeer] = useState(() => contarNovedadesSinLeer());
   const soyStaff = !isAdminRole();
   const miSucursalId = getStaffSucursalId();
   const [takingId, setTakingId] = useState(null);
@@ -338,6 +343,18 @@ export default function Sidebar({
               className={`p-2 rounded-full transition-colors ${showClientDirectory ? 'bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300' : 'text-gray-400 hover:text-teal-600 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
             >
               <Users size={20} />
+            </button>
+            <button
+              onClick={() => { setShowNovedades(true); }}
+              title={novedadesSinLeer > 0 ? `Novedades del CRM (${novedadesSinLeer} sin leer)` : 'Novedades del CRM'}
+              className="relative p-2 text-gray-400 hover:text-teal-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+            >
+              <Gift size={20} />
+              {novedadesSinLeer > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold leading-[18px] text-center tabular-nums">
+                  {novedadesSinLeer > 9 ? '9+' : novedadesSinLeer}
+                </span>
+              )}
             </button>
             <button
               onClick={() => { setShowSettings(true); }}
@@ -516,6 +533,15 @@ export default function Sidebar({
            </>
         )}
       </div>
+
+      {showNovedades && (
+        <NovedadesPanel
+          onClose={() => {
+            setShowNovedades(false);
+            setNovedadesSinLeer(contarNovedadesSinLeer());
+          }}
+        />
+      )}
 
       {showSettings && (
         <SettingsModal
