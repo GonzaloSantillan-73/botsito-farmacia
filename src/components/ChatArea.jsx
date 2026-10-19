@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { MessageSquare, Send, Zap, Check, CheckCheck, Clock, AlertCircle, FileText, X, Loader2, Paperclip, History, Trash2, Timer, CheckCircle, MessagesSquare, Images, ArrowLeft, ShoppingBag, Undo2, Hand, IdCard, ChevronDown, Bot, Store } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
@@ -139,6 +139,24 @@ ${bloque}` : bloque));
   const [purgeTarget, setPurgeTarget] = useState(null);
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
+
+  // El cuadro de texto crece con cada línea (como WhatsApp) hasta
+  // MAX_LINEAS_INPUT; a partir de ahí deja de crecer y aparece la barra de
+  // desplazamiento. Se recalcula con cada cambio del texto (también cuando
+  // entra de golpe: armador, respuesta rápida, "Editar" o al enviar).
+  const MAX_LINEAS_INPUT = 12;
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    const estilo = window.getComputedStyle(el);
+    const altoLinea = parseFloat(estilo.lineHeight) || 20;
+    const relleno = parseFloat(estilo.paddingTop) + parseFloat(estilo.paddingBottom);
+    const maximo = altoLinea * MAX_LINEAS_INPUT + relleno;
+    el.style.height = 'auto';
+    const necesario = el.scrollHeight;
+    el.style.height = `${Math.min(necesario, maximo)}px`;
+    el.style.overflowY = necesario > maximo ? 'auto' : 'hidden';
+  }, [messageInput, activeConversation?.id]);
 
   // Mensaje al que el operador eligió "Responder" (respuesta citada, como en
   // WhatsApp). Se descarta al cambiar de chat.
@@ -1032,10 +1050,10 @@ ${bloque}` : bloque));
               </div>
             )}
 
-            <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl p-2 focus-within:border-teal-500 focus-within:ring-1 focus-within:ring-teal-500 transition-shadow">
+            <div className="flex items-end gap-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl p-2 focus-within:border-teal-500 focus-within:ring-1 focus-within:ring-teal-500 transition-shadow">
               <button
                 onClick={() => { setShowArmador(false); setShowQuickResponses(!showQuickResponses); }}
-                className={`p-2 transition-colors rounded-lg ${showQuickResponses ? 'bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950'}`}
+                className={`h-10 px-2 flex items-center justify-center shrink-0 transition-colors rounded-lg ${showQuickResponses ? 'bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950'}`}
                 title="Respuestas Rápidas (/)"
               >
                 <Zap size={20} />
@@ -1050,14 +1068,14 @@ ${bloque}` : bloque));
               />
               <button
                 onClick={() => { fileInputRef.current?.click(); }}
-                className="p-2 text-gray-400 hover:text-teal-600 transition-colors"
+                className="h-10 px-2 flex items-center justify-center shrink-0 text-gray-400 hover:text-teal-600 transition-colors"
                 title="Adjuntar archivo"
               >
                 <Paperclip size={20} />
               </button>
               <button
                 onClick={() => { setShowQuickResponses(false); setShowArmador(v => !v); }}
-                className={`p-2 transition-colors rounded-lg ${showArmador ? 'bg-teal-100 dark:bg-teal-950 text-teal-600 dark:text-teal-400' : 'text-gray-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950'}`}
+                className={`h-10 px-2 flex items-center justify-center shrink-0 transition-colors rounded-lg ${showArmador ? 'bg-teal-100 dark:bg-teal-950 text-teal-600 dark:text-teal-400' : 'text-gray-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950'}`}
                 title="Armador de mensaje: agregar productos ordenados al mensaje"
               >
                 <ShoppingBag size={20} />
@@ -1065,7 +1083,8 @@ ${bloque}` : bloque));
 
               <textarea
                 ref={textareaRef}
-                className="flex-1 bg-transparent max-h-32 min-h-[40px] resize-none outline-none py-2 px-2 text-sm scrollbar-thin dark:text-gray-100"
+                className="flex-1 bg-transparent min-h-[40px] resize-none outline-none py-2.5 px-2 text-sm leading-5 scrollbar-thin dark:text-gray-100"
+                rows={1}
                 placeholder="Escribí un mensaje... (Ctrl + Enter para enviar, '/' para plantillas)"
                 value={messageInput}
                 onChange={handleInputChange}

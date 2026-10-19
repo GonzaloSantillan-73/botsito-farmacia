@@ -11,6 +11,16 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-10-19-cuadro-texto-crece',
+    fecha: '2026-10-19',
+    tipo: 'mejora',
+    para: 'todos',
+    titulo: 'El cuadro para escribir crece con el mensaje',
+    detalle: [
+      'Como en WhatsApp: a medida que escribís, el cuadro se agranda línea por línea hasta 12 líneas. Recién ahí aparece la barra para desplazarte. Así ves el mensaje completo antes de enviarlo.'
+    ]
+  },
+  {
     id: '2026-10-19-armador-mensaje',
     fecha: '2026-10-19',
     tipo: 'nuevo',
