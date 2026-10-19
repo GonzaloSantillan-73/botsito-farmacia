@@ -1,7 +1,7 @@
 import express from 'express';
 import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
-import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getSessionPrewarningMs, setSessionPrewarningMs, getBotKeyword, setBotKeyword, getWelcomeMessage, setWelcomeMessage, getFrequentClientMessage, setFrequentClientMessage, getFrequentClientThreshold, setFrequentClientThreshold, MIN_FREQUENT_CLIENT_THRESHOLD, MAX_FREQUENT_CLIENT_THRESHOLD } from '../services/appConfig.js';
+import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getSessionPrewarningMs, setSessionPrewarningMs, getEsperaRespuestaMs, setEsperaRespuestaMs, MIN_ESPERA_RESPUESTA_MS, MAX_ESPERA_RESPUESTA_MS,getBotKeyword, setBotKeyword, getWelcomeMessage, setWelcomeMessage, getFrequentClientMessage, setFrequentClientMessage, getFrequentClientThreshold, setFrequentClientThreshold, MIN_FREQUENT_CLIENT_THRESHOLD, MAX_FREQUENT_CLIENT_THRESHOLD } from '../services/appConfig.js';
 import { finalizarConversacion } from '../services/ratingSurvey.js';
 import { devolverConversacionAEspera } from '../services/devolucionCola.js';
 import { tomarConsulta } from '../services/tomaConsulta.js';
@@ -557,8 +557,12 @@ router.post('/conversations/:id/close', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Conversación no encontrada' });
     }
 
-    await finalizarConversacion(conv.id, conv.client_phone, '');
-    console.log(`[API] -> Consulta ${id} cerrada manualmente desde el CRM.`);
+    // Casilla "Pedirle al cliente que califique la atención" del modal de
+    // cierre (CloseChatModal.jsx): sólo si viene explícitamente en false se
+    // finaliza en silencio; cualquier otro caso mantiene la encuesta.
+    const pedirCalificacion = req.body?.pedirCalificacion !== false;
+    await finalizarConversacion(conv.id, conv.client_phone, '', { pedirCalificacion });
+    console.log(`[API] -> Consulta ${id} cerrada manualmente desde el CRM (con encuesta: ${pedirCalificacion}).`);
     console.log('🔚 [DEBUG-ROUTES-API] Respondiendo POST /conversations/:id/close:', { status: 200, body: { success: true } });
     res.status(200).json({ success: true });
   } catch (error) {
@@ -743,14 +747,14 @@ router.get('/session-config', async (req, res) => {
     params: req.params,
     admin: req.admin || null
   });
-  const [sessionTimeoutMs, sessionPrewarningMs] = await Promise.all([getSessionTimeoutMs(), getSessionPrewarningMs()]);
-  const respBody = { sessionTimeoutMs, sessionPrewarningMs, minSessionTimeoutMs: MIN_SESSION_TIMEOUT_MS, maxSessionTimeoutMs: MAX_SESSION_TIMEOUT_MS };
+  const [sessionTimeoutMs, sessionPrewarningMs, esperaRespuestaMs] = await Promise.all([getSessionTimeoutMs(), getSessionPrewarningMs(), getEsperaRespuestaMs()]);
+  const respBody = { sessionTimeoutMs, sessionPrewarningMs, minSessionTimeoutMs: MIN_SESSION_TIMEOUT_MS, maxSessionTimeoutMs: MAX_SESSION_TIMEOUT_MS, esperaRespuestaMs, minEsperaRespuestaMs: MIN_ESPERA_RESPUESTA_MS, maxEsperaRespuestaMs: MAX_ESPERA_RESPUESTA_MS };
   console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /session-config:', { status: 200, body: respBody });
   res.status(200).json(respBody);
 });
 
 router.put('/session-config', async (req, res) => {
-  const { sessionTimeoutMs, sessionPrewarningMs } = req.body;
+  const { sessionTimeoutMs, sessionPrewarningMs, esperaRespuestaMs } = req.body;
   console.log('🔍 [DEBUG-ROUTES-API] Entrada a PUT /session-config:', {
     method: req.method,
     url: req.originalUrl,
@@ -767,7 +771,11 @@ router.put('/session-config', async (req, res) => {
       await setSessionPrewarningMs(Number(sessionPrewarningMs));
       console.log(`[API] -> Umbral de aviso preventivo actualizado a ${sessionPrewarningMs} ms.`);
     }
-    const respBody = { success: true, sessionTimeoutMs: Number(sessionTimeoutMs), sessionPrewarningMs: sessionPrewarningMs !== undefined ? Number(sessionPrewarningMs) : undefined };
+    if (esperaRespuestaMs !== undefined) {
+      await setEsperaRespuestaMs(Number(esperaRespuestaMs));
+      console.log(`[API] -> Cierre por falta de respuesta de la farmacia actualizado a ${esperaRespuestaMs} ms.`);
+    }
+    const respBody = { success: true, sessionTimeoutMs: Number(sessionTimeoutMs), sessionPrewarningMs: sessionPrewarningMs !== undefined ? Number(sessionPrewarningMs) : undefined, esperaRespuestaMs: esperaRespuestaMs !== undefined ? Number(esperaRespuestaMs) : undefined };
     console.log('🔚 [DEBUG-ROUTES-API] Respondiendo PUT /session-config:', { status: 200, body: respBody });
     res.status(200).json(respBody);
   } catch (error) {

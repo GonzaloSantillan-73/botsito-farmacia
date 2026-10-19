@@ -25,11 +25,15 @@ const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
 // en la vista de "Ver todo el chat".
 const HISTORY_PAGE_SIZE = 30;
 
+// mm:ss, o h:mm:ss a partir de una hora (el cierre por falta de respuesta de
+// la farmacia es de varias horas).
 const formatCountdown = (ms) => {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
-  const m = Math.floor(totalSeconds / 60);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
   const s = totalSeconds % 60;
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  const mmss = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return h > 0 ? `${h}:${mmss}` : mmss;
 };
 
 const mismoDia = (a, b) => a.toDateString() === b.toDateString();
@@ -89,6 +93,7 @@ export default function ChatArea({
   handleDeleteConversation,
   setModalImage,
   sessionTimeoutMs,
+  esperaRespuestaMs,
   onBackToHistory,
   onOpenValidationMobile
 }) {
@@ -431,40 +436,38 @@ export default function ChatArea({
   // El botón "Responder" de cada mensaje sólo aparece cuando el operador
   // puede escribir en este chat (mismas condiciones que el cuadro de texto).
   const puedeResponder = !!activeConversation && !isConversacionCerrada && !soyAdmin && !esModoBot && !requiereTomarParaResponder;
-  // Matriz de timeout (bot / en espera / sucursal) — mismo criterio, en el
-  // mismo orden, que server/services/sessionExpiryChecker.js:
-  // 1. En espera SIN sucursal asignada (cola general): siempre pausado.
-  // 2. Resto (modo bot, incluido "pidiendo ubicación" — ya le mandó ese
-  //    mensaje al cliente, así que corre igual que cualquier otro mensaje
-  //    saliente del bot —, o ya asignado a una sucursal): corre sólo si el
-  //    último mensaje real es saliente (bot o sucursal) — si es del cliente,
-  //    la pelota está del lado nuestro y no hay inactividad que penalizarle
-  //    todavía.
-  // 3. Recién derivada/reasignada a una sucursal (tomada de la cola, o
-  //    pasada directamente de otra sucursal): aunque el último mensaje sea
-  //    saliente, si es de ANTES de que esta sucursal se hiciera cargo
-  //    (sucursalAssignedSince, ver conversation_sucursal_historial) todavía
-  //    no cuenta como que la sucursal actual ya respondió.
+  // Matriz de timeout — mismo criterio que server/services/sessionExpiryChecker.js:
+  // 1. En espera (pidió un asesor, en la cola o ya tomada) y el que espera es
+  //    el cliente (el último mensaje real es suyo o del bot, o es de una
+  //    sucursal anterior a la que la tiene ahora): se cierra a las
+  //    esperaRespuestaMs de su último mensaje si la farmacia no responde
+  //    ('espera_farmacia').
+  // 2. Resto (modo bot, o la sucursal ya le respondió): corre la inactividad
+  //    normal sólo si el último mensaje real es saliente — si es del cliente
+  //    (modo bot), no hay inactividad que penalizarle todavía.
   let remainingMs = null;
   let timerPausedByClient = false;
-  let timerPauseReason = null; // 'en_espera' | 'client' | 'reasignado' | null
+  let timerPauseReason = null; // 'client' | 'espera_farmacia' | null
   const showExpiryBadge = !!(activeConversation && !isConversacionCerrada && sessionTimeoutMs != null);
   if (showExpiryBadge) {
-    const asignadaASucursal = activeConversation.status === 'esperando' && !!activeConversation.sucursal_id;
-    if (activeConversation.status === 'esperando' && !activeConversation.sucursal_id) {
-      timerPausedByClient = true;
-      timerPauseReason = 'en_espera';
-    } else {
-      const lastMessage = getLastRealMessage(messages);
-      if (!lastMessage || lastMessage.sender_type === 'client') {
-        timerPausedByClient = true;
-        timerPauseReason = 'client';
-      } else if (asignadaASucursal && sucursalAssignedSince && new Date(lastMessage.created_at) <= new Date(sucursalAssignedSince)) {
-        timerPausedByClient = true;
-        timerPauseReason = 'reasignado';
+    const lastMessage = getLastRealMessage(messages);
+    const enEspera = activeConversation.status === 'esperando';
+    const respondioLaSucursal = lastMessage?.sender_type === 'agent'
+      && !(activeConversation.sucursal_id && sucursalAssignedSince && new Date(lastMessage.created_at) <= new Date(sucursalAssignedSince));
+    if (enEspera && !respondioLaSucursal) {
+      timerPauseReason = 'espera_farmacia';
+      const ultimoDelCliente = [...(messages || [])].reverse().find(m => m.sender_type === 'client' && !m.is_auto_reminder);
+      const desde = ultimoDelCliente?.created_at || activeConversation.created_at;
+      if (esperaRespuestaMs != null) {
+        remainingMs = esperaRespuestaMs - (now - new Date(desde).getTime());
       } else {
-        remainingMs = sessionTimeoutMs - (now - new Date(lastMessage.created_at).getTime());
+        timerPausedByClient = true;
       }
+    } else if (!lastMessage || lastMessage.sender_type === 'client') {
+      timerPausedByClient = true;
+      timerPauseReason = 'client';
+    } else {
+      remainingMs = sessionTimeoutMs - (now - new Date(lastMessage.created_at).getTime());
     }
   }
 
@@ -497,14 +500,19 @@ export default function ChatArea({
 
   const [closingChat, setClosingChat] = useState(false);
 
-  const executeCloseChat = async () => {
+  // pedirCalificacion: casilla del modal de cierre (false = finalizar sin
+  // mandarle el mensaje de cierre ni la encuesta al cliente).
+  const executeCloseChat = async ({ pedirCalificacion = true } = {}) => {
     if (!activeConversation) return;
 
     setClosingChat(true);
     try {
       // Lo que esté esperando en la bandeja de salida sale antes del cierre.
       await onEnviarPendiente?.();
-      const res = await adminFetch(`/api/conversations/${activeConversation.id}/close`, { method: 'POST' });
+      const res = await adminFetch(`/api/conversations/${activeConversation.id}/close`, {
+        method: 'POST',
+        body: JSON.stringify({ pedirCalificacion })
+      });
       if (!res.ok) throw new Error('No se pudo finalizar la consulta.');
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-ChatArea] Error finalizando la consulta:', err);
@@ -642,18 +650,16 @@ export default function ChatArea({
             {showExpiryBadge && (
               <div
                 title={
-                  timerPauseReason === 'en_espera'
-                    ? 'Consulta en la cola general, sin asignar: el cierre automático por inactividad está desactivado'
-                    : timerPauseReason === 'reasignado'
-                      ? 'Chat recién derivado/reasignado: el contador arranca cuando esta sucursal responda'
-                      : timerPauseReason === 'client'
-                        ? 'El cliente escribió el último mensaje: el contador arranca cuando la sucursal responda'
-                        : 'Tiempo restante antes de que la consulta se cierre por inactividad'
+                  timerPauseReason === 'espera_farmacia'
+                    ? 'El cliente está esperando respuesta de la farmacia: si nadie le responde, la consulta se cierra sola cuando llega a cero'
+                    : timerPauseReason === 'client'
+                      ? 'El cliente escribió el último mensaje: el contador arranca cuando se le responda'
+                      : 'Tiempo restante antes de que la consulta se cierre por inactividad del cliente'
                 }
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold tabular-nums transition-colors shrink-0 ${
                   timerPausedByClient || remainingMs <= 0
                     ? 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
-                    : remainingMs <= 30000
+                    : timerPauseReason === 'espera_farmacia' || remainingMs <= 30000
                       ? 'bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400'
                       : 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400'
                 }`}
@@ -694,7 +700,7 @@ export default function ChatArea({
                  <button
                    onClick={() => { setIsCloseModalOpen(true); }}
                    disabled={closingChat}
-                   title="Finalizar esta consulta y pedirle al cliente que la califique"
+                   title="Finalizar esta consulta"
                    className="p-2 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 rounded-full transition-colors disabled:opacity-50"
                  >
                    {closingChat ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle size={20} />}

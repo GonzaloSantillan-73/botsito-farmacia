@@ -74,13 +74,20 @@ const ESTADOS_TERMINALES = ['finalizada', 'resolved', 'rejected'];
 // el mensaje, si esta llamada es la que efectivamente saca a la conversación
 // de un estado activo. Si ya la había cerrado otro disparador, el UPDATE no
 // afecta ninguna fila y no se reenvía nada.
-export const finalizarConversacion = async (conversationId, clientPhone, motivo = 'por inactividad') => {
-  console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — conversationId:', conversationId, 'clientPhone:', clientPhone, 'motivo:', motivo);
+//
+// pedirCalificacion=false cierra en silencio: no se le manda nada al cliente
+// (ni el aviso de cierre ni la encuesta), así que tampoco queda esperando una
+// calificación. Lo usan el cierre manual con la casilla de encuesta
+// desmarcada y los cierres automáticos sin encuesta (consulta sólo con el
+// bot, o en espera sin que ninguna sucursal la tomara).
+export const finalizarConversacion = async (conversationId, clientPhone, motivo = 'por inactividad', { pedirCalificacion = true } = {}) => {
+  console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — conversationId:', conversationId, 'clientPhone:', clientPhone, 'motivo:', motivo, 'pedirCalificacion:', pedirCalificacion);
   try {
-    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — UPDATE condicional conversations, filtros: { id:', conversationId, ', status NOT IN:', ESTADOS_TERMINALES, '}, valores:', { status: 'finalizada', bot_state: 'awaiting_rating' });
+    const nuevoBotState = pedirCalificacion ? 'awaiting_rating' : null;
+    console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — UPDATE condicional conversations, filtros: { id:', conversationId, ', status NOT IN:', ESTADOS_TERMINALES, '}, valores:', { status: 'finalizada', bot_state: nuevoBotState });
     const { data: filaActualizada, error: updateError } = await supabase
       .from('conversations')
-      .update({ status: 'finalizada', bot_state: 'awaiting_rating' })
+      .update({ status: 'finalizada', bot_state: nuevoBotState })
       .eq('id', conversationId)
       .not('status', 'in', `(${ESTADOS_TERMINALES.join(',')})`)
       .select('id')
@@ -99,7 +106,7 @@ export const finalizarConversacion = async (conversationId, clientPhone, motivo 
       return;
     }
 
-    if (clientPhone) {
+    if (clientPhone && pedirCalificacion) {
       // instanceId/commit: si algún día vuelve a aparecer un mensaje de
       // cierre duplicado, comparar esta línea entre los dos envíos dice de
       // una si salieron del mismo proceso (bug acá) o de dos procesos

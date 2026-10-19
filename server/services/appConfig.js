@@ -109,6 +109,48 @@ export const setSessionPrewarningMs = async (ms) => {
   console.log('✅ [DEBUG-SERVICE-APPCONFIG] setSessionPrewarningMs() — completado sin valor de retorno (undefined)');
 };
 
+// Cierre automático cuando el que espera es el cliente (pidió un asesor y la
+// farmacia no le respondió: en espera, tomada sin respuesta, o la sucursal
+// dejó de contestar). Se cuenta desde el último mensaje del cliente, y el
+// máximo es 23 h porque Meta sólo deja escribirle dentro de las 24 h
+// siguientes a ese mensaje (la encuesta de cierre tiene que salir antes).
+const ESPERA_RESPUESTA_KEY = 'espera_respuesta_ms';
+const DEFAULT_ESPERA_RESPUESTA_MS = 12 * 60 * 60 * 1000;
+export const MIN_ESPERA_RESPUESTA_MS = 60 * 60 * 1000; // 1 hora
+export const MAX_ESPERA_RESPUESTA_MS = 23 * 60 * 60 * 1000; // 23 horas
+
+export const getEsperaRespuestaMs = async () => {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', ESPERA_RESPUESTA_KEY)
+    .maybeSingle();
+
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-APPCONFIG] getEsperaRespuestaMs() — error leyendo espera_respuesta_ms, se usa el default:', error);
+    return DEFAULT_ESPERA_RESPUESTA_MS;
+  }
+
+  const ms = Number(data?.value);
+  return Number.isFinite(ms) && ms >= MIN_ESPERA_RESPUESTA_MS && ms <= MAX_ESPERA_RESPUESTA_MS ? ms : DEFAULT_ESPERA_RESPUESTA_MS;
+};
+
+export const setEsperaRespuestaMs = async (ms) => {
+  if (!Number.isFinite(ms) || ms < MIN_ESPERA_RESPUESTA_MS || ms > MAX_ESPERA_RESPUESTA_MS) {
+    console.error('❌ [DEBUG-SERVICE-APPCONFIG] setEsperaRespuestaMs() — valor fuera de rango:', ms);
+    throw new Error(`El cierre por falta de respuesta debe estar entre ${MIN_ESPERA_RESPUESTA_MS / 3600000} y ${MAX_ESPERA_RESPUESTA_MS / 3600000} horas.`);
+  }
+
+  const { error } = await supabase
+    .from('app_settings')
+    .upsert({ key: ESPERA_RESPUESTA_KEY, value: ms, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-APPCONFIG] setEsperaRespuestaMs() — error guardando espera_respuesta_ms:', error);
+    throw error;
+  }
+};
+
 const BOT_KEYWORD_KEY = 'bot_reactivation_keyword';
 const DEFAULT_BOT_KEYWORD = 'BOT';
 

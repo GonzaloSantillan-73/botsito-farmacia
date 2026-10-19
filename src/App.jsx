@@ -154,6 +154,9 @@ function App() {
   // Límite de expiración de sesiones y umbral del aviso preventivo
   // ("¿Seguís ahí?"), configurables desde el panel de ajustes.
   const [sessionTimeoutMs, setSessionTimeoutMs] = useState(null);
+  // Cierre automático si la farmacia no le responde al cliente (ver
+  // getEsperaRespuestaMs en server/services/appConfig.js).
+  const [esperaRespuestaMs, setEsperaRespuestaMs] = useState(null);
   const [sessionPrewarningMs, setSessionPrewarningMs] = useState(null);
 
   const messagesEndRef = useRef(null);
@@ -164,6 +167,7 @@ function App() {
       .then(res => res.json())
       .then(data => {
         setSessionTimeoutMs(data.sessionTimeoutMs);
+        setEsperaRespuestaMs(data.esperaRespuestaMs ?? null);
         setSessionPrewarningMs(data.sessionPrewarningMs ?? 0);
       })
       .catch(err => console.error('❌ [DEBUG-COMPONENT-App] Error obteniendo config de sesión:', err));
@@ -892,6 +896,8 @@ function App() {
         onSessionTimeoutChange={setSessionTimeoutMs}
         sessionPrewarningMs={sessionPrewarningMs}
         onSessionPrewarningChange={setSessionPrewarningMs}
+        esperaRespuestaMs={esperaRespuestaMs}
+        onEsperaRespuestaChange={setEsperaRespuestaMs}
         showClientDirectory={showClientDirectory}
         onShowClientDirectory={handleShowClientDirectory}
         onLogout={handleLogout}
@@ -915,6 +921,7 @@ function App() {
           handleDeleteConversation={handleDeleteConversation}
           setModalImage={setModalImage}
           sessionTimeoutMs={sessionTimeoutMs}
+          esperaRespuestaMs={esperaRespuestaMs}
           onBackToHistory={historyReturnPhone ? handleBackToHistory : null}
           onOpenValidationMobile={() => { setShowValidationMobile(true); }}
         />

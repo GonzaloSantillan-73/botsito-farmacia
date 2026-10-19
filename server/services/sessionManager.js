@@ -30,6 +30,23 @@ export const getLastActivityTime = async (conversation) => {
   }
 };
 
+// ¿Alguna sucursal llegó a tomar (o recibir por derivación) esta consulta?
+// Decide si un cierre automático lleva encuesta: si sólo habló con el bot, o
+// quedó en espera sin que nadie la tomara, se cierra en silencio. Ante un
+// error de lectura se asume que sí, para no perder la encuesta.
+export const fueTomadaPorSucursal = async (conversationId) => {
+  const { data, error } = await supabase
+    .from('conversation_sucursal_historial')
+    .select('id')
+    .eq('conversation_id', conversationId)
+    .limit(1);
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-SESSIONMANAGER] fueTomadaPorSucursal() — error, se asume que sí:', error);
+    return true;
+  }
+  return (data || []).length > 0;
+};
+
 export const isSessionExpired = async (conversation) => {
   console.log('🔍 [DEBUG-SERVICE-SESSIONMANAGER] isSessionExpired() — conversation:', conversation);
   try {
@@ -106,7 +123,9 @@ export const findOrCreateSession = async (clientPhone, clientName) => {
         }
         console.log(`⏱️ [DEBUG-SERVICE-SESSIONMANAGER] findOrCreateSession() — CAMBIO DE ESTADO — conversación ${latest.id} expiró por inactividad, se marcará como 'finalizada'`);
         console.log(`[SESSION] La consulta ${latest.id} expiró por inactividad. Marcando como 'finalizada'.`);
-        await finalizarConversacion(latest.id, latest.client_phone, 'por inactividad');
+        // Consulta sólo con el bot: se cierra en silencio (sin encuesta).
+        const pedirCalificacion = await fueTomadaPorSucursal(latest.id);
+        await finalizarConversacion(latest.id, latest.client_phone, 'por inactividad', { pedirCalificacion });
       }
     }
 

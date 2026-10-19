@@ -222,6 +222,8 @@ export default function Sidebar({
   onSessionTimeoutChange,
   sessionPrewarningMs,
   onSessionPrewarningChange,
+  esperaRespuestaMs,
+  onEsperaRespuestaChange,
   showClientDirectory,
   onShowClientDirectory,
   onLogout,
@@ -519,9 +521,11 @@ export default function Sidebar({
         <SettingsModal
           sessionTimeoutMs={sessionTimeoutMs}
           sessionPrewarningMs={sessionPrewarningMs}
-          onSave={(newMs, newPrewarningMs) => {
+          esperaRespuestaMs={esperaRespuestaMs}
+          onSave={(newMs, newPrewarningMs, newEsperaMs) => {
             onSessionTimeoutChange && onSessionTimeoutChange(newMs);
             if (newPrewarningMs !== undefined) onSessionPrewarningChange && onSessionPrewarningChange(newPrewarningMs);
+            if (newEsperaMs !== undefined) onEsperaRespuestaChange && onEsperaRespuestaChange(newEsperaMs);
           }}
           onClose={() => { setShowSettings(false); }}
           isAdmin={isAdmin}

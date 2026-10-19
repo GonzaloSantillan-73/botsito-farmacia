@@ -1,6 +1,6 @@
 import { supabase } from '../supabase.js';
-import { TERMINAL_STATUSES } from './sessionManager.js';
-import { getSessionTimeoutMs, getSessionPrewarningMs } from './appConfig.js';
+import { TERMINAL_STATUSES, fueTomadaPorSucursal } from './sessionManager.js';
+import { getSessionTimeoutMs, getSessionPrewarningMs, getEsperaRespuestaMs } from './appConfig.js';
 import { finalizarConversacion } from './ratingSurvey.js';
 import { enviarMensajeBot, pedirNombresPendientes } from './bot.js';
 
@@ -58,13 +58,14 @@ export const checkExpiredSessions = async () => {
   console.log('⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — corrida iniciada en:', timestampInicio);
   try {
     console.log('📡 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — SELECT conversations, filtros: status NOT IN (', TERMINAL_STATUSES.join(','), ')');
-    const [{ data: activeConvs, error }, sessionTimeoutMs, sessionPrewarningMs] = await Promise.all([
+    const [{ data: activeConvs, error }, sessionTimeoutMs, sessionPrewarningMs, esperaRespuestaMs] = await Promise.all([
       supabase
         .from('conversations')
         .select('id, client_phone, status, sucursal_id, created_at, prewarning_sent_at, payment_status, sale_status')
         .not('status', 'in', `(${TERMINAL_STATUSES.join(',')})`),
       getSessionTimeoutMs(),
-      getSessionPrewarningMs()
+      getSessionPrewarningMs(),
+      getEsperaRespuestaMs()
     ]);
     console.log('📡 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — resultado SELECT conversations — cantidad de conversaciones activas evaluadas:', activeConvs?.length, 'error:', error, '— sessionTimeoutMs:', sessionTimeoutMs, '— sessionPrewarningMs:', sessionPrewarningMs);
 
@@ -82,22 +83,14 @@ export const checkExpiredSessions = async () => {
 
     for (const conv of activeConvs || []) {
       try {
-        // 'esperando' sin sucursal asignada = cola general: inmune por completo
-        // al timeout, sin importar quién escribió último (mismo criterio que
-        // ChatArea.jsx en el frontend). No hace falta ni consultar `messages`.
-        const enColaGeneralSinAsignar = conv.status === 'esperando' && !conv.sucursal_id;
-        if (enColaGeneralSinAsignar) {
-          console.log('⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — INMUNE (en_espera sin sucursal asignada) — conversationId:', conv.id);
-          continue;
-        }
-
-        console.log('📡 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — SELECT messages, filtros: { conversation_id:', conv.id, ', is_auto_reminder: false, sender_type != system }, order created_at desc, limit 1');
-        // is_auto_reminder=false: el propio aviso "¿Seguís ahí?" no cuenta como
-        // actividad para este cálculo, si no cada aviso reiniciaría el conteo
-        // que lo disparó y la conversación jamás llegaría a cerrarse sola.
+        // is_auto_reminder=false: el propio aviso "¿Seguís ahí?" (y los toques
+        // de botones ya usados) no cuentan como actividad para este cálculo,
+        // si no cada aviso reiniciaría el conteo que lo disparó y la
+        // conversación jamás llegaría a cerrarse sola.
         // sender_type != 'system': notas internas de timeline (devolución a la
         // cola, derivación directa entre sucursales) que nunca se le mandan al
         // cliente — no son ni "respondió la sucursal" ni "escribió el cliente".
+        console.log('📡 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — SELECT messages (último mensaje real), conversación:', conv.id);
         const { data: lastMsg, error: lastMsgError } = await supabase
           .from('messages')
           .select('sender_type, created_at')
@@ -107,55 +100,107 @@ export const checkExpiredSessions = async () => {
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
-        console.log('📡 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — resultado SELECT messages — data:', lastMsg, 'error:', lastMsgError);
-
-        // El timeout de cierre/aviso sólo tiene sentido cuando la respuesta
-        // pendiente es la del cliente (el bot o la sucursal ya le "tiraron la
-        // pelota"). Si el último mensaje real es del cliente (o todavía no
-        // escribió nadie), no hay inactividad que penalizar de su lado.
-        if (!lastMsg || lastMsg.sender_type === 'client') {
-          console.log('⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — INMUNE (último mensaje real es del cliente, o no hay mensajes) — conversationId:', conv.id);
+        if (lastMsgError) {
+          console.error('❌ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — error SELECT último mensaje de', conv.id, ':', lastMsgError);
+          continue;
+        }
+        if (!lastMsg) {
           continue;
         }
 
-        // Recién derivada/reasignada a una sucursal (tomada de la cola, o
-        // pasada directamente de otra): un mensaje saliente de ANTES de que
-        // esta sucursal se hiciera cargo (ej. de la sucursal anterior) no
-        // cuenta como que la sucursal ACTUAL ya respondió. Se compara contra
-        // la fila más reciente de conversation_sucursal_historial para esta
-        // conversación, que tomarConsulta.js/derivacionSucursal.js insertan
-        // justo después de confirmar la asignación.
-        const asignadaASucursal = conv.status === 'esperando' && !!conv.sucursal_id;
-        if (asignadaASucursal) {
-          const { data: ultimaAsignacion, error: histError } = await supabase
-            .from('conversation_sucursal_historial')
-            .select('created_at')
-            .eq('conversation_id', conv.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          if (histError) {
-            console.error('❌ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — error SELECT conversation_sucursal_historial (se sigue sin el gate de reasignación):', histError);
-          } else if (ultimaAsignacion?.created_at && new Date(lastMsg.created_at) <= new Date(ultimaAsignacion.created_at)) {
-            console.log('⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — INMUNE (reasignada, sin respuesta vigente de la sucursal actual) — conversationId:', conv.id, 'asignada desde:', ultimaAsignacion.created_at, 'último mensaje saliente:', lastMsg.created_at);
+        // 'esperando' = el cliente pidió un asesor (en la cola general o ya
+        // tomada por una sucursal). Lo que define qué reloj corre es quién
+        // tiene que contestar:
+        // - la sucursal le escribió último -> el que debe responder es el
+        //   cliente: inactividad normal, con "¿Seguís ahí?" y encuesta (abajo).
+        // - si no (escribió el cliente, o el último es del bot, ej. "te
+        //   estamos derivando"), el que espera es el cliente: se cierra a las
+        //   esperaRespuestaMs de su último mensaje, sin "¿Seguís ahí?". Con
+        //   encuesta sólo si alguna sucursal la llegó a tomar (si nadie la
+        //   atendió, se cierra en silencio).
+        if (conv.status === 'esperando') {
+          let respondioLaSucursal = lastMsg.sender_type === 'agent';
+
+          // Recién derivada/reasignada a una sucursal (tomada de la cola, o
+          // pasada directamente de otra): un mensaje saliente de ANTES de que
+          // esta sucursal se hiciera cargo (ej. de la sucursal anterior) no
+          // cuenta como que la sucursal ACTUAL ya respondió. Se compara contra
+          // la fila más reciente de conversation_sucursal_historial, que
+          // tomarConsulta.js/derivacionSucursal.js insertan al asignarla.
+          if (respondioLaSucursal && conv.sucursal_id) {
+            const { data: ultimaAsignacion, error: histError } = await supabase
+              .from('conversation_sucursal_historial')
+              .select('created_at')
+              .eq('conversation_id', conv.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (histError) {
+              console.error('❌ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — error SELECT conversation_sucursal_historial (se sigue sin el gate de reasignación):', histError);
+            } else if (ultimaAsignacion?.created_at && new Date(lastMsg.created_at) <= new Date(ultimaAsignacion.created_at)) {
+              respondioLaSucursal = false;
+            }
+          }
+
+          if (!respondioLaSucursal) {
+            // Se cuenta desde el último mensaje del CLIENTE (no del bot): es
+            // desde ahí que corren las 24 h en las que Meta deja escribirle.
+            const { data: ultimoDelCliente, error: clienteError } = await supabase
+              .from('messages')
+              .select('created_at')
+              .eq('conversation_id', conv.id)
+              .eq('sender_type', 'client')
+              .eq('is_auto_reminder', false)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (clienteError) {
+              console.error('❌ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — error SELECT último mensaje del cliente de', conv.id, ':', clienteError);
+              continue;
+            }
+            const desde = ultimoDelCliente?.created_at || conv.created_at;
+            const restanteEsperaMs = esperaRespuestaMs - (Date.now() - new Date(desde).getTime());
+
+            if (restanteEsperaMs <= 0) {
+              const pedirCalificacion = await fueTomadaPorSucursal(conv.id);
+              console.log('🔍 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — la farmacia no respondió a tiempo, se cierra', conv.id, '— con encuesta:', pedirCalificacion);
+              // Motivo vacío: "Tu consulta ha finalizado." (no "por
+              // inactividad", que culparía al cliente, que estaba esperando).
+              await finalizarConversacion(conv.id, conv.client_phone, '', { pedirCalificacion });
+              cerradasPorExpiracion.push(conv.id);
+              continue;
+            }
+
+            proximoChequeoMs = Math.min(proximoChequeoMs, restanteEsperaMs);
             continue;
           }
+        } else if (lastMsg.sender_type === 'client') {
+          // Modo bot con el último mensaje del cliente (el bot todavía no le
+          // contestó): no hay inactividad que penalizar de su lado.
+          continue;
         }
 
         const lastActivity = lastMsg.created_at;
         const elapsedMs = Date.now() - new Date(lastActivity).getTime();
         const restanteMs = sessionTimeoutMs - elapsedMs;
-        console.log('⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — conversationId:', conv.id, 'lastActivity:', lastActivity, 'elapsedMs:', elapsedMs, 'restanteMs:', restanteMs);
+
+        // Modo bot ('open') sin que ninguna sucursal la haya tomado nunca: la
+        // consulta fue sólo con el bot, así que se cierra en silencio y sin
+        // "¿Seguís ahí?" (cero mensajes cobrados).
+        const soloConElBot = conv.status !== 'esperando' && !(await fueTomadaPorSucursal(conv.id));
 
         if (restanteMs <= 0) {
-          console.log(`⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — CIERRE POR EXPIRACIÓN — conversationId: ${conv.id}, minutos sin actividad: ${Math.round(elapsedMs / 60000)}`);
-          console.log(`[SESSION EXPIRY] Finalizando consulta ${conv.id} por inactividad (${Math.round(elapsedMs / 60000)} min sin actividad).`);
-          await finalizarConversacion(conv.id, conv.client_phone, 'por inactividad');
+          console.log('🔍 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — inactividad vencida en', conv.id, '— sólo con el bot (sin encuesta):', soloConElBot);
+          await finalizarConversacion(conv.id, conv.client_phone, 'por inactividad', { pedirCalificacion: !soloConElBot });
           cerradasPorExpiracion.push(conv.id);
           continue;
         }
 
         proximoChequeoMs = Math.min(proximoChequeoMs, restanteMs);
+
+        if (soloConElBot) {
+          continue;
+        }
 
         // No tiene sentido preguntarle "¿seguís ahí?" a alguien que ya pagó o
         // cuya venta ya se concretó: el pedido sigue su curso aunque el
@@ -165,11 +210,7 @@ export const checkExpiredSessions = async () => {
         const pedidoYaResuelto = conv.payment_status === 'confirmado' || conv.sale_status === 'concretada';
 
         if (sessionPrewarningMs > 0 && !conv.prewarning_sent_at && restanteMs <= sessionPrewarningMs && !pedidoYaResuelto) {
-          console.log(`⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — PRE-AVISO — conversationId: ${conv.id}, restanteMs: ${restanteMs}, sessionPrewarningMs: ${sessionPrewarningMs}`);
-          console.log(`[SESSION EXPIRY] Mandando aviso preventivo de inactividad a la consulta ${conv.id}.`);
           await enviarAvisoInactividad(conv.id, conv.client_phone);
-        } else if (sessionPrewarningMs > 0 && !conv.prewarning_sent_at && restanteMs <= sessionPrewarningMs && pedidoYaResuelto) {
-          console.log(`⏱️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — PRE-AVISO OMITIDO (pago confirmado o venta concretada) — conversationId: ${conv.id}`);
         }
       } catch (err) {
         // Una falla acá en una conversación (ej. error de la API de Meta) no debe frenar el chequeo del resto

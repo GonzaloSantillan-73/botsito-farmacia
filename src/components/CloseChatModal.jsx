@@ -14,6 +14,10 @@ export default function CloseChatModal({
   const [reason, setReason] = useState('');
   const [amount, setAmount] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Encuesta de calificación al cliente: marcada por defecto y vuelve a
+  // marcarse cada vez que se abre el modal (aunque la última vez se haya
+  // desmarcado). Desmarcada, la consulta se finaliza sin mandarle nada.
+  const [pedirCalificacion, setPedirCalificacion] = useState(true);
 
   // Al abrir el modal, precargamos el monto con la última cotización enviada
   // desde el Cotizador para esta conversación (si existe), para que el
@@ -21,6 +25,7 @@ export default function CloseChatModal({
   React.useEffect(() => {
     if (!isOpen || !activeConversation?.id) return;
     setAmount('');
+    setPedirCalificacion(true);
     supabase
       .from('pedidos_cotizados')
       .select('total')
@@ -63,8 +68,8 @@ export default function CloseChatModal({
         return;
       }
 
-      // 2. Finalizar la conversación
-      await onConfirmClose();
+      // 2. Finalizar la conversación (con o sin encuesta al cliente)
+      await onConfirmClose({ pedirCalificacion });
 
       onClose();
     } catch (err) {
@@ -177,6 +182,23 @@ export default function CloseChatModal({
               />
             </div>
           )}
+
+          <label className="flex items-start gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/60 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={pedirCalificacion}
+              onChange={(e) => { setPedirCalificacion(e.target.checked); }}
+              className="mt-0.5 w-4 h-4 accent-teal-600 shrink-0"
+            />
+            <span className="text-sm">
+              <span className="block font-medium text-gray-800 dark:text-gray-200">Pedirle al cliente que califique la atención</span>
+              <span className="block text-xs text-gray-500 dark:text-gray-400">
+                {pedirCalificacion
+                  ? 'Se le envía el mensaje de cierre con la encuesta.'
+                  : 'La consulta se finaliza sin enviarle ningún mensaje al cliente.'}
+              </span>
+            </span>
+          </label>
 
           <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
             <button
