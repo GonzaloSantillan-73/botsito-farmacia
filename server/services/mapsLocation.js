@@ -113,6 +113,24 @@ export const extraerCoordenadasDeUrl = async (url) => {
 // Busca un link de Google Maps dentro de un texto libre (mensaje del
 // cliente) y devuelve sus coordenadas. Null si el texto no trae ningún link
 // reconocible o no se pudo resolver a coordenadas.
+// Chequeo rápido y sin red: ¿el texto trae un link de Google Maps? Lo usa el
+// menú principal del bot para derivar directo a quien pega su ubicación en
+// vez de tocar una opción (después extraerCoordenadasDeMensaje la resuelve).
+// En www.google.com / google.com sólo cuenta si la ruta es de Maps, para no
+// tomar como ubicación cualquier link de Google (ej. una búsqueda).
+export const esLinkDeGoogleMaps = (texto) => {
+  const match = (texto || '').match(REGEX_URL);
+  if (!match || !esHostPermitido(match[0])) return false;
+  try {
+    const url = new URL(match[0]);
+    const host = url.hostname.toLowerCase();
+    if (host === 'www.google.com' || host === 'google.com') return url.pathname.startsWith('/maps');
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const extraerCoordenadasDeMensaje = async (texto) => {
   console.log('🔍 [DEBUG-SERVICE-MAPSLOCATION] extraerCoordenadasDeMensaje() — texto:', texto);
 

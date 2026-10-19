@@ -170,11 +170,20 @@ export const guardarCalificacionAtencion = async (conversationId, clientPhone, r
     if (conv && conv.payment_status === 'confirmado') {
       // Si el pago está confirmado, pedimos la calificación del producto
       console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — pago confirmado, UPDATE conversations, filtros: { id:', conversationId, '}, valores:', { rating, bot_state: 'awaiting_product_rating' });
+      // Condicional a que la encuesta siga pendiente: si el cliente escribe el
+      // número y toca la lista casi al mismo tiempo, sólo la primera
+      // respuesta se guarda y se contesta (la otra no manda nada).
       const updateResp = await supabase
         .from('conversations')
         .update({ rating, bot_state: 'awaiting_product_rating' })
-        .eq('id', conversationId);
+        .eq('id', conversationId)
+        .eq('bot_state', 'awaiting_rating')
+        .select('id');
       console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — resultado UPDATE conversations — data:', updateResp.data, 'error:', updateResp.error);
+      if (!updateResp.error && !updateResp.data?.length) {
+        console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — la encuesta ya se había respondido; no se contesta de nuevo.');
+        return;
+      }
 
       await enviarMensajeBot(conversationId, clientPhone, MENSAJE_PEDIR_RATING_PRODUCTO, {}, LISTA_CALIFICACION);
     } else {
@@ -183,8 +192,14 @@ export const guardarCalificacionAtencion = async (conversationId, clientPhone, r
       const updateResp = await supabase
         .from('conversations')
         .update({ rating, bot_state: null })
-        .eq('id', conversationId);
+        .eq('id', conversationId)
+        .eq('bot_state', 'awaiting_rating')
+        .select('id');
       console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — resultado UPDATE conversations — data:', updateResp.data, 'error:', updateResp.error);
+      if (!updateResp.error && !updateResp.data?.length) {
+        console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — la encuesta ya se había respondido; no se contesta de nuevo.');
+        return;
+      }
 
       await enviarMensajeBot(conversationId, clientPhone, MENSAJE_DESPEDIDA_ENCUESTA);
     }
@@ -207,8 +222,14 @@ export const guardarCalificacionProducto = async (conversationId, clientPhone, p
     const updateResp = await supabase
       .from('conversations')
       .update({ product_rating: productRating, bot_state: null })
-      .eq('id', conversationId);
+      .eq('id', conversationId)
+      .eq('bot_state', 'awaiting_product_rating')
+      .select('id');
     console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionProducto() — resultado UPDATE conversations — data:', updateResp.data, 'error:', updateResp.error);
+    if (!updateResp.error && !updateResp.data?.length) {
+      console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionProducto() — la encuesta ya se había respondido; no se contesta de nuevo.');
+      return;
+    }
 
     await enviarMensajeBot(conversationId, clientPhone, MENSAJE_DESPEDIDA_ENCUESTA);
 

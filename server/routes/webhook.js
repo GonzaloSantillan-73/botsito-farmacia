@@ -2,7 +2,7 @@ import express from 'express';
 import { supabase } from '../supabase.js';
 import { downloadWhatsAppMedia, normalizarTelefono } from '../services/whatsapp.js';
 import { procesarMensajeBot } from '../services/bot.js';
-import { findOrCreateSession } from '../services/sessionManager.js';
+import { findOrCreateSession, TERMINAL_STATUSES } from '../services/sessionManager.js';
 import { getConversationAwaitingRating, isValidRatingReply, normalizarRespuestaRating, guardarCalificacionAtencion, guardarCalificacionProducto, descartarEncuestaPendiente, getConversacionRecienDespedida } from '../services/ratingSurvey.js';
 import { analizarPdf, esDocumentoPdf } from '../services/pdfSecurity.js';
 import dotenv from 'dotenv';
@@ -22,30 +22,51 @@ const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
 // - 'vigente': no se había usado; queda marcado como usado y se procesa.
 // - 'usado': ya se había respondido (o un toque simultáneo lo reservó antes):
 //   el bot no responde.
-// - 'desconocido': no se encontró el mensaje, o falta la columna
-//   (supabase/messages_botones.sql): se procesa como siempre.
+// - 'desconocido': no se encontró el mensaje, falta la columna
+//   (supabase/messages_botones.sql) o el mensaje se mandó antes de que
+//   existiera: se procesa como siempre.
+// La reserva marca de una vez TODAS las botoneras sin usar de esa consulta
+// (ej. el saludo y el recordatorio, que tienen los mismos botones): si el
+// cliente toca un botón de cada una casi al mismo tiempo, sólo el primer
+// toque las reserva y el segundo queda como 'usado' (sin esto, los dos se
+// procesaban y el bot respondía dos veces).
+// Devuelve también el tipo ('botones' = menú, 'lista' = encuesta) y si esa
+// consulta ya está cerrada.
 const revisarBotonPresionado = async (wamidBotonera) => {
   const { data, error } = await supabase
     .from('messages')
-    .select('id, conversation_id, botones_usado')
+    .select('id, conversation_id, botones, botones_usado')
     .eq('wamid', wamidBotonera)
     .eq('sender_type', 'bot')
     .maybeSingle();
-  if (error || !data) {
+  if (error || !data || !data.botones) {
     if (error) console.warn('⚠️ [DEBUG-WEBHOOK] revisarBotonPresionado() — no se pudo revisar (¿falta supabase/messages_botones.sql?):', error.message);
     return { estado: 'desconocido' };
   }
-  if (data.botones_usado) return { estado: 'usado', conversationId: data.conversation_id };
 
-  const { data: reservada, error: errorReserva } = await supabase
+  const { data: conv } = await supabase
+    .from('conversations')
+    .select('status')
+    .eq('id', data.conversation_id)
+    .maybeSingle();
+  const info = {
+    conversationId: data.conversation_id,
+    tipo: data.botones.tipo,
+    consultaCerrada: TERMINAL_STATUSES.includes(conv?.status)
+  };
+  if (data.botones_usado) return { estado: 'usado', ...info };
+
+  const { data: reservadas, error: errorReserva } = await supabase
     .from('messages')
     .update({ botones_usado: true })
-    .eq('id', data.id)
+    .eq('conversation_id', data.conversation_id)
+    .eq('sender_type', 'bot')
     .eq('botones_usado', false)
+    .not('botones', 'is', null)
     .select('id');
   if (errorReserva) return { estado: 'desconocido' };
-  if (!reservada?.length) return { estado: 'usado', conversationId: data.conversation_id };
-  return { estado: 'vigente', conversationId: data.conversation_id };
+  if (!reservadas?.some(r => r.id === data.id)) return { estado: 'usado', ...info };
+  return { estado: 'vigente', ...info };
 };
 
 // 1. Verificación del Webhook (GET) - Requerido por Meta
@@ -198,12 +219,22 @@ router.post('/', async (req, res) => {
         const wamidBotonera = messageType === 'interactive' ? waMessage.context?.id : null;
         const botonera = wamidBotonera ? await revisarBotonPresionado(wamidBotonera) : { estado: 'desconocido' };
 
-        // Para la encuesta cuenta tanto el número escrito como la fila de la
-        // lista tocada (su id es el número).
+        // Para la encuesta cuenta el número escrito o la fila tocada de la
+        // lista de la encuesta (su id es el número). Los botones del menú NO
+        // cuentan como calificación aunque sus ids sean 1, 2 y 3: tocar
+        // "Hablar con un asesor" con una encuesta pendiente no puede guardarse
+        // como un 1 ("Muy insatisfecho").
+        const esToqueDeLista = messageType === 'interactive' && !!waMessage.interactive?.list_reply;
         const rawTextForRating = messageType === 'text'
           ? waMessage.text.body
-          : (messageType === 'interactive' ? (waMessage.interactive?.list_reply?.id || waMessage.interactive?.button_reply?.id || null) : null);
+          : (esToqueDeLista ? waMessage.interactive.list_reply.id : null);
         const pendingRatingConv = botonera.estado === 'usado' ? null : await getConversationAwaitingRating(clientPhone);
+        // La lista de una encuesta sólo califica esa misma consulta: tocar la
+        // lista de una encuesta vieja (que el cliente dejó sin responder) no
+        // puede calificar otra consulta más nueva.
+        const listaDeEstaEncuesta = !esToqueDeLista || !botonera.conversationId
+          || (pendingRatingConv && botonera.conversationId === pendingRatingConv.id);
+        const esCalificacion = pendingRatingConv && rawTextForRating && isValidRatingReply(rawTextForRating) && listaDeEstaEncuesta;
         // Sin encuesta pendiente: si hace menos de 3 min se le mandó la
         // despedida de la encuesta, el mensaje (ej. "gracias igualmente") se
         // guarda en esa consulta cerrada y el bot no responde ni abre otra.
@@ -213,7 +244,28 @@ router.post('/', async (req, res) => {
           conversationId = botonera.conversationId;
           isNewSession = false;
           ignorarBotonUsado = true;
-        } else if (pendingRatingConv && rawTextForRating && isValidRatingReply(rawTextForRating)) {
+        } else if (esToqueDeLista && botonera.conversationId && !esCalificacion) {
+          // Lista de una encuesta que ya no está pendiente (se descartó, o es
+          // de otra consulta): sus filas no son opciones del menú, así que el
+          // toque se guarda en esa consulta y el bot no responde.
+          console.log(`[WEBHOOK] -> Toque de una lista de encuesta que ya no corresponde (consulta ${botonera.conversationId}); se ignora.`);
+          conversationId = botonera.conversationId;
+          isNewSession = false;
+          ignorarBotonUsado = true;
+        } else if (!esCalificacion && botonera.estado === 'vigente' && botonera.consultaCerrada) {
+          // Botón del menú de una consulta que ya se cerró: no se ejecuta esa
+          // opción sobre otra consulta. Si el cliente ya tiene otra abierta, el
+          // toque se ignora; si no, se abre una nueva con el saludo y el menú
+          // (como si hubiera escrito), sin ejecutar la opción vieja.
+          if (pendingRatingConv) await descartarEncuestaPendiente(clientPhone);
+          const { conversation, isNewSession: isNew } = await findOrCreateSession(clientPhone, clientName);
+          conversationId = conversation.id;
+          isNewSession = isNew;
+          if (!isNew) {
+            console.log(`[WEBHOOK] -> Botón de la consulta cerrada ${botonera.conversationId} con otra consulta abierta (${conversationId}); se ignora.`);
+            ignorarBotonUsado = true;
+          }
+        } else if (esCalificacion) {
           console.log(`[WEBHOOK] -> Respuesta a la encuesta de satisfacción detectada para la consulta ${pendingRatingConv.id}.`);
           conversationId = pendingRatingConv.id;
           isNewSession = false;
@@ -380,7 +432,13 @@ router.post('/', async (req, res) => {
           // wamid de ese mensaje en context.id (ver supabase/messages_reply_to.sql).
           // Sólo se agrega la clave cuando hay cita, para que los mensajes
           // comunes no dependan de que la columna ya exista.
-          ...(waMessage.context?.id ? { reply_to_wamid: waMessage.context.id } : {})
+          ...(waMessage.context?.id ? { reply_to_wamid: waMessage.context.id } : {}),
+          // Un toque de botón ignorado (ya usado, o de una consulta/encuesta
+          // vieja) queda en el chat pero no cuenta como actividad del cliente:
+          // si contara, el cierre por inactividad lo tomaría como "el cliente
+          // escribió último" y la consulta no se cerraría nunca (mismo
+          // criterio que el aviso "¿Seguís ahí?", ver sessionExpiryChecker.js).
+          ...(ignorarBotonUsado ? { is_auto_reminder: true } : {})
         };
         console.log(`[WEBHOOK] -> Payload insert 'messages':`, messagePayload);
         console.log(`🔍 [DEBUG-WEBHOOK] 📡 Consulta Supabase - tabla: messages, operación: insert, filtros: N/A (insert simple)`);
@@ -401,15 +459,19 @@ router.post('/', async (req, res) => {
         // prewarning_sent_at se limpia acá: el cliente escribió, así que si más
         // adelante vuelve a quedar inactivo tiene que poder recibir el aviso
         // preventivo de nuevo (ver server/services/sessionExpiryChecker.js).
-        const { data: updateData, error: updateError } = await supabase.from('conversations')
-          .update({ last_message: previewText, prewarning_sent_at: null })
-          .eq('id', conversationId)
-          .select();
-          
-        if (updateError) {
-           console.error('[WEBHOOK] ❌ ERROR ACTUALIZANDO LAST_MESSAGE EN SUPABASE:', updateError);
-        } else {
-           console.log(`[WEBHOOK] ✅ last_message actualizado correctamente:`, updateData);
+        // Un toque ignorado no es actividad: no toca la consulta (si limpiara
+        // prewarning_sent_at, habilitaría otro "¿Seguís ahí?", que se cobra).
+        if (!ignorarBotonUsado) {
+          const { data: updateData, error: updateError } = await supabase.from('conversations')
+            .update({ last_message: previewText, prewarning_sent_at: null })
+            .eq('id', conversationId)
+            .select();
+
+          if (updateError) {
+             console.error('[WEBHOOK] ❌ ERROR ACTUALIZANDO LAST_MESSAGE EN SUPABASE:', updateError);
+          } else {
+             console.log(`[WEBHOOK] ✅ last_message actualizado correctamente:`, updateData);
+          }
         }
         
         console.log(`[WEBHOOK - POST /] ==> ✅ FIN PROCESAMIENTO EXITOSO DEL EVENTO`);

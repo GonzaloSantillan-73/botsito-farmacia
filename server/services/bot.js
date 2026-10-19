@@ -5,7 +5,7 @@ import { getBotSchedule, isWithinSchedule, renderScheduleMessage } from './sched
 import { getSucursalesActivas, formatearMensajeSucursales } from './sucursales.js';
 import { getCliente, tieneRegistroCompleto, guardarDatoCliente, incrementarInteraccionesBot } from './clientes.js';
 import { sucursalesMasCercanas } from './geolocalizacion.js';
-import { extraerCoordenadasDeMensaje } from './mapsLocation.js';
+import { extraerCoordenadasDeMensaje, esLinkDeGoogleMaps } from './mapsLocation.js';
 
 // El menú principal se manda con botones de WhatsApp (máx. 3, título de hasta
 // 20 caracteres). El id de cada botón es el mismo número que se escribía antes,
@@ -87,6 +87,28 @@ const enviarMenuPrincipal = async (conversationId, telefono, { prefijo = '', esF
   console.warn('⚠️ [DEBUG-SERVICE-BOT] enviarMenuPrincipal() — el saludo es demasiado largo para un mensaje con botones, se manda el menú numerado.');
   const cuerpoTexto = cuerpo.replace(MENU_TEXTO_BOTONES, MENU_OPCIONES);
   await enviarMensajeBot(conversationId, telefono, cuerpoTexto);
+};
+
+// Pasa la consulta del menú principal (bot_state vacío) al estado `updates`
+// sólo si sigue en el menú principal: es un UPDATE condicional, así que si
+// llegan dos mensajes del cliente a la vez, el segundo encuentra que el
+// estado ya cambió y no responde (en vez de mandar dos veces el mismo
+// mensaje). Con `sinRecordatorio` además exige que todavía no se haya mandado
+// el recordatorio de botones. Ante un error de la base se sigue igual, para
+// no dejar al cliente sin respuesta.
+const reservarSalidaDelMenu = async (conversationId, updates, { sinRecordatorio = false } = {}) => {
+  let query = supabase.from('conversations').update(updates).eq('id', conversationId).is('bot_state', null);
+  if (sinRecordatorio) query = query.is('bot_context->>recordatorio_botones', null);
+  const { data, error } = await query.select('id');
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-BOT] reservarSalidaDelMenu() — error, se sigue sin reservar:', error?.message);
+    return true;
+  }
+  if (!data?.length) {
+    console.log('🔍 [DEBUG-SERVICE-BOT] reservarSalidaDelMenu() — otro mensaje simultáneo ya salió del menú; no se responde de nuevo.');
+    return false;
+  }
+  return true;
 };
 
 // Una vez que el cliente eligió una opción (tocando un botón o escribiendo el
@@ -400,22 +422,27 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
     const tLower = t.toLowerCase();
     console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — rama: menú principal. Opción elegida (tLower):', tLower);
     const esOpcionDelMenu = ['1', '2', '3'].includes(tLower);
-    // Ubicación nativa mandada sin elegir opción: el cliente ya quiere que lo
-    // atiendan y mandó justo lo que se le iba a pedir, así que se usa directo.
-    let esUbicacionNativa = false;
+    // Ubicación mandada sin elegir opción (con el botón de WhatsApp o pegando
+    // un link de Google Maps): el cliente ya quiere que lo atiendan y mandó
+    // justo lo que se le iba a pedir, así que se usa directo.
+    let esUbicacion = esLinkDeGoogleMaps(t);
     try {
       const parsed = JSON.parse(t);
-      esUbicacionNativa = typeof parsed?.lat === 'number' && typeof parsed?.lng === 'number';
+      if (typeof parsed?.lat === 'number' && typeof parsed?.lng === 'number') esUbicacion = true;
     } catch {
       // No es una ubicación nativa.
     }
-    if (esOpcionDelMenu || esUbicacionNativa) {
+    if (esOpcionDelMenu || esUbicacion) {
       await marcarBotonesUsados(conversationId);
     }
 
-    if (esUbicacionNativa) {
+    // Cada salida del menú principal se "reserva" antes de responder (ver
+    // reservarSalidaDelMenu): si llegan dos mensajes del cliente a la vez,
+    // sólo uno responde y el otro no manda nada, en vez de duplicar el
+    // mensaje (cada uno se cobra).
+    if (esUbicacion) {
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — ubicación recibida en el menú principal. Se deriva directo.');
-      await actualizarEstadoConversacion(conversationId, { bot_state: 'esperando_ubicacion', bot_context: null });
+      if (!(await reservarSalidaDelMenu(conversationId, { bot_state: 'esperando_ubicacion', bot_context: null }))) return;
       await manejarUbicacionHumano(conversationId, telefono, t);
     } else if (tLower === '1') {
       // Ya no hay un horario global de "Asesores Humanos": la disponibilidad
@@ -424,26 +451,27 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
       // manejarUbicacionHumano más abajo), así que acá se pide directo.
       console.log(`[BOT] Pidiendo ubicación antes de derivar a un asesor humano para ID: ${conversationId}`);
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — se pasa a estado esperando_ubicacion.');
-      await actualizarEstadoConversacion(conversationId, { bot_state: 'esperando_ubicacion', bot_context: null });
+      if (!(await reservarSalidaDelMenu(conversationId, { bot_state: 'esperando_ubicacion', bot_context: null }))) return;
       await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_UBICACION);
     } else if (tLower === '2') {
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — opción "2" (Horarios y sucursales). Se deriva a mostrarSucursales().');
       await mostrarSucursales(conversationId, telefono);
     } else if (tLower === '3') {
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — opción "3" (Cambiar mi nombre). Se deriva a iniciarEdicionDatos().');
+      if (!(await reservarSalidaDelMenu(conversationId, { bot_state: 'editar_nombre', bot_context: null }))) return;
       await iniciarEdicionDatos(conversationId, telefono);
     } else if (!conv?.bot_context?.recordatorio_botones) {
       // Escribió en vez de tocar un botón: primera vez, recordatorio corto con
       // los botones (en vez de reenviar el saludo y el menú completos).
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — opción no reconocida ("', tLower, '"). Se manda el recordatorio de botones.');
-      await actualizarEstadoConversacion(conversationId, { bot_context: { recordatorio_botones: true } });
+      if (!(await reservarSalidaDelMenu(conversationId, { bot_context: { recordatorio_botones: true } }, { sinRecordatorio: true }))) return;
       await enviarMensajeBot(conversationId, telefono, MENSAJE_RECORDATORIO_BOTONES, {}, MENU_BOTONES);
     } else {
       // Segunda vez que escribe en vez de tocar un botón: se entiende que
       // quiere que lo atiendan y se le pide la ubicación (como la opción 1).
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — opción no reconocida por segunda vez. Se pide la ubicación para derivar.');
+      if (!(await reservarSalidaDelMenu(conversationId, { bot_state: 'esperando_ubicacion', bot_context: null }))) return;
       await marcarBotonesUsados(conversationId);
-      await actualizarEstadoConversacion(conversationId, { bot_state: 'esperando_ubicacion', bot_context: null });
       await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_UBICACION);
     }
     console.log('✅ [DEBUG-SERVICE-BOT] procesarMensajeBot() — valor de retorno: undefined (fin normal del flujo de menú principal)');
@@ -465,7 +493,10 @@ const mostrarSucursales = async (conversationId, telefono) => {
   } catch (err) {
     console.error('[BOT] Error obteniendo las sucursales:', err);
     console.error('❌ [DEBUG-SERVICE-BOT] mostrarSucursales() — error obteniendo sucursales:', err?.message, err?.stack);
-    await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_SUCURSALES);
+    // El aviso le pide que intente de nuevo, así que va con botones nuevos:
+    // los del menú que tocó ya quedaron usados y no responderían.
+    await actualizarEstadoConversacion(conversationId, { bot_context: null });
+    await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_SUCURSALES, {}, MENU_BOTONES);
     console.log('✅ [DEBUG-SERVICE-BOT] mostrarSucursales() — valor de retorno: undefined (cortado por error consultando sucursales)');
     return;
   }

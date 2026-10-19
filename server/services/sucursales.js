@@ -139,7 +139,7 @@ export const formatearMensajeSucursales = (sucursales) => {
   console.log('🔍 [DEBUG-SERVICE-SUCURSALES] formatearMensajeSucursales() — parámetros recibidos:', { sucursales });
 
   if (!sucursales || sucursales.length === 0) {
-    const resultadoVacio = ['Por el momento no tenemos sucursales cargadas. Escribí "1" para hablar con un asesor y te contamos dónde estamos.'];
+    const resultadoVacio = ['Por el momento no tenemos sucursales cargadas. Tocá *Hablar con un asesor* y te contamos dónde estamos.'];
     console.log('✅ [DEBUG-SERVICE-SUCURSALES] formatearMensajeSucursales() — valor de retorno (sin sucursales):', resultadoVacio);
     return resultadoVacio;
   }
