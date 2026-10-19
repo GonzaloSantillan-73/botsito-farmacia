@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Gift, Sparkles, TrendingUp, Wrench } from 'lucide-react';
+import { X, Mailbox, Sparkles, TrendingUp, Wrench } from 'lucide-react';
 import { NOVEDADES } from '../data/novedades';
 import { isAdminRole, getAdminUsername } from '../lib/adminAuth';
 import { renderWhatsAppText } from '../lib/whatsappFormat';
@@ -81,7 +81,7 @@ export default function NovedadesPanel({ onClose }) {
       <div className="flex items-center justify-between gap-3 px-6 py-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <div className="p-2 rounded-xl bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-300">
-            <Gift size={22} />
+            <Mailbox size={22} />
           </div>
           <div className="min-w-0">
             <h2 className="font-bold text-lg text-gray-900 dark:text-gray-100">Novedades del CRM</h2>

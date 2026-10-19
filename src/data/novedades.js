@@ -11,6 +11,18 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-10-19-armador-mensaje',
+    fecha: '2026-10-19',
+    tipo: 'nuevo',
+    para: 'todos',
+    titulo: 'Armador de mensaje: productos ordenados en un solo mensaje',
+    detalle: [
+      'Al lado del clip 📎 hay un botón nuevo con una bolsa 🛍️. Ahí cargás productos con precio, cantidad y % de descuento, y con *Agregar al mensaje* se suman ordenados al final de lo que estás escribiendo.',
+      'Sirve para pasarle al cliente varias opciones o presentaciones juntas. No muestra envío ni total, y no reemplaza al cotizador.',
+      'Es opcional. La lista queda guardada en ese chat por si la tenés que volver a mandar.'
+    ]
+  },
+  {
     id: '2026-10-19-ubicacion-sin-menu',
     fecha: '2026-10-19',
     tipo: 'mejora',
@@ -28,7 +40,7 @@ export const NOVEDADES = [
     titulo: 'Buzón de novedades',
     detalle: [
       'Este buzón. Acá vas a ver cada cosa nueva, mejorada o corregida del CRM, con su fecha.',
-      'Cuando haya novedades sin leer, el ícono del regalo 🎁 de arriba muestra un número rojo.'
+      'Cuando haya novedades sin leer, el ícono del buzón 📫 de arriba muestra un número rojo.'
     ]
   },
   {

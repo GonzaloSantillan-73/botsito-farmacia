@@ -1,5 +1,5 @@
 import React, { useState, useEffect, memo } from 'react';
-import { Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut, MapPin, Hand, Send, Undo2, Store, Gift } from 'lucide-react';
+import { Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut, MapPin, Hand, Send, Undo2, Store, Mailbox } from 'lucide-react';
 import SettingsModal from './SettingsModal';
 import NovedadesPanel, { contarNovedadesSinLeer } from './NovedadesPanel';
 import { formatPhone } from '../lib/formatPhone';
@@ -349,7 +349,7 @@ export default function Sidebar({
               title={novedadesSinLeer > 0 ? `Novedades del CRM (${novedadesSinLeer} sin leer)` : 'Novedades del CRM'}
               className="relative p-2 text-gray-400 hover:text-teal-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
             >
-              <Gift size={20} />
+              <Mailbox size={20} />
               {novedadesSinLeer > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold leading-[18px] text-center tabular-nums">
                   {novedadesSinLeer > 9 ? '9+' : novedadesSinLeer}

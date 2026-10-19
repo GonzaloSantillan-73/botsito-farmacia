@@ -17,6 +17,7 @@ import AdminPasswordActionModal from './AdminPasswordActionModal';
 import { alertDialog } from '../lib/dialogService';
 import { recortarNombre } from '../lib/recortarNombre';
 import { ESPERA_AGRUPAR_MS } from '../lib/useBandejaSalida';
+import ArmadorMensaje, { formatearProductosParaMensaje } from './ArmadorMensaje';
 
 // Estados en los que la conversación ya está cerrada y no aplica el conteo de expiración.
 const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
@@ -99,6 +100,26 @@ export default function ChatArea({
   onOpenValidationMobile
 }) {
   const [showQuickResponses, setShowQuickResponses] = useState(false);
+  // Armador de mensajes (ver ArmadorMensaje.jsx): la lista de productos se
+  // guarda por chat y no se vacía al agregarla al mensaje.
+  const [showArmador, setShowArmador] = useState(false);
+  const [productosPorChat, setProductosPorChat] = useState({});
+  const productosArmador = productosPorChat[activeConversation?.id] || [];
+  const setProductosArmador = (actualizar) => {
+    const id = activeConversation?.id;
+    if (!id) return;
+    setProductosPorChat(prev => ({ ...prev, [id]: typeof actualizar === 'function' ? actualizar(prev[id] || []) : actualizar }));
+  };
+  // Los productos van siempre al final de lo que ya está escrito.
+  const agregarProductosAlMensaje = () => {
+    if (productosArmador.length === 0) return;
+    const bloque = formatearProductosParaMensaje(productosArmador);
+    setMessageInput(prev => (prev.trim() ? `${prev.replace(/s+$/, '')}
+
+${bloque}` : bloque));
+    setShowArmador(false);
+    textareaRef.current?.focus();
+  };
   const [quickResponses, setQuickResponses] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -124,6 +145,9 @@ export default function ChatArea({
   const [respondiendoA, setRespondiendoA] = useState(null);
   useEffect(() => {
     setRespondiendoA(null);
+    // La ventanita del armador se cierra al cambiar de chat (la lista de
+    // cada chat queda guardada).
+    setShowArmador(false);
   }, [activeConversation?.id]);
   const messagesContainerRef = useRef(null);
 
@@ -936,6 +960,15 @@ export default function ChatArea({
             </div>
           ) : (
           <div className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 relative flex flex-col gap-2">
+            {showArmador && (
+              <ArmadorMensaje
+                productos={productosArmador}
+                setProductos={setProductosArmador}
+                onAgregarAlMensaje={agregarProductosAlMensaje}
+                onClose={() => { setShowArmador(false); }}
+              />
+            )}
+
             {showQuickResponses && (
               <div className="absolute bottom-[100%] mb-2 left-4 right-4 md:right-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl rounded-xl w-auto md:w-[350px] overflow-hidden z-20">
                 <div className="bg-gray-50 dark:bg-gray-900 px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
@@ -999,9 +1032,9 @@ export default function ChatArea({
               </div>
             )}
 
-            <div className="flex items-end gap-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl p-2 focus-within:border-teal-500 focus-within:ring-1 focus-within:ring-teal-500 transition-shadow">
+            <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl p-2 focus-within:border-teal-500 focus-within:ring-1 focus-within:ring-teal-500 transition-shadow">
               <button
-                onClick={() => { setShowQuickResponses(!showQuickResponses); }}
+                onClick={() => { setShowArmador(false); setShowQuickResponses(!showQuickResponses); }}
                 className={`p-2 transition-colors rounded-lg ${showQuickResponses ? 'bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950'}`}
                 title="Respuestas Rápidas (/)"
               >
@@ -1021,6 +1054,13 @@ export default function ChatArea({
                 title="Adjuntar archivo"
               >
                 <Paperclip size={20} />
+              </button>
+              <button
+                onClick={() => { setShowQuickResponses(false); setShowArmador(v => !v); }}
+                className={`p-2 transition-colors rounded-lg ${showArmador ? 'bg-teal-100 dark:bg-teal-950 text-teal-600 dark:text-teal-400' : 'text-gray-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950'}`}
+                title="Armador de mensaje: agregar productos ordenados al mensaje"
+              >
+                <ShoppingBag size={20} />
               </button>
 
               <textarea
