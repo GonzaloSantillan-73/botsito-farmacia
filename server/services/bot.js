@@ -176,7 +176,15 @@ const determinarEstadoRegistro = (cliente) => {
 
 const mensajeDerivacionHumano = (keyword) => {
   console.log('🔍 [DEBUG-SERVICE-BOT] mensajeDerivacionHumano() — parámetros recibidos:', { keyword });
-  const resultado = `Entendido, te estamos derivando con un asesor humano.\n\nEn breve se pondrán en contacto contigo. Si en cualquier momento querés volver a hablar con el bot, escribí la palabra "${keyword}".`;
+  // Ya no menciona la palabra para volver al bot (sigue funcionando si el
+  // cliente la escribe): ahora le pide que adelante todo lo que necesita
+  // mientras espera, para que la sucursal lo atienda con menos idas y vueltas.
+  const resultado = 'Entendido, te estamos derivando con un asesor humano.\n\n'
+    + 'Mientras esperás, contanos *todo* lo que necesitás. Por ejemplo:\n'
+    + '• Si buscás un producto, escribí el nombre.\n'
+    + '• Si querés comprar algo, decinos qué y cuántos.\n'
+    + '• Si tenés otra consulta, contanos cuál es.\n\n'
+    + 'Así, cuando te atiendan, ya tienen todo. 😊';
   console.log('✅ [DEBUG-SERVICE-BOT] mensajeDerivacionHumano() — valor de retorno:', resultado);
   return resultado;
 };
