@@ -11,6 +11,28 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-10-22-aviso-pedido-no-guardado',
+    fecha: '2026-10-22',
+    tipo: 'correccion',
+    para: 'todos',
+    titulo: 'Aviso si un pedido no se pudo guardar',
+    detalle: [
+      'Al marcar *Pago confirmado*, si el pedido no se pudo guardar, ahora aparece un aviso y el Cotizador no se borra. Si te pasa, no borres los productos y avisale a Sistemas.'
+    ]
+  },
+  {
+    id: '2026-10-22-metricas-datos',
+    fecha: '2026-10-22',
+    tipo: 'mejora',
+    para: 'admin',
+    titulo: 'Métricas: empezamos a guardar más datos',
+    detalle: [
+      'Desde ahora se registra cada mensaje enviado (aunque después se elimine el chat), el tipo de cada mensaje del bot, el motivo de cierre de cada consulta y si el envío de cada pedido fue gratis.',
+      'Al eliminar un chat se borran también sus pedidos y cotizaciones, para que las compras de prueba no sumen en Métricas.',
+      'Con estos datos se van a armar las nuevas secciones de Métricas y Estadísticas.'
+    ]
+  },
+  {
     id: '2026-10-19-sin-autocompletar',
     fecha: '2026-10-19',
     tipo: 'correccion',

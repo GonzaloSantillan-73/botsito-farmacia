@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { adminFetch } from '../lib/adminAuth';
 import { formatPhone } from '../lib/formatPhone';
 import ClientNotesPanel from './ClientNotesPanel';
-import { confirmDialog } from '../lib/dialogService';
+import { confirmDialog, alertDialog } from '../lib/dialogService';
 import OrderStatusPanel from './OrderStatusPanel';
 import { SALE_STATUS_BADGES } from './Sidebar';
 import { recortarNombre } from '../lib/recortarNombre';
@@ -339,7 +339,7 @@ export default function ValidationPanel({
         };
       });
 
-      const { error } = await supabase.from('pedidos_confirmados').insert([{
+      const pedido = {
         conversation_id: activeConversation?.id || null,
         client_phone: activeConversation?.client_phone,
         items,
@@ -349,11 +349,25 @@ export default function ValidationPanel({
         // Métricas sin tener que recalcular nada ahí.
         subtotal: totalItems,
         costo_envio: finalShippingCost,
+        // Se guarda explícito (no se deduce después del costo de envío): el
+        // mínimo para envío gratis puede cambiar con el tiempo.
+        envio_gratis: envioGratis,
         sucursal_id: activeConversation?.sucursal_id || null
-      }]);
+      };
+      let { error } = await supabase.from('pedidos_confirmados').insert([pedido]);
+      // Sin la columna nueva (falta correr supabase/metricas_base.sql) se
+      // guarda igual sin ese dato: el pedido no se pierde por esto.
+      if (error && /envio_gratis/.test(error.message || '')) {
+        const { envio_gratis: _envioGratis, ...pedidoSinEnvioGratis } = pedido;
+        ({ error } = await supabase.from('pedidos_confirmados').insert([pedidoSinEnvioGratis]));
+      }
       if (error) {
         console.error('❌ [DEBUG-COMPONENT-ValidationPanel] Error guardando el pedido confirmado en el historial:', error);
-      } else {
+        // Antes esta falla pasaba en silencio y la venta quedaba fuera de
+        // Métricas. Ahora se avisa y el Cotizador NO se vacía, para que no se
+        // pierdan los productos de ese pedido.
+        alertDialog('El pago quedó confirmado, pero no se pudo guardar el pedido en el historial ni en Métricas.\n\nNo borres el Cotizador y avisale a Sistemas para que lo carguen.', { danger: true });
+        return;
       }
     }
 

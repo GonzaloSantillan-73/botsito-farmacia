@@ -81,12 +81,12 @@ const enviarMenuPrincipal = async (conversationId, telefono, { prefijo = '', esF
   const bienvenida = await construirMensajeBienvenida(telefono, esFrecuente);
   const cuerpo = prefijo ? `${prefijo}\n\n${bienvenida}` : bienvenida;
   if (cuerpo.length <= MAX_CUERPO_INTERACTIVO) {
-    await enviarMensajeBot(conversationId, telefono, cuerpo, {}, MENU_BOTONES);
+    await enviarMensajeBot(conversationId, telefono, cuerpo, { tipo_bot: 'menu' }, MENU_BOTONES);
     return;
   }
   console.warn('⚠️ [DEBUG-SERVICE-BOT] enviarMenuPrincipal() — el saludo es demasiado largo para un mensaje con botones, se manda el menú numerado.');
   const cuerpoTexto = cuerpo.replace(MENU_TEXTO_BOTONES, MENU_OPCIONES);
-  await enviarMensajeBot(conversationId, telefono, cuerpoTexto);
+  await enviarMensajeBot(conversationId, telefono, cuerpoTexto, { tipo_bot: 'menu' });
 };
 
 // Pasa la consulta del menú principal (bot_state vacío) al estado `updates`
@@ -304,7 +304,7 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
       if (!isWithinSchedule(botSchedule)) {
         console.log(`[BOT] Fuera de horario del bot para ${conversationId}. Enviando aviso de horario.`);
         console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — rama: fuera de horario del bot (sesión nueva). Se envía mensaje de horario y se corta el flujo.');
-        await enviarMensajeBot(conversationId, telefono, renderScheduleMessage(botSchedule));
+        await enviarMensajeBot(conversationId, telefono, renderScheduleMessage(botSchedule), { tipo_bot: 'fuera_horario' });
         console.log('✅ [DEBUG-SERVICE-BOT] procesarMensajeBot() — valor de retorno: undefined (cortado por fuera de horario en sesión nueva)');
         return;
       }
@@ -379,7 +379,7 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
     if (!isWithinSchedule(botSchedule)) {
       console.log(`[BOT] Fuera de horario del bot para ${conversationId}. Enviando aviso de horario.`);
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — rama: fuera de horario del bot (mensaje normal). Se envía aviso y se corta el flujo.');
-      await enviarMensajeBot(conversationId, telefono, renderScheduleMessage(botSchedule));
+      await enviarMensajeBot(conversationId, telefono, renderScheduleMessage(botSchedule), { tipo_bot: 'fuera_horario' });
       console.log('✅ [DEBUG-SERVICE-BOT] procesarMensajeBot() — valor de retorno: undefined (cortado por fuera de horario)');
       return;
     }
@@ -456,7 +456,7 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
       console.log(`[BOT] Pidiendo ubicación antes de derivar a un asesor humano para ID: ${conversationId}`);
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — se pasa a estado esperando_ubicacion.');
       if (!(await reservarSalidaDelMenu(conversationId, { bot_state: 'esperando_ubicacion', bot_context: null }))) return;
-      await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_UBICACION);
+      await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_UBICACION, { tipo_bot: 'ubicacion' });
     } else if (tLower === '2') {
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — opción "2" (Horarios y sucursales). Se deriva a mostrarSucursales().');
       await mostrarSucursales(conversationId, telefono);
@@ -469,14 +469,14 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
       // los botones (en vez de reenviar el saludo y el menú completos).
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — opción no reconocida ("', tLower, '"). Se manda el recordatorio de botones.');
       if (!(await reservarSalidaDelMenu(conversationId, { bot_context: { recordatorio_botones: true } }, { sinRecordatorio: true }))) return;
-      await enviarMensajeBot(conversationId, telefono, MENSAJE_RECORDATORIO_BOTONES, {}, MENU_BOTONES);
+      await enviarMensajeBot(conversationId, telefono, MENSAJE_RECORDATORIO_BOTONES, { tipo_bot: 'recordatorio' }, MENU_BOTONES);
     } else {
       // Segunda vez que escribe en vez de tocar un botón: se entiende que
       // quiere que lo atiendan y se le pide la ubicación (como la opción 1).
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — opción no reconocida por segunda vez. Se pide la ubicación para derivar.');
       if (!(await reservarSalidaDelMenu(conversationId, { bot_state: 'esperando_ubicacion', bot_context: null }))) return;
       await marcarBotonesUsados(conversationId);
-      await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_UBICACION_SIN_MENU);
+      await enviarMensajeBot(conversationId, telefono, MENSAJE_PEDIR_UBICACION_SIN_MENU, { tipo_bot: 'ubicacion' });
     }
     console.log('✅ [DEBUG-SERVICE-BOT] procesarMensajeBot() — valor de retorno: undefined (fin normal del flujo de menú principal)');
   } catch (error) {
@@ -500,7 +500,7 @@ const mostrarSucursales = async (conversationId, telefono) => {
     // El aviso le pide que intente de nuevo, así que va con botones nuevos:
     // los del menú que tocó ya quedaron usados y no responderían.
     await actualizarEstadoConversacion(conversationId, { bot_context: null });
-    await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_SUCURSALES, {}, MENU_BOTONES);
+    await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_SUCURSALES, { tipo_bot: 'error' }, MENU_BOTONES);
     console.log('✅ [DEBUG-SERVICE-BOT] mostrarSucursales() — valor de retorno: undefined (cortado por error consultando sucursales)');
     return;
   }
@@ -509,7 +509,7 @@ const mostrarSucursales = async (conversationId, telefono) => {
     // Con muchas sucursales el listado viene partido en varios mensajes (ver
     // MAX_CARACTERES_MENSAJE en sucursales.js); se mandan en orden.
     for (const mensaje of formatearMensajeSucursales(sucursales)) {
-      await enviarMensajeBot(conversationId, telefono, mensaje);
+      await enviarMensajeBot(conversationId, telefono, mensaje, { tipo_bot: 'sucursales' });
     }
   } catch (err) {
     // Un fallo transitorio al enviar el listado de sucursales no debe impedir
@@ -559,7 +559,7 @@ const manejarUbicacionHumano = async (conversationId, telefono, t) => {
 
   if (!coords) {
     console.log('🔍 [DEBUG-SERVICE-BOT] manejarUbicacionHumano() — rama: no se pudieron obtener coordenadas. Se avisa ubicación inválida.');
-    await enviarMensajeBot(conversationId, telefono, MENSAJE_UBICACION_INVALIDA);
+    await enviarMensajeBot(conversationId, telefono, MENSAJE_UBICACION_INVALIDA, { tipo_bot: 'ubicacion' });
     console.log('✅ [DEBUG-SERVICE-BOT] manejarUbicacionHumano() — valor de retorno: undefined (cortado por ubicación inválida)');
     return;
   }
@@ -587,7 +587,7 @@ const manejarUbicacionHumano = async (conversationId, telefono, t) => {
     console.log(`[BOT] Ninguna sucursal cercana está atendiendo ahora mismo para ${conversationId}.`);
     console.log('🔍 [DEBUG-SERVICE-BOT] manejarUbicacionHumano() — rama: ninguna sucursal cercana abierta. Se avisa y se corta el flujo.');
     await actualizarEstadoConversacion(conversationId, { bot_state: null, bot_context: null });
-    await enviarMensajeBot(conversationId, telefono, MENSAJE_SIN_SUCURSAL_DISPONIBLE);
+    await enviarMensajeBot(conversationId, telefono, MENSAJE_SIN_SUCURSAL_DISPONIBLE, { tipo_bot: 'derivacion' });
     console.log('✅ [DEBUG-SERVICE-BOT] manejarUbicacionHumano() — valor de retorno: undefined (cortado por ninguna sucursal abierta)');
     return;
   }
@@ -621,12 +621,12 @@ const manejarUbicacionHumano = async (conversationId, telefono, t) => {
   // la conversación se quedó pegada en el bot.
   if (!actualizado) {
     console.log('🔍 [DEBUG-SERVICE-BOT] manejarUbicacionHumano() — rama: falló el update a "esperando". Se avisa error de derivación.');
-    await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_DERIVACION);
+    await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_DERIVACION, { tipo_bot: 'error' });
     console.log('✅ [DEBUG-SERVICE-BOT] manejarUbicacionHumano() — valor de retorno: undefined (cortado por error de derivación)');
     return;
   }
 
-  await enviarMensajeBot(conversationId, telefono, mensajeDerivacionHumano(botKeyword));
+  await enviarMensajeBot(conversationId, telefono, mensajeDerivacionHumano(botKeyword), { tipo_bot: 'derivacion' });
   console.log('✅ [DEBUG-SERVICE-BOT] manejarUbicacionHumano() — valor de retorno: undefined (fin normal, derivación exitosa)');
 };
 
@@ -651,7 +651,7 @@ const iniciarRegistro = async (conversationId, telefono, clienteActual) => {
     if (!ok) {
       // Sin el estado guardado no hay forma de retomar la espera: se pide ya.
       await actualizarEstadoConversacion(conversationId, { bot_state: 'registro_nombre', bot_context: null });
-      await enviarMensajeBot(conversationId, telefono, MENSAJE_PRIMER_CONTACTO);
+      await enviarMensajeBot(conversationId, telefono, MENSAJE_PRIMER_CONTACTO, { tipo_bot: 'registro' });
       return;
     }
     setTimeout(() => {
@@ -674,7 +674,7 @@ const iniciarRegistro = async (conversationId, telefono, clienteActual) => {
 
   const mensaje = MENSAJE_POR_ESTADO_REGISTRO[estadoInicio];
   console.log('🔍 [DEBUG-SERVICE-BOT] iniciarRegistro() — mensaje:', mensaje);
-  await enviarMensajeBot(conversationId, telefono, mensaje);
+  await enviarMensajeBot(conversationId, telefono, mensaje, { tipo_bot: 'registro' });
   console.log('✅ [DEBUG-SERVICE-BOT] iniciarRegistro() — valor de retorno: undefined (fin normal)');
 };
 
@@ -702,7 +702,7 @@ export const pedirNombreSiCorresponde = async (conversationId, telefono) => {
     return false;
   }
   console.log(`[BOT] Pidiendo el nombre al cliente nuevo ${telefono} (conversación ${conversationId}).`);
-  await enviarMensajeBot(conversationId, telefono, MENSAJE_PRIMER_CONTACTO);
+  await enviarMensajeBot(conversationId, telefono, MENSAJE_PRIMER_CONTACTO, { tipo_bot: 'registro' });
   return true;
 };
 
@@ -746,7 +746,7 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado, botConte
         return;
       }
       await actualizarEstadoConversacion(conversationId, { bot_context: { intentos_nombre: intentos } });
-      await enviarMensajeBot(conversationId, telefono, MENSAJE_NO_ES_NOMBRE);
+      await enviarMensajeBot(conversationId, telefono, MENSAJE_NO_ES_NOMBRE, { tipo_bot: 'registro' });
       console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (nombre inválido)');
       return;
     }
@@ -755,7 +755,7 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado, botConte
     } catch (err) {
       console.error('[BOT] Error guardando el nombre del cliente:', err);
       console.error('❌ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — error guardando nombre_completo:', err?.message, err?.stack);
-      await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_REGISTRO);
+      await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_REGISTRO, { tipo_bot: 'error' });
       console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (error guardando nombre)');
       return;
     }
@@ -775,7 +775,7 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado, botConte
     const dni = t.replace(/[.\s]/g, '');
     if (!/^\d{6,10}$/.test(dni)) {
       console.log('🔍 [DEBUG-SERVICE-BOT] manejarPasoRegistro() — DNI inválido, se vuelve a pedir:', dni);
-      await enviarMensajeBot(conversationId, telefono, `Ese DNI no parece válido. Escribilo solo con números (por ejemplo: 30123456).\n\n${MENSAJE_PEDIR_DNI}`);
+      await enviarMensajeBot(conversationId, telefono, `Ese DNI no parece válido. Escribilo solo con números (por ejemplo: 30123456).\n\n${MENSAJE_PEDIR_DNI}`, { tipo_bot: 'registro' });
       console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (DNI inválido)');
       return;
     }
@@ -787,7 +787,7 @@ const manejarPasoRegistro = async (conversationId, telefono, t, estado, botConte
     } catch (err) {
       console.error('[BOT] Error guardando el DNI del cliente:', err);
       console.error('❌ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — error en guardarDatoCliente (dni):', err?.message, err?.stack);
-      await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_REGISTRO);
+      await enviarMensajeBot(conversationId, telefono, MENSAJE_ERROR_REGISTRO, { tipo_bot: 'error' });
       console.log('✅ [DEBUG-SERVICE-BOT] manejarPasoRegistro() — valor de retorno: undefined (error guardando DNI)');
       return;
     }
@@ -805,7 +805,7 @@ const iniciarEdicionDatos = async (conversationId, telefono) => {
   console.log('🔍 [DEBUG-SERVICE-BOT] iniciarEdicionDatos() — parámetros recibidos:', { conversationId, telefono });
   await actualizarEstadoConversacion(conversationId, { bot_state: 'editar_nombre', bot_context: null });
   const cliente = await getCliente(telefono);
-  await enviarMensajeBot(conversationId, telefono, construirPedidoNuevoNombre(cliente));
+  await enviarMensajeBot(conversationId, telefono, construirPedidoNuevoNombre(cliente), { tipo_bot: 'cambio_nombre' });
   console.log('✅ [DEBUG-SERVICE-BOT] iniciarEdicionDatos() — valor de retorno: undefined (fin normal)');
 };
 
@@ -831,7 +831,7 @@ const manejarEdicionDatos = async (conversationId, telefono, t, estado) => {
     const nombre = t.trim().replace(/\s+/g, ' ');
     if (!NOMBRE_EDICION_REGEX.test(nombre)) {
       console.log('🔍 [DEBUG-SERVICE-BOT] manejarEdicionDatos() — nombre inválido, se vuelve a pedir:', nombre);
-      await enviarMensajeBot(conversationId, telefono, `${MENSAJE_NOMBRE_INVALIDO}${MENSAJE_CANCELAR_HINT}`);
+      await enviarMensajeBot(conversationId, telefono, `${MENSAJE_NOMBRE_INVALIDO}${MENSAJE_CANCELAR_HINT}`, { tipo_bot: 'cambio_nombre' });
       console.log('✅ [DEBUG-SERVICE-BOT] manejarEdicionDatos() — valor de retorno: undefined (nombre inválido)');
       return;
     }
@@ -840,7 +840,7 @@ const manejarEdicionDatos = async (conversationId, telefono, t, estado) => {
     } catch (err) {
       console.error('[BOT] Error guardando el nuevo nombre del cliente:', err);
       console.error('❌ [DEBUG-SERVICE-BOT] manejarEdicionDatos() — error guardando nombre_completo:', err?.message, err?.stack);
-      await enviarMensajeBot(conversationId, telefono, `${MENSAJE_ERROR_REGISTRO}${MENSAJE_CANCELAR_HINT}`);
+      await enviarMensajeBot(conversationId, telefono, `${MENSAJE_ERROR_REGISTRO}${MENSAJE_CANCELAR_HINT}`, { tipo_bot: 'error' });
       console.log('✅ [DEBUG-SERVICE-BOT] manejarEdicionDatos() — valor de retorno: undefined (error guardando, se puede reintentar)');
       return;
     }
@@ -863,7 +863,7 @@ const manejarEdicionDatos = async (conversationId, telefono, t, estado) => {
     const dni = t.replace(/[.\s]/g, '');
     if (!DNI_EDICION_REGEX.test(dni)) {
       console.log('🔍 [DEBUG-SERVICE-BOT] manejarEdicionDatos() — DNI inválido, se vuelve a pedir:', dni);
-      await enviarMensajeBot(conversationId, telefono, `${MENSAJE_DNI_INVALIDO}${MENSAJE_CANCELAR_HINT}`);
+      await enviarMensajeBot(conversationId, telefono, `${MENSAJE_DNI_INVALIDO}${MENSAJE_CANCELAR_HINT}`, { tipo_bot: 'cambio_nombre' });
       console.log('✅ [DEBUG-SERVICE-BOT] manejarEdicionDatos() — valor de retorno: undefined (DNI inválido)');
       return;
     }
@@ -876,11 +876,11 @@ const manejarEdicionDatos = async (conversationId, telefono, t, estado) => {
     } catch (err) {
       console.error('[BOT] Error guardando el nuevo DNI del cliente:', err);
       console.error('❌ [DEBUG-SERVICE-BOT] manejarEdicionDatos() — error guardando dni:', err?.message, err?.stack);
-      await enviarMensajeBot(conversationId, telefono, `${MENSAJE_ERROR_REGISTRO}${MENSAJE_CANCELAR_HINT}`);
+      await enviarMensajeBot(conversationId, telefono, `${MENSAJE_ERROR_REGISTRO}${MENSAJE_CANCELAR_HINT}`, { tipo_bot: 'error' });
       console.log('✅ [DEBUG-SERVICE-BOT] manejarEdicionDatos() — valor de retorno: undefined (error guardando, se puede reintentar)');
       return;
     }
-    await enviarMensajeBot(conversationId, telefono, '✅ ¡Listo! Actualizamos tu DNI.');
+    await enviarMensajeBot(conversationId, telefono, '✅ ¡Listo! Actualizamos tu DNI.', { tipo_bot: 'cambio_nombre' });
     await volverAlMenuPrincipal(conversationId, telefono);
     console.log('✅ [DEBUG-SERVICE-BOT] manejarEdicionDatos() — valor de retorno: undefined (DNI actualizado)');
   }
@@ -914,12 +914,14 @@ export const enviarMensajeBot = async (conversationId, telefono, mensaje, extraF
   console.log('📡 [DEBUG-SERVICE-BOT] Query Supabase → tabla: messages, operación: insert, valores:', filaBase);
   let { data: insertData, error: insertError } = await supabase.from('messages')
     .insert([interactivo ? { ...filaBase, botones: interactivo } : filaBase]).select().single();
-  // Si la columna `botones` todavía no existe (backend subido antes que el
-  // SQL), se guarda sin ella: el mensaje sale igual, sólo que el CRM no
-  // dibuja los botones.
-  if (insertError && interactivo && /botones/.test(insertError.message || '')) {
-    console.warn('⚠️ [DEBUG-SERVICE-BOT] enviarMensajeBot() — falta la columna botones (correr supabase/messages_botones.sql). Se guarda sin ella.');
-    ({ data: insertData, error: insertError } = await supabase.from('messages').insert([filaBase]).select().single());
+  // Si faltan columnas nuevas (backend subido antes que el SQL:
+  // supabase/messages_botones.sql o supabase/metricas_base.sql), se guarda
+  // sin ellas: el mensaje sale igual, sólo que el CRM no dibuja los botones
+  // o Métricas no sabe de qué tipo era. Nunca se corta el envío por esto.
+  if (insertError && /botones|tipo_bot/.test(insertError.message || '')) {
+    console.warn('⚠️ [DEBUG-SERVICE-BOT] enviarMensajeBot() — faltan columnas nuevas en messages (correr los SQL pendientes). Se guarda sin ellas:', insertError.message);
+    const { tipo_bot: _tipoBot, ...filaMinima } = filaBase;
+    ({ data: insertData, error: insertError } = await supabase.from('messages').insert([filaMinima]).select().single());
   }
   console.log('📡 [DEBUG-SERVICE-BOT] Resultado query messages (insert mensaje bot) — data:', insertData, 'error:', insertError);
 

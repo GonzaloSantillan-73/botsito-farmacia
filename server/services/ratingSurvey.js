@@ -80,18 +80,29 @@ const ESTADOS_TERMINALES = ['finalizada', 'resolved', 'rejected'];
 // calificación. Lo usan el cierre manual con la casilla de encuesta
 // desmarcada y los cierres automáticos sin encuesta (consulta sólo con el
 // bot, o en espera sin que ninguna sucursal la tomara).
-export const finalizarConversacion = async (conversationId, clientPhone, motivo = 'por inactividad', { pedirCalificacion = true } = {}) => {
+// motivoCierre (para Métricas, ver supabase/metricas_base.sql): 'manual',
+// 'manual_sin_encuesta', 'inactividad_cliente', 'sin_respuesta_farmacia',
+// 'sin_tomar' o 'solo_bot'.
+export const finalizarConversacion = async (conversationId, clientPhone, motivo = 'por inactividad', { pedirCalificacion = true, motivoCierre = null } = {}) => {
   console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — conversationId:', conversationId, 'clientPhone:', clientPhone, 'motivo:', motivo, 'pedirCalificacion:', pedirCalificacion);
   try {
     const nuevoBotState = pedirCalificacion ? 'awaiting_rating' : null;
     console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — UPDATE condicional conversations, filtros: { id:', conversationId, ', status NOT IN:', ESTADOS_TERMINALES, '}, valores:', { status: 'finalizada', bot_state: nuevoBotState });
-    const { data: filaActualizada, error: updateError } = await supabase
+    const cerrar = (valores) => supabase
       .from('conversations')
-      .update({ status: 'finalizada', bot_state: nuevoBotState })
+      .update(valores)
       .eq('id', conversationId)
       .not('status', 'in', `(${ESTADOS_TERMINALES.join(',')})`)
       .select('id')
       .maybeSingle();
+    const valores = { status: 'finalizada', bot_state: nuevoBotState };
+    let { data: filaActualizada, error: updateError } = await cerrar(motivoCierre ? { ...valores, motivo_cierre: motivoCierre } : valores);
+    // Sin la columna nueva (falta correr supabase/metricas_base.sql) se cierra
+    // igual, sin guardar el motivo: el cierre nunca se frena por Métricas.
+    if (updateError && /motivo_cierre/.test(updateError.message || '')) {
+      console.warn('⚠️ [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — falta la columna motivo_cierre (correr supabase/metricas_base.sql). Se cierra sin guardar el motivo.');
+      ({ data: filaActualizada, error: updateError } = await cerrar(valores));
+    }
     console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — resultado UPDATE condicional conversations — filaActualizada:', filaActualizada, 'error:', updateError);
 
     if (updateError) {
@@ -113,7 +124,7 @@ export const finalizarConversacion = async (conversationId, clientPhone, motivo 
       // distintos corriendo contra la misma base (instancia fantasma) — ver
       // server/instanceInfo.js.
       console.log('🔍 [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — enviando mensaje de finalización a', clientPhone, '— instanceId:', INSTANCE_INFO.id, '— commit:', INSTANCE_INFO.commit);
-      await enviarMensajeBot(conversationId, clientPhone, mensajeFinalizacion(motivo), {}, LISTA_CALIFICACION);
+      await enviarMensajeBot(conversationId, clientPhone, mensajeFinalizacion(motivo), { tipo_bot: 'encuesta' }, LISTA_CALIFICACION);
     }
 
     console.log('✅ [DEBUG-SERVICE-RATINGSURVEY] finalizarConversacion() — finalizado sin valor de retorno explícito');
@@ -192,7 +203,7 @@ export const guardarCalificacionAtencion = async (conversationId, clientPhone, r
         return;
       }
 
-      await enviarMensajeBot(conversationId, clientPhone, MENSAJE_PEDIR_RATING_PRODUCTO, {}, LISTA_CALIFICACION);
+      await enviarMensajeBot(conversationId, clientPhone, MENSAJE_PEDIR_RATING_PRODUCTO, { tipo_bot: 'encuesta' }, LISTA_CALIFICACION);
     } else {
       // Sin pago confirmado, cerramos la encuesta agradeciendo por la atención
       console.log('📡 [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — sin pago confirmado, UPDATE conversations, filtros: { id:', conversationId, '}, valores:', { rating, bot_state: null });
@@ -208,7 +219,7 @@ export const guardarCalificacionAtencion = async (conversationId, clientPhone, r
         return;
       }
 
-      await enviarMensajeBot(conversationId, clientPhone, MENSAJE_DESPEDIDA_ENCUESTA);
+      await enviarMensajeBot(conversationId, clientPhone, MENSAJE_DESPEDIDA_ENCUESTA, { tipo_bot: 'encuesta' });
     }
 
     console.log('✅ [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionAtencion() — finalizado sin valor de retorno explícito');
@@ -238,7 +249,7 @@ export const guardarCalificacionProducto = async (conversationId, clientPhone, p
       return;
     }
 
-    await enviarMensajeBot(conversationId, clientPhone, MENSAJE_DESPEDIDA_ENCUESTA);
+    await enviarMensajeBot(conversationId, clientPhone, MENSAJE_DESPEDIDA_ENCUESTA, { tipo_bot: 'encuesta' });
 
     console.log('✅ [DEBUG-SERVICE-RATINGSURVEY] guardarCalificacionProducto() — finalizado sin valor de retorno explícito');
     return;

@@ -561,7 +561,7 @@ router.post('/conversations/:id/close', requireAuth, async (req, res) => {
     // cierre (CloseChatModal.jsx): sólo si viene explícitamente en false se
     // finaliza en silencio; cualquier otro caso mantiene la encuesta.
     const pedirCalificacion = req.body?.pedirCalificacion !== false;
-    await finalizarConversacion(conv.id, conv.client_phone, '', { pedirCalificacion });
+    await finalizarConversacion(conv.id, conv.client_phone, '', { pedirCalificacion, motivoCierre: pedirCalificacion ? 'manual' : 'manual_sin_encuesta' });
     console.log(`[API] -> Consulta ${id} cerrada manualmente desde el CRM (con encuesta: ${pedirCalificacion}).`);
     console.log('🔚 [DEBUG-ROUTES-API] Respondiendo POST /conversations/:id/close:', { status: 200, body: { success: true } });
     res.status(200).json({ success: true });
@@ -724,6 +724,17 @@ router.delete('/conversations/:id', requireAuth, requireAdminRole, async (req, r
 
     const { error: errorDelPresc } = await supabase.from('prescriptions').delete().eq('conversation_id', id);
     if (errorDelPresc) throw errorDelPresc;
+
+    // Pedidos y cotizaciones de la conversación: sin esto quedaban sueltos
+    // (la FK es ON DELETE SET NULL) y una compra de prueba seguía sumando en
+    // el Monto Total de Métricas y en el Historial de Pedidos del cliente.
+    // Los mensajes enviados NO se descuentan: quedan en mensajes_enviados
+    // (ver supabase/metricas_base.sql), porque Meta ya los cobró.
+    const { error: errorDelPedidos } = await supabase.from('pedidos_confirmados').delete().eq('conversation_id', id);
+    if (errorDelPedidos) throw errorDelPedidos;
+
+    const { error: errorDelCotizaciones } = await supabase.from('pedidos_cotizados').delete().eq('conversation_id', id);
+    if (errorDelCotizaciones) throw errorDelCotizaciones;
 
     const { error } = await supabase.from('conversations').delete().eq('id', id);
     if (error) throw error;

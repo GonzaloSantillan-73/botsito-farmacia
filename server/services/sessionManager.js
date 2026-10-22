@@ -128,7 +128,7 @@ export const findOrCreateSession = async (clientPhone, clientName) => {
         console.log(`[SESSION] La consulta ${latest.id} expiró por inactividad. Marcando como 'finalizada'.`);
         // Consulta sólo con el bot: se cierra en silencio (sin encuesta).
         const pedirCalificacion = await fueTomadaPorSucursal(latest.id);
-        await finalizarConversacion(latest.id, latest.client_phone, 'por inactividad', { pedirCalificacion });
+        await finalizarConversacion(latest.id, latest.client_phone, 'por inactividad', { pedirCalificacion, motivoCierre: pedirCalificacion ? 'inactividad_cliente' : 'solo_bot' });
       }
     }
 

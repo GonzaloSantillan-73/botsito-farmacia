@@ -47,7 +47,7 @@ const enviarAvisoInactividad = async (conversationId, clientPhone) => {
     console.log(`⚠️ [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] enviarAvisoInactividad() — otro proceso ya reservó el aviso de ${conversationId}, se omite (evita duplicado).`);
     return;
   }
-  await enviarMensajeBot(conversationId, clientPhone, MENSAJE_AVISO_INACTIVIDAD, { is_auto_reminder: true });
+  await enviarMensajeBot(conversationId, clientPhone, MENSAJE_AVISO_INACTIVIDAD, { is_auto_reminder: true, tipo_bot: 'aviso_inactividad' });
 };
 
 // Revisa las consultas activas, finaliza las que ya vencieron, y devuelve en cuántos
@@ -170,7 +170,7 @@ export const checkExpiredSessions = async () => {
               console.log('🔍 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — la farmacia no respondió a tiempo, se cierra', conv.id, '— con encuesta:', pedirCalificacion);
               // Motivo vacío: "Tu consulta ha finalizado." (no "por
               // inactividad", que culparía al cliente, que estaba esperando).
-              await finalizarConversacion(conv.id, conv.client_phone, '', { pedirCalificacion });
+              await finalizarConversacion(conv.id, conv.client_phone, '', { pedirCalificacion, motivoCierre: pedirCalificacion ? 'sin_respuesta_farmacia' : 'sin_tomar' });
               cerradasPorExpiracion.push(conv.id);
               continue;
             }
@@ -195,7 +195,7 @@ export const checkExpiredSessions = async () => {
 
         if (restanteMs <= 0) {
           console.log('🔍 [DEBUG-SERVICE-SESSIONEXPIRYCHECKER] checkExpiredSessions() — inactividad vencida en', conv.id, '— sólo con el bot (sin encuesta):', soloConElBot);
-          await finalizarConversacion(conv.id, conv.client_phone, 'por inactividad', { pedirCalificacion: !soloConElBot });
+          await finalizarConversacion(conv.id, conv.client_phone, 'por inactividad', { pedirCalificacion: !soloConElBot, motivoCierre: soloConElBot ? 'solo_bot' : 'inactividad_cliente' });
           cerradasPorExpiracion.push(conv.id);
           continue;
         }
