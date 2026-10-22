@@ -12,6 +12,7 @@ import { getBotSchedule, setBotSchedule } from '../services/scheduleConfig.js';
 import { rowsToCsv, sendCsv } from '../services/csvExport.js';
 import { rowsToXlsxBuffer, sendXlsx } from '../services/xlsxExport.js';
 import { obtenerDetalleConsultas } from '../services/metricsDetalle.js';
+import { obtenerPanelMetricas } from '../services/metricasPanel.js';
 import { traerTodasLasPaginas, traerPorGruposDeIds } from '../services/consultasEnGrupos.js';
 import { resolverNombresPorTelefono } from '../services/clientes.js';
 import { extraerCoordenadasDeUrl } from '../services/mapsLocation.js';
@@ -42,7 +43,7 @@ const parseDateRange = (query) => {
 
 // Exportación y métricas del negocio: sólo el administrador puede verlas o
 // descargarlas (incluyen teléfonos y montos de venta de todos los clientes).
-router.use(['/export/chats', '/export/metrics', '/metrics/negocio', '/metrics/detalle'], requireAuth, requireAdminRole);
+router.use(['/export/chats', '/export/metrics', '/export/metrics-sucursales', '/metrics/negocio', '/metrics/detalle', '/metrics/panel'], requireAuth, requireAdminRole);
 
 // Saludo de "cliente frecuente": ni siquiera un empleado de sucursal puede
 // verlo o editarlo (es parte de "Ajustes de Chat", ya admin-only en el
@@ -204,6 +205,64 @@ router.get('/export/metrics', async (req, res) => {
 // Métricas de negocio para el panel de "Métricas y Estadísticas" del CRM:
 // conversión de ventas gestionada a mano, resolución autónoma del bot vs
 // derivación a humanos, y efectividad del filtro de seguridad de PDFs.
+// Panel de Métricas y Estadísticas: resumen con variación contra el período
+// anterior, mensajes, ventas, clientes, atención y comparativa por sucursal
+// (ver server/services/metricasPanel.js). Sólo administración.
+router.get('/metrics/panel', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const panel = await obtenerPanelMetricas({ startDate, endDate });
+    res.status(200).json(panel);
+  } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en GET /metrics/panel:', { error, message: error.message, stack: error.stack });
+    res.status(500).json({ error: 'No se pudieron calcular las métricas.' });
+  }
+});
+
+// Excel de la comparativa por sucursal, con fila de totales.
+router.get('/export/metrics-sucursales', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const panel = await obtenerPanelMetricas({ startDate, endDate });
+    const r = panel.resumen;
+    const totales = {
+      nombre: 'TOTAL',
+      consultas: r.consultas,
+      clientes: r.clientes,
+      pedidos: r.pedidos,
+      monto: r.montoTotal,
+      ticketPromedio: r.ticketPromedio,
+      conversion: r.conversion,
+      enviosGratis: panel.ventas.envios.gratis,
+      mensajes: panel.mensajes.sucursal,
+      mensajesPorConsulta: r.consultas > 0 ? panel.mensajes.sucursal / r.consultas : null,
+      demoraPromedioMs: panel.atencion.demoraPromedioMs,
+      satisfaccion: null
+    };
+    const dosDecimales = (v) => (v == null ? '' : Math.round(v * 100) / 100);
+    const columnas = [
+      { label: 'Sucursal', value: f => f.nombre },
+      { label: 'Consultas', align: 'center', value: f => f.consultas },
+      { label: 'Clientes', align: 'center', value: f => f.clientes },
+      { label: 'Pedidos', align: 'center', value: f => f.pedidos },
+      { label: 'Monto', align: 'center', numFmt: '"$"#,##0.00', value: f => dosDecimales(f.monto) },
+      { label: 'Ticket promedio', align: 'center', numFmt: '"$"#,##0.00', value: f => dosDecimales(f.ticketPromedio) },
+      { label: 'Conversión (%)', align: 'center', value: f => dosDecimales(f.conversion) },
+      { label: 'Envíos gratis', align: 'center', value: f => f.enviosGratis },
+      { label: 'Mensajes de la sucursal', align: 'center', value: f => f.mensajes },
+      { label: 'Mensajes por consulta', align: 'center', value: f => dosDecimales(f.mensajesPorConsulta) },
+      { label: 'Demora promedio (min)', align: 'center', value: f => (f.demoraPromedioMs != null ? Math.round(f.demoraPromedioMs / 60000) : '') },
+      { label: 'Satisfacción (1 a 5)', align: 'center', value: f => dosDecimales(f.satisfaccion) }
+    ];
+    const buffer = await rowsToXlsxBuffer(columnas, [...panel.porSucursal, totales], { sheetName: 'Por sucursal' });
+    const sufijo = startDate && endDate ? `_${startDate}_a_${endDate}` : '';
+    sendXlsx(res, `metricas_por_sucursal${sufijo}.xlsx`, buffer);
+  } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en GET /export/metrics-sucursales:', { error, message: error.message, stack: error.stack });
+    res.status(500).json({ error: 'No se pudo exportar la comparativa por sucursal.' });
+  }
+});
+
 router.get('/metrics/negocio', async (req, res) => {
   console.log('🔍 [DEBUG-ROUTES-API] Entrada a GET /metrics/negocio:', {
     method: req.method,
