@@ -223,7 +223,7 @@ const calcularPeriodo = async ({ startDate, endDate, esPrueba, sucursales, detal
   if (!detalle) return { resumen };
 
   // ---- Mensajes -------------------------------------------------------------
-  const nombreSucursal = (id, guardado) => guardado || sucursales[id] || (id ? 'Sucursal eliminada' : 'Sin sucursal');
+  const nombreSucursal = (id, guardado) => guardado || sucursales[id] || (id ? 'Sucursal eliminada' : 'Sin sucursal (solo bot o en la cola)');
   const bot = mensajes.filter(m => m.sender_type === 'bot');
   const sucursal = mensajes.filter(m => m.sender_type === 'agent');
   const porTipoBot = {};

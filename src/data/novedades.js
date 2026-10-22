@@ -11,6 +11,18 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-10-22-panel-estadisticas',
+    fecha: '2026-10-22',
+    tipo: 'nuevo',
+    para: 'admin',
+    titulo: 'Panel general en Métricas y Estadísticas',
+    detalle: [
+      'Arriba de todo en *Métricas y Estadísticas*: consultas, clientes, pedidos, monto vendido, ticket promedio, mensajes enviados y conversión, con flechas que comparan contra el período anterior.',
+      'Gráficos de mensajes (bot y sucursales), ventas y consultas por día, horarios y días con más consultas, envíos gratis, clientes nuevos y que vuelven, cómo se cerraron las consultas y una comparativa por sucursal que se puede exportar a Excel.',
+      'No incluye el número de prueba.'
+    ]
+  },
+  {
     id: '2026-10-22-aviso-pedido-no-guardado',
     fecha: '2026-10-22',
     tipo: 'correccion',

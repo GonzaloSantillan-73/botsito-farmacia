@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { Star, ShoppingCart, Bot, Headset, ShieldCheck, ShieldAlert, CheckCircle2, XCircle, MessageSquare, Store, Filter, X, RefreshCw } from 'lucide-react';
 import { isAdminRole, getStaffSucursalId, adminFetch } from '../lib/adminAuth';
 import StarRating, { coloresRating } from './StarRating';
 import MetricsTable from './MetricsTable';
 import Accordion from './Accordion';
 import MetricsBucketModal from './MetricsBucketModal';
+// Se carga recién al abrir Métricas: trae la librería de gráficos, que las
+// sucursales nunca usan, así no la descargan con el resto del panel.
+const PanelEstadisticas = lazy(() => import('./PanelEstadisticas'));
 
 function StatCard({ icon: Icon, value, label, accent = 'text-gray-900 dark:text-gray-100' }) {
   return (
@@ -185,6 +188,15 @@ export default function MetricsPanel() {
 
   return (
     <div>
+      {/* Panel general de estadísticas (resumen, mensajes, ventas, clientes,
+          atención y comparativa por sucursal), con su propio filtro de fechas. */}
+      <div className="mb-10">
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-4">Panel general</h3>
+        <Suspense fallback={<div className="text-sm text-gray-400 py-10 text-center">Cargando estadísticas...</div>}>
+          <PanelEstadisticas />
+        </Suspense>
+      </div>
+
       {/* Única sección de ancho completo y siempre visible: es una tabla con
           muchas columnas, no una tarjeta de resumen, así que no tiene sentido
           acotarla ni poder ocultarla. */}
