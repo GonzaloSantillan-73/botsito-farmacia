@@ -28,7 +28,8 @@ export const NOVEDADES = [
     para: 'todos',
     titulo: 'Mensaje para pedir la ubicación más corto',
     detalle: [
-      'El bot ya no agrega al final "¿No te funciona? También podés pegar acá el link de tu ubicación de Google Maps", para que el mensaje sea más corto y el cliente lo lea. Si el cliente igual manda un link de Google Maps, sigue funcionando.'
+      'Cuando el cliente elige *Hablar con un asesor*, el bot ahora empieza directo con lo que tiene que hacer: "📍 *Mandanos tu ubicación* y te pasamos con la farmacia más cercana:" y los 3 pasos.',
+      'Además ya no agrega al final "¿No te funciona? También podés pegar acá el link de tu ubicación de Google Maps", para que el mensaje sea más corto y el cliente lo lea. Si el cliente igual manda un link de Google Maps, sigue funcionando.'
     ]
   },
   {

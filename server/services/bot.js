@@ -132,14 +132,14 @@ const MENSAJE_ERROR_DERIVACION = 'Tuvimos un problema derivándote con un asesor
 // recomendarle (a él y al operador que lo atienda) la sucursal más cercana.
 // Acepta dos formas: el botón nativo "Ubicación" de WhatsApp, o pegar como
 // texto un link de Google Maps (largo o acortado tipo maps.app.goo.gl).
-const PASOS_UBICACION = 'Mandanos tu ubicación siguiendo estos pasos:\n'
-  + '1️⃣ Tocá el clip 📎, abajo, al lado de donde escribís.\n'
+const PASOS_LISTA = '1️⃣ Tocá el clip 📎, abajo, al lado de donde escribís.\n'
   + '2️⃣ Elegí *"Ubicación"*.\n'
   + '3️⃣ Tocá *"Enviar tu ubicación actual"*.';
+const PASOS_UBICACION = 'Mandanos tu ubicación siguiendo estos pasos:\n' + PASOS_LISTA;
 // Si en vez de eso pega un link de Google Maps, también funciona (ver
 // esLinkDeGoogleMaps), aunque ya no se menciona para que el mensaje sea corto.
 // Eligió "Hablar con un asesor".
-const MENSAJE_PEDIR_UBICACION = '¡Perfecto! Ahora te conectamos con *nuestra farmacia más cercana a vos*. 📍\n\n' + PASOS_UBICACION;
+const MENSAJE_PEDIR_UBICACION = '📍 *Mandanos tu ubicación* y te pasamos con la farmacia más cercana:\n\n' + PASOS_LISTA;
 // Escribió dos veces en vez de tocar un botón: se lo pasa directo con una
 // persona, sin marcarle que se equivocó.
 const MENSAJE_PEDIR_UBICACION_SIN_MENU = '¡No hay problema! 😊 Te paso directo con *nuestra farmacia más cercana a vos* para que te atienda una persona. 📍\n\n' + PASOS_UBICACION;
