@@ -3,12 +3,12 @@ import { ArrowUpDown, ArrowUp, ArrowDown, FileText } from 'lucide-react';
 import StarRating from './StarRating';
 import { recortarNombre } from '../lib/recortarNombre';
 
-const formatMoney = (n) => (n == null ? '—' : `$${Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`);
+export const formatMoney = (n) => (n == null ? '—' : `$${Number(n).toLocaleString('es-AR', { maximumFractionDigits: 0 })}`);
 
 // El envío en $0 es "envío gratis" (ver ValidationPanel.jsx, umbral de envío
 // gratis), no un dato faltante: sólo se muestra "—" cuando costoEnvio es null
 // (pedido sin desglose, ver metricsDetalle.js).
-const formatEnvio = (n) => (n == null ? '—' : (Number(n) === 0 ? 'Envío gratis' : formatMoney(n)));
+export const formatEnvio = (n) => (n == null ? '—' : (Number(n) === 0 ? 'Envío gratis' : formatMoney(n)));
 
 // El negocio quiere esta columna binaria a propósito: "Venta concretada" es
 // el ÚNICO valor positivo (sale_status === 'concretada'); cualquier otra
@@ -17,7 +17,7 @@ const formatEnvio = (n) => (n == null ? '—' : (Number(n) === 0 ? 'Envío grati
 // XLSX): si se cambia acá, cambiar también ahí.
 const estadoContacto = (saleStatus) => (saleStatus === 'concretada' ? 'Venta concretada' : 'Solo consulta');
 
-const formatDuracion = (ms) => {
+export const formatDuracion = (ms) => {
   if (ms == null || ms < 0) return '—';
   const totalMin = Math.round(ms / 60000);
   if (totalMin < 1) return '<1m';

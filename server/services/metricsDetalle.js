@@ -17,7 +17,10 @@ const msDiff = (desde, hasta) => (desde && hasta ? new Date(hasta).getTime() - n
 // usa el botón "Ver" de cada barra en MetricsPanel.jsx (ej. sólo las
 // consultas calificadas con 3 estrellas de atención) — opcionales, sin ellos
 // se comporta igual que antes (todo el rango de fechas, sin acotar).
-export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, rating, productRating, derivada } = {}) => {
+// sucursalId: 'ninguna' = sin sucursal asignada; un id = esa sucursal.
+// calificadas: sólo consultas con calificación de atención (para la lista de
+// calificaciones de una sucursal, ver CalificacionesSucursalModal.jsx).
+export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, rating, productRating, derivada, sucursalId, calificadas } = {}) => {
   console.log('🔍 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — filtros recibidos:', { startDate, endDate, saleStatus, rating, productRating, derivada });
   try {
     const COLUMNAS_BASE = 'id, created_at, client_name, client_phone, status, sale_status, sale_amount, payment_method, waiting_since, rating, product_rating, sucursales!sucursal_id(nombre)';
@@ -40,6 +43,9 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
       if (saleStatus) q = q.eq('sale_status', saleStatus);
       if (rating != null) q = q.eq('rating', rating);
       if (productRating != null) q = q.eq('product_rating', productRating);
+      if (sucursalId === 'ninguna') q = q.is('sucursal_id', null);
+      else if (sucursalId) q = q.eq('sucursal_id', sucursalId);
+      if (calificadas) q = q.not('rating', 'is', null);
       // "Derivada"/"Bot (sin humano)" sólo tiene sentido sobre consultas ya
       // cerradas: es el mismo universo que usa /metrics/negocio para calcular el
       // % de resolución autónoma.

@@ -11,6 +11,17 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-10-26-calificaciones-por-sucursal',
+    fecha: '2026-10-26',
+    tipo: 'nuevo',
+    para: 'admin',
+    titulo: 'Quiénes calificaron a cada sucursal',
+    detalle: [
+      'En *Satisfacción por sucursal* (Métricas), tocá una sucursal para ver en pantalla completa a los clientes que la calificaron: fecha y hora, nombre, número, demora y estrellas. Se puede filtrar por estrellas y por fecha, y ordenar por estrellas.',
+      'Al tocar una consulta (en esta lista o en cualquier "Ver" de Métricas) se abre el chat completo con una columna al costado: inicio, demora, duración, sucursales que la atendieron, calificaciones, resultado de la venta, subtotal, envío, total y medio de pago.'
+    ]
+  },
+  {
     id: '2026-10-26-resultado-total-ventas-montos',
     fecha: '2026-10-26',
     tipo: 'mejora',

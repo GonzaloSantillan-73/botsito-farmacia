@@ -11,6 +11,7 @@ import {
 import { adminFetch } from '../lib/adminAuth';
 import StarRating, { coloresRating } from './StarRating';
 import MetricsBucketModal from './MetricsBucketModal';
+import CalificacionesSucursalModal from './CalificacionesSucursalModal';
 
 // Panel de Métricas y Estadísticas (etapa 3): pantalla de lo que calcula
 // GET /api/metrics/panel (server/services/metricasPanel.js). Sólo admin.
@@ -281,6 +282,8 @@ export default function PanelEstadisticas() {
   const [negocio, setNegocio] = useState(null);
   // Lista de chats de una barra puntual ("Ver"): { title, filtros } o null.
   const [bucket, setBucket] = useState(null);
+  // Sucursal cuyas calificaciones se están mirando (pantalla completa).
+  const [sucursalCalif, setSucursalCalif] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [recarga, setRecarga] = useState(0);
@@ -608,7 +611,7 @@ export default function PanelEstadisticas() {
                 </Seccion>
               </div>
 
-              <Seccion titulo="Satisfacción por sucursal" descripcion="Promedio de atención y de producto de cada sucursal, comparado con el general.">
+              <Seccion titulo="Satisfacción por sucursal" descripcion="Promedio de atención y de producto de cada sucursal, comparado con el general. Tocá una sucursal para ver quiénes la calificaron.">
                 <div className="overflow-x-auto scrollbar-thin rounded-lg border border-gray-200 dark:border-gray-800">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 dark:bg-gray-800/60">
@@ -622,7 +625,12 @@ export default function PanelEstadisticas() {
                     </thead>
                     <tbody>
                       {[...negocio.calificaciones.porSucursal].sort((a, b) => (b.atencion.total - a.atencion.total)).map(s => (
-                        <tr key={s.sucursalId || 'sin_sucursal'} className="border-t border-gray-100 dark:border-gray-800">
+                        <tr
+                          key={s.sucursalId || 'sin_sucursal'}
+                          onClick={() => s.atencion.total > 0 && setSucursalCalif({ sucursalId: s.sucursalId, nombre: s.nombre })}
+                          title={s.atencion.total > 0 ? 'Ver quiénes calificaron a esta sucursal' : undefined}
+                          className={`border-t border-gray-100 dark:border-gray-800 ${s.atencion.total > 0 ? 'cursor-pointer hover:bg-teal-50/40 dark:hover:bg-teal-950/40 transition-colors' : ''}`}
+                        >
                           <td className="px-3 py-2 text-gray-800 dark:text-gray-100"><span className="inline-flex items-center gap-1.5"><Store size={13} className="text-gray-400" />{s.nombre}</span></td>
                           <td className="px-3 py-2 text-right">{s.atencion.total > 0 ? <StarRating value={s.atencion.promedio.toFixed(1)} type="atencion" size={13} className="font-semibold" /> : '—'}</td>
                           <td className="px-3 py-2 text-right tabular-nums text-gray-500 dark:text-gray-400">{num(s.atencion.total)}</td>
@@ -661,6 +669,14 @@ export default function PanelEstadisticas() {
             </Seccion>
           )}
         </div>
+      )}
+
+      {sucursalCalif && (
+        <CalificacionesSucursalModal
+          sucursal={sucursalCalif}
+          rango={rango}
+          onClose={() => setSucursalCalif(null)}
+        />
       )}
 
       {bucket && (
