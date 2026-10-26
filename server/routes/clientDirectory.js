@@ -29,7 +29,12 @@ router.get('/conversations', async (req, res) => {
   // devuelva 500 y las dos pestañas se vean vacías sin ninguna pista de por
   // qué (justo el síntoma reportado: "vistas vacías a pesar de haber datos").
   const [conversationsResult, clientsResult] = await Promise.allSettled([
-    obtenerConversacionesDirectorio({ sucursalId }),
+    obtenerConversacionesDirectorio({
+      sucursalId,
+      // Sólo fechas con formato AAAA-MM-DD (lo que manda el input de fecha).
+      desde: /^\d{4}-\d{2}-\d{2}$/.test(req.query.desde || '') ? req.query.desde : null,
+      hasta: /^\d{4}-\d{2}-\d{2}$/.test(req.query.hasta || '') ? req.query.hasta : null
+    }),
     obtenerListaClientesDirectorio({ sucursalId })
   ]);
 

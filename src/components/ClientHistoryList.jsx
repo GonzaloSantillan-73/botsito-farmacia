@@ -58,10 +58,20 @@ export default function ClientHistoryList({
   onSearchQueryChange,
   // true en la vista general (Historial de Consultas del Directorio), donde
   // cada fila puede ser de un cliente distinto y hace falta identificarlo.
-  showClient = false
+  showClient = false,
+  // Fechas controladas por el padre (Directorio: las pide filtradas al
+  // servidor y arranca en el día de hoy). Sin esto, el filtro vive acá
+  // adentro y se aplica sobre lo ya cargado (ficha de un cliente).
+  fechas,
+  onFechasChange
 }) {
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateFromInterno, setDateFromInterno] = useState('');
+  const [dateToInterno, setDateToInterno] = useState('');
+  const fechasControladas = fechas !== undefined;
+  const dateFrom = fechasControladas ? fechas.desde : dateFromInterno;
+  const dateTo = fechasControladas ? fechas.hasta : dateToInterno;
+  const setDateFrom = (v) => (fechasControladas ? onFechasChange({ ...fechas, desde: v }) : setDateFromInterno(v));
+  const setDateTo = (v) => (fechasControladas ? onFechasChange({ ...fechas, hasta: v }) : setDateToInterno(v));
   // El término de búsqueda puede vivir acá adentro (Directorio) o ser
   // controlado por el padre (HistoryPanel, que también lo usa para resaltar
   // coincidencias en la transcripción del panel derecho).
@@ -122,8 +132,8 @@ export default function ClientHistoryList({
 
   const hayFiltrosActivos = Boolean(dateFrom || dateTo || searchQuery.trim());
   const limpiarFiltros = () => {
-    setDateFrom('');
-    setDateTo('');
+    if (fechasControladas) onFechasChange({ desde: '', hasta: '' });
+    else { setDateFromInterno(''); setDateToInterno(''); }
     setSearchQuery('');
   };
 
@@ -158,14 +168,14 @@ export default function ClientHistoryList({
             type="date"
             value={dateFrom}
             onChange={(e) => { setDateFrom(e.target.value); }}
-            className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-[11px] bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+            className="w-auto px-1.5 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-[11px] bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
           />
           <span className="text-gray-300 text-xs">–</span>
           <input
             type="date"
             value={dateTo}
             onChange={(e) => { setDateTo(e.target.value); }}
-            className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-[11px] bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+            className="w-auto px-1.5 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-[11px] bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
           />
         </div>
 
@@ -176,6 +186,11 @@ export default function ClientHistoryList({
           >
             <ArrowUpDown size={12} /> {sortAsc ? 'Más antiguas primero' : 'Más recientes primero'}
           </button>
+          {!loading && (
+            <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300 tabular-nums">
+              {visibleConversations.length.toLocaleString('es-AR')} {visibleConversations.length === 1 ? 'consulta' : 'consultas'}
+            </span>
+          )}
           {hayFiltrosActivos && (
             <button onClick={limpiarFiltros} className="text-[11px] font-medium text-teal-700 dark:text-teal-400 hover:text-teal-800 dark:hover:text-teal-300">
               Limpiar filtros

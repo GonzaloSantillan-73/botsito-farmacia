@@ -62,6 +62,14 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
   // aporta nada): 'todas' | 'bot' (sucursal_id null) | <sucursal_id>.
   const [sucursalFiltro, setSucursalFiltro] = useState('todas');
   const [refreshing, setRefreshing] = useState(false);
+  // Fechas del Historial de Consultas: arranca en el día de hoy (hora
+  // Argentina) para no traer todas las consultas de la historia en cada
+  // carga. El servidor filtra por estas fechas (ver clientDirectory.js).
+  const [fechas, setFechas] = useState(() => {
+    const hoy = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    return { desde: hoy, hasta: hoy };
+  });
+  const [cargandoHistorial, setCargandoHistorial] = useState(false);
 
   // El filtrado por sucursal para el staff lo aplica el backend a partir
   // del sucursalId del JWT (ver server/routes/clientDirectory.js): acá no
@@ -69,7 +77,10 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
   // sucursales aunque se manipule el request. Se usa tanto en la carga
   // inicial como en el botón "Actualizar" del header.
   const fetchDirectory = useCallback(() => {
-    return adminFetch('/api/admin/client-directory/conversations')
+    const params = new URLSearchParams();
+    if (fechas.desde) params.set('desde', fechas.desde);
+    if (fechas.hasta) params.set('hasta', fechas.hasta);
+    return adminFetch(`/api/admin/client-directory/conversations${params.toString() ? `?${params}` : ''}`)
       .then(res => res.json())
       .then(({ conversations: data, clients: clientsData, errors: sectionErrors }) => {
         setConversations(data || []);
@@ -82,10 +93,12 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
         console.error('❌ [DEBUG-COMPONENT-ClientDirectory] excepción en fetch conversations:', err);
         setErrors({ conversations: 'No se pudo conectar con el servidor.', clients: 'No se pudo conectar con el servidor.' });
       });
-  }, []);
+  }, [fechas]);
 
+  // Se vuelve a pedir cada vez que cambian las fechas del historial.
   useEffect(() => {
-    fetchDirectory().finally(() => setLoading(false));
+    setCargandoHistorial(true);
+    fetchDirectory().finally(() => { setLoading(false); setCargandoHistorial(false); });
   }, [fetchDirectory]);
 
   const handleRefresh = () => {
@@ -299,6 +312,9 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
               </select>
               <ArrowUpDown className="absolute left-2.5 top-2.5 text-gray-400 dark:text-gray-500 pointer-events-none" size={16} />
             </div>
+            <span className="text-xs font-semibold text-gray-600 dark:text-gray-300 tabular-nums whitespace-nowrap">
+              {sortedClients.length.toLocaleString('es-AR')} {sortedClients.length === 1 ? 'cliente' : 'clientes'}
+            </span>
           </div>
         )}
       </div>
@@ -318,8 +334,11 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
         {vista === 'historial' ? (
           <ClientHistoryList
             conversations={historialFiltrado}
+            loading={cargandoHistorial}
+            fechas={fechas}
+            onFechasChange={setFechas}
             onSelect={(conv) => { onOpenConversation && onOpenConversation(conv); }}
-            emptyMessage={sucursalFiltro === 'todas' ? 'Todavía no hay consultas finalizadas.' : 'Ninguna consulta coincide con el filtro de sucursal.'}
+            emptyMessage={sucursalFiltro !== 'todas' ? 'Ninguna consulta coincide con el filtro de sucursal.' : (fechas.desde || fechas.hasta) ? 'No hay consultas finalizadas en estas fechas. Cambiá las fechas de arriba para ver otros días.' : 'Todavía no hay consultas finalizadas.'}
             showClient
           />
         ) : sortedClients.length === 0 ? (

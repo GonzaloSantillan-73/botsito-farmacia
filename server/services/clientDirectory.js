@@ -56,12 +56,21 @@ const withSucursalesHistorial = async (conversations) => {
   }));
 };
 
-export const obtenerConversacionesDirectorio = async ({ sucursalId } = {}) => {
+// desde/hasta ('AAAA-MM-DD', opcionales): días en hora Argentina. El
+// Historial de Consultas arranca mostrando sólo el día de hoy, para no traer
+// todas las consultas de la historia en cada carga.
+export const obtenerConversacionesDirectorio = async ({ sucursalId, desde = null, hasta = null } = {}) => {
   console.log('🔍 [DEBUG-SERVICE-CLIENTDIRECTORY] obtenerConversacionesDirectorio() — parámetros recibidos:', { sucursalId });
 
   console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] Query Supabase → tabla: conversations, operación: select, filtro sucursal:', sucursalId, ', order: created_at desc');
   // Paginado: Supabase corta en 1000 filas sin avisar (ver consultasEnGrupos.js).
-  const { data: conversations, error } = await traerTodasLasPaginas(() => conSucursal(supabase.from('conversations').select(CONVERSATION_SELECT), sucursalId)
+  const conRango = (q) => {
+    let r = q;
+    if (desde) r = r.gte('created_at', `${desde}T00:00:00.000-03:00`);
+    if (hasta) r = r.lte('created_at', `${hasta}T23:59:59.999-03:00`);
+    return r;
+  };
+  const { data: conversations, error } = await traerTodasLasPaginas(() => conRango(conSucursal(supabase.from('conversations').select(CONVERSATION_SELECT), sucursalId))
     .order('created_at', { ascending: false })
     .order('id', { ascending: false }));
   console.log('📡 [DEBUG-SERVICE-CLIENTDIRECTORY] Resultado query conversations (select directorio) — data:', conversations, 'error:', error);

@@ -11,6 +11,17 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-10-26-directorio-hoy',
+    fecha: '2026-10-26',
+    tipo: 'mejora',
+    para: 'todos',
+    titulo: 'El Historial de Consultas carga más rápido',
+    detalle: [
+      'En el *Directorio de Clientes*, el Historial de Consultas ahora muestra por defecto solo las consultas de hoy. Para ver otros días, cambiá las fechas de arriba.',
+      'Arriba de cada lista se ve cuántas consultas o clientes hay.'
+    ]
+  },
+  {
     id: '2026-10-26-metricas-unificadas',
     fecha: '2026-10-26',
     tipo: 'mejora',
