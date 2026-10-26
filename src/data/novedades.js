@@ -11,6 +11,17 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-10-26-metricas-unificadas',
+    fecha: '2026-10-26',
+    tipo: 'mejora',
+    para: 'admin',
+    titulo: 'Métricas: todo en un solo panel',
+    detalle: [
+      'El resultado de las consultas, lo resuelto por el bot, la satisfacción (general y por sucursal) y el filtro de PDFs ahora están dentro del Panel general, con el mismo estilo y el mismo filtro de fechas. Ya no hay que desplegar nada.',
+      'El Detalle de consultas sigue arriba de todo, y los botones "Ver" siguen abriendo los chats de cada barra.'
+    ]
+  },
+  {
     id: '2026-10-22-panel-estadisticas',
     fecha: '2026-10-22',
     tipo: 'nuevo',

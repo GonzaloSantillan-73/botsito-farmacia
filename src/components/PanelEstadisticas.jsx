@@ -5,9 +5,12 @@ import {
 } from 'recharts';
 import {
   MessageSquare, Users, ShoppingCart, DollarSign, Receipt, Percent, Send,
-  Filter, RefreshCw, Download, ArrowUp, ArrowDown, Minus, Truck, Clock, Headset, ArrowUpDown
+  Filter, RefreshCw, Download, ArrowUp, ArrowDown, Minus, Truck, Clock, Headset, ArrowUpDown,
+  CheckCircle2, XCircle, Bot, ShieldCheck, ShieldAlert, Store
 } from 'lucide-react';
 import { adminFetch } from '../lib/adminAuth';
+import StarRating, { coloresRating } from './StarRating';
+import MetricsBucketModal from './MetricsBucketModal';
 
 // Panel de Métricas y Estadísticas (etapa 3): pantalla de lo que calcula
 // GET /api/metrics/panel (server/services/metricasPanel.js). Sólo admin.
@@ -85,7 +88,7 @@ function Tile({ icon: Icono, label, valor, variacion, mejorSiBaja, ayuda }) {
         <Icono size={13} className="shrink-0" /> {label}
       </span>
       <span className="text-2xl font-bold text-gray-900 dark:text-gray-100 tabular-nums truncate">{valor}</span>
-      <Variacion valor={variacion} mejorSiBaja={mejorSiBaja} />
+      {variacion !== undefined && <Variacion valor={variacion} mejorSiBaja={mejorSiBaja} />}
     </div>
   );
 }
@@ -118,22 +121,68 @@ function Dato({ label, valor, detalle }) {
 }
 
 // Barras horizontales simples (una sola serie): ranking de tipos, sucursales, motivos.
-function BarrasLista({ filas, color }) {
-  const max = Math.max(1, ...filas.map(f => f.valor));
+// Cada fila puede traer su propio color (f.color, o f.claseColor de Tailwind),
+// un ícono (f.icono) y un botón "Ver" (f.onVer) que abre los chats de esa fila.
+// `relativoA`: 'max' (la barra más larga ocupa todo) o 'total' (% del total).
+function BarrasLista({ filas, color, relativoA = 'max', anchoEtiqueta = 'w-44 sm:w-60' }) {
+  const base = relativoA === 'total'
+    ? Math.max(1, filas.reduce((a, f) => a + f.valor, 0))
+    : Math.max(1, ...filas.map(f => f.valor));
   return (
     <div className="space-y-2">
       {filas.map(f => (
         <div key={f.label} className="flex items-center gap-3 text-sm" title={`${f.label}: ${num(f.valor)}${f.extra ? ` (${f.extra})` : ''}`}>
-          <span className="w-44 sm:w-60 shrink-0 leading-tight text-gray-600 dark:text-gray-300">{f.label}</span>
+          <span className={`${anchoEtiqueta} shrink-0 leading-tight text-gray-600 dark:text-gray-300 flex items-center gap-1.5`}>
+            {f.icono && <f.icono size={14} className="shrink-0" />}{f.label}
+          </span>
           <div className="flex-1 h-2.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-            <div className="h-full rounded-full" style={{ width: `${(f.valor / max) * 100}%`, background: color }} />
+            <div className={`h-full rounded-full ${f.claseColor || ''}`} style={{ width: `${(f.valor / base) * 100}%`, ...(f.claseColor ? {} : { background: f.color || color }) }} />
           </div>
           <span className="w-20 shrink-0 text-right tabular-nums text-gray-700 dark:text-gray-200">
             {num(f.valor)}{f.extra && <span className="ml-1 text-xs text-gray-500 dark:text-gray-400">{f.extra}</span>}
           </span>
+          {f.onVer && (
+            <button onClick={f.onVer} className="text-[11px] font-medium text-teal-600 dark:text-teal-400 hover:underline whitespace-nowrap shrink-0">
+              Ver
+            </button>
+          )}
         </div>
       ))}
       {filas.length === 0 && <p className="text-xs text-gray-400 dark:text-gray-500">Sin datos en este período.</p>}
+    </div>
+  );
+}
+
+// Calificaciones 1 a 5 (atención o producto), con el mismo color de siempre
+// (atención ámbar, producto azul: ver StarRating.jsx) y "Ver" por puntaje.
+function Calificaciones({ resumen, tipo, nombre, onVer }) {
+  if (!resumen || resumen.total === 0) {
+    return <p className="text-xs text-gray-400 dark:text-gray-500">Todavía no hay calificaciones de {nombre} en este período.</p>;
+  }
+  const colores = coloresRating(tipo);
+  return (
+    <div className="space-y-4">
+      <div className="flex items-end gap-6">
+        <div>
+          <StarRating value={resumen.promedio.toFixed(1)} type={tipo} size={20} className="text-3xl font-bold" />
+          <div className="text-[11px] uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400 mt-1">Promedio</div>
+        </div>
+        <div>
+          <div className="text-3xl font-bold text-gray-900 dark:text-gray-100 tabular-nums">{num(resumen.total)}</div>
+          <div className="text-[11px] uppercase tracking-wide font-semibold text-gray-500 dark:text-gray-400 mt-1">Calificaciones</div>
+        </div>
+      </div>
+      <BarrasLista
+        relativoA="total"
+        anchoEtiqueta="w-12"
+        filas={[5, 4, 3, 2, 1].map(n => ({
+          label: `${n} ★`,
+          valor: resumen.distribucion[n] || 0,
+          extra: porc(resumen.total ? ((resumen.distribucion[n] || 0) / resumen.total) * 100 : null),
+          claseColor: colores.barra,
+          onVer: () => onVer(n)
+        }))}
+      />
     </div>
   );
 }
@@ -226,6 +275,12 @@ export default function PanelEstadisticas() {
   const [hasta, setHasta] = useState(() => hoyAR());
   const [rango, setRango] = useState(() => ({ startDate: restarDias(hoyAR(), 29), endDate: hoyAR() }));
   const [datos, setDatos] = useState(null);
+  // Lo que antes estaba más abajo en desplegables (conversión marcada por el
+  // vendedor, resolución del bot, PDFs y calificaciones): GET /metrics/negocio,
+  // con el mismo rango de fechas que el resto del panel.
+  const [negocio, setNegocio] = useState(null);
+  // Lista de chats de una barra puntual ("Ver"): { title, filtros } o null.
+  const [bucket, setBucket] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [recarga, setRecarga] = useState(0);
@@ -238,12 +293,17 @@ export default function PanelEstadisticas() {
     const params = new URLSearchParams();
     if (rango.startDate) params.set('startDate', rango.startDate);
     if (rango.endDate) params.set('endDate', rango.endDate);
-    adminFetch(`/api/metrics/panel${params.toString() ? `?${params}` : ''}`)
-      .then(r => r.json())
-      .then(d => {
+    const consulta = params.toString() ? `?${params}` : '';
+    Promise.all([
+      adminFetch(`/api/metrics/panel${consulta}`).then(r => r.json()),
+      adminFetch(`/api/metrics/negocio${consulta}`).then(r => r.json())
+    ])
+      .then(([d, n]) => {
         if (cancelado) return;
         if (d.error) throw new Error(d.error);
+        if (n.error) throw new Error(n.error);
         setDatos(d);
+        setNegocio(n);
       })
       .catch(err => { if (!cancelado) setError(err.message || 'No se pudieron cargar las estadísticas.'); })
       .finally(() => { if (!cancelado) setCargando(false); });
@@ -440,7 +500,42 @@ export default function PanelEstadisticas() {
             </Seccion>
           </div>
 
-          <Seccion titulo="Cómo se cerraron las consultas">
+          {/* Resultado marcado por el vendedor + bot vs. derivadas */}
+          {negocio && (
+            <div className="grid lg:grid-cols-2 gap-4">
+              <Seccion titulo="Resultado de las consultas" descripcion='Lo que marca el vendedor al finalizar: "Venta Concretada", "Venta No Concretada" u "Otra razón".'>
+                {negocio.conversion.totalGestionadas === 0 ? (
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Todavía no se marcó ningún resultado en este período.</p>
+                ) : (
+                  <BarrasLista
+                    relativoA="total"
+                    anchoEtiqueta="w-36"
+                    filas={[
+                      { label: 'Concretadas', icono: CheckCircle2, valor: negocio.conversion.concretadas, claseColor: 'bg-emerald-500', extra: porc((negocio.conversion.concretadas / negocio.conversion.totalGestionadas) * 100), onVer: () => setBucket({ title: 'Ventas concretadas', filtros: { saleStatus: 'concretada' } }) },
+                      { label: 'No concretadas', icono: XCircle, valor: negocio.conversion.noConcretadas, claseColor: 'bg-rose-500', extra: porc((negocio.conversion.noConcretadas / negocio.conversion.totalGestionadas) * 100), onVer: () => setBucket({ title: 'Ventas no concretadas', filtros: { saleStatus: 'no_concretada' } }) },
+                      { label: 'Otra razón', icono: MessageSquare, valor: negocio.conversion.otras, claseColor: 'bg-amber-500', extra: porc((negocio.conversion.otras / negocio.conversion.totalGestionadas) * 100), onVer: () => setBucket({ title: 'Otra razón', filtros: { saleStatus: 'otra' } }) }
+                    ]}
+                  />
+                )}
+              </Seccion>
+              <Seccion titulo="Resueltas por el bot" descripcion="De las consultas ya cerradas, cuántas se resolvieron sin que interviniera una persona.">
+                {negocio.operacion.totalCerradas === 0 ? (
+                  <p className="text-xs text-gray-400 dark:text-gray-500">Todavía no hay consultas cerradas en este período.</p>
+                ) : (
+                  <BarrasLista
+                    relativoA="total"
+                    anchoEtiqueta="w-36"
+                    filas={[
+                      { label: 'Solo con el bot', icono: Bot, valor: negocio.operacion.autonomas, color: c.bot, extra: porc(negocio.operacion.pctAutonoma), onVer: () => setBucket({ title: 'Resueltas por el bot (sin humano)', filtros: { derivada: false } }) },
+                      { label: 'Con una persona', icono: Headset, valor: negocio.operacion.derivadas, color: c.sucursal, extra: porc(100 - negocio.operacion.pctAutonoma), onVer: () => setBucket({ title: 'Derivadas a un humano', filtros: { derivada: true } }) }
+                    ]}
+                  />
+                )}
+              </Seccion>
+            </div>
+          )}
+
+          <Seccion titulo="Cómo se cerraron las consultas" descripcion="Motivo de cierre de cada consulta (se registra desde la actualización de octubre; las anteriores figuran como sin dato).">
             <BarrasLista color={c.una} filas={Object.entries(datos.atencion.cierres).sort((a, b) => b[1] - a[1]).map(([k, n]) => ({ label: MOTIVOS_CIERRE[k] || k, valor: n }))} />
           </Seccion>
 
@@ -485,11 +580,89 @@ export default function PanelEstadisticas() {
             </div>
           </Seccion>
 
+          {/* Satisfacción */}
+          {negocio && (
+            <>
+              <div className="grid lg:grid-cols-2 gap-4">
+                <Seccion titulo="Satisfacción con la atención" descripcion="Calificación de 1 a 5 que deja el cliente sobre cómo lo atendieron.">
+                  <Calificaciones
+                    resumen={negocio.calificaciones.atencion}
+                    tipo="atencion"
+                    nombre="atención"
+                    onVer={(n) => setBucket({ title: `Calificación de atención: ${n} ${n === 1 ? 'estrella' : 'estrellas'}`, filtros: { rating: n } })}
+                  />
+                </Seccion>
+                <Seccion titulo="Satisfacción con el producto" descripcion="Calificación de 1 a 5 sobre lo que compró (solo cuando el pago quedó confirmado).">
+                  <Calificaciones
+                    resumen={negocio.calificaciones.producto}
+                    tipo="producto"
+                    nombre="producto"
+                    onVer={(n) => setBucket({ title: `Calificación de producto: ${n} ${n === 1 ? 'estrella' : 'estrellas'}`, filtros: { productRating: n } })}
+                  />
+                </Seccion>
+              </div>
+
+              <Seccion titulo="Satisfacción por sucursal" descripcion="Promedio de atención y de producto de cada sucursal, comparado con el general.">
+                <div className="overflow-x-auto scrollbar-thin rounded-lg border border-gray-200 dark:border-gray-800">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 dark:bg-gray-800/60">
+                      <tr className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        <th className="px-3 py-2 text-left">Sucursal</th>
+                        <th className="px-3 py-2 text-right">Atención</th>
+                        <th className="px-3 py-2 text-right">Calif.</th>
+                        <th className="px-3 py-2 text-right">Producto</th>
+                        <th className="px-3 py-2 text-right">Calif.</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...negocio.calificaciones.porSucursal].sort((a, b) => (b.atencion.total - a.atencion.total)).map(s => (
+                        <tr key={s.sucursalId || 'sin_sucursal'} className="border-t border-gray-100 dark:border-gray-800">
+                          <td className="px-3 py-2 text-gray-800 dark:text-gray-100"><span className="inline-flex items-center gap-1.5"><Store size={13} className="text-gray-400" />{s.nombre}</span></td>
+                          <td className="px-3 py-2 text-right">{s.atencion.total > 0 ? <StarRating value={s.atencion.promedio.toFixed(1)} type="atencion" size={13} className="font-semibold" /> : '—'}</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-gray-500 dark:text-gray-400">{num(s.atencion.total)}</td>
+                          <td className="px-3 py-2 text-right">{s.producto.total > 0 ? <StarRating value={s.producto.promedio.toFixed(1)} type="producto" size={13} className="font-semibold" /> : '—'}</td>
+                          <td className="px-3 py-2 text-right tabular-nums text-gray-500 dark:text-gray-400">{num(s.producto.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 font-semibold">
+                        <td className="px-3 py-2 text-gray-900 dark:text-gray-100">General</td>
+                        <td className="px-3 py-2 text-right">{negocio.calificaciones.atencion.total > 0 ? <StarRating value={negocio.calificaciones.atencion.promedio.toFixed(1)} type="atencion" size={13} className="font-bold" /> : '—'}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-gray-900 dark:text-gray-100">{num(negocio.calificaciones.atencion.total)}</td>
+                        <td className="px-3 py-2 text-right">{negocio.calificaciones.producto.total > 0 ? <StarRating value={negocio.calificaciones.producto.promedio.toFixed(1)} type="producto" size={13} className="font-bold" /> : '—'}</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-gray-900 dark:text-gray-100">{num(negocio.calificaciones.producto.total)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </Seccion>
+            </>
+          )}
+
           {/* Comparativa por sucursal */}
           <Seccion titulo="Comparativa por sucursal" descripcion="Tocá el nombre de una columna para ordenar. Las consultas cuentan para la sucursal que las tiene al final; los mensajes, para la que los mandó.">
             <TablaSucursales filas={datos.porSucursal} totales={totalesSucursal} />
           </Seccion>
+
+          {/* Seguridad */}
+          {negocio && (
+            <Seccion titulo="Seguridad: filtro de PDFs" descripcion="Documentos PDF que mandaron los clientes y que el sistema revisó antes de guardarlos.">
+              <div className="grid grid-cols-2 gap-3 max-w-md">
+                <Tile icon={ShieldAlert} label="PDFs bloqueados" valor={num(negocio.seguridad?.pdfBloqueados ?? 0)} />
+                <Tile icon={ShieldCheck} label="PDFs aceptados" valor={num(negocio.seguridad?.pdfAceptados ?? 0)} />
+              </div>
+            </Seccion>
+          )}
         </div>
+      )}
+
+      {bucket && (
+        <MetricsBucketModal
+          title={bucket.title}
+          filtros={{ startDate: rango.startDate, endDate: rango.endDate, ...bucket.filtros }}
+          onClose={() => setBucket(null)}
+        />
       )}
     </div>
   );
