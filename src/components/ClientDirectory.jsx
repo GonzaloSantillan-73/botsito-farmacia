@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Users, Search, ArrowLeft, ArrowUpDown, History, List, AlertTriangle, Filter, RefreshCw } from 'lucide-react';
 import { formatPhone } from '../lib/formatPhone';
 import { recortarNombre } from '../lib/recortarNombre';
@@ -34,7 +34,18 @@ const formatDateTime = (iso) =>
   new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 
-export default function ClientDirectory({ onOpenConversation, initialSelectedPhone = null }) {
+// estadoGuardado: cómo estaba el Directorio cuando se abrió un chat desde acá
+// (pestaña, cliente abierto, fechas, filtros, búsqueda y posición de la
+// lista). Al volver del chat (← o al eliminarlo) se restaura tal cual, ver
+// App.jsx. onOpenConversation(conv, estado) recibe ese estado.
+export default function ClientDirectory({ onOpenConversation, estadoGuardado = null }) {
+  const g = estadoGuardado || {};
+  // Contenedores con barra de desplazamiento (lista general y ficha de un
+  // cliente), para guardar y restaurar la posición.
+  const listaScrollRef = useRef(null);
+  const fichaScrollRef = useRef(null);
+  const [scrollPendiente, setScrollPendiente] = useState(() => (g.scrollTop != null ? g.scrollTop : null));
+  const [busquedaHistorial, setBusquedaHistorial] = useState(g.busquedaHistorial || '');
   const [conversations, setConversations] = useState([]);
   // A diferencia de `conversations` (una fila por CONSULTA, con el
   // client_phone tal cual quedó en esa sesión — ver "Historial de
@@ -51,21 +62,22 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
   // falla se disfrace de "no hay datos" sin ninguna pista de qué pasó.
   const [errors, setErrors] = useState({ conversations: null, clients: null });
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [selectedPhone, setSelectedPhone] = useState(initialSelectedPhone);
-  const [sortBy, setSortBy] = useState('recent');
+  const [search, setSearch] = useState(g.search || '');
+  const [selectedPhone, setSelectedPhone] = useState(g.selectedPhone || null);
+  const [sortBy, setSortBy] = useState(g.sortBy || 'recent');
   // Sub-pestaña de la vista general (no aplica a la ficha de un cliente
   // puntual): arranca en el historial de consultas, como pidió el negocio.
-  const [vista, setVista] = useState('historial');
+  const [vista, setVista] = useState(g.vista || 'historial');
   // Filtro de origen para "Historial de Consultas", sólo para el admin (el
   // staff ya ve nada más su propia sucursal + bot sin asignar, filtrar no le
   // aporta nada): 'todas' | 'bot' (sucursal_id null) | <sucursal_id>.
-  const [sucursalFiltro, setSucursalFiltro] = useState('todas');
+  const [sucursalFiltro, setSucursalFiltro] = useState(g.sucursalFiltro || 'todas');
   const [refreshing, setRefreshing] = useState(false);
   // Fechas del Historial de Consultas: arranca en el día de hoy (hora
   // Argentina) para no traer todas las consultas de la historia en cada
   // carga. El servidor filtra por estas fechas (ver clientDirectory.js).
   const [fechas, setFechas] = useState(() => {
+    if (g.fechas) return g.fechas;
     const hoy = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
     return { desde: hoy, hasta: hoy };
   });
@@ -198,6 +210,27 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
   }, [telefonosCliente]);
   const selectedClientConversations = [...historialCliente].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
+  // Abre un chat recordando cómo estaba el Directorio, para volver igual.
+  const abrirConversacion = (conv) => {
+    if (!onOpenConversation) return;
+    const contenedor = selectedPhone ? fichaScrollRef.current : listaScrollRef.current;
+    onOpenConversation(conv, {
+      vista, selectedPhone, fechas, sucursalFiltro, sortBy, search, busquedaHistorial,
+      scrollTop: contenedor ? contenedor.scrollTop : 0
+    });
+  };
+
+  // Restaura la posición de la lista una sola vez, cuando ya cargó todo lo
+  // que se ve (si no, el contenido todavía no tiene alto y no hay a dónde bajar).
+  const contenidoListo = !loading && !(selectedPhone ? cargandoCliente : cargandoHistorial);
+  useEffect(() => {
+    if (scrollPendiente == null || !contenidoListo) return;
+    const contenedor = selectedPhone ? fichaScrollRef.current : listaScrollRef.current;
+    if (!contenedor) return;
+    requestAnimationFrame(() => { contenedor.scrollTop = scrollPendiente; });
+    setScrollPendiente(null);
+  }, [scrollPendiente, contenidoListo, selectedPhone]);
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-[#f0f2f5] dark:bg-gray-900 text-gray-400 dark:text-gray-500 text-sm">
@@ -220,7 +253,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-thin p-6">
+        <div ref={fichaScrollRef} className="flex-1 overflow-y-auto scrollbar-thin p-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
             <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
               <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{selectedClient.total}</div>
@@ -256,7 +289,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
           <ClientHistoryList
             conversations={selectedClientConversations}
             loading={cargandoCliente}
-            onSelect={(conv) => { onOpenConversation && onOpenConversation(conv); }}
+            onSelect={abrirConversacion}
             emptyMessage="Este cliente todavía no tiene consultas."
           />
         </div>
@@ -350,7 +383,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
 
       {/* Sin padding (p-0): las pestañas "Historial de Consultas" y "Lista de
           Clientes" aprovechan todo el ancho y alto disponible. */}
-      <div className="flex-1 overflow-y-auto scrollbar-thin p-0">
+      <div ref={listaScrollRef} className="flex-1 overflow-y-auto scrollbar-thin p-0">
         {(vista === 'historial' ? errors.conversations : errors.clients) && (
           <div className="m-3 flex items-start gap-2 p-3 rounded-lg bg-rose-50 dark:bg-rose-950 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-400 text-sm">
             <AlertTriangle size={16} className="shrink-0 mt-0.5" />
@@ -366,7 +399,9 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
             loading={cargandoHistorial}
             fechas={fechas}
             onFechasChange={setFechas}
-            onSelect={(conv) => { onOpenConversation && onOpenConversation(conv); }}
+            searchQuery={busquedaHistorial}
+            onSearchQueryChange={setBusquedaHistorial}
+            onSelect={abrirConversacion}
             emptyMessage={sucursalFiltro !== 'todas' ? 'Ninguna consulta coincide con el filtro de sucursal.' : (fechas.desde || fechas.hasta) ? 'No hay consultas finalizadas en estas fechas. Cambiá las fechas de arriba para ver otros días.' : 'Todavía no hay consultas finalizadas.'}
             showClient
           />

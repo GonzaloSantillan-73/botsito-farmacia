@@ -11,6 +11,18 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-10-26-directorio-volver-donde-estabas',
+    fecha: '2026-10-26',
+    tipo: 'mejora',
+    para: 'todos',
+    titulo: 'Al salir de un chat del Directorio, volvés a donde estabas',
+    detalle: [
+      'Si abriste un chat desde el *Historial de Consultas*, al tocar la flecha ← (o al eliminarlo) volvés al Historial de Consultas, con las mismas fechas y filtros.',
+      'Si lo abriste desde la ficha de un cliente (*Lista de Clientes*), volvés a esa ficha.',
+      'Y quedás en la misma parte de la lista donde estabas: no hace falta volver a bajar.'
+    ]
+  },
+  {
     id: '2026-10-26-calificaciones-por-sucursal',
     fecha: '2026-10-26',
     tipo: 'nuevo',

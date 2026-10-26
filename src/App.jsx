@@ -133,20 +133,22 @@ function App() {
   // Directorio de clientes: independiente de activeTab, para que Entrantes/
   // Atendiendo/Derivados se sigan viendo mientras se muestra el directorio.
   const [showClientDirectory, setShowClientDirectory] = useState(false);
-  // Teléfono del cliente cuya ficha hay que reabrir si el operador vuelve
-  // atrás desde un chat que abrió desde el historial de ese cliente.
-  const [historyReturnPhone, setHistoryReturnPhone] = useState(null);
+  // Cómo estaba el Directorio cuando el operador abrió un chat desde ahí
+  // (pestaña Historial o ficha de un cliente, fechas, filtros y posición de la
+  // lista). Si vuelve atrás desde ese chat, el Directorio se reabre igual.
+  // null = el chat no se abrió desde el Directorio.
+  const [retornoDirectorio, setRetornoDirectorio] = useState(null);
   // Copia "al día" para leerla desde el canal de Realtime (ver salirDeConversacionEliminada).
-  const historyReturnPhoneRef = useRef(null);
-  useEffect(() => { historyReturnPhoneRef.current = historyReturnPhone; }, [historyReturnPhone]);
+  const retornoDirectorioRef = useRef(null);
+  useEffect(() => { retornoDirectorioRef.current = retornoDirectorio; }, [retornoDirectorio]);
 
   // Cuando se elimina la conversación que está abierta: si se había abierto
-  // desde la ficha de un cliente (Directorio), se vuelve a esa ficha (que se
-  // recarga sola, ya sin la consulta eliminada) en vez de quedar en la
-  // pantalla vacía de "Seleccioná una conversación".
+  // desde el Directorio, se vuelve ahí (que se recarga solo, ya sin la
+  // consulta eliminada) en vez de quedar en la pantalla vacía de
+  // "Seleccioná una conversación".
   const salirDeConversacionEliminada = () => {
     setActiveConversation(null);
-    if (historyReturnPhoneRef.current) setShowClientDirectory(true);
+    if (retornoDirectorioRef.current) setShowClientDirectory(true);
   };
   
   const [messages, setMessages] = useState([]);
@@ -494,22 +496,22 @@ function App() {
   // central muestre el chat.
   const handleSelectConversation = (conv) => {
     setShowClientDirectory(false);
-    setHistoryReturnPhone(null);
+    setRetornoDirectorio(null);
     setActiveConversation(conv);
     marcarComoLeida(conv);
   };
 
-  // Igual que handleSelectConversation, pero recordando de qué cliente venía
-  // (para que el botón de retroceso del chat pueda volver justo a su ficha).
-  const handleSelectConversationFromHistory = (conv) => {
-    setHistoryReturnPhone(conv.client_phone);
+  // Igual que handleSelectConversation, pero recordando cómo estaba el
+  // Directorio (para que el botón de retroceso del chat vuelva justo ahí).
+  const handleSelectConversationFromHistory = (conv, estadoDirectorio = null) => {
+    setRetornoDirectorio(estadoDirectorio || { vista: 'lista', selectedPhone: conv.client_phone });
     setShowClientDirectory(false);
     setActiveConversation(conv);
     marcarComoLeida(conv);
   };
 
-  // Volver desde el chat a la ficha del cliente en el Directorio (en vez de
-  // sacar al operador de esa sección por completo).
+  // Volver desde el chat al Directorio tal como estaba (en vez de sacar al
+  // operador de esa sección por completo).
   const handleBackToHistory = () => {
     setActiveConversation(null);
     setShowClientDirectory(true);
@@ -519,7 +521,7 @@ function App() {
   // pero NO toca activeTab, así Entrantes/Atendiendo/Derivados se siguen viendo.
   const handleShowClientDirectory = () => {
     setActiveConversation(null);
-    setHistoryReturnPhone(null);
+    setRetornoDirectorio(null);
     setShowClientDirectory(true);
   };
 
@@ -937,7 +939,7 @@ function App() {
       />
 
       {showClientDirectory && !activeConversation ? (
-        <ClientDirectory onOpenConversation={handleSelectConversationFromHistory} initialSelectedPhone={historyReturnPhone} />
+        <ClientDirectory onOpenConversation={handleSelectConversationFromHistory} estadoGuardado={retornoDirectorio} />
       ) : (
         <ChatArea
           activeConversation={activeConversation}
@@ -954,7 +956,7 @@ function App() {
           sessionTimeoutMs={sessionTimeoutMs}
           esperaRespuestaMs={esperaRespuestaMs}
           modoPrueba={modoPrueba}
-          onBackToHistory={historyReturnPhone ? handleBackToHistory : null}
+          onBackToHistory={retornoDirectorio ? handleBackToHistory : null}
           onOpenValidationMobile={() => { setShowValidationMobile(true); }}
         />
       )}
