@@ -136,6 +136,18 @@ function App() {
   // Teléfono del cliente cuya ficha hay que reabrir si el operador vuelve
   // atrás desde un chat que abrió desde el historial de ese cliente.
   const [historyReturnPhone, setHistoryReturnPhone] = useState(null);
+  // Copia "al día" para leerla desde el canal de Realtime (ver salirDeConversacionEliminada).
+  const historyReturnPhoneRef = useRef(null);
+  useEffect(() => { historyReturnPhoneRef.current = historyReturnPhone; }, [historyReturnPhone]);
+
+  // Cuando se elimina la conversación que está abierta: si se había abierto
+  // desde la ficha de un cliente (Directorio), se vuelve a esa ficha (que se
+  // recarga sola, ya sin la consulta eliminada) en vez de quedar en la
+  // pantalla vacía de "Seleccioná una conversación".
+  const salirDeConversacionEliminada = () => {
+    setActiveConversation(null);
+    if (historyReturnPhoneRef.current) setShowClientDirectory(true);
+  };
   
   const [messages, setMessages] = useState([]);
   const [messageInput, setMessageInput] = useState('');
@@ -326,7 +338,7 @@ function App() {
           if (payload.eventType === 'DELETE') {
             setConversations(prev => prev.filter(c => c.id !== payload.old?.id));
             if (activeConversationRef.current?.id === payload.old?.id) {
-              setActiveConversation(null);
+              salirDeConversacionEliminada();
             }
             return;
           }
@@ -820,7 +832,7 @@ function App() {
 
       setConversations(prev => prev.filter(c => c.id !== conversationId));
       if (activeConversation?.id === conversationId) {
-        setActiveConversation(null);
+        salirDeConversacionEliminada();
       }
     } catch (err) {
       console.error('❌ [DEBUG-COMPONENT-App] Error eliminando la conversación:', err);

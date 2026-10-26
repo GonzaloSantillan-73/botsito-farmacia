@@ -70,6 +70,9 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
     return { desde: hoy, hasta: hoy };
   });
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
+  // Todas las consultas del cliente abierto en la ficha (ver más abajo).
+  const [historialCliente, setHistorialCliente] = useState([]);
+  const [cargandoCliente, setCargandoCliente] = useState(false);
 
   // El filtrado por sucursal para el staff lo aplica el backend a partir
   // del sucursalId del JWT (ver server/routes/clientDirectory.js): acá no
@@ -166,9 +169,34 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
   // vigente): si migró de número, sus consultas viejas se quedaron con el
   // client_phone de entonces — `telefonos` (vigente + históricos) es lo que
   // arma obtenerListaClientesDirectorio en el backend.
-  const selectedClientConversations = selectedClient
-    ? conversations.filter(c => selectedClient.telefonos.includes(c.client_phone)).sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    : [];
+  //
+  // Se piden aparte al servidor (todas, sin importar las fechas del
+  // Historial de Consultas, que arranca en el día de hoy): antes salían de
+  // `conversations`, que ahora viene acotado por esas fechas.
+  const telefonosCliente = selectedClient ? selectedClient.telefonos.join(',') : '';
+  useEffect(() => {
+    if (!telefonosCliente) {
+      setHistorialCliente([]);
+      return;
+    }
+    let cancelado = false;
+    setCargandoCliente(true);
+    Promise.all(telefonosCliente.split(',').map(tel =>
+      adminFetch(`/api/admin/client-directory/history?clientPhone=${encodeURIComponent(tel)}`)
+        .then(res => res.json())
+        .then(d => d.conversations || [])
+    ))
+      .then(listas => {
+        if (cancelado) return;
+        const porId = new Map();
+        listas.flat().forEach(c => porId.set(c.id, c));
+        setHistorialCliente([...porId.values()]);
+      })
+      .catch(err => console.error('❌ [DEBUG-COMPONENT-ClientDirectory] error cargando el historial del cliente:', err))
+      .finally(() => { if (!cancelado) setCargandoCliente(false); });
+    return () => { cancelado = true; };
+  }, [telefonosCliente]);
+  const selectedClientConversations = [...historialCliente].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   if (loading) {
     return (
@@ -227,6 +255,7 @@ export default function ClientDirectory({ onOpenConversation, initialSelectedPho
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Historial de consultas</h3>
           <ClientHistoryList
             conversations={selectedClientConversations}
+            loading={cargandoCliente}
             onSelect={(conv) => { onOpenConversation && onOpenConversation(conv); }}
             emptyMessage="Este cliente todavía no tiene consultas."
           />

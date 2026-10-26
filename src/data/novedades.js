@@ -11,6 +11,17 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-10-26-eliminar-vuelve-ficha',
+    fecha: '2026-10-26',
+    tipo: 'correccion',
+    para: 'admin',
+    titulo: 'Al eliminar una consulta, volvés a la ficha del cliente',
+    detalle: [
+      'Si abrís una consulta desde la ficha de un cliente (Directorio) y la eliminás, ahora volvés a esa ficha en vez de quedar en una pantalla vacía.',
+      'La ficha de un cliente siempre muestra todas sus consultas, aunque el Historial de Consultas esté filtrado por fecha.'
+    ]
+  },
+  {
     id: '2026-10-26-directorio-hoy',
     fecha: '2026-10-26',
     tipo: 'mejora',
