@@ -11,7 +11,7 @@ import {
 import { adminFetch } from '../lib/adminAuth';
 import StarRating, { coloresRating } from './StarRating';
 import MetricsBucketModal from './MetricsBucketModal';
-import CalificacionesSucursalModal from './CalificacionesSucursalModal';
+import CalificacionesModal from './CalificacionesModal';
 
 // Panel de Métricas y Estadísticas (etapa 3): pantalla de lo que calcula
 // GET /api/metrics/panel (server/services/metricasPanel.js). Sólo admin.
@@ -283,7 +283,8 @@ export default function PanelEstadisticas() {
   // Lista de chats de una barra puntual ("Ver"): { title, filtros } o null.
   const [bucket, setBucket] = useState(null);
   // Sucursal cuyas calificaciones se están mirando (pantalla completa).
-  const [sucursalCalif, setSucursalCalif] = useState(null);
+  // Lista de calificaciones a pantalla completa: { sucursal|null, tipo, estrellas|null }.
+  const [calif, setCalif] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [recarga, setRecarga] = useState(0);
@@ -598,7 +599,7 @@ export default function PanelEstadisticas() {
                     resumen={negocio.calificaciones.atencion}
                     tipo="atencion"
                     nombre="atención"
-                    onVer={(n) => setBucket({ title: `Calificación de atención: ${n} ${n === 1 ? 'estrella' : 'estrellas'}`, filtros: { rating: n } })}
+                    onVer={(n) => setCalif({ sucursal: null, tipo: 'atencion', estrellas: n })}
                   />
                 </Seccion>
                 <Seccion titulo="Satisfacción con el producto" descripcion="Calificación de 1 a 5 sobre lo que compró (solo cuando el pago quedó confirmado).">
@@ -606,7 +607,7 @@ export default function PanelEstadisticas() {
                     resumen={negocio.calificaciones.producto}
                     tipo="producto"
                     nombre="producto"
-                    onVer={(n) => setBucket({ title: `Calificación de producto: ${n} ${n === 1 ? 'estrella' : 'estrellas'}`, filtros: { productRating: n } })}
+                    onVer={(n) => setCalif({ sucursal: null, tipo: 'producto', estrellas: n })}
                   />
                 </Seccion>
               </div>
@@ -627,9 +628,9 @@ export default function PanelEstadisticas() {
                       {[...negocio.calificaciones.porSucursal].sort((a, b) => (b.atencion.total - a.atencion.total)).map(s => (
                         <tr
                           key={s.sucursalId || 'sin_sucursal'}
-                          onClick={() => s.atencion.total > 0 && setSucursalCalif({ sucursalId: s.sucursalId, nombre: s.nombre })}
-                          title={s.atencion.total > 0 ? 'Ver quiénes calificaron a esta sucursal' : undefined}
-                          className={`border-t border-gray-100 dark:border-gray-800 ${s.atencion.total > 0 ? 'cursor-pointer hover:bg-teal-50/40 dark:hover:bg-teal-950/40 transition-colors' : ''}`}
+                          onClick={() => (s.atencion.total > 0 || s.producto.total > 0) && setCalif({ sucursal: { sucursalId: s.sucursalId, nombre: s.nombre }, tipo: s.atencion.total > 0 ? 'atencion' : 'producto', estrellas: null })}
+                          title={s.atencion.total > 0 || s.producto.total > 0 ? 'Ver quiénes calificaron a esta sucursal' : undefined}
+                          className={`border-t border-gray-100 dark:border-gray-800 ${s.atencion.total > 0 || s.producto.total > 0 ? 'cursor-pointer hover:bg-teal-50/40 dark:hover:bg-teal-950/40 transition-colors' : ''}`}
                         >
                           <td className="px-3 py-2 text-gray-800 dark:text-gray-100"><span className="inline-flex items-center gap-1.5"><Store size={13} className="text-gray-400" />{s.nombre}</span></td>
                           <td className="px-3 py-2 text-right">{s.atencion.total > 0 ? <StarRating value={s.atencion.promedio.toFixed(1)} type="atencion" size={13} className="font-semibold" /> : '—'}</td>
@@ -671,11 +672,13 @@ export default function PanelEstadisticas() {
         </div>
       )}
 
-      {sucursalCalif && (
-        <CalificacionesSucursalModal
-          sucursal={sucursalCalif}
+      {calif && (
+        <CalificacionesModal
+          sucursal={calif.sucursal}
+          tipoInicial={calif.tipo}
+          estrellasIniciales={calif.estrellas}
           rango={rango}
-          onClose={() => setSucursalCalif(null)}
+          onClose={() => setCalif(null)}
         />
       )}
 

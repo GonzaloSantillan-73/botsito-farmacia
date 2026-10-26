@@ -120,7 +120,7 @@ router.get('/metrics/detalle', async (req, res) => {
       saleStatus,
       // 'ninguna' (sin sucursal asignada) o un id de sucursal válido.
       sucursalId: sucursalId === 'ninguna' || /^[0-9a-f-]{36}$/i.test(sucursalId || '') ? sucursalId : undefined,
-      calificadas: calificadas === 'true',
+      calificadas: ['atencion', 'producto'].includes(calificadas) ? calificadas : undefined,
       rating: rating != null && rating !== '' ? Number(rating) : undefined,
       productRating: productRating != null && productRating !== '' ? Number(productRating) : undefined,
       derivada: derivada != null && derivada !== '' ? derivada === 'true' : undefined

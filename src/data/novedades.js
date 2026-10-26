@@ -17,7 +17,8 @@ export const NOVEDADES = [
     para: 'admin',
     titulo: 'Quiénes calificaron a cada sucursal',
     detalle: [
-      'En *Satisfacción por sucursal* (Métricas), tocá una sucursal para ver en pantalla completa a los clientes que la calificaron: fecha y hora, nombre, número, demora y estrellas. Se puede filtrar por estrellas y por fecha, y ordenar por estrellas.',
+      'En *Satisfacción por sucursal* (Métricas), tocá una sucursal para ver en pantalla completa a los clientes que la calificaron: fecha y hora, nombre, número, demora y estrellas. Arriba elegís si mirás la puntuación de atención o de producto, qué estrellas, las fechas y el orden (por fecha o por estrellas).',
+      'El *Ver* de cada barra de Satisfacción con la atención y con el producto abre esa misma pantalla, con todas las sucursales y solo esas estrellas.',
       'Al tocar una consulta (en esta lista o en cualquier "Ver" de Métricas) se abre el chat completo con una columna al costado: inicio, demora, duración, sucursales que la atendieron, calificaciones, resultado de la venta, subtotal, envío, total y medio de pago.'
     ]
   },
