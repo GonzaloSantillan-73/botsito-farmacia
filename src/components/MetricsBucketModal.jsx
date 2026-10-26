@@ -59,7 +59,13 @@ export default function MetricsBucketModal({ title, filtros, onClose }) {
               No hay chats en esta categoría.
             </div>
           ) : (
-            <SortableDetailTable rows={rows} onRowClick={(row) => { setConversacionAbierta(row); }} />
+            <SortableDetailTable
+              rows={rows}
+              onRowClick={(row) => { setConversacionAbierta(row); }}
+              // En las ventas concretadas importan los montos (subtotal, envío y
+              // total), no las duraciones ni la cantidad de mensajes.
+              ocultarColumnas={filtros?.saleStatus === 'concretada' ? ['demoraInicial', 'duracionTotal', 'msjsCliente', 'msjsBot', 'msjsSucursal'] : []}
+            />
           )}
         </div>
       </div>

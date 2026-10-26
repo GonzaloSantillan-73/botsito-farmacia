@@ -517,6 +517,12 @@ export default function PanelEstadisticas() {
                     ]}
                   />
                 )}
+                {negocio.conversion.totalGestionadas > 0 && (
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-800 text-sm">
+                    <span className="font-semibold text-gray-700 dark:text-gray-200">Total de consultas con resultado</span>
+                    <span className="font-bold text-gray-900 dark:text-gray-100 tabular-nums">{num(negocio.conversion.totalGestionadas)}</span>
+                  </div>
+                )}
               </Seccion>
               <Seccion titulo="Resueltas por el bot" descripcion="De las consultas ya cerradas, cuántas se resolvieron sin que interviniera una persona.">
                 {negocio.operacion.totalCerradas === 0 ? (

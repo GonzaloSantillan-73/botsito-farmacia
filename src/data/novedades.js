@@ -11,6 +11,17 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-10-26-resultado-total-ventas-montos',
+    fecha: '2026-10-26',
+    tipo: 'mejora',
+    para: 'admin',
+    titulo: 'Métricas: total de resultados y montos de las ventas',
+    detalle: [
+      '*Resultado de las consultas* muestra el total (concretadas + no concretadas + otra razón).',
+      'Al tocar *Ver* en las ventas concretadas, la lista muestra subtotal, envío y total, sin las duraciones ni la cantidad de mensajes.'
+    ]
+  },
+  {
     id: '2026-10-26-eliminar-vuelve-ficha',
     fecha: '2026-10-26',
     tipo: 'correccion',
