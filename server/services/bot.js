@@ -135,8 +135,9 @@ const MENSAJE_ERROR_DERIVACION = 'Tuvimos un problema derivándote con un asesor
 const PASOS_UBICACION = 'Mandanos tu ubicación siguiendo estos pasos:\n'
   + '1️⃣ Tocá el clip 📎, abajo, al lado de donde escribís.\n'
   + '2️⃣ Elegí *"Ubicación"*.\n'
-  + '3️⃣ Tocá *"Enviar tu ubicación actual"*.\n\n'
-  + '¿No te funciona? También podés pegar acá el link de tu ubicación de Google Maps. 🗺️';
+  + '3️⃣ Tocá *"Enviar tu ubicación actual"*.';
+// Si en vez de eso pega un link de Google Maps, también funciona (ver
+// esLinkDeGoogleMaps), aunque ya no se menciona para que el mensaje sea corto.
 // Eligió "Hablar con un asesor".
 const MENSAJE_PEDIR_UBICACION = '¡Perfecto! Ahora te conectamos con *nuestra farmacia más cercana a vos*. 📍\n\n' + PASOS_UBICACION;
 // Escribió dos veces en vez de tocar un botón: se lo pasa directo con una

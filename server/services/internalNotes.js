@@ -6,6 +6,12 @@
 // nota, para que la estructura sea siempre la misma independientemente de
 // si se cargó un motivo o no.
 export const formatInternalReason = (action, usuario, razon) => {
+  if (action === 'take') {
+    // "Mi Farma V" -> "Sucursal Mi Farma V" (si ya empieza con "Sucursal", queda igual).
+    const nombre = (usuario || '').trim();
+    const conPrefijo = !nombre ? 'Una sucursal' : /^sucursal\b/i.test(nombre) ? nombre : `Sucursal ${nombre}`;
+    return `${conPrefijo} tomó la consulta`;
+  }
   const origenTexto = usuario || 'Una sucursal';
   const razonLimpia = razon?.trim() ? razon.trim() : 'sin especificar';
   if (action === 'transfer') {

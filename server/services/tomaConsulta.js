@@ -1,5 +1,6 @@
 import { supabase } from '../supabase.js';
 import { TERMINAL_STATUSES } from './sessionManager.js';
+import { formatInternalReason } from './internalNotes.js';
 
 // Un empleado de sucursal reclama una conversación: de la cola general
 // ('esperando', sin sucursal) O directamente de una que el bot todavía está
@@ -106,6 +107,21 @@ export const tomarConsulta = async (conversationId, sucursalId) => {
       .insert({ conversation_id: conversationId, sucursal_id: sucursalId });
     if (histError) {
       console.error('❌ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — error registrando historial de sucursal (no crítico):', histError);
+    }
+
+    // Nota interna en el timeline ("La sucursal X tomó la consulta"), igual
+    // que las de derivación/devolución: sólo la ven las sucursales y el
+    // admin, nunca se manda al cliente. No crítica.
+    const { error: notaError } = await supabase
+      .from('messages')
+      .insert({
+        conversation_id: conversationId,
+        sender_type: 'system',
+        message_text: formatInternalReason('take', sucursal.nombre),
+        media_type: 'text'
+      });
+    if (notaError) {
+      console.error('❌ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — error registrando nota interna de toma (no crítico):', notaError);
     }
 
     console.log('✅ [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — resultado a devolver:', conv);

@@ -12,6 +12,7 @@ import { STATUS_BADGES } from './Sidebar';
 import CloseChatModal from './CloseChatModal';
 import ReturnToQueueModal from './ReturnToQueueModal';
 import MessageBubble, { CitaMensaje } from './MessageBubble';
+import NotaInterna from './NotaInterna';
 import MediaGalleryModal from './MediaGalleryModal';
 import AdminPasswordActionModal from './AdminPasswordActionModal';
 import { alertDialog } from '../lib/dialogService';
@@ -860,16 +861,7 @@ ${bloque}` : bloque));
                     </div>
                   )}
                   {msg.sender_type === 'system' ? (
-                    // Nota interna (motivo de derivación/devolución, ver
-                    // derivacionSucursal.js / devolucionCola.js): sólo la ve
-                    // el operador acá en el CRM, nunca se le manda al
-                    // cliente por WhatsApp, así que no usa MessageBubble
-                    // (esa sí es la burbuja de un mensaje real de chat).
-                    <div className="flex justify-center w-full my-2">
-                      <span className="bg-blue-600 text-white text-base px-5 py-2.5 rounded-full border border-blue-700">
-                        {msg.message_text}
-                      </span>
-                    </div>
+                    <NotaInterna msg={msg} />
                   ) : (
                     <MessageBubble
                       msg={msg}

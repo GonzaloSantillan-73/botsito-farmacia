@@ -12,6 +12,7 @@ import AdminPasswordActionModal from './AdminPasswordActionModal';
 import { alertDialog } from '../lib/dialogService';
 import { renderWhatsAppText } from '../lib/whatsappFormat';
 import { recortarNombre } from '../lib/recortarNombre';
+import NotaInterna from './NotaInterna';
 
 // Mismas etiquetas que MessageBubble.jsx (TIPO_ARCHIVO_LABELS), para el
 // placeholder de "archivo eliminado" tras una purga hecha desde acá.
@@ -179,13 +180,7 @@ export default function HistoryPanel({ clientPhone, clientName, currentConversat
                     // Nota interna (motivo de derivación/devolución): nunca
                     // se le manda al cliente, sólo se muestra acá para el
                     // operador, centrada como un divisor.
-                    return (
-                      <div key={msg.id} className="flex justify-center w-full my-2">
-                        <span className="bg-blue-600 text-white text-base px-5 py-2.5 rounded-full border border-blue-700">
-                          {msg.message_text}
-                        </span>
-                      </div>
-                    );
+                    return <NotaInterna key={msg.id} msg={msg} />;
                   }
                   const location = parseLocationMessage(msg);
                   const linkDeMaps = !location && !msg.media_url ? extraerLinkDeMaps(msg.message_text) : null;

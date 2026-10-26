@@ -11,6 +11,27 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-10-26-aviso-tomo-consulta-y-hora',
+    fecha: '2026-10-26',
+    tipo: 'mejora',
+    para: 'todos',
+    titulo: 'Avisos azules con fecha y hora, y aviso de "tomó la consulta"',
+    detalle: [
+      'Los avisos azules del chat (cuando una sucursal te pasa un chat o lo devuelve a espera) ahora muestran debajo la fecha y la hora en que pasó.',
+      'Cuando una sucursal toma una consulta aparece un aviso nuevo: *"Sucursal ... tomó la consulta"*. Igual que los otros, solo lo ven las sucursales y el admin, nunca el cliente.'
+    ]
+  },
+  {
+    id: '2026-10-26-ubicacion-mas-corto',
+    fecha: '2026-10-26',
+    tipo: 'mejora',
+    para: 'todos',
+    titulo: 'Mensaje para pedir la ubicación más corto',
+    detalle: [
+      'El bot ya no agrega al final "¿No te funciona? También podés pegar acá el link de tu ubicación de Google Maps", para que el mensaje sea más corto y el cliente lo lea. Si el cliente igual manda un link de Google Maps, sigue funcionando.'
+    ]
+  },
+  {
     id: '2026-10-26-datos-consulta-directorio',
     fecha: '2026-10-26',
     tipo: 'nuevo',

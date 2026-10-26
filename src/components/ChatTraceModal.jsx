@@ -12,6 +12,7 @@ import MessageBubble from './MessageBubble';
 import AdminPasswordActionModal from './AdminPasswordActionModal';
 import { recortarNombre } from '../lib/recortarNombre';
 import { DatosConsultaContenido } from './DatosConsulta';
+import NotaInterna from './NotaInterna';
 
 // Trazabilidad de solo lectura de UNA consulta puntual: se abre desde el
 // modal de "Ver" de una barra de Métricas (ver MetricsBucketModal.jsx),
@@ -94,7 +95,9 @@ export default function ChatTraceModal({ conversation, onClose }) {
           ) : messages.length === 0 ? (
             <div className="text-center text-gray-400 dark:text-gray-500 text-sm py-10">Esta consulta no tiene mensajes.</div>
           ) : (
-            messages.map(msg => (
+            messages.map(msg => msg.sender_type === 'system' ? (
+              <NotaInterna key={msg.id} msg={msg} />
+            ) : (
               <MessageBubble
                 key={msg.id}
                 msg={msg}
