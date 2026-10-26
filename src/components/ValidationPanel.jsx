@@ -8,6 +8,7 @@ import { confirmDialog, alertDialog } from '../lib/dialogService';
 import OrderStatusPanel from './OrderStatusPanel';
 import { SALE_STATUS_BADGES } from './Sidebar';
 import { recortarNombre } from '../lib/recortarNombre';
+import DatosConsultaPanel from './DatosConsulta';
 
 // Estados en los que la conversación ya está cerrada (mismo criterio que en ChatArea/Sidebar).
 const ESTADOS_CERRADOS = ['finalizada', 'resolved', 'rejected'];
@@ -27,7 +28,10 @@ export default function ValidationPanel({
   handleSendMessage,
   isAdmin = true,
   showMobile = false,
-  onCloseMobile
+  onCloseMobile,
+  // true = el chat se abrió desde el Directorio de Clientes: arriba se
+  // muestran los datos de la consulta (inicio, demora, venta, etc.).
+  mostrarDatosConsulta = false
 }) {
   const [showRejectOptions, setShowRejectOptions] = useState(false);
   const [rejectReason, setRejectReason] = useState('Ilegible');
@@ -383,6 +387,7 @@ export default function ValidationPanel({
         </button>
       </div>
       <div className="flex-1 overflow-y-auto scrollbar-thin">
+        {mostrarDatosConsulta && activeConversation && <DatosConsultaPanel conversation={activeConversation} />}
         {/* La validación de receta dispara un mensaje automático al cliente
             (aprobada/rechazada) por /api/messages/send, bloqueado para el
             admin en el backend: por eso queda fuera de su vista, igual que

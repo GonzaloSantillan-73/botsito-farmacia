@@ -11,6 +11,17 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-10-26-datos-consulta-directorio',
+    fecha: '2026-10-26',
+    tipo: 'nuevo',
+    para: 'todos',
+    titulo: 'Datos de la consulta al abrir un chat del Directorio',
+    detalle: [
+      'Cuando abrís un chat desde el *Directorio de Clientes*, en la columna del costado aparece arriba *Datos de la consulta*: inicio, demora en responder, duración, cantidad de mensajes, sucursales que la atendieron, calificaciones y la venta (resultado, subtotal, envío, total y medio de pago).',
+      'Son los mismos datos que se ven al abrir un chat desde Métricas.'
+    ]
+  },
+  {
     id: '2026-10-26-directorio-volver-donde-estabas',
     fecha: '2026-10-26',
     tipo: 'mejora',

@@ -20,7 +20,9 @@ const msDiff = (desde, hasta) => (desde && hasta ? new Date(hasta).getTime() - n
 // sucursalId: 'ninguna' = sin sucursal asignada; un id = esa sucursal.
 // calificadas: 'atencion' o 'producto' = sólo consultas con esa
 // calificación (lista de calificaciones, ver CalificacionesModal.jsx).
-export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, rating, productRating, derivada, sucursalId, calificadas } = {}) => {
+// conversationId: sólo esa consulta (panel lateral de un chat abierto desde
+// el Directorio, ver DatosConsulta.jsx).
+export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, rating, productRating, derivada, sucursalId, calificadas, conversationId } = {}) => {
   console.log('🔍 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — filtros recibidos:', { startDate, endDate, saleStatus, rating, productRating, derivada });
   try {
     const COLUMNAS_BASE = 'id, created_at, client_name, client_phone, status, sale_status, sale_amount, payment_method, waiting_since, rating, product_rating, sucursales!sucursal_id(nombre)';
@@ -47,6 +49,7 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
       else if (sucursalId) q = q.eq('sucursal_id', sucursalId);
       if (calificadas === 'atencion') q = q.not('rating', 'is', null);
       if (calificadas === 'producto') q = q.not('product_rating', 'is', null);
+      if (conversationId) q = q.eq('id', conversationId);
       // "Derivada"/"Bot (sin humano)" sólo tiene sentido sobre consultas ya
       // cerradas: es el mismo universo que usa /metrics/negocio para calcular el
       // % de resolución autónoma.

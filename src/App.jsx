@@ -975,6 +975,7 @@ function App() {
           isAdmin={!soyStaff}
           showMobile={showValidationMobile}
           onCloseMobile={() => { setShowValidationMobile(false); }}
+          mostrarDatosConsulta={!!retornoDirectorio}
         />
       )}
 

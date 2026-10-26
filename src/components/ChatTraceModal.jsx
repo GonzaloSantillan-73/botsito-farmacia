@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, MessagesSquare, FileText, ExternalLink } from 'lucide-react';
+import { X, MessagesSquare } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatPhone } from '../lib/formatPhone';
 import { tagMessage, aplicarTagLocal } from '../lib/tagMessage';
@@ -11,28 +11,7 @@ import { STATUS_BADGES, SALE_STATUS_BADGES } from './Sidebar';
 import MessageBubble from './MessageBubble';
 import AdminPasswordActionModal from './AdminPasswordActionModal';
 import { recortarNombre } from '../lib/recortarNombre';
-import { withSucursalesHistorial } from '../lib/clientUtils';
-import StarRating from './StarRating';
-import { formatMoney, formatEnvio, formatDuracion } from './SortableDetailTable';
-
-// Una fila del panel de datos (columna derecha).
-function Dato({ label, children }) {
-  return (
-    <div className="flex items-start justify-between gap-3 py-2 border-b border-gray-100 dark:border-gray-800 last:border-0 text-sm">
-      <span className="text-gray-500 dark:text-gray-400 shrink-0">{label}</span>
-      <span className="text-right font-medium text-gray-900 dark:text-gray-100 min-w-0">{children}</span>
-    </div>
-  );
-}
-
-function Bloque({ titulo, children }) {
-  return (
-    <div>
-      <h4 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{titulo}</h4>
-      <div>{children}</div>
-    </div>
-  );
-}
+import { DatosConsultaContenido } from './DatosConsulta';
 
 // Trazabilidad de solo lectura de UNA consulta puntual: se abre desde el
 // modal de "Ver" de una barra de Métricas (ver MetricsBucketModal.jsx),
@@ -46,18 +25,6 @@ export default function ChatTraceModal({ conversation, onClose }) {
   const [taggingId, setTaggingId] = useState(null);
   const soyAdmin = isAdminRole();
   const { purgeTarget, setPurgeTarget, handlePurgeFile } = usePurgeMedia(setMessages);
-  // Sucursales que la atendieron, en orden (tomada, derivada, devuelta...).
-  const [sucursalesQueAtendieron, setSucursalesQueAtendieron] = useState(null);
-  useEffect(() => {
-    let cancelado = false;
-    withSucursalesHistorial([{ id: conversation.id }]).then(res => {
-      if (!cancelado) setSucursalesQueAtendieron((res?.[0]?.sucursales_historial || []).map(s => s.nombre).filter(Boolean));
-    });
-    return () => { cancelado = true; };
-  }, [conversation.id]);
-  const c = conversation;
-  const fechaInicio = c.fecha ? new Date(c.fecha) : null;
-
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -144,48 +111,7 @@ export default function ChatTraceModal({ conversation, onClose }) {
 
         {/* Datos de la consulta: todo lo que no se ve en el chat */}
         <aside className="lg:w-80 shrink-0 max-h-[40%] lg:max-h-none overflow-y-auto scrollbar-thin border-t lg:border-t-0 lg:border-l border-gray-200 dark:border-gray-700 p-4 space-y-5 bg-white dark:bg-gray-900">
-          <Bloque titulo="Consulta">
-            <Dato label="Inicio">{fechaInicio ? `${fechaInicio.toLocaleDateString('es-AR')} ${fechaInicio.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}` : '—'}</Dato>
-            <Dato label="Demora en responder">{formatDuracion(c.demoraInicialMs)}</Dato>
-            <Dato label="Duración">{formatDuracion(c.duracionTotalMs)}</Dato>
-            <Dato label="Mensajes">{c.msjsCliente != null ? `${c.msjsCliente} cliente · ${c.msjsBot ?? 0} bot · ${c.msjsSucursal ?? 0} sucursal` : '—'}</Dato>
-          </Bloque>
-
-          <Bloque titulo="Sucursales que la atendieron">
-            {sucursalesQueAtendieron == null ? (
-              <p className="text-xs text-gray-400 dark:text-gray-500 py-2">Cargando...</p>
-            ) : sucursalesQueAtendieron.length === 0 ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400 py-2">{c.sucursal || 'Ninguna (solo el bot)'}</p>
-            ) : (
-              <ol className="py-1 space-y-1 text-sm text-gray-800 dark:text-gray-100">
-                {sucursalesQueAtendieron.map((nombre, i) => (
-                  <li key={`${nombre}-${i}`} className="flex items-center gap-2">
-                    <span className="w-5 h-5 shrink-0 rounded-full bg-gray-100 dark:bg-gray-800 text-[11px] font-semibold text-gray-600 dark:text-gray-300 flex items-center justify-center">{i + 1}</span>
-                    {nombre}
-                  </li>
-                ))}
-              </ol>
-            )}
-          </Bloque>
-
-          <Bloque titulo="Calificación">
-            <Dato label="Atención">{c.rating != null ? <StarRating value={c.rating} type="atencion" size={13} className="font-semibold" /> : 'Sin calificar'}</Dato>
-            <Dato label="Producto">{c.productRating != null ? <StarRating value={c.productRating} type="producto" size={13} className="font-semibold" /> : 'Sin calificar'}</Dato>
-          </Bloque>
-
-          <Bloque titulo="Venta">
-            <Dato label="Resultado">{SALE_STATUS_BADGES[c.saleStatus]?.label || 'Sin marcar'}</Dato>
-            <Dato label="Subtotal">{formatMoney(c.subtotal)}</Dato>
-            <Dato label="Envío">{formatEnvio(c.costoEnvio)}</Dato>
-            <Dato label="Total">{formatMoney(c.montoTotal)}</Dato>
-            <Dato label="Medio de pago">{c.medioPago || '—'}</Dato>
-            {c.comprobanteUrl && (
-              <Dato label="Comprobante"><a href={c.comprobanteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-teal-600 dark:text-teal-400 hover:underline">Ver <ExternalLink size={12} /></a></Dato>
-            )}
-            {c.recetaUrl && (
-              <Dato label="Receta"><a href={c.recetaUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-teal-600 dark:text-teal-400 hover:underline"><FileText size={12} /> Ver</a></Dato>
-            )}
-          </Bloque>
+          <DatosConsultaContenido c={conversation} />
         </aside>
         </div>
       </div>

@@ -1,6 +1,8 @@
 import express from 'express';
 import { requireAuth } from './adminAuth.js';
 import { obtenerConversacionesDirectorio, obtenerListaClientesDirectorio, buscarEnMensajesDirectorio, obtenerHistorialClienteParaChat } from '../services/clientDirectory.js';
+import { obtenerDetalleConsultas } from '../services/metricsDetalle.js';
+import { supabase } from '../supabase.js';
 
 const router = express.Router();
 
@@ -88,6 +90,39 @@ router.get('/history', async (req, res) => {
     console.error('❌ [DEBUG-ROUTES-CLIENTDIRECTORY] GET /history - error:', error);
     console.log('🔚 [DEBUG-ROUTES-CLIENTDIRECTORY] GET /history - respondiendo status 500');
     res.status(500).json({ error: error.message || 'No se pudo obtener el historial del cliente.' });
+  }
+});
+
+// Datos de UNA consulta (inicio, demora, duración, mensajes, calificaciones,
+// venta) para el panel lateral de un chat abierto desde el Directorio. El
+// staff sólo ve las consultas que también vería en el historial de ese
+// cliente (misma regla que GET /history).
+router.get('/consulta-detalle', async (req, res) => {
+  console.log('🔍 [DEBUG-ROUTES-CLIENTDIRECTORY] GET', req.originalUrl, '— req.admin:', req.admin);
+  const { id } = req.query;
+  if (!/^[0-9a-f-]{36}$/i.test(id || '')) {
+    return res.status(400).json({ error: 'Falta el id de la consulta.' });
+  }
+
+  try {
+    if (req.admin.role !== 'admin') {
+      const { data: conv, error } = await supabase.from('conversations').select('client_phone').eq('id', id).maybeSingle();
+      if (error) throw error;
+      if (!conv) return res.status(404).json({ error: 'No se encontró la consulta.' });
+      const permitidas = await obtenerHistorialClienteParaChat({ clientPhone: conv.client_phone, sucursalId: req.admin.sucursalId });
+      if (!permitidas.some(c => c.id === id)) {
+        console.log('🔚 [DEBUG-ROUTES-CLIENTDIRECTORY] GET /consulta-detalle - 403, consulta de otra sucursal');
+        return res.status(403).json({ error: 'No tenés acceso a esta consulta.' });
+      }
+    }
+
+    const filas = await obtenerDetalleConsultas({ conversationId: id });
+    if (!filas.length) return res.status(404).json({ error: 'No se encontró la consulta.' });
+    console.log('🔚 [DEBUG-ROUTES-CLIENTDIRECTORY] GET /consulta-detalle - respondiendo status 200');
+    res.status(200).json({ consulta: filas[0] });
+  } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-CLIENTDIRECTORY] GET /consulta-detalle - error:', error);
+    res.status(500).json({ error: error.message || 'No se pudieron obtener los datos de la consulta.' });
   }
 });
 
