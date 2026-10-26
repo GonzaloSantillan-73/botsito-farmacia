@@ -332,7 +332,7 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
       const threshold = await getFrequentClientThreshold();
       const esFrecuente = interaccionesPrevias >= threshold;
       console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — rama: sesión nueva con cliente ya registrado. interaccionesPrevias:', interaccionesPrevias, ', threshold:', threshold, ', esFrecuente:', esFrecuente, '. Se deriva a volverAlMenuPrincipal().');
-      await volverAlMenuPrincipal(conversationId, telefono, esFrecuente);
+      await programarMenuDeBienvenida(conversationId, telefono, esFrecuente);
       console.log('✅ [DEBUG-SERVICE-BOT] procesarMensajeBot() — valor de retorno: undefined (cortado tras volver al menú principal en sesión nueva)');
       return;
     }
@@ -395,6 +395,15 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
       } else {
         console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — rama: registro_espera. Mensaje recibido durante la espera, no se responde.');
       }
+      return;
+    }
+
+    // Espera antes del menú de bienvenida (ver programarMenuDeBienvenida):
+    // lo que escriba en esos segundos queda en el chat pero no se toma como
+    // una opción. Si la espera ya venció (timer perdido), se manda ahora.
+    if (estado === 'menu_espera') {
+      const vence = Date.parse(conv?.bot_context?.enviar_menu_en || '') || 0;
+      if (Date.now() >= vence) await enviarMenuSiCorresponde(conversationId, telefono);
       return;
     }
 
@@ -722,6 +731,85 @@ export const pedirNombresPendientes = async () => {
     if (vence <= ahora) {
       await pedirNombreSiCorresponde(conv.id, conv.client_phone);
     }
+  }
+};
+
+// Consulta nueva de un cliente ya registrado: el menú de bienvenida (con los
+// botones) sale recién ESPERA_MENU_MS después del primer mensaje (bot_state
+// 'menu_espera'). Muchos clientes mandan "Hola" y enseguida su consulta: con
+// el menú al instante, esa consulta se tomaba como una opción equivocada y le
+// llegaba el recordatorio de "tocá un botón". Mismo esquema que la espera del
+// nombre (ver iniciarRegistro): vencimiento guardado en la base + timer, y
+// enviarMenusPendientes como red de seguridad si el servidor se reinicia.
+const ESPERA_MENU_MS = 15 * 1000;
+
+const programarMenuDeBienvenida = async (conversationId, telefono, esFrecuente = false) => {
+  const enviarMenuEn = new Date(Date.now() + ESPERA_MENU_MS).toISOString();
+  const ok = await actualizarEstadoConversacion(conversationId, {
+    status: 'open', bot_state: 'menu_espera', bot_context: { enviar_menu_en: enviarMenuEn, es_frecuente: esFrecuente }, waiting_since: null
+  });
+  if (!ok) {
+    // Sin el estado guardado no hay forma de retomar la espera: se manda ya.
+    await volverAlMenuPrincipal(conversationId, telefono, esFrecuente);
+    return;
+  }
+  setTimeout(() => {
+    enviarMenuSiCorresponde(conversationId, telefono)
+      .catch(err => console.error('❌ [DEBUG-SERVICE-BOT] programarMenuDeBienvenida() — error en el menú diferido:', err?.message, err?.stack));
+  }, ESPERA_MENU_MS);
+  console.log(`[BOT] ${telefono}: el menú de bienvenida sale en ${ESPERA_MENU_MS / 1000}s (${enviarMenuEn}).`);
+};
+
+// Termina la espera y manda el menú. El UPDATE condicional (sólo si sigue en
+// 'menu_espera' y la consulta sigue abierta en el bot) hace de reserva: si el
+// timer, el chequeo periódico y un mensaje del cliente llegan a la vez, sólo
+// uno lo manda. Si una sucursal tomó el chat o se cerró, no se manda nada.
+export const enviarMenuSiCorresponde = async (conversationId, telefono) => {
+  // Se lee antes de reservar: el UPDATE borra bot_context (y con él si es
+  // cliente frecuente, que define qué saludo lleva el menú).
+  const { data: actual } = await supabase
+    .from('conversations')
+    .select('bot_context')
+    .eq('id', conversationId)
+    .maybeSingle();
+  const esFrecuente = !!actual?.bot_context?.es_frecuente;
+
+  const { data, error } = await supabase
+    .from('conversations')
+    .update({ bot_state: null, bot_context: null })
+    .eq('id', conversationId)
+    .eq('bot_state', 'menu_espera')
+    .eq('status', 'open')
+    .select('id');
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-BOT] enviarMenuSiCorresponde() — error reservando el envío del menú:', error);
+    return false;
+  }
+  if (!data?.length) {
+    console.log('🔍 [DEBUG-SERVICE-BOT] enviarMenuSiCorresponde() — ya no corresponde (otro proceso lo mandó, o la consulta cambió de estado):', conversationId);
+    return false;
+  }
+  console.log(`[BOT] Mandando el menú de bienvenida a ${telefono} (conversación ${conversationId}).`);
+  await enviarMenuPrincipal(conversationId, telefono, { esFrecuente });
+  return true;
+};
+
+// Red de seguridad para los timers perdidos (reinicio del servidor durante la
+// espera). La llama sessionExpiryChecker en cada chequeo.
+export const enviarMenusPendientes = async () => {
+  const { data, error } = await supabase
+    .from('conversations')
+    .select('id, client_phone, bot_context')
+    .eq('bot_state', 'menu_espera')
+    .eq('status', 'open');
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-BOT] enviarMenusPendientes() — error buscando esperas pendientes:', error);
+    return;
+  }
+  const ahora = Date.now();
+  for (const conv of data || []) {
+    const vence = Date.parse(conv.bot_context?.enviar_menu_en || '') || 0;
+    if (vence <= ahora) await enviarMenuSiCorresponde(conv.id, conv.client_phone);
   }
 };
 

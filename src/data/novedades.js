@@ -11,6 +11,18 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-10-26-menu-espera-15s',
+    fecha: '2026-10-26',
+    tipo: 'mejora',
+    para: 'todos',
+    titulo: 'El menú del bot sale 15 segundos después del primer mensaje',
+    detalle: [
+      'Cuando un cliente ya registrado empieza una consulta nueva, el bot espera 15 segundos antes de mandar el saludo con los botones.',
+      'Así, si el cliente manda "Hola" y enseguida escribe lo que necesita, ese mensaje no se toma como un error ni le llega el aviso de "tocá uno de estos botones". Lo que escriba queda en el chat.',
+      'Si una sucursal toma el chat durante esos segundos, el bot no manda el menú.'
+    ]
+  },
+  {
     id: '2026-10-26-aviso-tomo-consulta-y-hora',
     fecha: '2026-10-26',
     tipo: 'mejora',
