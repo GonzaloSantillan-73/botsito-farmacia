@@ -11,6 +11,19 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-11-11-sin-menu-directo-a-espera',
+    fecha: '2026-11-11',
+    tipo: 'mejora',
+    para: 'todos',
+    titulo: 'El bot ya no muestra el menú ni pide la ubicación',
+    detalle: [
+      'Cuando el cliente escribe, su consulta pasa directo a *"En espera"*. El bot no le contesta nada, así que el primer mensaje que recibe es el de ustedes: salúdenlo al tomar la consulta.',
+      'Si es la primera vez que escribe, el bot solo le pide el nombre y después la consulta pasa a "En espera".',
+      'Ya no aparecen las *sucursales recomendadas*: todas las sucursales ven las mismas consultas. Tómenlas y, si la consulta es para otra sucursal, derívenla.',
+      'Si escriben fuera de horario, el bot les sigue avisando el horario como siempre.'
+    ]
+  },
+  {
     id: '2026-10-26-menu-espera-15s',
     fecha: '2026-10-26',
     tipo: 'mejora',
