@@ -632,7 +632,7 @@ router.post('/conversations/:id/take', requireAuth, blockAdminRole, async (req, 
 // ya se oculta en ChatArea.jsx para staff, pero esto blinda el borrado en
 // sí ante un request directo, sin depender de que el frontend lo respete.
 // Corrección manual de la venta de una consulta (sólo admin): resultado,
-// subtotal, envío y medio de pago, para cuando la sucursal no usó el
+// subtotal y envío (el medio de pago no se toca), para cuando la sucursal no usó el
 // Cotizador o marcó mal el resultado. El total es subtotal + envío. Desde
 // que se edita, Métricas usa estos datos y deja de sumar los pedidos del
 // Cotizador de esta consulta (ver metricasPanel.js y metricsDetalle.js).
@@ -640,8 +640,8 @@ router.post('/conversations/:id/take', requireAuth, blockAdminRole, async (req, 
 const RESULTADOS_VENTA = ['concretada', 'no_concretada', 'otra'];
 router.put('/conversations/:id/venta', requireAuth, requireAdminRole, async (req, res) => {
   const { id } = req.params;
-  const { saleStatus, subtotal, envio, medioPago } = req.body || {};
-  console.log('🔍 [DEBUG-ROUTES-API] Entrada a PUT /conversations/:id/venta:', { id, saleStatus, subtotal, envio, medioPago });
+  const { saleStatus, subtotal, envio } = req.body || {};
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a PUT /conversations/:id/venta:', { id, saleStatus, subtotal, envio });
 
   if (!/^[0-9a-f-]{36}$/i.test(id || '')) return res.status(400).json({ error: 'Id de consulta inválido.' });
   if (!RESULTADOS_VENTA.includes(saleStatus)) return res.status(400).json({ error: 'Elegí el resultado de la consulta.' });
@@ -652,11 +652,10 @@ router.put('/conversations/:id/venta', requireAuth, requireAdminRole, async (req
     const env = envio === '' || envio == null ? 0 : Number(envio);
     if (subtotal === '' || subtotal == null || !Number.isFinite(sub) || sub < 0) return res.status(400).json({ error: 'El subtotal tiene que ser un número mayor o igual a 0.' });
     if (!Number.isFinite(env) || env < 0) return res.status(400).json({ error: 'El envío tiene que ser un número mayor o igual a 0.' });
-    const medio = typeof medioPago === 'string' ? medioPago.trim().slice(0, 60) : '';
-    Object.assign(updates, { sale_subtotal: sub, sale_envio: env, sale_amount: sub + env, payment_method: medio || null });
+    Object.assign(updates, { sale_subtotal: sub, sale_envio: env, sale_amount: sub + env });
   } else {
-    // Si no hubo venta no hay montos ni medio de pago.
-    Object.assign(updates, { sale_subtotal: null, sale_envio: null, sale_amount: null, payment_method: null });
+    // Si no hubo venta no hay montos.
+    Object.assign(updates, { sale_subtotal: null, sale_envio: null, sale_amount: null });
   }
 
   try {

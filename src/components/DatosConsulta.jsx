@@ -107,18 +107,17 @@ export function DatosConsultaContenido({ c, editable = false, onActualizada }) {
   );
 }
 
-const MEDIOS_DE_PAGO = ['Transferencia', 'Efectivo', 'Tarjeta de débito', 'Tarjeta de crédito', 'Mercado Pago'];
 const claseCampo = 'w-full px-2.5 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-500';
 
 // Formulario del admin para corregir la venta de una consulta (resultado,
-// subtotal, envío y medio de pago), ver PUT /api/conversations/:id/venta.
+// subtotal y envío), ver PUT /api/conversations/:id/venta. El medio de pago
+// no se edita: queda el que cargó la sucursal.
 function EditorVenta({ c, onCancelar, onGuardada }) {
   const valorInicial = (n) => (n == null ? '' : String(n));
   const [resultado, setResultado] = useState(c.saleStatus || 'concretada');
   // Si sólo hay total (venta cargada sin el Cotizador), se usa como subtotal.
   const [subtotal, setSubtotal] = useState(valorInicial(c.subtotal ?? (c.costoEnvio == null ? c.montoTotal : null)));
   const [envio, setEnvio] = useState(valorInicial(c.costoEnvio));
-  const [medioPago, setMedioPago] = useState(c.medioPago || 'Transferencia');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
 
@@ -134,7 +133,7 @@ function EditorVenta({ c, onCancelar, onGuardada }) {
       const res = await adminFetch(`/api/conversations/${encodeURIComponent(c.id)}/venta`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ saleStatus: resultado, subtotal, envio, medioPago })
+        body: JSON.stringify({ saleStatus: resultado, subtotal, envio })
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || 'No se pudo guardar la venta.');
@@ -170,17 +169,10 @@ function EditorVenta({ c, onCancelar, onGuardada }) {
               <span className="text-gray-500 dark:text-gray-400">Total</span>
               <span className="font-semibold text-gray-900 dark:text-gray-100">{formatMoney(total)}</span>
             </div>
-            <label className="block text-xs text-gray-500 dark:text-gray-400">
-              Medio de pago
-              <input list="medios-de-pago" value={medioPago} onChange={(e) => { setMedioPago(e.target.value); }} className={`${claseCampo} mt-1`} />
-              <datalist id="medios-de-pago">
-                {MEDIOS_DE_PAGO.map(m => <option key={m} value={m} />)}
-              </datalist>
-            </label>
           </>
         )}
         {!esVenta && (
-          <p className="text-xs text-gray-500 dark:text-gray-400">Sin venta: se borran el subtotal, el envío, el total y el medio de pago de esta consulta.</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Sin venta: se borran el subtotal, el envío y el total de esta consulta.</p>
         )}
         <p className="text-[11px] text-gray-400 dark:text-gray-500">Desde que se guarda, Métricas usa estos datos en lugar de lo que se cargó en el Cotizador.</p>
         {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}

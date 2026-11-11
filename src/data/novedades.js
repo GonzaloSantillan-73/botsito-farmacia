@@ -18,7 +18,7 @@ export const NOVEDADES = [
     titulo: 'Ahora se puede corregir la venta de una consulta',
     detalle: [
       'Al abrir un chat desde *Métricas* o desde el *Directorio de clientes*, en el bloque "Venta" de los datos de la consulta hay un botón *Editar*.',
-      'Ahí se cambia el resultado (venta concretada, no concretada u otra razón), el subtotal, el envío y el medio de pago. El total se calcula solo. Sirve para las ventas en las que la sucursal no usó el Cotizador o marcó mal el resultado.',
+      'Ahí se cambia el resultado (venta concretada, no concretada u otra razón), el subtotal y el envío. El total se calcula solo. El medio de pago queda el que cargó la sucursal. Sirve para las ventas en las que la sucursal no usó el Cotizador o marcó mal el resultado.',
       'Desde que se guarda, Métricas y el Excel usan esos datos en lugar de lo que se cargó en el Cotizador. En la tabla, el monto aparece con la marca *(editada)*.'
     ]
   },
