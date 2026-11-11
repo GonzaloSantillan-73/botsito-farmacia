@@ -18,7 +18,8 @@ export const NOVEDADES = [
     titulo: 'El bot ya no muestra el menú ni pide la ubicación',
     detalle: [
       'Cuando el cliente escribe, su consulta pasa directo a *"En espera"*. El bot no le contesta nada, así que el primer mensaje que recibe es el de ustedes: salúdenlo al tomar la consulta.',
-      'Si es la primera vez que escribe, el bot solo le pide el nombre y después la consulta pasa a "En espera".',
+      'Si es la primera vez que escribe, la consulta también aparece en "En espera" desde el primer mensaje, y mientras tanto el bot le pide el nombre. Si la toman antes de que lo dé, el bot deja de pedírselo.',
+      'Ya no está la pestaña *"BOT"*: en el panel quedan solo "En espera" y "Mis chats".',
       'Ya no aparecen las *sucursales recomendadas*: todas las sucursales ven las mismas consultas. Tómenlas y, si la consulta es para otra sucursal, derívenla.',
       'Si escriben fuera de horario, el bot les sigue avisando el horario como siempre.'
     ]

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, memo } from 'react';
-import { Database, Loader2, Clock, MessageSquare, Bot, Settings, Users, LogOut, MapPin, Hand, Send, Undo2, Store, Mailbox } from 'lucide-react';
+import { Database, Loader2, Clock, MessageSquare, Settings, Users, LogOut, MapPin, Hand, Send, Undo2, Store, Mailbox } from 'lucide-react';
 import SettingsModal from './SettingsModal';
 import NovedadesPanel, { contarNovedadesSinLeer } from './NovedadesPanel';
 import { formatPhone } from '../lib/formatPhone';
@@ -187,8 +187,6 @@ export const SALE_STATUS_BADGES = {
 
 // Estados "cerrados": la consulta ya terminó (por el operador o por inactividad).
 export const ESTADOS_HISTORIAL = ['finalizada', 'resolved', 'rejected'];
-// El bot está respondiendo solo (menú, horarios, registro de datos) y todavía no se pidió un humano.
-const esBotAutomatico = (status) => status !== 'esperando' && !ESTADOS_HISTORIAL.includes(status);
 // El chat fue derivado a una sucursal puntual (a mano por el admin, o
 // tomado por un empleado desde la cola general, ver src/lib/tomarConsulta.js).
 // El fetch de conversations en App.jsx ya excluye para un empleado las de
@@ -206,8 +204,11 @@ const necesitaHumano = (conv) => conv.status === 'esperando' && !esDerivado(conv
 // "Global": ahí ve, como espectador, todos los chats ya tomados por
 // cualquier sucursal (el propio fetch de App.jsx no le filtra por
 // sucursal_id, así que el contenido ya es global sin más cambios).
+// Ya no hay pestaña "BOT": desde 2026-11-11 el bot no tiene menú y toda
+// consulta entra a "En espera" apenas el cliente escribe (ver bot.js). Las
+// únicas que quedan en el bot (status 'open') son las que recibieron el aviso
+// de fuera de horario y no volvieron a escribir: no requieren atención.
 const TABS = (isAdmin) => [
-  { id: 'entrantes', label: 'BOT', icon: Bot },
   { id: 'atendiendo', label: 'En espera', icon: Clock },
   { id: 'derivados', label: isAdmin ? 'Global' : 'Mis chats', icon: MessageSquare }
 ];
@@ -288,23 +289,19 @@ export default function Sidebar({
   // aplicar cualquier filtro o contador, para no arrastrar filas fantasma a ningún lado.
   const validConversations = conversations.filter(c => c?.id && c.created_at);
 
-  // Filtro por tab (BOT / En espera / Mis chats)
+  // Filtro por tab (En espera / Mis chats)
   const filteredConversations = validConversations
     .filter(c => {
-      if (activeTab === 'entrantes') return esBotAutomatico(c.status);
       if (activeTab === 'atendiendo') return necesitaHumano(c);
       if (activeTab === 'derivados') return esDerivado(c);
       return true;
     })
     .sort((a, b) => {
-      // "BOT" y "En espera" son estrictamente FIFO: quien llegó primero (o
-      // lleva más tiempo esperando) va arriba. Si un chat fue devuelto a la
-      // cola (ver server/services/devolucionCola.js), waiting_since se
-      // reinicia al momento de la devolución: su contador arranca de 0 y se
-      // ordena como uno que acaba de entrar a la espera.
-      if (activeTab === 'entrantes') {
-        return new Date(a.created_at) - new Date(b.created_at);
-      }
+      // "En espera" es estrictamente FIFO: quien lleva más tiempo esperando
+      // va arriba. Si un chat fue devuelto a la cola (ver
+      // server/services/devolucionCola.js), waiting_since se reinicia al
+      // momento de la devolución: su contador arranca de 0 y se ordena como
+      // uno que acaba de entrar a la espera.
       if (activeTab === 'atendiendo') {
         const desdeA = new Date(a.waiting_since || a.created_at);
         const desdeB = new Date(b.waiting_since || b.created_at);
@@ -314,11 +311,9 @@ export default function Sidebar({
       return new Date(b.updated_at) - new Date(a.updated_at);
     });
 
-  const botCount = validConversations.filter(c => esBotAutomatico(c.status)).length;
   const enEsperaCount = validConversations.filter(necesitaHumano).length;
   const misChatsCount = validConversations.filter(esDerivado).length;
   const tabCounts = {
-    entrantes: botCount,
     atendiendo: enEsperaCount,
     derivados: misChatsCount
   };
@@ -382,18 +377,7 @@ export default function Sidebar({
         )}
 
         {/* Tarjetas de contadores */}
-        <div className="grid grid-cols-3 gap-2">
-          <button
-            onClick={() => { setActiveTab('entrantes'); }}
-            className={`text-left p-2 rounded-xl border transition-colors ${activeTab === 'entrantes' ? 'bg-indigo-50 dark:bg-indigo-950 border-indigo-300 dark:border-indigo-800' : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:border-indigo-200 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/50'}`}
-          >
-            <div className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 mb-1">
-              <Bot size={14} />
-              <span className="text-[10px] font-bold uppercase tracking-wide truncate">BOT</span>
-            </div>
-            <span className="text-xl font-bold text-gray-900 dark:text-gray-100">{botCount}</span>
-          </button>
-
+        <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => { setActiveTab('atendiendo'); }}
             className={`text-left p-2 rounded-xl border transition-colors ${activeTab === 'atendiendo' ? 'bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-800' : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:border-amber-200 hover:bg-amber-50/50 dark:hover:bg-amber-950/50'}`}

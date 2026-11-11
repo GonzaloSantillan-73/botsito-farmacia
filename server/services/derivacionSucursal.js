@@ -70,7 +70,11 @@ export const derivarASucursal = async (conversationId, sucursalDestinoId, razon)
       sucursal_id: sucursalDestinoId,
       devuelta_por_sucursal_id: null,
       derivado_por_sucursal_id: sucursalOrigenId,
-      derivado_por_sucursal_nombre: sucursalOrigenNombre
+      derivado_por_sucursal_nombre: sucursalOrigenNombre,
+      // Si el bot le estaba pidiendo el nombre a un cliente nuevo (ver
+      // iniciarRegistro en bot.js), deja de hacerlo al quedar a cargo de una sucursal.
+      bot_state: null,
+      bot_context: null
     };
     console.log('📡 [DEBUG-SERVICE-DERIVACIONSUCURSAL] derivarASucursal() — UPDATE conversations, filtros: { id:', conversationId, '}, valores:', updates);
     const { data: conv, error: updateError } = await supabase

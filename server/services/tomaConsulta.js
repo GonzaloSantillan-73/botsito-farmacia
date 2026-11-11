@@ -54,7 +54,10 @@ export const tomarConsulta = async (conversationId, sucursalId) => {
     // status quedaba sin tocar: la conversación pasaba a tener sucursal_id
     // Y seguir contando como "BOT" al mismo tiempo, apareciendo duplicada en
     // dos pestañas a la vez.
-    const updates = { status: 'esperando', sucursal_id: sucursalId, devuelta_por_sucursal_id: null, derivado_por_sucursal_id: null, derivado_por_sucursal_nombre: null };
+    // bot_state/bot_context se borran: si el bot le estaba pidiendo el nombre
+    // a un cliente nuevo (ver iniciarRegistro en bot.js), deja de hacerlo en
+    // cuanto una sucursal toma el chat.
+    const updates = { status: 'esperando', sucursal_id: sucursalId, devuelta_por_sucursal_id: null, derivado_por_sucursal_id: null, derivado_por_sucursal_nombre: null, bot_state: null, bot_context: null };
     if (!actual?.primera_sucursal_id) updates.primera_sucursal_id = sucursalId;
     console.log('🔍 [DEBUG-SERVICE-TOMACONSULTA] tomarConsulta() — CAMBIO DE ESTADO — conversationId:', conversationId, 'a tomada por sucursal:', sucursalId, '— updates a aplicar:', updates);
 

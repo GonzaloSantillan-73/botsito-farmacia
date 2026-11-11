@@ -103,8 +103,10 @@ const actualizarEstadoConversacion = async (conversationId, updates) => {
 // tomado, no se toca (no se reinicia el contador de espera ni se le saca la
 // sucursal). Se limpian los datos que pudiera traer una fila reutilizada de
 // una atención anterior (sucursal, recomendaciones por ubicación, etc.),
-// igual que hace devolverConversacionAEspera().
-const derivarAEspera = async (conversationId, motivo = '') => {
+// igual que hace devolverConversacionAEspera(). `extra` agrega campos al
+// mismo UPDATE (ej. el estado del registro de un cliente nuevo, que queda en
+// la cola mientras el bot le pide el nombre).
+const derivarAEspera = async (conversationId, motivo = '', extra = {}) => {
   const updates = {
     status: 'esperando',
     sucursal_id: null,
@@ -116,7 +118,8 @@ const derivarAEspera = async (conversationId, motivo = '') => {
     waiting_since: new Date().toISOString(),
     client_lat: null,
     client_lng: null,
-    sucursales_recomendadas: null
+    sucursales_recomendadas: null,
+    ...extra
   };
   console.log('📡 [DEBUG-SERVICE-BOT] derivarAEspera() — UPDATE conversations, filtros: { id:', conversationId, ', status: open }, motivo:', motivo, ', valores:', updates);
   const { data, error } = await supabase
@@ -175,7 +178,7 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
 
     const { data: conv, error: convError } = await supabase
       .from('conversations')
-      .select('status, bot_state, bot_context')
+      .select('status, sucursal_id, bot_state, bot_context')
       .eq('id', conversationId)
       .single();
     if (convError) {
@@ -183,22 +186,30 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
     }
 
     const t = texto.trim();
-    console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — texto trim:', t, ', status actual:', conv?.status, ', bot_state actual:', conv?.bot_state);
-
-    // En espera o atendida por una sucursal: el bot no responde nada.
-    if (conv?.status === 'esperando') {
-      console.log(`[BOT] Conversación ${conversationId} en espera / atendida por una sucursal. El bot no responde.`);
-      return;
-    }
-
-    const botSchedule = await getBotSchedule();
-    if (!isWithinSchedule(botSchedule)) {
-      console.log(`[BOT] Fuera de horario del bot para ${conversationId}. Enviando aviso de horario.`);
-      await enviarMensajeBot(conversationId, telefono, renderScheduleMessage(botSchedule), { tipo_bot: 'fuera_horario' });
-      return;
-    }
-
     const estado = conv?.bot_state || null;
+    console.log('🔍 [DEBUG-SERVICE-BOT] procesarMensajeBot() — texto trim:', t, ', status actual:', conv?.status, ', sucursal_id:', conv?.sucursal_id, ', bot_state actual:', estado);
+
+    // Cliente nuevo: ya está en "En espera" desde su primer mensaje, pero el
+    // bot sigue pidiéndole el nombre mientras ninguna sucursal tome el chat
+    // (al tomarlo se borra el bot_state, ver tomaConsulta.js).
+    const enRegistro = (estado === 'registro_espera' || estado === 'registro_nombre') && !conv?.sucursal_id;
+
+    if (conv?.status === 'esperando') {
+      if (!enRegistro) {
+        // En espera o atendida por una sucursal: el bot no responde nada.
+        console.log(`[BOT] Conversación ${conversationId} en espera / atendida por una sucursal. El bot no responde.`);
+        return;
+      }
+    } else {
+      // Consulta todavía en el bot (sólo pasa después de un aviso de fuera de
+      // horario): si sigue fuera de horario, se vuelve a avisar.
+      const botSchedule = await getBotSchedule();
+      if (!isWithinSchedule(botSchedule)) {
+        console.log(`[BOT] Fuera de horario del bot para ${conversationId}. Enviando aviso de horario.`);
+        await enviarMensajeBot(conversationId, telefono, renderScheduleMessage(botSchedule), { tipo_bot: 'fuera_horario' });
+        return;
+      }
+    }
 
     // Espera del primer contacto (ver iniciarRegistro): el mensaje ya quedó
     // guardado en el chat y no se toma como nombre. Si la espera ya venció
@@ -220,7 +231,14 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
 
     // Cualquier otro caso (consulta que quedó en el bot después de un aviso
     // de fuera de horario, o un estado de la versión anterior del bot: menú,
-    // pedido de ubicación, cambio de nombre, DNI) pasa directo a la cola.
+    // pedido de ubicación, cambio de nombre, DNI) pasa directo a la cola. Si
+    // el cliente todavía no tiene el nombre cargado, entra a la cola y se le
+    // pide el nombre, igual que en una consulta nueva.
+    const cliente = await getCliente(telefono);
+    if (!tieneRegistroCompleto(cliente)) {
+      await iniciarRegistro(conversationId, telefono);
+      return;
+    }
     await derivarAEspera(conversationId, `mensaje con la consulta en el bot (estado: ${estado || 'ninguno'})`);
   } catch (error) {
     console.error('[BOT] Error procesando mensaje del bot:', error);
@@ -229,13 +247,18 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
 };
 
 // Arranca el registro OBLIGATORIO del nombre, la primera vez que un cliente
-// escribe. No se pide el nombre todavía: se espera ESPERA_PEDIDO_NOMBRE_MS
+// escribe. La consulta entra a "En espera" en ese mismo momento (las
+// sucursales ya la ven y la pueden tomar), y el bot le pide el nombre en
+// paralelo. No se pide el nombre todavía: se espera ESPERA_PEDIDO_NOMBRE_MS
 // (ver arriba). El vencimiento queda en la base para que, si el servidor se
 // reinicia y se pierde el timer, el pedido salga igual (ver
 // pedirNombresPendientes, que corre en sessionExpiryChecker).
 const iniciarRegistro = async (conversationId, telefono) => {
   const pedirNombreEn = new Date(Date.now() + ESPERA_PEDIDO_NOMBRE_MS).toISOString();
-  const ok = await actualizarEstadoConversacion(conversationId, { bot_state: 'registro_espera', bot_context: { pedir_nombre_en: pedirNombreEn } });
+  const ok = await derivarAEspera(conversationId, 'cliente nuevo (se le pide el nombre)', {
+    bot_state: 'registro_espera',
+    bot_context: { pedir_nombre_en: pedirNombreEn }
+  });
   if (!ok) {
     // Sin el estado guardado no hay forma de retomar la espera: se pide ya.
     await actualizarEstadoConversacion(conversationId, { bot_state: 'registro_nombre', bot_context: null });
@@ -250,19 +273,20 @@ const iniciarRegistro = async (conversationId, telefono) => {
 };
 
 // Termina la espera del primer contacto y pide el nombre. El UPDATE
-// condicional (sólo si sigue en 'registro_espera' y la consulta sigue
-// abierta) hace de reserva: si el timer, el chequeo periódico y un mensaje
-// del cliente llegan a la vez (o hay dos procesos del backend, ver
+// condicional (sólo si sigue en 'registro_espera', en la cola o en el bot, y
+// sin sucursal) hace de reserva: si el timer, el chequeo periódico y un
+// mensaje del cliente llegan a la vez (o hay dos procesos del backend, ver
 // sessionExpiryChecker.js), sólo el que efectivamente cambió la fila manda el
-// mensaje. Si un operador tomó el chat o la consulta se cerró mientras tanto,
-// no se manda nada.
+// mensaje. Si una sucursal tomó el chat o la consulta se cerró mientras
+// tanto, no se manda nada.
 export const pedirNombreSiCorresponde = async (conversationId, telefono) => {
   const { data, error } = await supabase
     .from('conversations')
     .update({ bot_state: 'registro_nombre', bot_context: null })
     .eq('id', conversationId)
     .eq('bot_state', 'registro_espera')
-    .eq('status', 'open')
+    .in('status', ['open', 'esperando'])
+    .is('sucursal_id', null)
     .select('id');
   if (error) {
     console.error('❌ [DEBUG-SERVICE-BOT] pedirNombreSiCorresponde() — error reservando el pedido de nombre:', error);
@@ -278,14 +302,15 @@ export const pedirNombreSiCorresponde = async (conversationId, telefono) => {
 };
 
 // Red de seguridad para los timers perdidos (reinicio del servidor durante
-// la espera): pide el nombre en toda consulta abierta cuya espera ya venció.
-// La llama sessionExpiryChecker en cada chequeo (como máximo cada 30s).
+// la espera): pide el nombre en toda consulta sin sucursal cuya espera ya
+// venció. La llama sessionExpiryChecker en cada chequeo (como máximo cada 30s).
 export const pedirNombresPendientes = async () => {
   const { data, error } = await supabase
     .from('conversations')
     .select('id, client_phone, bot_context')
     .eq('bot_state', 'registro_espera')
-    .eq('status', 'open');
+    .in('status', ['open', 'esperando'])
+    .is('sucursal_id', null);
   if (error) {
     console.error('❌ [DEBUG-SERVICE-BOT] pedirNombresPendientes() — error buscando esperas pendientes:', error);
     return;
@@ -318,6 +343,21 @@ export const derivarMenusPendientes = async () => {
   }
 };
 
+// Fin del registro: el bot deja de intervenir. La consulta normalmente ya
+// está en "En espera" desde el primer mensaje (ver iniciarRegistro), así que
+// sólo se borra el estado del registro, sin tocar el contador de espera. Si
+// por algún motivo seguía en el bot (status 'open'), se pasa a la cola.
+const terminarRegistro = async (conversationId, motivo) => {
+  if (await derivarAEspera(conversationId, motivo)) return;
+  const { error } = await supabase
+    .from('conversations')
+    .update({ bot_state: null, bot_context: null })
+    .eq('id', conversationId)
+    .eq('bot_state', 'registro_nombre');
+  if (error) console.error(`[BOT] ❌ ERROR terminando el registro de ${conversationId}:`, error);
+  else console.log(`[BOT] ✅ Registro terminado en ${conversationId} (${motivo}).`);
+};
+
 const manejarPasoRegistro = async (conversationId, telefono, t, botContext = null) => {
   console.log('🔍 [DEBUG-SERVICE-BOT] manejarPasoRegistro() — parámetros recibidos:', { conversationId, telefono, t, botContext });
 
@@ -328,7 +368,7 @@ const manejarPasoRegistro = async (conversationId, telefono, t, botContext = nul
     if (intentos >= MAX_INTENTOS_NOMBRE) {
       // Se sigue sin el nombre para no trabar al cliente; se le vuelve a
       // pedir en su próxima consulta (sigue sin registro completo).
-      await derivarAEspera(conversationId, 'no dio un nombre válido');
+      await terminarRegistro(conversationId, 'no dio un nombre válido');
       return;
     }
     await actualizarEstadoConversacion(conversationId, { bot_context: { intentos_nombre: intentos } });
@@ -345,9 +385,9 @@ const manejarPasoRegistro = async (conversationId, telefono, t, botContext = nul
     return;
   }
 
-  // El nombre es el único dato obligatorio: con eso pasa directo a la cola,
-  // sin mandarle otro mensaje al cliente.
-  await derivarAEspera(conversationId, 'cliente nuevo registró su nombre');
+  // El nombre es el único dato obligatorio: con eso el bot deja de
+  // intervenir, sin mandarle otro mensaje al cliente.
+  await terminarRegistro(conversationId, 'cliente nuevo registró su nombre');
 };
 
 // `interactivo` (opcional): { tipo: 'botones' | 'lista', boton?, opciones: [{ id, titulo }] }.
