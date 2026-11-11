@@ -205,9 +205,8 @@ const necesitaHumano = (conv) => conv.status === 'esperando' && !esDerivado(conv
 // cualquier sucursal (el propio fetch de App.jsx no le filtra por
 // sucursal_id, así que el contenido ya es global sin más cambios).
 // Ya no hay pestaña "BOT": desde 2026-11-11 el bot no tiene menú y toda
-// consulta entra a "En espera" apenas el cliente escribe (ver bot.js). Las
-// únicas que quedan en el bot (status 'open') son las que recibieron el aviso
-// de fuera de horario y no volvieron a escribir: no requieren atención.
+// consulta entra a "En espera" apenas el cliente escribe, aunque sea fuera de
+// horario (ver bot.js).
 const TABS = (isAdmin) => [
   { id: 'atendiendo', label: 'En espera', icon: Clock },
   { id: 'derivados', label: isAdmin ? 'Global' : 'Mis chats', icon: MessageSquare }

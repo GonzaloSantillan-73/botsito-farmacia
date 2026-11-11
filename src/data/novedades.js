@@ -21,7 +21,7 @@ export const NOVEDADES = [
       'Si es la primera vez que escribe, la consulta también aparece en "En espera" desde el primer mensaje, y mientras tanto el bot le pide el nombre. Si la toman antes de que lo dé, el bot deja de pedírselo.',
       'Ya no está la pestaña *"BOT"*: en el panel quedan solo "En espera" y "Mis chats".',
       'Ya no aparecen las *sucursales recomendadas*: todas las sucursales ven las mismas consultas. Tómenlas y, si la consulta es para otra sucursal, derívenla.',
-      'Si escriben fuera de horario, el bot les sigue avisando el horario como siempre.'
+      'Si escriben fuera de horario, el bot les avisa el horario y la consulta queda igual en "En espera", para que la vea la primera sucursal que abra.'
     ]
   },
   {

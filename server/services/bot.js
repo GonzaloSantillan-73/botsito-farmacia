@@ -145,14 +145,13 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
 
   try {
     if (isNewSession) {
-      // Fuera del horario configurado: se avisa y la consulta queda en el bot
-      // (no pasa a "En espera"). Si vuelve a escribir dentro del horario, ahí
-      // sí pasa a la cola (ver más abajo).
+      // Fuera del horario configurado: se le avisa el horario, pero la
+      // consulta entra igual a "En espera" (sigue abajo), para que la vea la
+      // primera sucursal que abra.
       const botSchedule = await getBotSchedule();
       if (!isWithinSchedule(botSchedule)) {
-        console.log(`[BOT] Fuera de horario del bot para ${conversationId}. Enviando aviso de horario.`);
+        console.log(`[BOT] Fuera de horario del bot para ${conversationId}. Enviando aviso de horario (la consulta entra igual a la cola).`);
         await enviarMensajeBot(conversationId, telefono, renderScheduleMessage(botSchedule), { tipo_bot: 'fuera_horario' });
-        return;
       }
 
       const cliente = await getCliente(telefono);
@@ -200,14 +199,14 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
         console.log(`[BOT] Conversación ${conversationId} en espera / atendida por una sucursal. El bot no responde.`);
         return;
       }
-    } else {
-      // Consulta todavía en el bot (sólo pasa después de un aviso de fuera de
-      // horario): si sigue fuera de horario, se vuelve a avisar.
+    } else if (!enRegistro) {
+      // Consulta que quedó en el bot con la versión anterior (ej. después de
+      // un aviso de fuera de horario): se avisa el horario si corresponde y
+      // pasa igual a la cola (sigue abajo).
       const botSchedule = await getBotSchedule();
       if (!isWithinSchedule(botSchedule)) {
-        console.log(`[BOT] Fuera de horario del bot para ${conversationId}. Enviando aviso de horario.`);
+        console.log(`[BOT] Fuera de horario del bot para ${conversationId}. Enviando aviso de horario (la consulta entra igual a la cola).`);
         await enviarMensajeBot(conversationId, telefono, renderScheduleMessage(botSchedule), { tipo_bot: 'fuera_horario' });
-        return;
       }
     }
 
