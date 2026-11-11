@@ -18,6 +18,8 @@ export const NOVEDADES = [
     titulo: 'Se quitaron ajustes del bot que ya no se usan',
     detalle: [
       'Como el bot ya no tiene menú, en *Configuración → Chat* se quitaron "Mensaje de bienvenida del bot", "Saludo para clientes frecuentes" y "Palabra clave del bot".',
+      'En *Métricas* se quitó "Resueltas por el bot" (el bot ya no resuelve consultas solo). En "Mensajes del bot por tipo", los mensajes del menú y de la ubicación se muestran juntos en "Menú y ubicación (bot anterior)". En "Cómo se cerraron las consultas" ya no aparece "Sin dato (anteriores)". En la comparativa por sucursal, la fila "Sin sucursal" ahora se llama "Sin tomar (nadie la atendió)".',
+      'La "Demora hasta la primera respuesta" ahora cuenta desde el primer mensaje del cliente (antes, desde que terminaba con el menú), así que puede verse más alta que antes.',
       'Revisen el "cierre por falta de respuesta" en "Tiempo de inactividad para cerrar un chat": las consultas que entran fuera de horario quedan en espera y se cierran solas si nadie responde en ese tiempo.'
     ]
   },

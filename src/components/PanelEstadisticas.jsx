@@ -6,7 +6,7 @@ import {
 import {
   MessageSquare, Users, ShoppingCart, DollarSign, Receipt, Percent, Send,
   Filter, RefreshCw, Download, ArrowUp, ArrowDown, Minus, Truck, Clock, Headset, ArrowUpDown,
-  CheckCircle2, XCircle, Bot, ShieldCheck, ShieldAlert, Store
+  CheckCircle2, XCircle, ShieldCheck, ShieldAlert, Store
 } from 'lucide-react';
 import { adminFetch } from '../lib/adminAuth';
 import StarRating, { coloresRating } from './StarRating';
@@ -56,7 +56,20 @@ const TIPOS_BOT = {
   derivacion: 'Derivación a una sucursal', registro: 'Registro (nombre)', encuesta: 'Encuesta y cierre',
   aviso_inactividad: '"¿Seguís necesitando ayuda?"', sucursales: 'Listado de sucursales',
   fuera_horario: 'Fuera de horario', cambio_nombre: 'Cambio de nombre', error: 'Avisos de error',
-  otro: 'Otros', sin_dato: 'Sin dato (anteriores)'
+  otro: 'Otros', sin_dato: 'Sin dato (anteriores)',
+  bot_anterior: 'Menú y ubicación (bot anterior)'
+};
+// Tipos de mensaje del bot con menú y pedido de ubicación (hasta 2026-11-11):
+// se muestran juntos en una sola fila, para no perder el total histórico
+// (Meta ya los cobró) sin llenar la lista de tipos que ya no se mandan.
+const TIPOS_BOT_ANTERIOR = new Set(['menu', 'recordatorio', 'ubicacion', 'derivacion', 'sucursales', 'cambio_nombre']);
+const agruparTiposBot = (porTipo) => {
+  const agrupado = {};
+  for (const [k, n] of Object.entries(porTipo || {})) {
+    const clave = TIPOS_BOT_ANTERIOR.has(k) ? 'bot_anterior' : k;
+    agrupado[clave] = (agrupado[clave] || 0) + n;
+  }
+  return agrupado;
 };
 const MOTIVOS_CIERRE = {
   manual: 'Finalizada por el vendedor (con encuesta)', manual_sin_encuesta: 'Finalizada por el vendedor (sin encuesta)',
@@ -439,7 +452,7 @@ export default function PanelEstadisticas() {
             <div className="grid lg:grid-cols-2 gap-5">
               <div>
                 <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Mensajes del bot por tipo</h4>
-                <BarrasLista color={c.bot} filas={Object.entries(datos.mensajes.porTipoBot).sort((a, b) => b[1] - a[1]).map(([k, n]) => ({ label: TIPOS_BOT[k] || k, valor: n }))} />
+                <BarrasLista color={c.bot} filas={Object.entries(agruparTiposBot(datos.mensajes.porTipoBot)).sort((a, b) => b[1] - a[1]).map(([k, n]) => ({ label: TIPOS_BOT[k] || k, valor: n }))} />
               </div>
               <div>
                 <h4 className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Mensajes por sucursal</h4>
@@ -504,9 +517,11 @@ export default function PanelEstadisticas() {
             </Seccion>
           </div>
 
-          {/* Resultado marcado por el vendedor + bot vs. derivadas */}
-          {negocio && (
-            <div className="grid lg:grid-cols-2 gap-4">
+          {/* Resultado marcado por el vendedor + motivo de cierre. Ya no está
+              "Resueltas por el bot": desde 2026-11-11 el bot no tiene menú y
+              toda consulta pasa a la cola, así que no resuelve nada solo. */}
+          <div className="grid lg:grid-cols-2 gap-4">
+            {negocio && (
               <Seccion titulo="Resultado de las consultas" descripcion='Lo que marca el vendedor al finalizar: "Venta Concretada", "Venta No Concretada" u "Otra razón".'>
                 {negocio.conversion.totalGestionadas === 0 ? (
                   <p className="text-xs text-gray-400 dark:text-gray-500">Todavía no se marcó ningún resultado en este período.</p>
@@ -528,26 +543,22 @@ export default function PanelEstadisticas() {
                   </div>
                 )}
               </Seccion>
-              <Seccion titulo="Resueltas por el bot" descripcion="De las consultas ya cerradas, cuántas se resolvieron sin que interviniera una persona.">
-                {negocio.operacion.totalCerradas === 0 ? (
-                  <p className="text-xs text-gray-400 dark:text-gray-500">Todavía no hay consultas cerradas en este período.</p>
-                ) : (
-                  <BarrasLista
-                    relativoA="total"
-                    anchoEtiqueta="w-36"
-                    filas={[
-                      { label: 'Solo con el bot', icono: Bot, valor: negocio.operacion.autonomas, color: c.bot, extra: porc(negocio.operacion.pctAutonoma), onVer: () => setBucket({ title: 'Resueltas por el bot (sin humano)', filtros: { derivada: false } }) },
-                      { label: 'Con una persona', icono: Headset, valor: negocio.operacion.derivadas, color: c.sucursal, extra: porc(100 - negocio.operacion.pctAutonoma), onVer: () => setBucket({ title: 'Derivadas a un humano', filtros: { derivada: true } }) }
-                    ]}
-                  />
-                )}
-              </Seccion>
-            </div>
-          )}
+            )}
 
-          <Seccion titulo="Cómo se cerraron las consultas" descripcion="Motivo de cierre de cada consulta (se registra desde la actualización de octubre; las anteriores figuran como sin dato).">
-            <BarrasLista color={c.una} filas={Object.entries(datos.atencion.cierres).sort((a, b) => b[1] - a[1]).map(([k, n]) => ({ label: MOTIVOS_CIERRE[k] || k, valor: n }))} />
-          </Seccion>
+            {/* "sin_dato" no es un motivo (son las consultas de antes de que se
+                registrara) y, al ser la barra más larga, achicaba a las demás. */}
+            <Seccion titulo="Cómo se cerraron las consultas" descripcion="Motivo de cierre de cada consulta (se registra desde la actualización de octubre; las anteriores no se cuentan acá).">
+              {(() => {
+                const filas = Object.entries(datos.atencion.cierres)
+                  .filter(([k]) => k !== 'sin_dato')
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([k, n]) => ({ label: MOTIVOS_CIERRE[k] || k, valor: n }));
+                return filas.length === 0
+                  ? <p className="text-xs text-gray-400 dark:text-gray-500">Todavía no hay consultas cerradas con motivo registrado en este período.</p>
+                  : <BarrasLista color={c.una} filas={filas} />;
+              })()}
+            </Seccion>
+          </div>
 
           {/* Consultas en el tiempo */}
           <Seccion titulo="Cuándo llegan las consultas" descripcion="Para organizar el personal: consultas por día, por hora y por día de la semana (hora Argentina).">
