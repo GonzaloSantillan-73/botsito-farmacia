@@ -6,7 +6,8 @@ import { extraerLinkReceta } from '../lib/linkReceta';
 
 const TAG_LABELS = {
   comprobante: { texto: '🧾 Comprobante', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400' },
-  receta: { texto: '📋 Receta', className: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-400' }
+  receta: { texto: '📋 Receta', className: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-400' },
+  ubicacion: { texto: '📍 Ubicación', className: 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-400' }
 };
 
 // Etiqueta legible del tipo de archivo, para el placeholder de "Archivo
@@ -19,11 +20,17 @@ const TIPO_ARCHIVO_LABELS = {
   pdf: 'PDF'
 };
 
-// Si un mensaje del cliente se puede marcar: cualquier adjunto (menos la
-// ubicación nativa), o un texto con un link que no sea de Google Maps (ej. una
+// Si un mensaje es una ubicación: la de WhatsApp o un mensaje que es sólo un
+// link de Google Maps. Se puede marcar como "ubicación" y queda guardada en
+// la ficha del cliente (ver PATCH /messages/:id/tag).
+export const esMensajeDeUbicacion = (msg) =>
+  msg.media_type === 'location' || (!msg.media_url && !!extraerLinkDeMaps(msg.message_text));
+
+// Si un mensaje del cliente se puede marcar: cualquier adjunto, una
+// ubicación, o un texto con un link que no sea de Google Maps (ej. una
 // receta electrónica). Nunca sobre lo que le mandamos nosotros.
 export const puedeMarcarse = (msg) =>
-  msg.sender_type === 'client' && msg.media_type !== 'location' && (!!msg.media_url || !!extraerLinkReceta(msg.message_text));
+  msg.sender_type === 'client' && (esMensajeDeUbicacion(msg) || !!msg.media_url || !!extraerLinkReceta(msg.message_text));
 
 // Menú para marcar un adjunto del cliente como "el" comprobante de pago o
 // "la" receta de la conversación (ver server/routes/api.js PATCH
@@ -32,6 +39,7 @@ export const puedeMarcarse = (msg) =>
 export function AttachmentTagControls({ msg, onTag, tagging }) {
   const [open, setOpen] = useState(false);
   const tagActual = TAG_LABELS[msg.tagged_as];
+  const esUbicacion = esMensajeDeUbicacion(msg);
   const esLink = !msg.media_url;
 
   const elegir = (tag) => {
@@ -46,21 +54,28 @@ export function AttachmentTagControls({ msg, onTag, tagging }) {
           type="button"
           onClick={() => setOpen(v => !v)}
           disabled={tagging}
-          title={esLink ? 'Marcar este enlace' : 'Marcar este archivo'}
+          title={esUbicacion ? 'Marcar esta ubicación' : esLink ? 'Marcar este enlace' : 'Marcar este archivo'}
           className="p-2 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-500 shadow-sm hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
         >
           {tagging ? <Loader2 size={14} className="animate-spin" /> : <Tag size={14} />}
         </button>
         {open && (
           <div className="absolute z-10 top-full mt-1 left-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 w-48 text-xs">
-            {!esLink && (
+            {esUbicacion && (
+              <button onClick={() => elegir('ubicacion')} className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
+                {msg.tagged_as === 'ubicacion' && <Check size={12} className="text-violet-600 shrink-0" />} Marcar como ubicación
+              </button>
+            )}
+            {!esLink && !esUbicacion && (
               <button onClick={() => elegir('comprobante')} className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
                 {msg.tagged_as === 'comprobante' && <Check size={12} className="text-emerald-600 shrink-0" />} Marcar como comprobante
               </button>
             )}
-            <button onClick={() => elegir('receta')} className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
-              {msg.tagged_as === 'receta' && <Check size={12} className="text-sky-600 shrink-0" />} Marcar como receta
-            </button>
+            {!esUbicacion && (
+              <button onClick={() => elegir('receta')} className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
+                {msg.tagged_as === 'receta' && <Check size={12} className="text-sky-600 shrink-0" />} Marcar como receta
+              </button>
+            )}
             {msg.tagged_as && (
               <button onClick={() => elegir(null)} className="w-full text-left px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 text-rose-600 dark:text-rose-400 border-t border-gray-100 dark:border-gray-700 mt-1 flex items-center gap-1.5">
                 <X size={12} className="shrink-0" /> Quitar marca

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator, Trash2, Plus, Send, ChevronDown, ChevronUp, Truck, UserCircle, IdCard, HeartPulse, Pencil, Save, X, Loader2, CalendarClock, Eraser } from 'lucide-react';
+import { CheckCircle, XCircle, User, Phone, Info, Image as ImageIcon, Calculator, Trash2, Plus, Send, ChevronDown, ChevronUp, Truck, UserCircle, IdCard, HeartPulse, Pencil, Save, X, Loader2, CalendarClock, Eraser, MapPin, ExternalLink } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { adminFetch } from '../lib/adminAuth';
 import { formatPhone } from '../lib/formatPhone';
@@ -46,7 +46,7 @@ export default function ValidationPanel({
     }
     supabase
       .from('clientes')
-      .select('nombre_completo, dni, obra_social, created_at')
+      .select('*')
       .eq('client_phone', activeConversation.client_phone)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -69,12 +69,7 @@ export default function ValidationPanel({
         { event: '*', schema: 'public', table: 'clientes', filter: `client_phone=eq.${phone}` },
         (payload) => {
           if (payload.eventType === 'DELETE') return;
-          setClienteData({
-            nombre_completo: payload.new.nombre_completo,
-            dni: payload.new.dni,
-            obra_social: payload.new.obra_social,
-            created_at: payload.new.created_at
-          });
+          setClienteData(payload.new);
         }
       )
       .subscribe();
@@ -127,11 +122,12 @@ export default function ValidationPanel({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'No se pudieron guardar los datos del cliente.');
 
-      setClienteData({
+      setClienteData(prev => ({
+        ...prev,
         nombre_completo: data.cliente.nombre_completo,
         dni: data.cliente.dni,
         obra_social: data.cliente.obra_social
-      });
+      }));
       setIsEditingClient(false);
       // Si cambió el teléfono, la conversación se actualiza sola vía Realtime
       // (App.jsx escucha UPDATE de `conversations`), no hace falta tocarla acá.
@@ -610,6 +606,29 @@ export default function ValidationPanel({
                                   </span>
                                 </div>
                               )}
+                              {/* Ubicación marcada desde el chat ("Marcar como ubicación", ver supabase/ubicacion_cliente.sql). */}
+                              <div className="flex justify-between items-start gap-2">
+                                <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1.5 shrink-0"><MapPin size={14} className="text-gray-400" /> Ubicación</span>
+                                {clienteData?.ubicacion_lat != null && clienteData?.ubicacion_lng != null ? (
+                                  <span className="text-right min-w-0">
+                                    <a
+                                      href={`https://www.google.com/maps?q=${clienteData.ubicacion_lat},${clienteData.ubicacion_lng}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 font-medium text-teal-600 dark:text-teal-400 hover:underline"
+                                    >
+                                      Ver en mapa <ExternalLink size={12} />
+                                    </a>
+                                    {(clienteData.ubicacion_label || clienteData.ubicacion_at) && (
+                                      <span className="block text-[11px] text-gray-400 dark:text-gray-500 truncate max-w-[160px]" title={clienteData.ubicacion_label || undefined}>
+                                        {clienteData.ubicacion_label || `Marcada el ${new Date(clienteData.ubicacion_at).toLocaleDateString('es-AR')}`}
+                                      </span>
+                                    )}
+                                  </span>
+                                ) : (
+                                  <span className="text-right text-xs text-gray-400 dark:text-gray-500">Sin marcar</span>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>

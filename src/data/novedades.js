@@ -11,6 +11,18 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-11-11-marcar-ubicacion',
+    fecha: '2026-11-11',
+    tipo: 'nuevo',
+    para: 'todos',
+    titulo: 'Ahora se puede guardar la ubicación del cliente',
+    detalle: [
+      'Cuando el cliente manda su ubicación por WhatsApp (o un link de Google Maps), tocá el ícono de etiqueta al lado del mensaje y elegí *"Marcar como ubicación"*.',
+      'La ubicación queda guardada en la *Ficha del cliente* con el botón *"Ver en mapa"*. Así, en un próximo pedido con envío, le pueden preguntar si se lo mandan ahí.',
+      'Se guarda una sola ubicación por cliente: si marcan otra, reemplaza a la anterior. Con "Quitar marca" se borra de la ficha.'
+    ]
+  },
+  {
     id: '2026-11-11-ventas-para-revisar',
     fecha: '2026-11-11',
     tipo: 'nuevo',

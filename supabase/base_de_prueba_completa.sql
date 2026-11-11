@@ -75,7 +75,13 @@ CREATE TABLE IF NOT EXISTS public.clientes (
     notas_operador TEXT,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
-    interacciones_bot INTEGER NOT NULL DEFAULT 0
+    interacciones_bot INTEGER NOT NULL DEFAULT 0,
+    -- Ubicación marcada desde el chat (supabase/ubicacion_cliente.sql)
+    ubicacion_lat NUMERIC,
+    ubicacion_lng NUMERIC,
+    ubicacion_label TEXT,
+    ubicacion_message_id UUID,
+    ubicacion_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS public.conversations (
@@ -133,7 +139,7 @@ CREATE TABLE IF NOT EXISTS public.messages (
         CHECK (media_type IN ('text', 'image', 'video', 'document', 'pdf', 'blocked_pdf', 'location', 'audio')),
     created_at TIMESTAMPTZ DEFAULT now(),
     tagged_as TEXT CONSTRAINT messages_tagged_as_check
-        CHECK (tagged_as IS NULL OR tagged_as IN ('comprobante', 'receta')),
+        CHECK (tagged_as IS NULL OR tagged_as IN ('comprobante', 'receta', 'ubicacion')),
     is_auto_reminder BOOLEAN NOT NULL DEFAULT false,
     estado TEXT,
     wamid TEXT,

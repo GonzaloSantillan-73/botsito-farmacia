@@ -985,7 +985,64 @@ router.post('/messages/send', requireAuth, blockAdminRole, async (req, res) => {
   }
 });
 
-const TAGS_VALIDOS = ['comprobante', 'receta'];
+const TAGS_VALIDOS = ['comprobante', 'receta', 'ubicacion'];
+
+// Coordenadas de un mensaje del cliente que se marca como ubicación: la
+// ubicación nativa de WhatsApp (JSON en message_text, ver webhook.js) o un
+// mensaje que es sólo un link de Google Maps. null si no hay ubicación.
+const coordenadasDeMensaje = async (msg) => {
+  if (msg.media_type === 'location') {
+    try {
+      const data = JSON.parse(msg.message_text);
+      if (typeof data?.lat === 'number' && typeof data?.lng === 'number') {
+        return { lat: data.lat, lng: data.lng, label: data.name || data.address || null };
+      }
+    } catch { /* JSON inválido: sin ubicación */ }
+    return null;
+  }
+  const texto = (msg.message_text || '').trim();
+  if (msg.media_url || !/^https?:\/\/\S+$/i.test(texto)) return null;
+  const coords = await extraerCoordenadasDeUrl(texto);
+  return coords ? { lat: coords.lat, lng: coords.lng, label: null } : null;
+};
+
+// Guarda (o borra) la ubicación en la ficha del cliente de la conversación.
+// Una sola por cliente: la nueva reemplaza a la anterior, y el mensaje que
+// tenía la marca anterior (aunque sea de otra consulta) se desmarca.
+const guardarUbicacionEnFicha = async (msg, ubicacion) => {
+  const { data: conv, error: convError } = await supabase
+    .from('conversations').select('client_phone').eq('id', msg.conversation_id).single();
+  if (convError) throw convError;
+
+  const { data: ficha, error: fichaError } = await supabase
+    .from('clientes').select('ubicacion_message_id').eq('client_phone', conv.client_phone).maybeSingle();
+  if (fichaError) throw fichaError;
+
+  if (!ubicacion) {
+    // Quitar la marca sólo borra la ubicación si era la que está en la ficha.
+    if (ficha?.ubicacion_message_id !== msg.id) return;
+    const { error } = await supabase.from('clientes').update({
+      ubicacion_lat: null, ubicacion_lng: null, ubicacion_label: null, ubicacion_message_id: null, ubicacion_at: null,
+      updated_at: new Date().toISOString()
+    }).eq('client_phone', conv.client_phone);
+    if (error) throw error;
+    return;
+  }
+
+  if (ficha?.ubicacion_message_id && ficha.ubicacion_message_id !== msg.id) {
+    await supabase.from('messages').update({ tagged_as: null }).eq('id', ficha.ubicacion_message_id).eq('tagged_as', 'ubicacion');
+  }
+  const { error } = await supabase.from('clientes').upsert({
+    client_phone: conv.client_phone,
+    ubicacion_lat: ubicacion.lat,
+    ubicacion_lng: ubicacion.lng,
+    ubicacion_label: ubicacion.label,
+    ubicacion_message_id: msg.id,
+    ubicacion_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'client_phone' });
+  if (error) throw error;
+};
 
 // Marca (o desmarca, con tag: null) un mensaje con adjunto como "el"
 // comprobante o "la" receta oficial de su conversación. Sólo puede haber un
@@ -1009,7 +1066,7 @@ router.patch('/messages/:id/tag', requireAuth, async (req, res) => {
   try {
     const { data: msg, error: msgError } = await supabase
       .from('messages')
-      .select('id, conversation_id, media_url, message_text')
+      .select('id, conversation_id, media_url, media_type, message_text, tagged_as')
       .eq('id', id)
       .single();
 
@@ -1017,10 +1074,18 @@ router.patch('/messages/:id/tag', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Mensaje no encontrado' });
     }
 
-    // Sin adjunto, sólo se puede marcar como receta un mensaje con un link
-    // que no sea de Google Maps (mismo criterio que puedeMarcarse en
-    // MessageBubble.jsx).
-    if (tag !== null && !msg.media_url && (tag !== 'receta' || !extraerLinkReceta(msg.message_text))) {
+    // Ubicación: sólo la ubicación de WhatsApp o un link de Google Maps, y
+    // se guarda también en la ficha del cliente.
+    let ubicacion = null;
+    if (tag === 'ubicacion') {
+      ubicacion = await coordenadasDeMensaje(msg);
+      if (!ubicacion) {
+        return res.status(400).json({ error: 'No se pudo leer la ubicación de este mensaje.' });
+      }
+    } else if (tag !== null && !msg.media_url && (tag !== 'receta' || !extraerLinkReceta(msg.message_text))) {
+      // Sin adjunto, sólo se puede marcar como receta un mensaje con un link
+      // que no sea de Google Maps (mismo criterio que puedeMarcarse en
+      // MessageBubble.jsx).
       return res.status(400).json({ error: 'Este mensaje sólo se puede marcar si tiene un archivo adjunto, o como receta si trae un enlace.' });
     }
 
@@ -1044,6 +1109,10 @@ router.patch('/messages/:id/tag', requireAuth, async (req, res) => {
       .single();
 
     if (updateError) throw updateError;
+
+    if (tag === 'ubicacion' || msg.tagged_as === 'ubicacion') {
+      await guardarUbicacionEnFicha(msg, tag === 'ubicacion' ? ubicacion : null);
+    }
 
     res.status(200).json({ success: true, message: updated });
   } catch (error) {
