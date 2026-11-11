@@ -19,7 +19,9 @@ import NotaInterna from './NotaInterna';
 // clickeando cualquier fila de la lista. `conversation` viene con la forma
 // que devuelve server/services/metricsDetalle.js (id, cliente, telefono,
 // sucursal, status, saleStatus).
-export default function ChatTraceModal({ conversation, onClose }) {
+export default function ChatTraceModal({ conversation: conversacionInicial, onClose, onConsultaActualizada }) {
+  // Copia local: el admin puede corregir la venta desde el panel lateral.
+  const [conversation, setConversation] = useState(conversacionInicial);
 
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -114,7 +116,7 @@ export default function ChatTraceModal({ conversation, onClose }) {
 
         {/* Datos de la consulta: todo lo que no se ve en el chat */}
         <aside className="lg:w-80 shrink-0 max-h-[40%] lg:max-h-none overflow-y-auto scrollbar-thin border-t lg:border-t-0 lg:border-l border-gray-200 dark:border-gray-700 p-4 space-y-5 bg-white dark:bg-gray-900">
-          <DatosConsultaContenido c={conversation} />
+          <DatosConsultaContenido c={conversation} editable={soyAdmin} onActualizada={(nueva) => { setConversation(nueva); onConsultaActualizada?.(nueva); }} />
         </aside>
         </div>
       </div>

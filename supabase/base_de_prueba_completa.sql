@@ -105,6 +105,9 @@ CREATE TABLE IF NOT EXISTS public.conversations (
     sucursales_recomendadas JSONB, -- [{ id, nombre, distancia_km }, ...]
     devuelta_por_sucursal_id UUID REFERENCES public.sucursales(id) ON DELETE SET NULL,
     payment_method TEXT,
+    sale_subtotal NUMERIC,       -- corrección manual del admin (supabase/venta_editada_admin.sql)
+    sale_envio NUMERIC,
+    venta_editada_at TIMESTAMPTZ,
     last_read_at TIMESTAMPTZ,
     primera_sucursal_id UUID REFERENCES public.sucursales(id) ON DELETE SET NULL,
     cotizador_draft JSONB,

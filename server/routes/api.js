@@ -631,6 +631,51 @@ router.post('/conversations/:id/take', requireAuth, blockAdminRole, async (req, 
 // revés: blockAdminRole porque el admin es de sólo supervisión). El ícono
 // ya se oculta en ChatArea.jsx para staff, pero esto blinda el borrado en
 // sí ante un request directo, sin depender de que el frontend lo respete.
+// Corrección manual de la venta de una consulta (sólo admin): resultado,
+// subtotal, envío y medio de pago, para cuando la sucursal no usó el
+// Cotizador o marcó mal el resultado. El total es subtotal + envío. Desde
+// que se edita, Métricas usa estos datos y deja de sumar los pedidos del
+// Cotizador de esta consulta (ver metricasPanel.js y metricsDetalle.js).
+// Necesita supabase/venta_editada_admin.sql.
+const RESULTADOS_VENTA = ['concretada', 'no_concretada', 'otra'];
+router.put('/conversations/:id/venta', requireAuth, requireAdminRole, async (req, res) => {
+  const { id } = req.params;
+  const { saleStatus, subtotal, envio, medioPago } = req.body || {};
+  console.log('🔍 [DEBUG-ROUTES-API] Entrada a PUT /conversations/:id/venta:', { id, saleStatus, subtotal, envio, medioPago });
+
+  if (!/^[0-9a-f-]{36}$/i.test(id || '')) return res.status(400).json({ error: 'Id de consulta inválido.' });
+  if (!RESULTADOS_VENTA.includes(saleStatus)) return res.status(400).json({ error: 'Elegí el resultado de la consulta.' });
+
+  const updates = { sale_status: saleStatus, venta_editada_at: new Date().toISOString() };
+  if (saleStatus === 'concretada') {
+    const sub = Number(subtotal);
+    const env = envio === '' || envio == null ? 0 : Number(envio);
+    if (subtotal === '' || subtotal == null || !Number.isFinite(sub) || sub < 0) return res.status(400).json({ error: 'El subtotal tiene que ser un número mayor o igual a 0.' });
+    if (!Number.isFinite(env) || env < 0) return res.status(400).json({ error: 'El envío tiene que ser un número mayor o igual a 0.' });
+    const medio = typeof medioPago === 'string' ? medioPago.trim().slice(0, 60) : '';
+    Object.assign(updates, { sale_subtotal: sub, sale_envio: env, sale_amount: sub + env, payment_method: medio || null });
+  } else {
+    // Si no hubo venta no hay montos ni medio de pago.
+    Object.assign(updates, { sale_subtotal: null, sale_envio: null, sale_amount: null, payment_method: null });
+  }
+
+  try {
+    const { data, error } = await supabase.from('conversations').update(updates).eq('id', id).select('id');
+    if (error) {
+      if (error.code === '42703') return res.status(500).json({ error: 'Falta correr supabase/venta_editada_admin.sql en Supabase.' });
+      throw error;
+    }
+    if (!data?.length) return res.status(404).json({ error: 'No se encontró la consulta.' });
+
+    const filas = await obtenerDetalleConsultas({ conversationId: id });
+    console.log('🔚 [DEBUG-ROUTES-API] PUT /conversations/:id/venta - respondiendo status 200');
+    res.status(200).json({ consulta: filas[0] || null });
+  } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] PUT /conversations/:id/venta - error:', error);
+    res.status(500).json({ error: error.message || 'No se pudo guardar la venta.' });
+  }
+});
+
 router.delete('/conversations/:id', requireAuth, requireAdminRole, async (req, res) => {
   const { id } = req.params;
   console.log('🔍 [DEBUG-ROUTES-API] Entrada a DELETE /conversations/:id:', {

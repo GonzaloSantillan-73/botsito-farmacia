@@ -71,7 +71,7 @@ export default function MetricsBucketModal({ title, filtros, onClose }) {
       </div>
 
       {conversacionAbierta && (
-        <ChatTraceModal conversation={conversacionAbierta} onClose={() => setConversacionAbierta(null)} />
+        <ChatTraceModal conversation={conversacionAbierta} onClose={() => setConversacionAbierta(null)} onConsultaActualizada={(nueva) => { setRows(prev => prev.map(r => (r.id === nueva.id ? { ...r, ...nueva } : r))); }} />
       )}
     </div>,
     document.body

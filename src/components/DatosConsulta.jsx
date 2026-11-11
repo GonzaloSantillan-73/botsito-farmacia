@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, ExternalLink, ClipboardList, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
-import { adminFetch } from '../lib/adminAuth';
+import { FileText, ExternalLink, ClipboardList, ChevronDown, ChevronUp, Loader2, Pencil } from 'lucide-react';
+import { adminFetch, isAdminRole } from '../lib/adminAuth';
 import { withSucursalesHistorial } from '../lib/clientUtils';
 import { SALE_STATUS_BADGES } from './Sidebar';
 import StarRating from './StarRating';
@@ -16,10 +16,13 @@ function Dato({ label, children }) {
   );
 }
 
-function Bloque({ titulo, children }) {
+function Bloque({ titulo, accion = null, children }) {
   return (
     <div>
-      <h4 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">{titulo}</h4>
+      <div className="flex items-center justify-between mb-1">
+        <h4 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{titulo}</h4>
+        {accion}
+      </div>
       <div>{children}</div>
     </div>
   );
@@ -30,7 +33,10 @@ function Bloque({ titulo, children }) {
 // la forma que devuelve server/services/metricsDetalle.js. Lo usan el visor
 // de chat de Métricas (ChatTraceModal.jsx) y la columna lateral de un chat
 // abierto desde el Directorio (DatosConsultaPanel, abajo).
-export function DatosConsultaContenido({ c }) {
+// editable: el admin puede corregir la venta (EditorVenta, abajo);
+// onActualizada recibe la consulta ya guardada.
+export function DatosConsultaContenido({ c, editable = false, onActualizada }) {
+  const [editandoVenta, setEditandoVenta] = useState(false);
   // Sucursales que la atendieron, en orden (tomada, derivada, devuelta...).
   const [sucursalesQueAtendieron, setSucursalesQueAtendieron] = useState(null);
   useEffect(() => {
@@ -73,7 +79,17 @@ export function DatosConsultaContenido({ c }) {
         <Dato label="Producto">{c.productRating != null ? <StarRating value={c.productRating} type="producto" size={13} className="font-semibold" /> : 'Sin calificar'}</Dato>
       </Bloque>
 
-      <Bloque titulo="Venta">
+      {editandoVenta ? (
+        <EditorVenta c={c} onCancelar={() => { setEditandoVenta(false); }} onGuardada={(nueva) => { setEditandoVenta(false); onActualizada?.(nueva); }} />
+      ) : (
+      <Bloque titulo="Venta" accion={editable ? (
+        <button onClick={() => { setEditandoVenta(true); }} className="inline-flex items-center gap-1 text-[11px] font-semibold text-teal-600 dark:text-teal-400 hover:underline">
+          <Pencil size={11} /> Editar
+        </button>
+      ) : null}>
+        {c.ventaEditadaAt && (
+          <p className="text-[11px] text-amber-700 dark:text-amber-400 pb-1">Corregida por el administrador el {new Date(c.ventaEditadaAt).toLocaleDateString('es-AR')}</p>
+        )}
         <Dato label="Resultado">{SALE_STATUS_BADGES[c.saleStatus]?.label || 'Sin marcar'}</Dato>
         <Dato label="Subtotal">{formatMoney(c.subtotal)}</Dato>
         <Dato label="Envío">{formatEnvio(c.costoEnvio)}</Dato>
@@ -86,7 +102,96 @@ export function DatosConsultaContenido({ c }) {
           <Dato label="Receta"><a href={c.recetaUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-teal-600 dark:text-teal-400 hover:underline"><FileText size={12} /> Ver</a></Dato>
         )}
       </Bloque>
+      )}
     </div>
+  );
+}
+
+const MEDIOS_DE_PAGO = ['Transferencia', 'Efectivo', 'Tarjeta de débito', 'Tarjeta de crédito', 'Mercado Pago'];
+const claseCampo = 'w-full px-2.5 py-1.5 text-sm rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-teal-500';
+
+// Formulario del admin para corregir la venta de una consulta (resultado,
+// subtotal, envío y medio de pago), ver PUT /api/conversations/:id/venta.
+function EditorVenta({ c, onCancelar, onGuardada }) {
+  const valorInicial = (n) => (n == null ? '' : String(n));
+  const [resultado, setResultado] = useState(c.saleStatus || 'concretada');
+  // Si sólo hay total (venta cargada sin el Cotizador), se usa como subtotal.
+  const [subtotal, setSubtotal] = useState(valorInicial(c.subtotal ?? (c.costoEnvio == null ? c.montoTotal : null)));
+  const [envio, setEnvio] = useState(valorInicial(c.costoEnvio));
+  const [medioPago, setMedioPago] = useState(c.medioPago || 'Transferencia');
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState('');
+
+  const esVenta = resultado === 'concretada';
+  const total = (Number(subtotal) || 0) + (Number(envio) || 0);
+
+  const guardar = async () => {
+    setError('');
+    if (esVenta && (subtotal === '' || !(Number(subtotal) >= 0))) { setError('Completá el subtotal.'); return; }
+    if (esVenta && envio !== '' && !(Number(envio) >= 0)) { setError('El envío no es válido.'); return; }
+    setGuardando(true);
+    try {
+      const res = await adminFetch(`/api/conversations/${encodeURIComponent(c.id)}/venta`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ saleStatus: resultado, subtotal, envio, medioPago })
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'No se pudo guardar la venta.');
+      onGuardada({ ...c, ...body.consulta });
+    } catch (err) {
+      console.error('❌ [DEBUG-COMPONENT-DatosConsulta] error guardando la venta:', err);
+      setError(err.message);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  return (
+    <Bloque titulo="Venta (editando)">
+      <div className="space-y-3 pt-1">
+        <label className="block text-xs text-gray-500 dark:text-gray-400">
+          Resultado
+          <select value={resultado} onChange={(e) => { setResultado(e.target.value); }} className={`${claseCampo} mt-1`}>
+            {Object.entries(SALE_STATUS_BADGES).map(([valor, { label }]) => <option key={valor} value={valor}>{label}</option>)}
+          </select>
+        </label>
+        {esVenta && (
+          <>
+            <label className="block text-xs text-gray-500 dark:text-gray-400">
+              Subtotal ($)
+              <input type="number" min="0" step="any" inputMode="decimal" value={subtotal} onChange={(e) => { setSubtotal(e.target.value); }} className={`${claseCampo} mt-1`} />
+            </label>
+            <label className="block text-xs text-gray-500 dark:text-gray-400">
+              Envío ($) <span className="text-gray-400">— 0 o vacío = envío gratis</span>
+              <input type="number" min="0" step="any" inputMode="decimal" value={envio} onChange={(e) => { setEnvio(e.target.value); }} placeholder="0" className={`${claseCampo} mt-1`} />
+            </label>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500 dark:text-gray-400">Total</span>
+              <span className="font-semibold text-gray-900 dark:text-gray-100">{formatMoney(total)}</span>
+            </div>
+            <label className="block text-xs text-gray-500 dark:text-gray-400">
+              Medio de pago
+              <input list="medios-de-pago" value={medioPago} onChange={(e) => { setMedioPago(e.target.value); }} className={`${claseCampo} mt-1`} />
+              <datalist id="medios-de-pago">
+                {MEDIOS_DE_PAGO.map(m => <option key={m} value={m} />)}
+              </datalist>
+            </label>
+          </>
+        )}
+        {!esVenta && (
+          <p className="text-xs text-gray-500 dark:text-gray-400">Sin venta: se borran el subtotal, el envío, el total y el medio de pago de esta consulta.</p>
+        )}
+        <p className="text-[11px] text-gray-400 dark:text-gray-500">Desde que se guarda, Métricas usa estos datos en lugar de lo que se cargó en el Cotizador.</p>
+        {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+        <div className="flex gap-2 justify-end">
+          <button onClick={() => { onCancelar(); }} disabled={guardando} className="px-3 py-1.5 text-xs font-semibold rounded-md text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">Cancelar</button>
+          <button onClick={() => { guardar(); }} disabled={guardando} className="px-3 py-1.5 text-xs font-semibold rounded-md bg-teal-600 hover:bg-teal-700 text-white disabled:opacity-60 inline-flex items-center gap-1">
+            {guardando && <Loader2 size={12} className="animate-spin" />} Guardar
+          </button>
+        </div>
+      </div>
+    </Bloque>
   );
 }
 
@@ -143,7 +248,7 @@ export default function DatosConsultaPanel({ conversation }) {
           ) : !actual ? (
             <p className="text-sm text-gray-400 dark:text-gray-500 flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Cargando...</p>
           ) : (
-            <DatosConsultaContenido key={actual.id} c={actual} />
+            <DatosConsultaContenido key={actual.id} c={actual} editable={isAdminRole()} onActualizada={setConsulta} />
           )}
         </div>
       )}

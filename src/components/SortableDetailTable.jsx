@@ -59,7 +59,7 @@ export const DETAIL_COLUMNS = [
   },
   { key: 'subtotal', label: 'Subtotal', sortValue: r => (r.subtotal ?? -1), render: r => formatMoney(r.subtotal) },
   { key: 'costoEnvio', label: 'Envío', sortValue: r => (r.costoEnvio ?? -1), render: r => formatEnvio(r.costoEnvio) },
-  { key: 'montoTotal', label: 'Monto Total', sortValue: r => (r.montoTotal ?? -1), render: r => formatMoney(r.montoTotal) },
+  { key: 'montoTotal', label: 'Monto Total', sortValue: r => (r.montoTotal ?? -1), render: r => (r.ventaEditadaAt ? <span title="Venta corregida por el administrador">{formatMoney(r.montoTotal)} <span className="text-[10px] text-amber-600 dark:text-amber-400">(editada)</span></span> : formatMoney(r.montoTotal)) },
   { key: 'medioPago', label: 'Medio de Pago', sortValue: r => (r.medioPago || '').toLowerCase(), render: r => r.medioPago || '—' },
   {
     key: 'ratingAtencion',

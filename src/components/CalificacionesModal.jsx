@@ -210,7 +210,7 @@ export default function CalificacionesModal({ sucursal = null, tipoInicial = 'at
         )}
       </div>
 
-      {abierta && <ChatTraceModal conversation={abierta} onClose={() => setAbierta(null)} />}
+      {abierta && <ChatTraceModal conversation={abierta} onClose={() => setAbierta(null)} onConsultaActualizada={(nueva) => { setFilas(prev => prev.map(f => (f.id === nueva.id ? { ...f, ...nueva } : f))); }} />}
     </div>,
     document.body
   );

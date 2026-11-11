@@ -12,7 +12,8 @@ import { getModoPrueba } from './appConfig.js';
 // - Consultas y clientes: por conversations.created_at dentro del rango.
 // - Pedidos y montos: por pedidos_confirmados.confirmed_at; si una venta
 //   concretada no tiene pedido (no se usó el Cotizador), cuenta su sale_amount
-//   (mismo criterio que el Detalle de consultas).
+//   (mismo criterio que el Detalle de consultas). Si el admin corrigió la
+//   venta a mano (venta_editada_at), se ignoran sus pedidos y cuenta la corrección.
 // - Mensajes: por la fecha de envío, desde el registro mensajes_enviados (no
 //   baja si se elimina un chat). Sin ese registro (falta correr
 //   supabase/metricas_base.sql) se usa la tabla messages como respaldo.
@@ -64,12 +65,29 @@ const conRango = (query, campo, startDate, endDate) => {
 };
 
 const traerConversaciones = async (startDate, endDate) => {
-  const { data, error } = await traerTodasLasPaginas(() => conRango(
-    supabase.from('conversations').select('id, client_phone, status, sucursal_id, created_at, sale_status, sale_amount, rating, demora_inicial_ms, devuelta_por_sucursal_id, derivado_por_sucursal_id'),
+  const columnas = 'id, client_phone, status, sucursal_id, created_at, sale_status, sale_amount, rating, demora_inicial_ms, devuelta_por_sucursal_id, derivado_por_sucursal_id';
+  const consultar = (cols) => traerTodasLasPaginas(() => conRango(
+    supabase.from('conversations').select(cols),
     'created_at', startDate, endDate
   ).order('id'));
+  // Columnas de la corrección manual de la venta (supabase/venta_editada_admin.sql):
+  // si la migración no se corrió, se sigue sin ellas.
+  let { data, error } = await consultar(`${columnas}, sale_subtotal, sale_envio, venta_editada_at`);
+  if (error?.code === '42703') ({ data, error } = await consultar(columnas));
   if (error) throw error;
   return data || [];
+};
+
+// Ids de las consultas cuya venta corrigió el admin a mano: sus pedidos del
+// Cotizador no se suman (manda la corrección, que está en conversations).
+// Se piden todas (son pocas) y no sólo las del rango, porque un pedido puede
+// caer en el rango aunque su consulta haya empezado antes.
+const traerConsultasConVentaEditada = async () => {
+  const { data, error } = await traerTodasLasPaginas(() => supabase
+    .from('conversations').select('id').not('venta_editada_at', 'is', null).order('id'));
+  if (error?.code === '42703') return new Set();
+  if (error) throw error;
+  return new Set((data || []).map(c => c.id));
 };
 
 // Motivo de cierre: columna nueva (supabase/metricas_base.sql). Si todavía no
@@ -186,13 +204,16 @@ const tipoEnvio = (p) => {
 // Todos los números de un período. `detalle=false` calcula sólo el resumen
 // (para el período anterior, que sólo se usa para la variación %).
 const calcularPeriodo = async ({ startDate, endDate, esPrueba, sucursales, detalle = true }) => {
-  const [conversacionesTodas, pedidosTodos, { filas: mensajesTodos, desdeRegistro }] = await Promise.all([
+  const [conversacionesTodas, pedidosTodos, { filas: mensajesTodos, desdeRegistro }, ventasEditadas] = await Promise.all([
     traerConversaciones(startDate, endDate),
     traerPedidos(startDate, endDate),
-    traerMensajesEnviados(startDate, endDate)
+    traerMensajesEnviados(startDate, endDate),
+    traerConsultasConVentaEditada()
   ]);
   const conversaciones = conversacionesTodas.filter(c => !esPrueba(c.client_phone));
-  const pedidos = pedidosTodos.filter(p => !esPrueba(p.client_phone));
+  // Una consulta con la venta corregida por el admin pasa a contarse como
+  // "venta sin pedido" (con su sale_amount), igual que si no hubiera usado el Cotizador.
+  const pedidos = pedidosTodos.filter(p => !esPrueba(p.client_phone) && !ventasEditadas.has(p.conversation_id));
   const mensajes = mensajesTodos.filter(m => !esPrueba(m.client_phone));
 
   const ids = conversaciones.map(c => c.id);
@@ -265,7 +286,14 @@ const calcularPeriodo = async ({ startDate, endDate, esPrueba, sucursales, detal
     else if (t === 'sin_costo') envios.sinCosto += 1;
     else envios.sinDato += 1;
   }
-  envios.sinDato += ventasSinPedido.length;
+  // Ventas sin pedido: sólo se sabe el envío si el admin lo cargó a mano.
+  for (const c of ventasSinPedido) {
+    const t = c.venta_editada_at ? tipoEnvio({ costo_envio: c.sale_envio, subtotal: c.sale_subtotal }) : 'sin_dato';
+    if (t === 'gratis') envios.gratis += 1;
+    else if (t === 'pago') { envios.pago += 1; envios.montoEnvios += Number(c.sale_envio || 0); }
+    else if (t === 'sin_costo') envios.sinCosto += 1;
+    else envios.sinDato += 1;
+  }
 
   // ---- Clientes ---------------------------------------------------------------
   const telefonos = [...new Set(conversaciones.map(c => c.client_phone))];
@@ -332,6 +360,7 @@ const calcularPeriodo = async ({ startDate, endDate, esPrueba, sucursales, detal
     const f = fila(c.sucursal_id);
     f.pedidos += 1;
     f.monto += Number(c.sale_amount);
+    if (c.venta_editada_at && tipoEnvio({ costo_envio: c.sale_envio, subtotal: c.sale_subtotal }) === 'gratis') f.enviosGratis += 1;
   }
   for (const m of sucursal) fila(m.sucursal_id).mensajes += 1;
 

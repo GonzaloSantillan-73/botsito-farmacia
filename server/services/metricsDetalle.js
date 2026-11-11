@@ -58,7 +58,14 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
     };
 
     console.log('📡 [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — SELECT conversations con filtros:', { startDate, endDate, saleStatus, rating, productRating, derivada });
-    let { data: conversations, error } = await traerTodasLasPaginas(() => construirQuery(`${COLUMNAS_BASE}, demora_inicial_ms`));
+    // Corrección manual de la venta (supabase/venta_editada_admin.sql): mismo
+    // criterio, si la migración no se corrió se reintenta sin esas columnas.
+    const COLUMNAS_VENTA_EDITADA = 'sale_subtotal, sale_envio, venta_editada_at';
+    let { data: conversations, error } = await traerTodasLasPaginas(() => construirQuery(`${COLUMNAS_BASE}, demora_inicial_ms, ${COLUMNAS_VENTA_EDITADA}`));
+    if (error?.code === '42703') {
+      console.error('❌ [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — faltan columnas de venta editada (correr supabase/venta_editada_admin.sql); se reintenta sin ellas');
+      ({ data: conversations, error } = await traerTodasLasPaginas(() => construirQuery(`${COLUMNAS_BASE}, demora_inicial_ms`)));
+    }
     if (error?.code === '42703') {
       console.error('❌ [DEBUG-SERVICE-METRICSDETALLE] obtenerDetalleConsultas() — falta la columna demora_inicial_ms (correr supabase/conversations_demora_inicial.sql); se reintenta sin ella');
       ({ data: conversations, error } = await traerTodasLasPaginas(() => construirQuery(COLUMNAS_BASE)));
@@ -185,11 +192,20 @@ export const obtenerDetalleConsultas = async ({ startDate, endDate, saleStatus, 
         saleStatus: c.sale_status || '',
         rating: c.rating ?? null,
         productRating: c.product_rating ?? null,
-        montoTotal: montoPorConversacion[c.id] !== undefined
-          ? montoPorConversacion[c.id]
-          : (c.sale_amount != null ? Number(c.sale_amount) : null),
-        subtotal: desgloseCompletoPorConversacion[c.id] ? subtotalPorConversacion[c.id] : null,
-        costoEnvio: desgloseCompletoPorConversacion[c.id] ? envioPorConversacion[c.id] : null,
+        // Si el admin corrigió la venta a mano, manda esa corrección y los
+        // pedidos del Cotizador de esta consulta no se suman.
+        ...(c.venta_editada_at ? {
+          montoTotal: c.sale_amount != null ? Number(c.sale_amount) : null,
+          subtotal: c.sale_subtotal != null ? Number(c.sale_subtotal) : null,
+          costoEnvio: c.sale_envio != null ? Number(c.sale_envio) : null
+        } : {
+          montoTotal: montoPorConversacion[c.id] !== undefined
+            ? montoPorConversacion[c.id]
+            : (c.sale_amount != null ? Number(c.sale_amount) : null),
+          subtotal: desgloseCompletoPorConversacion[c.id] ? subtotalPorConversacion[c.id] : null,
+          costoEnvio: desgloseCompletoPorConversacion[c.id] ? envioPorConversacion[c.id] : null
+        }),
+        ventaEditadaAt: c.venta_editada_at || null,
         medioPago: c.payment_method || '',
         comprobanteUrl: agg.comprobanteUrl,
         recetaUrl: agg.recetaUrl,
