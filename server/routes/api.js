@@ -1,7 +1,7 @@
 import express from 'express';
 import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
-import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getSessionPrewarningMs, setSessionPrewarningMs, getEsperaRespuestaMs, setEsperaRespuestaMs, MIN_ESPERA_RESPUESTA_MS, MAX_ESPERA_RESPUESTA_MS, getModoPrueba, setModoPrueba, getBotKeyword, setBotKeyword, getWelcomeMessage, setWelcomeMessage, getFrequentClientMessage, setFrequentClientMessage, getFrequentClientThreshold, setFrequentClientThreshold, MIN_FREQUENT_CLIENT_THRESHOLD, MAX_FREQUENT_CLIENT_THRESHOLD } from '../services/appConfig.js';
+import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getSessionPrewarningMs, setSessionPrewarningMs, getEsperaRespuestaMs, setEsperaRespuestaMs, MIN_ESPERA_RESPUESTA_MS, MAX_ESPERA_RESPUESTA_MS, getModoPrueba, setModoPrueba } from '../services/appConfig.js';
 import { finalizarConversacion } from '../services/ratingSurvey.js';
 import { devolverConversacionAEspera } from '../services/devolucionCola.js';
 import { tomarConsulta } from '../services/tomaConsulta.js';
@@ -44,11 +44,6 @@ const parseDateRange = (query) => {
 // Exportación y métricas del negocio: sólo el administrador puede verlas o
 // descargarlas (incluyen teléfonos y montos de venta de todos los clientes).
 router.use(['/export/chats', '/export/metrics', '/export/metrics-sucursales', '/metrics/negocio', '/metrics/detalle', '/metrics/panel'], requireAuth, requireAdminRole);
-
-// Saludo de "cliente frecuente": ni siquiera un empleado de sucursal puede
-// verlo o editarlo (es parte de "Ajustes de Chat", ya admin-only en el
-// SettingsModal del frontend); acá se revalida del lado del servidor.
-router.use(['/frequent-client-config'], requireAuth, requireAdminRole);
 
 // Exporta el historial de mensajes (con datos del cliente y la consulta) en el rango de fechas dado.
 router.get('/export/chats', async (req, res) => {
@@ -454,138 +449,6 @@ router.put('/schedules', async (req, res) => {
   } catch (error) {
     console.error('❌ [DEBUG-ROUTES-API] Error en PUT /schedules:', { error, message: error.message, stack: error.stack });
     console.error('[API] ❌ Error actualizando horarios:', error.message);
-    res.status(400).json({ error: error.message });
-  }
-});
-
-// Palabra clave con la que un cliente reactiva al bot en modo humano.
-router.get('/bot-config', async (req, res) => {
-  console.log('🔍 [DEBUG-ROUTES-API] Entrada a GET /bot-config:', {
-    method: req.method,
-    url: req.originalUrl,
-    query: req.query,
-    params: req.params,
-    admin: req.admin || null
-  });
-  const botKeyword = await getBotKeyword();
-  console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /bot-config:', { status: 200, body: { botKeyword } });
-  res.status(200).json({ botKeyword });
-});
-
-router.put('/bot-config', async (req, res) => {
-  const { botKeyword } = req.body;
-  console.log('🔍 [DEBUG-ROUTES-API] Entrada a PUT /bot-config:', {
-    method: req.method,
-    url: req.originalUrl,
-    body: redactBodyForLog(req.body),
-    query: req.query,
-    params: req.params,
-    admin: req.admin || null
-  });
-
-  try {
-    await setBotKeyword(botKeyword);
-    console.log(`[API] -> Palabra clave del bot actualizada a "${botKeyword}".`);
-    const respBody = { success: true, botKeyword: botKeyword.toString().trim() };
-    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo PUT /bot-config:', { status: 200, body: respBody });
-    res.status(200).json(respBody);
-  } catch (error) {
-    console.error('❌ [DEBUG-ROUTES-API] Error en PUT /bot-config:', { error, message: error.message, stack: error.stack });
-    console.error('[API] ❌ Error actualizando bot-config:', error.message);
-    res.status(400).json({ error: error.message });
-  }
-});
-
-// Mensaje de bienvenida que el bot manda al arrancar (o reiniciar) una consulta.
-// El menú numerado (1/2/3) que se agrega después es fijo: está atado a los
-// manejadores del bot, así que no forma parte de lo personalizable acá.
-router.get('/welcome-message', async (req, res) => {
-  console.log('🔍 [DEBUG-ROUTES-API] Entrada a GET /welcome-message:', {
-    method: req.method,
-    url: req.originalUrl,
-    query: req.query,
-    params: req.params,
-    admin: req.admin || null
-  });
-  const welcomeMessage = await getWelcomeMessage();
-  console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /welcome-message:', { status: 200, body: { welcomeMessage } });
-  res.status(200).json({ welcomeMessage });
-});
-
-router.put('/welcome-message', async (req, res) => {
-  const { welcomeMessage } = req.body;
-  console.log('🔍 [DEBUG-ROUTES-API] Entrada a PUT /welcome-message:', {
-    method: req.method,
-    url: req.originalUrl,
-    body: redactBodyForLog(req.body),
-    query: req.query,
-    params: req.params,
-    admin: req.admin || null
-  });
-
-  try {
-    await setWelcomeMessage(welcomeMessage);
-    console.log(`[API] -> Mensaje de bienvenida actualizado.`);
-    const respBody = { success: true, welcomeMessage: welcomeMessage.toString().trim() };
-    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo PUT /welcome-message:', { status: 200, body: respBody });
-    res.status(200).json(respBody);
-  } catch (error) {
-    console.error('❌ [DEBUG-ROUTES-API] Error en PUT /welcome-message:', { error, message: error.message, stack: error.stack });
-    console.error('[API] ❌ Error actualizando welcome-message:', error.message);
-    res.status(400).json({ error: error.message });
-  }
-});
-
-// Saludo especial + umbral de "cliente frecuente" (ver appConfig.js y
-// procesarMensajeBot en bot.js). Admin-only: ver el router.use() más arriba.
-router.get('/frequent-client-config', async (req, res) => {
-  console.log('🔍 [DEBUG-ROUTES-API] Entrada a GET /frequent-client-config:', {
-    method: req.method,
-    url: req.originalUrl,
-    query: req.query,
-    params: req.params,
-    admin: req.admin || null
-  });
-  const [frequentClientMessage, frequentClientThreshold] = await Promise.all([
-    getFrequentClientMessage(),
-    getFrequentClientThreshold()
-  ]);
-  const respBody = {
-    frequentClientMessage,
-    frequentClientThreshold,
-    minFrequentClientThreshold: MIN_FREQUENT_CLIENT_THRESHOLD,
-    maxFrequentClientThreshold: MAX_FREQUENT_CLIENT_THRESHOLD
-  };
-  console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /frequent-client-config:', { status: 200, body: respBody });
-  res.status(200).json(respBody);
-});
-
-router.put('/frequent-client-config', async (req, res) => {
-  const { frequentClientMessage, frequentClientThreshold } = req.body;
-  console.log('🔍 [DEBUG-ROUTES-API] Entrada a PUT /frequent-client-config:', {
-    method: req.method,
-    url: req.originalUrl,
-    body: redactBodyForLog(req.body),
-    query: req.query,
-    params: req.params,
-    admin: req.admin || null
-  });
-
-  try {
-    if (frequentClientMessage !== undefined) await setFrequentClientMessage(frequentClientMessage);
-    if (frequentClientThreshold !== undefined) await setFrequentClientThreshold(frequentClientThreshold);
-
-    const respBody = {
-      success: true,
-      frequentClientMessage: await getFrequentClientMessage(),
-      frequentClientThreshold: await getFrequentClientThreshold()
-    };
-    console.log(`[API] -> Configuración de cliente frecuente actualizada.`);
-    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo PUT /frequent-client-config:', { status: 200, body: respBody });
-    res.status(200).json(respBody);
-  } catch (error) {
-    console.error('❌ [DEBUG-ROUTES-API] Error en PUT /frequent-client-config:', { error, message: error.message, stack: error.stack });
-    console.error('[API] ❌ Error actualizando frequent-client-config:', error.message);
     res.status(400).json({ error: error.message });
   }
 });

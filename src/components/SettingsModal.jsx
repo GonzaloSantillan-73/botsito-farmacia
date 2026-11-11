@@ -1,12 +1,9 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Settings, BarChart3, Sliders, Hash, Zap, CalendarClock, Download, Bell, Clock, Store, ShieldCheck, UserCog, CreditCard, MessageSquareText, Moon, KeyRound, Heart, FileText, FlaskConical } from 'lucide-react';
+import { X, Settings, BarChart3, Sliders, Zap, CalendarClock, Download, Bell, Clock, Store, ShieldCheck, UserCog, CreditCard, Moon, KeyRound, FileText, FlaskConical } from 'lucide-react';
 import Accordion from './Accordion';
 import SessionTimeoutPanel from './SessionTimeoutPanel';
 import ModoPruebaPanel from './ModoPruebaPanel';
-import WelcomeMessagePanel from './WelcomeMessagePanel';
-import FrequentClientPanel from './FrequentClientPanel';
-import BotKeywordPanel from './BotKeywordPanel';
 import QuickRepliesPanel from './QuickRepliesPanel';
 import SchedulePanel from './SchedulePanel';
 import SucursalesPanel from './SucursalesPanel';
@@ -110,18 +107,6 @@ export default function SettingsModal({ sessionTimeoutMs, sessionPrewarningMs, e
 
                 <Accordion title="Número de prueba" icon={FlaskConical}>
                   <ModoPruebaPanel />
-                </Accordion>
-
-                <Accordion title="Mensaje de bienvenida del bot" icon={MessageSquareText}>
-                  <WelcomeMessagePanel />
-                </Accordion>
-
-                <Accordion title="Saludo para clientes frecuentes" icon={Heart}>
-                  <FrequentClientPanel />
-                </Accordion>
-
-                <Accordion title="Palabra clave del bot" icon={Hash}>
-                  <BotKeywordPanel />
                 </Accordion>
 
                 <Accordion title="Respuestas Rápidas" icon={Zap}>

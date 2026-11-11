@@ -11,6 +11,17 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-11-11-config-bot-sin-menu',
+    fecha: '2026-11-11',
+    tipo: 'mejora',
+    para: 'admin',
+    titulo: 'Se quitaron ajustes del bot que ya no se usan',
+    detalle: [
+      'Como el bot ya no tiene menú, en *Configuración → Chat* se quitaron "Mensaje de bienvenida del bot", "Saludo para clientes frecuentes" y "Palabra clave del bot".',
+      'Revisen el "cierre por falta de respuesta" en "Tiempo de inactividad para cerrar un chat": las consultas que entran fuera de horario quedan en espera y se cierran solas si nadie responde en ese tiempo.'
+    ]
+  },
+  {
     id: '2026-11-11-sin-menu-directo-a-espera',
     fecha: '2026-11-11',
     tipo: 'mejora',

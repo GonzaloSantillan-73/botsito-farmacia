@@ -52,9 +52,8 @@ export const tieneRegistroCompleto = (cliente) => {
 };
 
 // Se llama una vez por cada sesión NUEVA con el bot (no por cada mensaje
-// suelto dentro de la misma consulta, ver procesarMensajeBot en bot.js), para
-// poder evaluar después el saludo de "cliente frecuente" (ver appConfig:
-// getFrequentClientThreshold). No es un incremento atómico en la base (lee
+// suelto dentro de la misma consulta, ver procesarMensajeBot en bot.js): queda
+// como dato de cuántas consultas hizo el cliente. No es un incremento atómico en la base (lee
 // el valor actual y lo pisa +1), pero alcanza acá: un mismo teléfono no
 // manda dos mensajes que arranquen sesión nueva al mismo tiempo.
 export const incrementarInteraccionesBot = async (clientPhone, valorActual) => {
