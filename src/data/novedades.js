@@ -11,6 +11,18 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-11-11-ventas-para-revisar',
+    fecha: '2026-11-11',
+    tipo: 'nuevo',
+    para: 'admin',
+    titulo: 'Nueva sección "Ventas para revisar" en Métricas',
+    detalle: [
+      'Al final de *Métricas* aparece la lista de consultas marcadas como "Venta concretada" a las que les falta algo. Se filtra por *Sin comprobante* (nadie marcó el comprobante en el chat) o *Sin subtotal o total*.',
+      'Tocá una consulta para abrir el chat: marcá la imagen como comprobante o cargá los montos con *Editar* en el bloque Venta. Cuando ya no le falta nada, sale sola de la lista.',
+      'Los pedidos del Cotizador anteriores al desglose tienen el total pero no el subtotal, así que también aparecen en "Sin subtotal o total".'
+    ]
+  },
+  {
     id: '2026-11-11-editar-venta-admin',
     fecha: '2026-11-11',
     tipo: 'nuevo',

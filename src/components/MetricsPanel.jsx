@@ -1,5 +1,6 @@
 import React, { lazy, Suspense } from 'react';
 import MetricsTable from './MetricsTable';
+import VentasParaRevisar from './VentasParaRevisar';
 
 // Pantalla de Métricas y Estadísticas (sólo administración):
 // 1. Detalle de consultas (tabla con su propio filtro de fechas), arriba de
@@ -9,6 +10,8 @@ import MetricsTable from './MetricsTable';
 //    comparativa por sucursal y PDFs, todo con un mismo filtro de fechas
 //    (ver PanelEstadisticas.jsx). Lo que antes estaba en desplegables
 //    (/metrics/negocio) quedó integrado ahí.
+// 3. Ventas para revisar: ventas concretadas sin comprobante marcado o sin
+//    subtotal/total (ver VentasParaRevisar.jsx).
 
 // Se carga recién al abrir Métricas: trae la librería de gráficos, que las
 // sucursales nunca usan, así no la descargan con el resto del panel.
@@ -27,6 +30,11 @@ export default function MetricsPanel() {
         <Suspense fallback={<div className="text-sm text-gray-400 py-10 text-center">Cargando estadísticas...</div>}>
           <PanelEstadisticas />
         </Suspense>
+      </div>
+
+      <div>
+        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2">Ventas para revisar</h3>
+        <VentasParaRevisar />
       </div>
     </div>
   );
