@@ -112,8 +112,19 @@ const claseCampo = 'w-full px-2.5 py-1.5 text-sm rounded-md border border-gray-3
 // Formulario del admin para corregir la venta de una consulta (resultado,
 // subtotal y envío), ver PUT /api/conversations/:id/venta. El medio de pago
 // no se edita: queda el que cargó la sucursal.
+// Montos escritos como en Argentina: el punto separa los miles y la coma los
+// decimales ("4.933" = 4933, "1.250,50" = 1250.5). Vacío = null; texto
+// inválido = NaN.
+const leerMonto = (texto) => {
+  const limpio = String(texto ?? '').replace(/[\s$]/g, '');
+  if (!limpio) return null;
+  if (!/^\d[\d.]*(,\d+)?$/.test(limpio)) return NaN;
+  return Number(limpio.replace(/\./g, '').replace(',', '.'));
+};
+const escribirMonto = (n) => (n == null ? '' : Number(n).toLocaleString('es-AR', { maximumFractionDigits: 2 }));
+
 function EditorVenta({ c, onCancelar, onGuardada }) {
-  const valorInicial = (n) => (n == null ? '' : String(n));
+  const valorInicial = escribirMonto;
   const [resultado, setResultado] = useState(c.saleStatus || 'concretada');
   // Si sólo hay total (venta cargada sin el Cotizador), se usa como subtotal.
   const [subtotal, setSubtotal] = useState(valorInicial(c.subtotal ?? (c.costoEnvio == null ? c.montoTotal : null)));
@@ -122,18 +133,21 @@ function EditorVenta({ c, onCancelar, onGuardada }) {
   const [error, setError] = useState('');
 
   const esVenta = resultado === 'concretada';
-  const total = (Number(subtotal) || 0) + (Number(envio) || 0);
+  const subtotalNum = leerMonto(subtotal);
+  const envioNum = leerMonto(envio);
+  const total = (subtotalNum || 0) + (envioNum || 0);
 
   const guardar = async () => {
     setError('');
-    if (esVenta && (subtotal === '' || !(Number(subtotal) >= 0))) { setError('Completá el subtotal.'); return; }
-    if (esVenta && envio !== '' && !(Number(envio) >= 0)) { setError('El envío no es válido.'); return; }
+    if (esVenta && subtotalNum == null) { setError('Completá el subtotal.'); return; }
+    if (esVenta && Number.isNaN(subtotalNum)) { setError('El subtotal no es válido. Escribilo así: 4.933 o 4933.'); return; }
+    if (esVenta && Number.isNaN(envioNum)) { setError('El envío no es válido. Escribilo así: 2.000 o 2000.'); return; }
     setGuardando(true);
     try {
       const res = await adminFetch(`/api/conversations/${encodeURIComponent(c.id)}/venta`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ saleStatus: resultado, subtotal, envio })
+        body: JSON.stringify({ saleStatus: resultado, subtotal: subtotalNum, envio: envioNum })
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || 'No se pudo guardar la venta.');
@@ -159,11 +173,11 @@ function EditorVenta({ c, onCancelar, onGuardada }) {
           <>
             <label className="block text-xs text-gray-500 dark:text-gray-400">
               Subtotal ($)
-              <input type="number" min="0" step="any" inputMode="decimal" value={subtotal} onChange={(e) => { setSubtotal(e.target.value); }} className={`${claseCampo} mt-1`} />
+              <input type="text" inputMode="decimal" placeholder="Ej: 4.933" value={subtotal} onChange={(e) => { setSubtotal(e.target.value); }} className={`${claseCampo} mt-1`} />
             </label>
             <label className="block text-xs text-gray-500 dark:text-gray-400">
               Envío ($) <span className="text-gray-400">— 0 o vacío = envío gratis</span>
-              <input type="number" min="0" step="any" inputMode="decimal" value={envio} onChange={(e) => { setEnvio(e.target.value); }} placeholder="0" className={`${claseCampo} mt-1`} />
+              <input type="text" inputMode="decimal" value={envio} onChange={(e) => { setEnvio(e.target.value); }} placeholder="0" className={`${claseCampo} mt-1`} />
             </label>
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-500 dark:text-gray-400">Total</span>
