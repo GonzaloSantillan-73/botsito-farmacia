@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ZoomIn, ZoomOut, RotateCw, Download } from 'lucide-react';
 import { downloadFile, filenameFromUrl } from '../lib/downloadFile';
 
@@ -78,8 +79,11 @@ export default function ImageModal({ imageUrl, onClose }) {
     };
   }, [isDragging]);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+  // Portal al body y z-[90]: tiene que quedar por encima de todo, también
+  // de los modales que ya son portales (ej. Archivos compartidos, z-50).
+  // Los avisos de DialogHost (z-[100]) siguen quedando arriba.
+  return createPortal(
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 backdrop-blur-sm">
       <div className="absolute top-4 right-4 z-20 flex gap-4">
         <button
           onClick={handleZoomOut}
@@ -137,6 +141,7 @@ export default function ImageModal({ imageUrl, onClose }) {
           className="max-w-[90vw] max-h-[85vh] object-contain rounded shadow-2xl bg-white select-none"
         />
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

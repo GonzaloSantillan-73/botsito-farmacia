@@ -11,6 +11,16 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-11-11-imagen-encima-de-todo',
+    fecha: '2026-11-11',
+    tipo: 'correccion',
+    para: 'todos',
+    titulo: 'Las imágenes se abren por encima de todo',
+    detalle: [
+      'Al abrir una imagen desde *Archivos compartidos*, la imagen quedaba detrás de esa ventana. Ahora se ve siempre adelante.'
+    ]
+  },
+  {
     id: '2026-11-11-marcar-ubicacion',
     fecha: '2026-11-11',
     tipo: 'nuevo',
