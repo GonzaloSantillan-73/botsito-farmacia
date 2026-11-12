@@ -336,11 +336,23 @@ router.post('/', async (req, res) => {
           previewText = '📍 Ubicación compartida';
           botInputText = messageText; // el bot lo parsea como JSON cuando está esperando ubicación
           console.log(`[WEBHOOK] -> Coordenadas extraídas: lat=${loc.latitude}, lng=${loc.longitude}`);
-        } else if (messageType === 'image' || messageType === 'document' || messageType === 'audio' || messageType === 'video') {
+        } else if (messageType === 'image' || messageType === 'document' || messageType === 'audio' || messageType === 'video' || messageType === 'sticker') {
           console.log(`[WEBHOOK] -> Entró al bloque de multimedia/documento`);
           const mediaId = waMessage[messageType].id;
           const nombreOriginal = messageType === 'document' ? (waMessage.document.filename || '') : '';
-          mediaTypeDB = messageType === 'image' ? 'image' : (messageType === 'document' ? 'document' : (messageType === 'video' ? 'video' : (messageType === 'audio' ? 'audio' : 'text')));
+          // Los stickers (fijos o animados, siempre .webp) se guardan como
+          // media_type 'image' para no tocar el CHECK de messages.media_type
+          // ni la galería/moderación, que ya manejan imágenes. Se distinguen
+          // por el prefijo "sticker_" del archivo en Storage (MessageBubble
+          // los dibuja chicos y sin fondo, ver esSticker).
+          const esSticker = messageType === 'sticker';
+          // GIFs: WhatsApp los manda como video .mp4 sin sonido. Meta no
+          // documenta un campo que lo indique en el mensaje entrante; si viene
+          // alguna marca (gif/animated), se guarda con prefijo "gif_" para que
+          // el CRM lo reproduzca solo y en loop, como en WhatsApp.
+          const esGif = messageType === 'video' && (waMessage.video?.gif === true || waMessage.video?.animated === true || waMessage.video?.mime_type === 'image/gif');
+          if (messageType === 'video') console.log(`[WEBHOOK] -> Objeto video crudo (para detectar GIFs):`, JSON.stringify(waMessage.video));
+          mediaTypeDB = (messageType === 'image' || esSticker) ? 'image' : (messageType === 'document' ? 'document' : (messageType === 'video' ? 'video' : (messageType === 'audio' ? 'audio' : 'text')));
           console.log(`[WEBHOOK] -> Media ID: ${mediaId}, DB Type: ${mediaTypeDB}`);
 
           console.log(`[WEBHOOK] -> Solicitando descarga de media a whatsapp.js...`);
@@ -375,7 +387,8 @@ router.post('/', async (req, res) => {
                 // hacía que el navegador no supiera renderizarlo ni nombrarlo bien).
                 const extension = mediaTypeDB === 'pdf' ? 'pdf' : mediaData.extension;
                 const contentType = mediaTypeDB === 'pdf' ? 'application/pdf' : mediaData.mimeType;
-                const fileName = `${conversationId}_${Date.now()}.${extension}`;
+                const prefijo = esSticker ? 'sticker_' : (esGif ? 'gif_' : '');
+                const fileName = `${prefijo}${conversationId}_${Date.now()}.${extension}`;
                 console.log(`[WEBHOOK] -> Subiendo a Supabase Storage bucket 'media' como: ${fileName} (content-type: ${contentType})`);
 
                 const { data: uploadData, error: uploadError } = await supabase.storage
@@ -409,13 +422,47 @@ router.post('/', async (req, res) => {
               // archivo: dejamos message_text vacío para no mostrar un
               // placeholder tipo "[Archivo recibido: audio]" debajo del
               // reproductor en MessageBubble.
-              messageText = caption || (messageType === 'audio' ? '' : (nombreOriginal || `[Archivo recibido: ${messageType}]`));
-              const etiquetaPreview = messageType === 'image' ? '📷 Imagen' : messageType === 'video' ? '🎥 Video' : messageType === 'audio' ? '🎤 Nota de voz' : (mediaTypeDB === 'pdf' ? '📄 PDF' : '📎 Archivo');
+              const etiquetaPreview = esSticker ? '🏷️ Sticker' : esGif ? '🎞️ GIF' : messageType === 'image' ? '📷 Imagen' : messageType === 'video' ? '🎥 Video' : messageType === 'audio' ? '🎤 Nota de voz' : (mediaTypeDB === 'pdf' ? '📄 PDF' : '📎 Archivo');
+              if (!mediaUrl) {
+                // Falló la descarga o la subida: sin esto, una nota de voz o un
+                // sticker quedaban como burbuja vacía (sólo la hora).
+                messageText = `⚠️ ${etiquetaPreview} (no se pudo descargar el archivo de WhatsApp)` + (caption ? `\n${caption}` : '');
+              } else {
+                messageText = caption || ((messageType === 'audio' || esSticker || esGif) ? '' : (nombreOriginal || `[Archivo recibido: ${messageType}]`));
+              }
               previewText = etiquetaPreview + (caption ? ` - ${caption}` : '');
           }
           console.log(`[WEBHOOK] -> Caption/Text final: "${messageText}"`);
+        } else if (messageType === 'contacts') {
+          // Contacto compartido (vCard): se muestra nombre y teléfono(s).
+          const lineas = (waMessage.contacts || []).map(c => {
+            const nombre = c.name?.formatted_name || [c.name?.first_name, c.name?.last_name].filter(Boolean).join(' ') || 'Sin nombre';
+            const tels = (c.phones || []).map(t => t.phone || t.wa_id).filter(Boolean).join(', ');
+            return `• ${nombre}${tels ? ` — ${tels}` : ''}`;
+          });
+          messageText = `👤 Contacto compartido:\n${lineas.join('\n') || '(sin datos)'}`;
+          previewText = '👤 Contacto compartido';
+          mediaTypeDB = 'text';
+        } else if (messageType === 'button') {
+          // Respuesta rápida de una plantilla.
+          messageText = waMessage.button?.text || waMessage.button?.payload || '[Botón de plantilla]';
+          previewText = messageText;
+          mediaTypeDB = 'text';
         } else {
-            console.log(`[WEBHOOK] -> Tipo de mensaje no soportado/procesado explícitamente: ${messageType}`);
+            // Acá caen "unsupported" (encuestas, "ver una vez", mensajes
+            // editados, etc.), "order", "system" y cualquier tipo nuevo de
+            // Meta. Antes se guardaba vacío y el chat mostraba una burbuja con
+            // sólo la hora.
+            console.log(`[WEBHOOK] -> Tipo de mensaje no soportado/procesado explícitamente: ${messageType}`, JSON.stringify(waMessage));
+            mediaTypeDB = 'text';
+            if (messageType === 'system') {
+              messageText = `ℹ️ Aviso de WhatsApp: ${waMessage.system?.body || 'el cliente cambió algo en su cuenta (por ejemplo, de número).'}`;
+            } else if (messageType === 'order') {
+              messageText = '🛒 El cliente envió un pedido desde el catálogo de WhatsApp (no se puede ver acá).';
+            } else {
+              messageText = '⚠️ El cliente envió un mensaje que WhatsApp no permite ver en el CRM (por ejemplo una encuesta, un archivo de "ver una vez" o un mensaje editado). Pedile que lo reenvíe como texto o foto.';
+            }
+            previewText = '⚠️ Mensaje no visible en el CRM';
         }
 
         console.log(`\n------------------------------------------------------`);

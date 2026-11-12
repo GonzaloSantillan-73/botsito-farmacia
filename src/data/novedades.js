@@ -11,6 +11,18 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-11-12-stickers-gifs',
+    fecha: '2026-11-12',
+    tipo: 'mejora',
+    para: 'todos',
+    titulo: 'Ahora se ven los stickers y los contactos que manda el cliente',
+    detalle: [
+      'Los *stickers* (también los animados) ahora se ven en el chat. Antes llegaba una burbuja vacía con sólo la hora.',
+      'Si el cliente comparte un *contacto*, se ve el nombre y el teléfono.',
+      'Si manda algo que WhatsApp no deja ver acá (una encuesta, una foto de "ver una vez"), aparece un aviso para pedirle que lo reenvíe como texto o foto.'
+    ]
+  },
+  {
     id: '2026-11-11-imagen-encima-de-todo',
     fecha: '2026-11-11',
     tipo: 'correccion',

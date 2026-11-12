@@ -20,6 +20,13 @@ const TIPO_ARCHIVO_LABELS = {
   pdf: 'PDF'
 };
 
+// Stickers y GIFs no tienen media_type propio (para no tocar el CHECK de la
+// base): el webhook los guarda como 'image'/'video' con el prefijo
+// "sticker_"/"gif_" en el nombre del archivo (ver server/routes/webhook.js).
+const nombreArchivo = (url) => (url || '').split('?')[0].split('/').pop() || '';
+export const esSticker = (msg) => msg.media_type === 'image' && nombreArchivo(msg.media_url).startsWith('sticker_');
+export const esGif = (msg) => msg.media_type === 'video' && nombreArchivo(msg.media_url).startsWith('gif_');
+
 // Si un mensaje es una ubicación: la de WhatsApp o un mensaje que es sólo un
 // link de Google Maps. Se puede marcar como "ubicación" y queda guardada en
 // la ficha del cliente (ver PATCH /messages/:id/tag).
@@ -231,7 +238,7 @@ const ETIQUETAS_CITA = { image: '📷 Imagen', video: '🎥 Video', audio: '🎤
 export const resumenParaCita = (m) => {
   if (!m) return 'Este mensaje no está cargado en esta vista.';
   const texto = (m.message_text || '').trim();
-  const etiqueta = (m.media_url || m.media_type === 'location') ? ETIQUETAS_CITA[m.media_type] : null;
+  const etiqueta = (m.media_url || m.media_type === 'location') ? (esSticker(m) ? '🏷️ Sticker' : esGif(m) ? '🎞️ GIF' : ETIQUETAS_CITA[m.media_type]) : null;
   if (etiqueta && texto && m.media_type !== 'audio' && m.media_type !== 'location') return `${etiqueta} · ${texto}`;
   return etiqueta || texto || 'Mensaje';
 };
@@ -282,7 +289,24 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
         {location && (
           <LocationCard lat={location.lat} lng={location.lng} label={location.name || location.address} senderType={msg.sender_type} />
         )}
-        {msg.media_url && msg.media_type === 'image' && (
+        {msg.media_url && esSticker(msg) && (
+          // Sticker (fijo o animado .webp): chico, sin fondo ni recorte, como en WhatsApp.
+          <div
+            className="mb-1 w-32 h-32 relative cursor-pointer group"
+            onClick={() => { onImageClick && onImageClick(msg); }}
+          >
+            <img src={msg.media_url} alt="Sticker" className="w-full h-full object-contain" />
+            <button
+              onClick={(e) => { e.stopPropagation(); onDownload && onDownload(msg); }}
+              disabled={downloadingId === msg.id}
+              title="Descargar sticker"
+              className="absolute top-0 right-0 p-1.5 bg-black/50 hover:bg-black/70 text-white rounded-full transition-opacity opacity-0 group-hover:opacity-100 disabled:opacity-50"
+            >
+              {downloadingId === msg.id ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            </button>
+          </div>
+        )}
+        {msg.media_url && msg.media_type === 'image' && !esSticker(msg) && (
           <div
             className="mb-2 w-40 h-40 rounded overflow-hidden relative cursor-pointer group bg-gray-100 dark:bg-gray-700"
             onClick={() => { onImageClick && onImageClick(msg); }}
@@ -305,7 +329,12 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
         )}
         {msg.media_url && msg.media_type === 'video' && (
           <div className="mb-2 rounded overflow-hidden relative">
-            <video src={msg.media_url} controls className="max-w-full max-h-64 rounded bg-black" />
+            {esGif(msg) ? (
+              // GIF: se reproduce solo, en loop y sin sonido, como en WhatsApp.
+              <video src={msg.media_url} autoPlay loop muted playsInline className="max-w-full max-h-64 rounded bg-black" />
+            ) : (
+              <video src={msg.media_url} controls className="max-w-full max-h-64 rounded bg-black" />
+            )}
             <button
               onClick={() => { onDownload && onDownload(msg); }}
               disabled={downloadingId === msg.id}
@@ -393,7 +422,7 @@ export default function MessageBubble({ msg, onImageClick, onDownload, downloadi
             </div>
           </div>
         )}
-        {!location && !msg.deleted_reason && msg.media_type !== 'pdf' && msg.media_type !== 'audio' && (
+        {!location && !msg.deleted_reason && msg.media_type !== 'pdf' && msg.media_type !== 'audio' && (msg.message_text || !msg.media_url) && (
           linkDeMaps ? (
             <MapsLinkPreview url={linkDeMaps} senderType={msg.sender_type} texto={msg.message_text} />
           ) : (
