@@ -327,7 +327,7 @@ export const generarExportMetricas = async ({ startDate, endDate }) => {
     { label: 'Estado del contacto', align: 'center', value: r => VENTA[r.saleStatus] || 'Sin marcar' },
     { label: 'Motivo (si no hubo venta)', value: r => c(r).sale_reason || '' },
     { label: 'Subtotal', align: 'center', numFmt: PESOS, value: r => dosDec(r.subtotal) },
-    { label: 'Envío', align: 'center', value: r => (r.costoEnvio == null ? '' : (r.costoEnvio === 0 ? 'Envío gratis' : r.costoEnvio)) },
+    { label: 'Envío', align: 'center', numFmt: PESOS, value: r => (r.costoEnvio == null ? '' : dosDec(r.costoEnvio)) },
     { label: 'Monto total', align: 'center', numFmt: PESOS, value: r => dosDec(r.montoTotal) },
     { label: 'Medio de pago', align: 'center', value: r => r.medioPago },
     { label: 'Venta corregida por el admin', align: 'center', value: r => (r.ventaEditadaAt ? `Sí (${fechaHoraAR(r.ventaEditadaAt)})` : 'No') },
