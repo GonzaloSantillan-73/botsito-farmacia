@@ -2,10 +2,12 @@ import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from './whatsapp.js';
 import { getBotSchedule, isWithinSchedule, renderScheduleMessage } from './scheduleConfig.js';
 import { getCliente, tieneRegistroCompleto, guardarDatoCliente, incrementarInteraccionesBot } from './clientes.js';
+import { getSaludo } from './appConfig.js';
 
 // Desde el 2026-11-11 el bot ya no tiene menú ni pide la ubicación (el
 // proceso era demasiado largo y los clientes lo abandonaban). Lo único que
 // hace es:
+//  - Saludar al cliente al arrancar una consulta (ver enviarSaludo).
 //  - Avisar el horario si el cliente escribe fuera del horario configurado.
 //  - Pedir el nombre la primera vez que escribe un cliente.
 // Todo lo demás pasa directo a la cola de "En espera" (ver derivarAEspera),
@@ -38,6 +40,39 @@ const MENSAJE_ERROR_REGISTRO = 'Tuvimos un problema guardando tus datos.\n\nPor 
 // durante la espera queda en el chat pero no se toma como nombre.
 const ESPERA_PEDIDO_NOMBRE_MS = 40 * 1000;
 const MENSAJE_PRIMER_CONTACTO = '¡Hola! Soy el bot de Mi Farma. 💊\n\n¡Qué bueno que nos escribas! 🙌\nPara conocerte, escribí tu *nombre y apellido*. Por ejemplo: _Juan Pérez_.\n\nSolo te lo vamos a pedir esta primera vez.';
+// Con el saludo activo (ver enviarSaludo), el cliente ya recibió un "Buenas"
+// al escribir: el pedido de nombre va sin otro "Hola".
+const MENSAJE_PEDIR_NOMBRE_SIN_SALUDO = 'Soy el bot de Mi Farma 💊\n\nPara conocerte, escribí tu *nombre y apellido*. Por ejemplo: _Juan Pérez_.\n\nSolo te lo vamos a pedir esta primera vez.';
+const mensajePrimerContacto = async () => {
+  try {
+    return (await getSaludo()).activo ? MENSAJE_PEDIR_NOMBRE_SIN_SALUDO : MENSAJE_PRIMER_CONTACTO;
+  } catch {
+    return MENSAJE_PRIMER_CONTACTO;
+  }
+};
+
+// Saludo al arrancar una consulta nueva (editable en Configuración > Chat,
+// ver getSaludo en appConfig.js). `numeroConsulta` es el número de consulta
+// del cliente contando la actual: desde `desdeConsulta` se usa el saludo de
+// regreso, con su primer nombre si lo tiene registrado o sin nombre si no
+// (puede pasar que una sucursal tome el chat antes de que el bot se lo pida).
+const enviarSaludo = async (conversationId, telefono, cliente, numeroConsulta) => {
+  try {
+    const saludo = await getSaludo();
+    if (!saludo.activo) return;
+    const primerNombre = (cliente?.nombre_completo || '').trim().split(/\s+/)[0] || '';
+    let texto = saludo.normal;
+    if (numeroConsulta >= saludo.desdeConsulta) {
+      texto = primerNombre ? saludo.regresoConNombre.replace(/\{nombre\}/gi, primerNombre) : saludo.regresoSinNombre;
+    }
+    if (!texto?.trim()) return;
+    console.log(`[BOT] Saludo para ${telefono} (consulta n.º ${numeroConsulta}): "${texto}"`);
+    await enviarMensajeBot(conversationId, telefono, texto, { tipo_bot: 'saludo' });
+  } catch (err) {
+    // El saludo nunca debe cortar el resto del flujo.
+    console.error('❌ [DEBUG-SERVICE-BOT] enviarSaludo() — error (no corta el flujo):', err?.message, err?.stack);
+  }
+};
 const MENSAJE_NO_ES_NOMBRE = 'Eso no parece un nombre 😅\n\nPor ahora solo necesito tu nombre y apellido (por ejemplo: Juan Pérez). Apenas lo tenga, te ayudamos con tu consulta.';
 // Después de tantas respuestas que no parecen un nombre, se pasa a la cola sin
 // guardarlo (para no dejar al cliente trabado): se le vuelve a pedir en la
@@ -145,6 +180,11 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
 
   try {
     if (isNewSession) {
+      const cliente = await getCliente(telefono);
+
+      // Saludo (primero de todo, antes del aviso de horario).
+      await enviarSaludo(conversationId, telefono, cliente, (cliente?.interacciones_bot || 0) + 1);
+
       // Fuera del horario configurado: se le avisa el horario, pero la
       // consulta entra igual a "En espera" (sigue abajo), para que la vea la
       // primera sucursal que abra.
@@ -153,8 +193,6 @@ export const procesarMensajeBot = async (texto, conversationId, telefono, isNewS
         console.log(`[BOT] Fuera de horario del bot para ${conversationId}. Enviando aviso de horario (la consulta entra igual a la cola).`);
         await enviarMensajeBot(conversationId, telefono, renderScheduleMessage(botSchedule), { tipo_bot: 'fuera_horario' });
       }
-
-      const cliente = await getCliente(telefono);
 
       // Se cuenta esta sesión nueva (una vez por consulta, no en cada mensaje).
       try {
@@ -261,7 +299,7 @@ const iniciarRegistro = async (conversationId, telefono) => {
   if (!ok) {
     // Sin el estado guardado no hay forma de retomar la espera: se pide ya.
     await actualizarEstadoConversacion(conversationId, { bot_state: 'registro_nombre', bot_context: null });
-    await enviarMensajeBot(conversationId, telefono, MENSAJE_PRIMER_CONTACTO, { tipo_bot: 'registro' });
+    await enviarMensajeBot(conversationId, telefono, await mensajePrimerContacto(), { tipo_bot: 'registro' });
     return;
   }
   setTimeout(() => {
@@ -296,7 +334,7 @@ export const pedirNombreSiCorresponde = async (conversationId, telefono) => {
     return false;
   }
   console.log(`[BOT] Pidiendo el nombre al cliente nuevo ${telefono} (conversación ${conversationId}).`);
-  await enviarMensajeBot(conversationId, telefono, MENSAJE_PRIMER_CONTACTO, { tipo_bot: 'registro' });
+  await enviarMensajeBot(conversationId, telefono, await mensajePrimerContacto(), { tipo_bot: 'registro' });
   return true;
 };
 

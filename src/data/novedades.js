@@ -11,6 +11,27 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-11-12-saludo-bot',
+    fecha: '2026-11-12',
+    tipo: 'nuevo',
+    para: 'todos',
+    titulo: 'El bot ahora saluda al cliente',
+    detalle: [
+      'Cuando un cliente escribe para empezar una consulta, el bot le manda un saludo: *"¡Buenas! 🙌 Gracias por comunicarte con Mi Farma."*',
+      'Desde su 3.ª consulta lo saluda como cliente que vuelve: *"¡Qué bueno verte de nuevo, Juan! 👋"* (o sin el nombre si todavía no lo dio).'
+    ]
+  },
+  {
+    id: '2026-11-12-saludo-bot-admin',
+    fecha: '2026-11-12',
+    tipo: 'nuevo',
+    para: 'admin',
+    titulo: 'Los saludos del bot se editan en Configuración',
+    detalle: [
+      'En *Configuración > Chat > Mensaje de saludo* podés cambiar los textos, desde qué consulta se usa el saludo de regreso, o apagar el saludo.'
+    ]
+  },
+  {
     id: '2026-11-12-stickers-gifs',
     fecha: '2026-11-12',
     tipo: 'mejora',

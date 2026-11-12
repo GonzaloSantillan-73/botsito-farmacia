@@ -55,7 +55,7 @@ const TIPOS_BOT = {
   menu: 'Bienvenida y menú', recordatorio: 'Recordatorio de botones', ubicacion: 'Pedido de ubicación',
   derivacion: 'Derivación a una sucursal', registro: 'Registro (nombre)', encuesta: 'Encuesta y cierre',
   aviso_inactividad: '"¿Seguís necesitando ayuda?"', sucursales: 'Listado de sucursales',
-  fuera_horario: 'Fuera de horario', cambio_nombre: 'Cambio de nombre', error: 'Avisos de error',
+  saludo: 'Saludo', fuera_horario: 'Fuera de horario', cambio_nombre: 'Cambio de nombre', error: 'Avisos de error',
   otro: 'Otros', sin_dato: 'Sin dato (anteriores)',
   bot_anterior: 'Menú y ubicación (bot anterior)'
 };

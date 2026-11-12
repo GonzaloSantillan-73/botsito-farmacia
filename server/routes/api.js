@@ -1,7 +1,7 @@
 import express from 'express';
 import { supabase } from '../supabase.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
-import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getSessionPrewarningMs, setSessionPrewarningMs, getEsperaRespuestaMs, setEsperaRespuestaMs, MIN_ESPERA_RESPUESTA_MS, MAX_ESPERA_RESPUESTA_MS, getModoPrueba, setModoPrueba } from '../services/appConfig.js';
+import { getSessionTimeoutMs, setSessionTimeoutMs, MIN_SESSION_TIMEOUT_MS, MAX_SESSION_TIMEOUT_MS, getSessionPrewarningMs, setSessionPrewarningMs, getEsperaRespuestaMs, setEsperaRespuestaMs, MIN_ESPERA_RESPUESTA_MS, MAX_ESPERA_RESPUESTA_MS, getModoPrueba, setModoPrueba, getSaludo, setSaludo } from '../services/appConfig.js';
 import { finalizarConversacion } from '../services/ratingSurvey.js';
 import { devolverConversacionAEspera } from '../services/devolucionCola.js';
 import { tomarConsulta } from '../services/tomaConsulta.js';
@@ -753,6 +753,28 @@ router.put('/modo-prueba', requireAuth, requireAdminRole, async (req, res) => {
     res.status(200).json({ success: true, ...modo });
   } catch (error) {
     console.error('❌ [DEBUG-ROUTES-API] Error en PUT /modo-prueba:', error.message);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Saludo del bot al arrancar una consulta (ver getSaludo en appConfig.js).
+// Sólo el administrador lo ve y lo cambia (Configuración > Chat).
+router.get('/saludo', requireAuth, requireAdminRole, async (req, res) => {
+  try {
+    res.status(200).json(await getSaludo());
+  } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en GET /saludo:', error);
+    res.status(500).json({ error: 'No se pudo leer el saludo.' });
+  }
+});
+
+router.put('/saludo', requireAuth, requireAdminRole, async (req, res) => {
+  try {
+    const saludo = await setSaludo(req.body || {});
+    console.log(`[API] -> Saludo del bot ${saludo.activo ? 'activado' : 'desactivado'}.`);
+    res.status(200).json({ success: true, ...saludo });
+  } catch (error) {
+    console.error('❌ [DEBUG-ROUTES-API] Error en PUT /saludo:', error.message);
     res.status(400).json({ error: error.message });
   }
 });

@@ -225,3 +225,55 @@ export const tiemposDeCierrePara = (telefono, generales, modoPrueba) => {
     esperaRespuestaMs: modoPrueba.esperaRespuestaMs
   };
 };
+
+// ---- Saludo del bot ----------------------------------------------------------
+// Mensaje que manda el bot apenas un cliente arranca una consulta nueva (ver
+// procesarMensajeBot en bot.js). Desde la consulta número `desdeConsulta` se
+// usa el saludo de regreso: con {nombre} si el cliente ya tiene nombre
+// registrado, o la versión sin nombre si todavía no lo dio (ej. una sucursal
+// tomó el chat antes de que el bot se lo pidiera).
+const SALUDO_KEY = 'saludo_bot';
+export const SALUDO_DEFAULT = {
+  activo: true,
+  normal: '¡Buenas! 🙌 Gracias por comunicarte con *Mi Farma*.',
+  regresoConNombre: '¡Qué bueno verte de nuevo, {nombre}! 👋',
+  regresoSinNombre: '¡Qué bueno verte de nuevo por acá! 👋',
+  desdeConsulta: 3
+};
+
+export const getSaludo = async () => {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('value')
+    .eq('key', SALUDO_KEY)
+    .maybeSingle();
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-APPCONFIG] getSaludo() — error leyendo saludo_bot, se usa el default:', error);
+    return { ...SALUDO_DEFAULT };
+  }
+  return { ...SALUDO_DEFAULT, ...(data?.value && typeof data.value === 'object' ? data.value : {}) };
+};
+
+export const setSaludo = async (cfg) => {
+  const saludo = {
+    activo: !!cfg?.activo,
+    normal: String(cfg?.normal || '').trim(),
+    regresoConNombre: String(cfg?.regresoConNombre || '').trim(),
+    regresoSinNombre: String(cfg?.regresoSinNombre || '').trim(),
+    desdeConsulta: Math.round(Number(cfg?.desdeConsulta))
+  };
+  if (saludo.activo && (!saludo.normal || !saludo.regresoConNombre || !saludo.regresoSinNombre)) {
+    throw new Error('Completá los tres saludos (o desactivá el saludo).');
+  }
+  if (!Number.isFinite(saludo.desdeConsulta) || saludo.desdeConsulta < 2 || saludo.desdeConsulta > 100) {
+    throw new Error('El saludo de regreso tiene que empezar entre la consulta 2 y la 100.');
+  }
+  const { error } = await supabase
+    .from('app_settings')
+    .upsert({ key: SALUDO_KEY, value: saludo, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+  if (error) {
+    console.error('❌ [DEBUG-SERVICE-APPCONFIG] setSaludo() — error guardando saludo_bot:', error);
+    throw error;
+  }
+  return saludo;
+};
