@@ -221,6 +221,55 @@ export const generarExportChats = async ({ startDate, endDate }) => {
   ]);
 };
 
+// Comparativa por sucursal (misma hoja en el Excel completo y en el botón
+// "Excel por sucursal" del Panel general), con fila de TOTAL.
+const hojaSucursales = (panel) => {
+  const R = panel.resumen;
+  // Satisfacción total: promedio ponderado por la cantidad de calificaciones de cada sucursal.
+  const calificaciones = panel.porSucursal.reduce((a, s) => a + (s.calificaciones || 0), 0);
+  const sumaSatisfaccion = panel.porSucursal.reduce((a, s) => a + (s.satisfaccion != null ? s.satisfaccion * (s.calificaciones || 0) : 0), 0);
+  const totalSucursales = {
+    nombre: 'TOTAL', consultas: R.consultas, clientes: R.clientes, pedidos: R.pedidos, monto: R.montoTotal,
+    ticketPromedio: R.ticketPromedio, conversion: R.conversion, enviosGratis: panel.ventas.envios.gratis,
+    mensajes: panel.mensajes.sucursal, mensajesPorConsulta: R.consultas > 0 ? panel.mensajes.sucursal / R.consultas : null,
+    demoraPromedioMs: panel.atencion.demoraPromedioMs,
+    satisfaccion: calificaciones > 0 ? sumaSatisfaccion / calificaciones : null,
+    calificaciones
+  };
+  const colSucursales = [
+    { label: 'Sucursal', value: s => s.nombre },
+    { label: 'Consultas', align: 'center', value: s => s.consultas },
+    { label: 'Clientes', align: 'center', value: s => s.clientes },
+    { label: 'Pedidos', align: 'center', value: s => s.pedidos },
+    { label: 'Monto', align: 'center', numFmt: PESOS, value: s => dosDec(s.monto) },
+    { label: 'Ticket promedio', align: 'center', numFmt: PESOS, value: s => dosDec(s.ticketPromedio) },
+    { label: 'Conversión (%)', align: 'center', value: s => dosDec(s.conversion) },
+    { label: 'Envíos gratis', align: 'center', value: s => s.enviosGratis },
+    { label: 'Mensajes de la sucursal', align: 'center', value: s => s.mensajes },
+    { label: 'Mensajes por consulta', align: 'center', value: s => dosDec(s.mensajesPorConsulta) },
+    { label: 'Demora promedio (min)', align: 'center', value: s => minutos(s.demoraPromedioMs) },
+    { label: 'Satisfacción (1 a 5)', align: 'center', value: s => dosDec(s.satisfaccion) },
+    { label: 'Calificaciones recibidas', align: 'center', value: s => s.calificaciones ?? '' }
+  ];
+
+  return { columnas: colSucursales, filas: [...panel.porSucursal, totalSucursales] };
+};
+
+// Botón "Excel por sucursal" del Panel general: la comparativa y los
+// mensajes de cada sucursal.
+export const generarExportSucursales = async ({ startDate, endDate }) => {
+  const panel = await obtenerPanelMetricas({ startDate, endDate });
+  const { columnas, filas } = hojaSucursales(panel);
+  return sheetsToXlsxBuffer([
+    { name: "Por sucursal", columns: columnas, rows: filas },
+    {
+      name: "Mensajes por sucursal",
+      columns: [{ label: "Sucursal", value: r => r.nombre }, { label: "Mensajes enviados", align: "center", value: r => r.mensajes }],
+      rows: panel.mensajes.porSucursal || []
+    }
+  ]);
+};
+
 // ---- Métricas ------------------------------------------------------------------
 export const generarExportMetricas = async ({ startDate, endDate }) => {
   const [panel, filas, sucursales] = await Promise.all([
@@ -357,27 +406,7 @@ export const generarExportMetricas = async ({ startDate, endDate }) => {
     { label: 'Variación', align: 'center', value: r => r.variacion }
   ];
 
-  const totalSucursales = {
-    nombre: 'TOTAL', consultas: R.consultas, clientes: R.clientes, pedidos: R.pedidos, monto: R.montoTotal,
-    ticketPromedio: R.ticketPromedio, conversion: R.conversion, enviosGratis: panel.ventas.envios.gratis,
-    mensajes: panel.mensajes.sucursal, mensajesPorConsulta: R.consultas > 0 ? panel.mensajes.sucursal / R.consultas : null,
-    demoraPromedioMs: panel.atencion.demoraPromedioMs, satisfaccion: null, calificaciones: null
-  };
-  const colSucursales = [
-    { label: 'Sucursal', value: s => s.nombre },
-    { label: 'Consultas', align: 'center', value: s => s.consultas },
-    { label: 'Clientes', align: 'center', value: s => s.clientes },
-    { label: 'Pedidos', align: 'center', value: s => s.pedidos },
-    { label: 'Monto', align: 'center', numFmt: PESOS, value: s => dosDec(s.monto) },
-    { label: 'Ticket promedio', align: 'center', numFmt: PESOS, value: s => dosDec(s.ticketPromedio) },
-    { label: 'Conversión (%)', align: 'center', value: s => dosDec(s.conversion) },
-    { label: 'Envíos gratis', align: 'center', value: s => s.enviosGratis },
-    { label: 'Mensajes de la sucursal', align: 'center', value: s => s.mensajes },
-    { label: 'Mensajes por consulta', align: 'center', value: s => dosDec(s.mensajesPorConsulta) },
-    { label: 'Demora promedio (min)', align: 'center', value: s => minutos(s.demoraPromedioMs) },
-    { label: 'Satisfacción (1 a 5)', align: 'center', value: s => dosDec(s.satisfaccion) },
-    { label: 'Calificaciones recibidas', align: 'center', value: s => s.calificaciones ?? '' }
-  ];
+  const { columnas: colSucursales, filas: filasSucursales } = hojaSucursales(panel);
 
   const colDias = [
     { label: 'Fecha', align: 'center', value: d => d.fecha.split('-').reverse().join('/') },
@@ -409,7 +438,7 @@ export const generarExportMetricas = async ({ startDate, endDate }) => {
   return sheetsToXlsxBuffer([
     { name: 'Resumen', columns: colResumen, rows: resumen },
     { name: 'Detalle de consultas', columns: colDetalle, rows: filas },
-    { name: 'Por sucursal', columns: colSucursales, rows: [...panel.porSucursal, totalSucursales] },
+    { name: 'Por sucursal', columns: colSucursales, rows: filasSucursales },
     { name: 'Por día', columns: colDias, rows: panel.porDia },
     { name: 'Mensajes', columns: colMensajes, rows: mensajesFilas },
     { name: 'Días y horarios', columns: colMensajes, rows: horarios },

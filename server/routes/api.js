@@ -9,8 +9,8 @@ import { derivarASucursal } from '../services/derivacionSucursal.js';
 import { getSucursalesActivas, estaAbiertaAhora } from '../services/sucursales.js';
 import { TERMINAL_STATUSES } from '../services/sessionManager.js';
 import { getBotSchedule, setBotSchedule } from '../services/scheduleConfig.js';
-import { rowsToXlsxBuffer, sendXlsx } from '../services/xlsxExport.js';
-import { generarExportChats, generarExportMetricas } from '../services/exportCompleto.js';
+import { sendXlsx } from '../services/xlsxExport.js';
+import { generarExportChats, generarExportMetricas, generarExportSucursales } from '../services/exportCompleto.js';
 import { obtenerDetalleConsultas } from '../services/metricsDetalle.js';
 import { obtenerPanelMetricas } from '../services/metricasPanel.js';
 import { traerTodasLasPaginas, traerPorGruposDeIds } from '../services/consultasEnGrupos.js';
@@ -130,46 +130,15 @@ router.get('/metrics/panel', async (req, res) => {
 });
 
 // Excel de la comparativa por sucursal, con fila de totales.
-router.get('/export/metrics-sucursales', async (req, res) => {
+router.get("/export/metrics-sucursales", async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    const panel = await obtenerPanelMetricas({ startDate, endDate });
-    const r = panel.resumen;
-    const totales = {
-      nombre: 'TOTAL',
-      consultas: r.consultas,
-      clientes: r.clientes,
-      pedidos: r.pedidos,
-      monto: r.montoTotal,
-      ticketPromedio: r.ticketPromedio,
-      conversion: r.conversion,
-      enviosGratis: panel.ventas.envios.gratis,
-      mensajes: panel.mensajes.sucursal,
-      mensajesPorConsulta: r.consultas > 0 ? panel.mensajes.sucursal / r.consultas : null,
-      demoraPromedioMs: panel.atencion.demoraPromedioMs,
-      satisfaccion: null
-    };
-    const dosDecimales = (v) => (v == null ? '' : Math.round(v * 100) / 100);
-    const columnas = [
-      { label: 'Sucursal', value: f => f.nombre },
-      { label: 'Consultas', align: 'center', value: f => f.consultas },
-      { label: 'Clientes', align: 'center', value: f => f.clientes },
-      { label: 'Pedidos', align: 'center', value: f => f.pedidos },
-      { label: 'Monto', align: 'center', numFmt: '"$"#,##0.00', value: f => dosDecimales(f.monto) },
-      { label: 'Ticket promedio', align: 'center', numFmt: '"$"#,##0.00', value: f => dosDecimales(f.ticketPromedio) },
-      { label: 'Conversión (%)', align: 'center', value: f => dosDecimales(f.conversion) },
-      { label: 'Envíos gratis', align: 'center', value: f => f.enviosGratis },
-      { label: 'Mensajes de la sucursal', align: 'center', value: f => f.mensajes },
-      { label: 'Mensajes por consulta', align: 'center', value: f => dosDecimales(f.mensajesPorConsulta) },
-      { label: 'Demora promedio (min)', align: 'center', value: f => (f.demoraPromedioMs != null ? Math.round(f.demoraPromedioMs / 60000) : '') },
-      { label: 'Satisfacción (1 a 5)', align: 'center', value: f => dosDecimales(f.satisfaccion) }
-    ];
-    const buffer = await rowsToXlsxBuffer(columnas, [...panel.porSucursal, totales], { sheetName: 'Por sucursal' });
-    const sufijo = startDate && endDate ? `_${startDate}_a_${endDate}` : '';
+    const buffer = await generarExportSucursales({ startDate, endDate });
+    const sufijo = startDate && endDate ? `_${startDate}_a_${endDate}` : "";
     sendXlsx(res, `metricas_por_sucursal${sufijo}.xlsx`, buffer);
   } catch (error) {
-    console.error('❌ [DEBUG-ROUTES-API] Error en GET /export/metrics-sucursales:', { error, message: error.message, stack: error.stack });
-    res.status(500).json({ error: 'No se pudo exportar la comparativa por sucursal.' });
+    console.error("❌ [DEBUG-ROUTES-API] Error en GET /export/metrics-sucursales:", { error, message: error.message, stack: error.stack });
+    res.status(500).json({ error: "No se pudo exportar la comparativa por sucursal." });
   }
 });
 
