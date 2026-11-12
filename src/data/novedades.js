@@ -11,6 +11,17 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-11-12-exportacion-completa',
+    fecha: '2026-11-12',
+    tipo: 'mejora',
+    para: 'admin',
+    titulo: 'Exportación de datos mucho más completa',
+    detalle: [
+      '*Historial de Chats* ahora es un Excel con dos hojas: *Mensajes* (quién lo mandó, qué sucursal lo envió, tipo de mensaje, archivo con link, si fue marcado como comprobante o receta, estado del envío) y *Consultas* (sucursales que la atendieron, derivaciones, motivo de cierre, venta y calificaciones).',
+      '*Métricas y Estadísticas* trae todo lo del panel en varias hojas: Resumen con comparación contra el período anterior, Detalle de consultas, Por sucursal, Por día, Mensajes, Días y horarios y Ventas para revisar.'
+    ]
+  },
+  {
     id: '2026-11-12-saludo-bot',
     fecha: '2026-11-12',
     tipo: 'nuevo',

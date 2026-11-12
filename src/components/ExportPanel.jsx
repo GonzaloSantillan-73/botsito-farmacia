@@ -67,7 +67,7 @@ export default function ExportPanel() {
       if (includeChats) {
         await downloadFile(
           `/api/export/chats?startDate=${startDate}&endDate=${endDate}`,
-          `historial-chats_${startDate}_a_${endDate}.csv`
+          `historial-chats_${startDate}_a_${endDate}.xlsx`
         );
       }
       if (includeMetrics) {
@@ -91,7 +91,7 @@ export default function ExportPanel() {
       <div>
         <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-1">Exportar datos</h3>
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          Descargá la información del rango de fechas elegido: el historial de chats en CSV y las métricas en Excel (XLSX), ambos compatibles con Excel y Google Sheets.
+          Descargá la información del rango de fechas elegido en Excel (XLSX), compatible con Excel y Google Sheets. Los archivos y comprobantes quedan como links para abrirlos.
         </p>
       </div>
 
@@ -131,7 +131,7 @@ export default function ExportPanel() {
             />
             <div>
               <div className="text-sm font-medium text-gray-800 dark:text-gray-100">Historial de Chats</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">Conversaciones y mensajes detallados (cliente, teléfono, remitente, texto).</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Todos los mensajes (quién lo mandó, qué sucursal, tipo, texto, archivo, estado del envío) y una hoja con el resumen de cada consulta (sucursales, derivaciones, cierre, venta, calificaciones).</div>
             </div>
           </label>
           <label className="flex items-start gap-2 p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -143,7 +143,7 @@ export default function ExportPanel() {
             />
             <div>
               <div className="text-sm font-medium text-gray-800 dark:text-gray-100">Métricas y Estadísticas</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">Calificaciones de satisfacción por consulta, más un resumen general.</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Resumen general con comparación contra el período anterior, detalle de cada consulta, comparativa por sucursal, por día, mensajes, días y horarios, y ventas para revisar.</div>
             </div>
           </label>
         </div>

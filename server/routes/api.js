@@ -9,8 +9,8 @@ import { derivarASucursal } from '../services/derivacionSucursal.js';
 import { getSucursalesActivas, estaAbiertaAhora } from '../services/sucursales.js';
 import { TERMINAL_STATUSES } from '../services/sessionManager.js';
 import { getBotSchedule, setBotSchedule } from '../services/scheduleConfig.js';
-import { rowsToCsv, sendCsv } from '../services/csvExport.js';
 import { rowsToXlsxBuffer, sendXlsx } from '../services/xlsxExport.js';
+import { generarExportChats, generarExportMetricas } from '../services/exportCompleto.js';
 import { obtenerDetalleConsultas } from '../services/metricsDetalle.js';
 import { obtenerPanelMetricas } from '../services/metricasPanel.js';
 import { traerTodasLasPaginas, traerPorGruposDeIds } from '../services/consultasEnGrupos.js';
@@ -45,53 +45,17 @@ const parseDateRange = (query) => {
 // descargarlas (incluyen teléfonos y montos de venta de todos los clientes).
 router.use(['/export/chats', '/export/metrics', '/export/metrics-sucursales', '/metrics/negocio', '/metrics/detalle', '/metrics/panel'], requireAuth, requireAdminRole);
 
-// Exporta el historial de mensajes (con datos del cliente y la consulta) en el rango de fechas dado.
-router.get('/export/chats', async (req, res) => {
-  console.log('🔍 [DEBUG-ROUTES-API] Entrada a GET /export/chats:', {
-    method: req.method,
-    url: req.originalUrl,
-    query: req.query,
-    params: req.params,
-    admin: req.admin || null
-  });
+// Exporta el historial de chats completo (hojas "Mensajes" y "Consultas", ver
+// generarExportChats en exportCompleto.js) en el rango de fechas dado.
+router.get("/export/chats", async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    const { from, to } = parseDateRange(req.query);
-
-    console.log('📡 [DEBUG-ROUTES-API] Consultando supabase.from(messages) select en /export/chats:', { operacion: 'select', from, to });
-    const { data, error } = await supabase
-      .from('messages')
-      .select('created_at, sender_type, message_text, media_type, conversation_id, conversations(client_name, client_phone, status)')
-      .gte('created_at', from)
-      .lte('created_at', to)
-      .order('created_at');
-
-    console.log('📡 [DEBUG-ROUTES-API] Resultado supabase.from(messages) select en /export/chats:', { cantidad: (data || []).length, error });
-    if (error) throw error;
-
-    const phones = [...new Set((data || []).map(r => r.conversations?.client_phone).filter(Boolean))];
-    // Modelo estricto por teléfono: el nombre sale de la ficha con ESE MISMO
-    // client_phone, sin cruzar con ningún otro número (ver
-    // resolverNombresPorTelefono en clientes.js).
-    const phoneMap = await resolverNombresPorTelefono(phones);
-
-    const columns = [
-      { label: 'Fecha y hora', value: r => new Date(r.created_at).toLocaleString('es-AR') },
-      { label: 'Cliente', value: r => phoneMap[r.conversations?.client_phone] || r.conversations?.client_name || '' },
-      { label: 'Teléfono', value: r => r.conversations?.client_phone || '' },
-      { label: 'Estado de la consulta', value: r => r.conversations?.status || '' },
-      { label: 'Remitente', value: r => r.sender_type || '' },
-      { label: 'Tipo de mensaje', value: r => r.media_type || 'text' },
-      { label: 'Mensaje', value: r => r.message_text || '' }
-    ];
-
-    const csv = rowsToCsv(columns, data || []);
-    console.log(`[API] -> Exportando historial de chats (${(data || []).length} mensajes, ${startDate} a ${endDate}).`);
-    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /export/chats:', { status: 200, tipo: 'text/csv', nombreArchivo: `historial-chats_${startDate}_a_${endDate}.csv` });
-    sendCsv(res, `historial-chats_${startDate}_a_${endDate}.csv`, csv);
+    parseDateRange(req.query);
+    const buffer = await generarExportChats({ startDate, endDate });
+    console.log(`[API] -> Exportando historial de chats (${startDate} a ${endDate}).`);
+    sendXlsx(res, `historial-chats_${startDate}_a_${endDate}.xlsx`, buffer);
   } catch (error) {
-    console.error('❌ [DEBUG-ROUTES-API] Error en GET /export/chats:', { error, message: error.message, stack: error.stack });
-    console.error('[API] ❌ Error exportando historial de chats:', error.message);
+    console.error("[API] ❌ Error exportando historial de chats:", error.message, error.stack);
     res.status(400).json({ error: error.message });
   }
 });
@@ -132,70 +96,18 @@ router.get('/metrics/detalle', async (req, res) => {
   }
 });
 
-// Exporta a CSV el mismo detalle que se ve en la tabla de "Métricas y
-// Estadísticas" (mismas columnas), más un resumen de calificaciones al final.
-router.get('/export/metrics', async (req, res) => {
-  console.log('🔍 [DEBUG-ROUTES-API] Entrada a GET /export/metrics:', {
-    method: req.method,
-    url: req.originalUrl,
-    query: req.query,
-    params: req.params,
-    admin: req.admin || null
-  });
+// Exporta todas las métricas en un Excel de varias hojas (Resumen, Detalle de
+// consultas, Por sucursal, Por día, Mensajes, Días y horarios, Ventas para
+// revisar; ver generarExportMetricas en exportCompleto.js).
+router.get("/export/metrics", async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    console.log('📡 [DEBUG-ROUTES-API] Llamando obtenerDetalleConsultas en /export/metrics:', { startDate, endDate });
-    const filas = await obtenerDetalleConsultas({ startDate, endDate });
-    console.log('📡 [DEBUG-ROUTES-API] Resultado obtenerDetalleConsultas en /export/metrics:', { cantidad: filas?.length });
-
-    // `align: 'center'` en las columnas numéricas/de tiempo/estado (pedido
-    // explícito del formato visual); "Cliente" queda a la izquierda por ser
-    // texto libre de longitud variable. Comprobante/Receta se muestran como
-    // Sí/No (más legible en una planilla impresa/compartida que la URL
-    // cruda) — para abrir el archivo puntual, el operador lo sigue haciendo
-    // desde el detalle en el propio CRM.
-    const detailColumns = [
-      { label: 'Fecha', align: 'center', value: r => new Date(r.fecha).toLocaleDateString('es-AR') },
-      { label: 'Hora Inicio', align: 'center', value: r => new Date(r.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) },
-      { label: 'Cliente', value: r => r.cliente },
-      { label: 'Teléfono', align: 'center', value: r => r.telefono },
-      { label: 'Demora Inicial (min)', align: 'center', value: r => (r.demoraInicialMs != null ? Math.round(r.demoraInicialMs / 60000) : '') },
-      { label: 'Duración Total (min)', align: 'center', value: r => (r.duracionTotalMs != null ? Math.round(r.duracionTotalMs / 60000) : '') },
-      { label: 'Msjs Cliente', align: 'center', value: r => r.msjsCliente },
-      { label: 'Msjs Bot', align: 'center', value: r => r.msjsBot },
-      { label: 'Msjs Sucursal', align: 'center', value: r => r.msjsSucursal },
-      { label: 'Sucursal', align: 'center', value: r => r.sucursal },
-      // Binario a propósito: "Venta concretada" es el único valor positivo
-      // (sale_status === 'concretada'); no concretada, otra razón o sin
-      // marcar caen todas en "Solo consulta". Misma normalización que
-      // SortableDetailTable.jsx (UI en pantalla): si se cambia acá, cambiar
-      // también ahí.
-      { label: 'Estado del Contacto', align: 'center', value: r => (r.saleStatus === 'concretada' ? 'Venta concretada' : 'Solo consulta') },
-      { label: 'Subtotal', align: 'center', numFmt: '"$"#,##0.00', value: r => (r.subtotal != null ? r.subtotal : '') },
-      // 0 es "envío gratis" (no un dato faltante); sólo queda vacío cuando no
-      // hay desglose (pedido guardado antes de la migración que lo agregó).
-      { label: 'Envío', align: 'center', value: r => (r.costoEnvio == null ? '' : (r.costoEnvio === 0 ? 'Envío gratis' : r.costoEnvio)) },
-      { label: 'Monto Total', align: 'center', numFmt: '"$"#,##0.00', value: r => (r.montoTotal != null ? r.montoTotal : '') },
-      { label: 'Medio de Pago', align: 'center', value: r => r.medioPago },
-      { label: 'Calificación Atención', align: 'center', value: r => (r.rating != null ? r.rating : '') },
-      { label: 'Calificación Producto', align: 'center', value: r => (r.productRating != null ? r.productRating : '') },
-      { label: 'Comprobante (Sí/No)', align: 'center', value: r => (r.comprobanteUrl ? 'Sí' : 'No') },
-      { label: 'Receta (Sí/No)', align: 'center', value: r => (r.recetaUrl ? 'Sí' : 'No') }
-    ];
-
-    // Sólo la tabla de detalle, sin ningún bloque de resumen apilado abajo
-    // (ver MetricsPanel.jsx para esos mismos totales/promedios, ya
-    // disponibles ahí como tarjetas). XLSX en vez de CSV plano: permite el
-    // estilo visual (cabecera verde, alineación, franjas) que un CSV no
-    // puede llevar.
-    const buffer = await rowsToXlsxBuffer(detailColumns, filas, { sheetName: 'Detalle de consultas' });
-    const sufijoNombre = startDate && endDate ? `_${startDate}_a_${endDate}` : '';
-    console.log(`[API] -> Exportando métricas (${filas.length} consultas${startDate && endDate ? `, ${startDate} a ${endDate}` : ', sin filtro de fecha'}).`);
-    console.log('🔚 [DEBUG-ROUTES-API] Respondiendo GET /export/metrics:', { status: 200, tipo: 'xlsx', nombreArchivo: `metricas${sufijoNombre}.xlsx` });
+    const buffer = await generarExportMetricas({ startDate, endDate });
+    const sufijoNombre = startDate && endDate ? `_${startDate}_a_${endDate}` : "";
+    console.log(`[API] -> Exportando métricas completas${sufijoNombre}.`);
     sendXlsx(res, `metricas${sufijoNombre}.xlsx`, buffer);
   } catch (error) {
-    console.error('❌ [DEBUG-ROUTES-API] Error en GET /export/metrics:', { error, message: error.message, stack: error.stack });
-    console.error('[API] ❌ Error exportando métricas:', error.message);
+    console.error("[API] ❌ Error exportando métricas:", error.message, error.stack);
     res.status(400).json({ error: error.message });
   }
 });
