@@ -11,6 +11,17 @@
 // - detalle: lista de párrafos cortos, en lenguaje simple (admite *negrita* como en WhatsApp).
 export const NOVEDADES = [
   {
+    id: '2026-11-14-conversion-en-puntos',
+    fecha: '2026-11-14',
+    tipo: 'mejora',
+    para: 'admin',
+    titulo: 'La conversión se compara en puntos',
+    detalle: [
+      'En *Métricas y Estadísticas*, la flecha de *Conversión* ahora muestra la diferencia en puntos contra el período anterior (por ejemplo, de 28,5% a 23,5% se ve *↓ 5 pts*), en vez de un porcentaje que se podía confundir con el valor anterior.',
+      'Lo mismo en la columna *Variación* del Excel de métricas.'
+    ]
+  },
+  {
     id: '2026-11-12-exportacion-completa',
     fecha: '2026-11-12',
     tipo: 'mejora',

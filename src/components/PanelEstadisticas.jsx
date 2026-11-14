@@ -80,7 +80,7 @@ const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
 
 // ---------- piezas chicas ----------
 
-function Variacion({ valor, mejorSiBaja = false }) {
+function Variacion({ valor, mejorSiBaja = false, enPuntos = false }) {
   if (valor == null) return <span className="text-[11px] text-gray-400 dark:text-gray-500">sin comparación</span>;
   const sube = valor > 0.05;
   const baja = valor < -0.05;
@@ -90,19 +90,19 @@ function Variacion({ valor, mejorSiBaja = false }) {
   const clase = bueno ? 'text-emerald-600 dark:text-emerald-400' : malo ? 'text-rose-600 dark:text-rose-400' : 'text-gray-500 dark:text-gray-400';
   return (
     <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold tabular-nums ${clase}`}>
-      <Icono size={12} />{num(Math.abs(valor), 1)}%
+      <Icono size={12} />{num(Math.abs(valor), 1)}{enPuntos ? ' pts' : '%'}
     </span>
   );
 }
 
-function Tile({ icon: Icono, label, valor, variacion, mejorSiBaja, ayuda }) {
+function Tile({ icon: Icono, label, valor, variacion, mejorSiBaja, enPuntos, ayuda }) {
   return (
     <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 flex flex-col gap-1 min-w-0" title={ayuda}>
       <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
         <Icono size={13} className="shrink-0" /> {label}
       </span>
       <span className="text-2xl font-bold text-gray-900 dark:text-gray-100 tabular-nums truncate">{valor}</span>
-      {variacion !== undefined && <Variacion valor={variacion} mejorSiBaja={mejorSiBaja} />}
+      {variacion !== undefined && <Variacion valor={variacion} mejorSiBaja={mejorSiBaja} enPuntos={enPuntos} />}
     </div>
   );
 }
@@ -420,7 +420,7 @@ export default function PanelEstadisticas() {
             <Tile icon={DollarSign} label="Monto vendido" valor={$(r.montoTotal)} variacion={v.montoTotal} />
             <Tile icon={Receipt} label="Ticket promedio" valor={$(r.ticketPromedio)} variacion={v.ticketPromedio} ayuda="Monto vendido ÷ cantidad de pedidos" />
             <Tile icon={Send} label="Mensajes enviados" valor={num(r.mensajes)} variacion={v.mensajes} mejorSiBaja ayuda="Mensajes del bot y de las sucursales (cada uno se cobra)" />
-            <Tile icon={Percent} label="Conversión" valor={porc(r.conversion)} variacion={v.conversion} ayuda="De las consultas que atendió una sucursal, cuántas terminaron en venta" />
+            <Tile icon={Percent} label="Conversión" valor={porc(r.conversion)} variacion={v.conversion} enPuntos ayuda="De las consultas que atendió una sucursal, cuántas terminaron en venta. La flecha es la diferencia en puntos contra el período anterior" />
           </div>
 
           {/* Mensajes */}

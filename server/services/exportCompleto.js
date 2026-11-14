@@ -347,7 +347,9 @@ export const generarExportMetricas = async ({ startDate, endDate }) => {
   const pesos = (v) => (v == null ? '' : `$ ${Number(v).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
   const porc = (v) => (v == null ? '' : `${dosDec(v)} %`);
   const min = (ms) => (ms == null ? '' : `${minutos(ms)} min`);
-  const conAnterior = (clave, fmt) => ({ anterior: A[clave] != null ? fmt(A[clave]) : '', variacion: V[clave] != null ? porc(V[clave]) : '' });
+  // La conversión ya es un %: su variación viene en puntos (diferencia contra el período anterior).
+  const fmtVariacion = (clave, v) => (clave === 'conversion' ? `${v > 0 ? '+' : ''}${dosDec(v)} pts` : porc(v));
+  const conAnterior = (clave, fmt) => ({ anterior: A[clave] != null ? fmt(A[clave]) : '', variacion: V[clave] != null ? fmtVariacion(clave, V[clave]) : '' });
   const id = (x) => x;
   const resumen = [
     fila('General', 'Período', startDate && endDate ? `${startDate.split('-').reverse().join('/')} al ${endDate.split('-').reverse().join('/')}` : 'Todo'),

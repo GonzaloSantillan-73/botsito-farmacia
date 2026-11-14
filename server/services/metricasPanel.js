@@ -43,6 +43,9 @@ const variacion = (actual, anterior) => {
   if (anterior === 0) return actual === 0 ? 0 : null;
   return ((actual - anterior) / anterior) * 100;
 };
+// Métricas del resumen que son porcentajes: su variación es la diferencia en puntos.
+const METRICAS_EN_PUNTOS = new Set(['conversion']);
+const diferenciaPuntos = (actual, anterior) => (actual == null || anterior == null ? null : actual - anterior);
 
 // 'AAAA-MM-DD' -> límites del día en hora Argentina, como ISO.
 const desdeISO = (fecha) => `${fecha}T00:00:00.000-03:00`;
@@ -442,8 +445,10 @@ export const obtenerPanelMetricas = async ({ startDate, endDate } = {}) => {
     anteriorRango ? calcularPeriodo({ ...anteriorRango, esPrueba, sucursales, detalle: false }) : null
   ]);
 
+  // Las métricas que ya son un porcentaje (conversión) se comparan en puntos
+  // (23,5% contra 28,5% = -5 pts), no en % relativo, que confundía.
   const variaciones = anterior
-    ? Object.fromEntries(Object.keys(actual.resumen).map(k => [k, variacion(actual.resumen[k], anterior.resumen[k])]))
+    ? Object.fromEntries(Object.keys(actual.resumen).map(k => [k, METRICAS_EN_PUNTOS.has(k) ? diferenciaPuntos(actual.resumen[k], anterior.resumen[k]) : variacion(actual.resumen[k], anterior.resumen[k])]))
     : null;
 
   return {
